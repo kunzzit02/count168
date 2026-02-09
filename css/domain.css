@@ -1,4 +1,4 @@
-﻿body {
+body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
@@ -386,16 +386,20 @@ h1 {
     box-sizing: border-box !important;
 }
 
-/* Notification styles */
+/* Notification styles - 高于所有弹窗，确保 Company Settings 等操作的成功提示始终显示在最前 */
 .notification-container {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 10000;
+    z-index: 10500;
     display: flex;
     flex-direction: column;
     gap: 12px;
     max-width: 400px;
+    pointer-events: none;
+}
+.notification-container .notification {
+    pointer-events: auto;
 }
 
 .notification {
