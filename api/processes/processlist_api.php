@@ -794,14 +794,18 @@ function updateBankProcess() {
  */
 /**
  * Get all countries for the current company (from country_bank + company_countries).
- * Used to populate Country dropdown and retain after refresh.
+ * Used to populate Country dropdown. Accepts company_id from GET to scope by selected company (like account-list currency).
  */
 function getCountries() {
     global $pdo;
     try {
-        $companyId = $_SESSION['company_id'] ?? null;
+        $companyId = isset($_GET['company_id']) && $_GET['company_id'] !== '' ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
         if (!$companyId) {
             jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
             return;
         }
         $stmt = $pdo->prepare("
@@ -822,6 +826,7 @@ function getCountries() {
 
 /**
  * Add a new country for the current company (persist so it survives refresh).
+ * Accepts company_id from POST to add to the selected company only (like account-list currency).
  */
 function addCountry() {
     global $pdo;
@@ -830,9 +835,13 @@ function addCountry() {
         return;
     }
     try {
-        $companyId = $_SESSION['company_id'] ?? null;
+        $companyId = isset($_POST['company_id']) && $_POST['company_id'] !== '' ? (int)$_POST['company_id'] : ($_SESSION['company_id'] ?? null);
         if (!$companyId) {
             jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
             return;
         }
         $country = isset($_POST['country']) ? trim((string)$_POST['country']) : '';
@@ -849,12 +858,19 @@ function addCountry() {
     }
 }
 
+/**
+ * Get banks for a country, scoped by company (GET company_id, else session).
+ */
 function getBanksByCountry() {
     global $pdo;
     try {
-        $companyId = $_SESSION['company_id'] ?? null;
+        $companyId = isset($_GET['company_id']) && $_GET['company_id'] !== '' ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
         if (!$companyId) {
             jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
             return;
         }
         $country = isset($_GET['country']) ? trim((string)$_GET['country']) : '';
@@ -873,14 +889,18 @@ function getBanksByCountry() {
 }
 
 /**
- * 保存 Country-Bank 关联（确保这些 bank 都 under 当前 country）
+ * 保存 Country-Bank 关联（确保这些 bank 都 under 当前 country）。支持 POST company_id 指定公司。
  */
 function saveCountryBanks() {
     global $pdo;
     try {
-        $companyId = $_SESSION['company_id'] ?? null;
+        $companyId = isset($_POST['company_id']) && $_POST['company_id'] !== '' ? (int)$_POST['company_id'] : ($_SESSION['company_id'] ?? null);
         if (!$companyId) {
             jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
             return;
         }
         $country = isset($_POST['country']) ? trim((string)$_POST['country']) : '';

@@ -2289,6 +2289,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 try {
                     const formData = new FormData();
                     formData.append('country', countryName);
+                    const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+                    if (companyId) formData.append('company_id', companyId);
                     const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=add_country'), { method: 'POST', body: formData });
                     const result = await res.json();
                     if (!result.success) {
@@ -2869,13 +2871,16 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         // Profit calculation flag to prevent duplicate listeners
         let bankProfitCalculatorsInitialized = false;
 
-        // Load countries from server (persist after refresh)
+        // Load countries from server（按当前选中的 company 拉取，与 account-list 的 currency 一致）
         async function loadCountriesFromServer() {
             const select = document.getElementById('bank_country');
             if (!select) return;
             const currentVal = (select.value || '').trim();
+            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
             try {
-                const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=get_countries'));
+                let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
+                if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+                const res = await fetch(url);
                 const result = await res.json();
                 const list = (result.success && result.data) ? result.data : [];
                 select.innerHTML = '';
@@ -2896,9 +2901,10 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             }
         }
 
-        // Load Bank Add Process Data (do not pre-fill Country dropdown; it only shows Selected from modal)
+        // Load Bank Add Process Data（按当前 company 拉取 Country/Bank，与 account-list 的 currency 一致）
         async function loadAddBankProcessData() {
             try {
+                await loadCountriesFromServer();
                 restoreSelectedCountriesFromStorage();
                 restoreSelectedBanksByCountryFromStorage();
                 if (!window.selectedBanksByCountry || typeof window.selectedBanksByCountry !== 'object') window.selectedBanksByCountry = {};
@@ -2939,7 +2945,9 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 return;
             }
             try {
-                const url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(country));
+                const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+                let url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(country));
+                if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
                 const res = await fetch(url);
                 const result = await res.json();
                 const banks = (result.success && result.data) ? result.data : [];
@@ -3342,14 +3350,18 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             });
         }
 
-        // Country Selection Modal
+        // Country Selection Modal（按 company 区分存储，与 account-list 的 currency 一致）
         const DEFAULT_COUNTRIES = [];
         let availableCountriesList = [];
-        const SELECTED_COUNTRIES_STORAGE_KEY = 'processlist_selected_countries';
+
+        function getSelectedCountriesStorageKey() {
+            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+            return 'processlist_selected_countries' + (companyId ? '_' + companyId : '');
+        }
 
         function restoreSelectedCountriesFromStorage() {
             try {
-                const raw = localStorage.getItem(SELECTED_COUNTRIES_STORAGE_KEY);
+                const raw = localStorage.getItem(getSelectedCountriesStorageKey());
                 if (!raw) return;
                 const arr = JSON.parse(raw);
                 if (!Array.isArray(arr) || arr.length === 0) return;
@@ -3377,10 +3389,11 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
 
         function persistSelectedCountriesToStorage() {
             try {
+                const key = getSelectedCountriesStorageKey();
                 if (window.selectedCountries && Array.isArray(window.selectedCountries) && window.selectedCountries.length > 0) {
-                    localStorage.setItem(SELECTED_COUNTRIES_STORAGE_KEY, JSON.stringify(window.selectedCountries));
+                    localStorage.setItem(key, JSON.stringify(window.selectedCountries));
                 } else {
-                    localStorage.removeItem(SELECTED_COUNTRIES_STORAGE_KEY);
+                    localStorage.removeItem(key);
                 }
             } catch (e) { /* ignore */ }
         }
@@ -3402,7 +3415,10 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             }
             let allCountries = [];
             try {
-                const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=get_countries'));
+                const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+                let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
+                if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+                const res = await fetch(url);
                 const result = await res.json();
                 allCountries = (result.success && result.data) ? result.data : [];
             } catch (e) { console.warn('get_countries', e); }
@@ -3627,14 +3643,18 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             closeCountrySelectionModal();
         }
 
-        // Bank Selection Modal（Bank 下拉只显示当前 Country 的 Selected Banks，按 Country 分别存储）
+        // Bank Selection Modal（Bank 下拉只显示当前 Country 的 Selected Banks，按 company + Country 分别存储）
         const DEFAULT_BANKS = [];
         let availableBanksList = [];
-        const SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY = 'processlist_selected_banks_by_country';
+
+        function getSelectedBanksByCountryStorageKey() {
+            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+            return 'processlist_selected_banks_by_country' + (companyId ? '_' + companyId : '');
+        }
 
         function restoreSelectedBanksByCountryFromStorage() {
             try {
-                const raw = localStorage.getItem(SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY);
+                const raw = localStorage.getItem(getSelectedBanksByCountryStorageKey());
                 if (!raw) return;
                 const obj = JSON.parse(raw);
                 if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
@@ -3645,10 +3665,11 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
 
         function persistSelectedBanksByCountryToStorage() {
             try {
+                const key = getSelectedBanksByCountryStorageKey();
                 if (window.selectedBanksByCountry && typeof window.selectedBanksByCountry === 'object') {
-                    localStorage.setItem(SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY, JSON.stringify(window.selectedBanksByCountry));
+                    localStorage.setItem(key, JSON.stringify(window.selectedBanksByCountry));
                 } else {
-                    localStorage.removeItem(SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY);
+                    localStorage.removeItem(key);
                 }
             } catch (e) { /* ignore */ }
         }
@@ -3703,7 +3724,9 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             let all = [];
             if (countryForApi) {
                 try {
-                    const url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(countryForApi));
+                    const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+                    let url = buildApiUrl('api/processes/processlist_api.php?action=get_banks_by_country&country=' + encodeURIComponent(countryForApi));
+                    if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
                     const res = await fetch(url);
                     const result = await res.json();
                     all = (result.success && result.data) ? result.data : [];
@@ -3905,6 +3928,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 try {
                     const fd = new FormData();
                     fd.append('country', country);
+                    const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+                    if (companyId) fd.append('company_id', companyId);
                     uniqueBanks.forEach(function (b) { fd.append('banks[]', b); });
                     const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=save_country_banks'), { method: 'POST', body: fd });
                     const result = await res.json();
