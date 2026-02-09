@@ -3033,8 +3033,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             }
         }
 
-        // Load accounts for Bank form（仅 role: company, staff, upline, agent, member；四类 Select Account 共用同一列表与顺序）
-        const BANK_ACCOUNT_ROLES = 'company,staff,upline,agent,member';
+        // Load accounts for Bank form（不按 role 过滤，显示该公司下全部账户）
         async function loadBankAccounts() {
             try {
                 const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -3042,7 +3041,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 if (currentCompanyId) {
                     url.searchParams.set('company_id', currentCompanyId);
                 }
-                url.searchParams.set('roles', BANK_ACCOUNT_ROLES);
+                // 不传 roles 参数，API 返回该公司下全部账户（含所有 role）
 
                 const response = await fetch(url.toString());
                 const result = await response.json();
@@ -3110,7 +3109,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             }
             accountDropdown._bankAccountClose = closeThisDropdown;
 
-            // Load accounts into dropdown（API 已按 role 过滤为 company/staff/upline/agent/member，四类下拉共用同一列表与顺序）
+            // Load accounts into dropdown（API 返回该公司下全部账户，四类下拉共用同一列表）
             const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
             function loadAccounts() {
                 optionsContainer.innerHTML = '';
