@@ -2944,28 +2944,26 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             return data.map(function (c) { return (c.code || '').toString().trim(); }).filter(Boolean);
         }
 
-        // Load countries from server：与 account 的 currency 同步，优先用公司货币列表；无则回退到已选 Country / get_countries
+        // Load countries from server：下拉只显示已选 Country（get_selected_countries），与 account 同步的是「可选来源」在弹窗里用公司货币
         async function loadCountriesFromServer() {
             const select = document.getElementById('bank_country');
             if (!select) return;
             const currentVal = (select.value || '').trim();
             const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
             try {
-                let list = await fetchCompanyCurrencyCodes();
+                let list = [];
+                if (companyId) {
+                    const selUrl = buildApiUrl('api/processes/processlist_api.php?action=get_selected_countries&company_id=' + encodeURIComponent(companyId));
+                    const selRes = await fetch(selUrl);
+                    const selResult = await selRes.json();
+                    list = (selResult.success && selResult.data && Array.isArray(selResult.data)) ? selResult.data : [];
+                }
                 if (list.length === 0) {
-                    if (companyId) {
-                        const selUrl = buildApiUrl('api/processes/processlist_api.php?action=get_selected_countries&company_id=' + encodeURIComponent(companyId));
-                        const selRes = await fetch(selUrl);
-                        const selResult = await selRes.json();
-                        list = (selResult.success && selResult.data && Array.isArray(selResult.data)) ? selResult.data : [];
-                    }
-                    if (list.length === 0) {
-                        let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
-                        if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
-                        const res = await fetch(url);
-                        const result = await res.json();
-                        list = (result.success && result.data) ? result.data : [];
-                    }
+                    let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
+                    if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+                    const res = await fetch(url);
+                    const result = await res.json();
+                    list = (result.success && result.data) ? result.data : [];
                 }
                 select.innerHTML = '';
                 const opt0 = document.createElement('option');
