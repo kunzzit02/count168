@@ -504,6 +504,7 @@ try {
             'source' => $capture['transaction_type'] ?? 'DATA_CAPTURE',
             'product' => $product ?: '-',
             'card_owner' => !empty($capture['card_owner_name']) ? trim($capture['card_owner_name']) : '-',
+            'is_bank_process_transaction' => false,
             'currency' => $capture['currency_code'] ?? $bfCurrency,
             'percent' => $percent ?: '-',
             'rate' => $rate ?: '-',
@@ -685,11 +686,9 @@ try {
             $transactionCreatedBy = $t['created_by_owner_name'];
         }
         
-        // Id Product 列：仅 bank process 交易显示 card owner；contra/其他保持显示 id product（交易无 id product 则显示 '-'）
+        // Bank process 历史中 Id Product 列显示 Add Process 的 Name（bank_process.name）；仅 bank process 交易显示 card_owner，其余显示 id product
+        $isBankProcessTransaction = $has_source_bank_process_id && !empty($t['source_bank_process_id']);
         $cardOwner = ($has_source_bank_process_id && !empty($t['bank_process_name'])) ? trim($t['bank_process_name']) : (($has_source_bank_process_id && !empty($t['card_owner_name'])) ? trim($t['card_owner_name']) : '-');
-        $idProductForDisplay = ($has_source_bank_process_id && !empty($t['source_bank_process_id']) && $cardOwner !== '-')
-            ? $cardOwner
-            : '-';
         
         $events[] = [
             'row_type' => 'transaction',
@@ -701,8 +700,9 @@ try {
             'cr_dr' => $cr_dr,
             'date' => date('d/m/Y', strtotime($t['transaction_date'])),
             'source' => $t['transaction_type'],
-            'product' => $idProductForDisplay,
+            'product' => $t['transaction_type'],
             'card_owner' => $cardOwner,
+            'is_bank_process_transaction' => $isBankProcessTransaction,
             'currency' => $transactionCurrency,
             'percent' => '-',
             'rate' => '-',
@@ -786,6 +786,7 @@ try {
             'source' => 'RATE',
             'product' => mapEntryTypeToProduct($row['entry_type']),
             'card_owner' => '-',
+            'is_bank_process_transaction' => false,
             'currency' => $transactionCurrency,
             'percent' => '-',
             'rate' => '-',
@@ -814,6 +815,7 @@ try {
             'source' => $event['source'] ?? '-',
             'product' => $event['product'] ?? '-',
             'card_owner' => $event['card_owner'] ?? '-',
+            'is_bank_process_transaction' => $event['is_bank_process_transaction'] ?? false,
             'currency' => $displayCurrency,
             'percent' => $event['percent'] ?? '-',
             'rate' => $event['rate'] ?? '-',

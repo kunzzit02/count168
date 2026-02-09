@@ -2454,8 +2454,8 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
                         ? `<td class="transaction-history-col-description text-uppercase">${descriptionDisplay}</td>
                            <td class="transaction-history-col-remark text-uppercase">${remarkValue}</td>`
                         : `<td class="transaction-history-col-remark text-uppercase">${remarkValue}</td>`;
-                    // Id Product 列：仅 bank process 交易由 API 返回 card owner 到 product；contra/其他/Data Capture 均为 product（id product）
-                    const idProductDisplay = row.product != null && row.product !== '' ? row.product : '-';
+                    // Id Product 列：仅 bank process 交易显示 Card Owner；datacapturesummary 提交及其他均显示 id product
+                    const idProductDisplay = row.is_bank_process_transaction ? (row.card_owner || '-') : (row.product || '-');
                     
                     tr.innerHTML = `
                         <td class="transaction-history-col-date">${row.date}</td>
