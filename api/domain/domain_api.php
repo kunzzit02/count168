@@ -170,15 +170,16 @@ try {
                     $companies_data = json_decode($companies, true);
                     
                     if (json_last_error() === JSON_ERROR_NONE && is_array($companies_data)) {
-                        // 新格式：JSON 数组，包含 company_id 和 expiration_date
-                        $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date) VALUES (?, ?, ?, ?)");
+                        // 新格式：JSON 数组，包含 company_id、expiration_date、permissions
+                        $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions) VALUES (?, ?, ?, ?, ?)");
                         
                         foreach ($companies_data as $company) {
                             $company_id = strtoupper(trim($company['company_id'] ?? $company));
                             $expiration_date = !empty($company['expiration_date']) ? $company['expiration_date'] : null;
+                            $permissions = (isset($company['permissions']) && is_array($company['permissions'])) ? json_encode($company['permissions']) : null;
                             
                             if (!empty($company_id)) {
-                                $stmt->execute([$company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date]);
+                                $stmt->execute([$company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date, $permissions]);
                             }
                         }
                     } else {
@@ -288,7 +289,8 @@ try {
                             if (!empty($company_id)) {
                                 $new_companies_data[] = [
                                     'company_id' => $company_id,
-                                    'expiration_date' => !empty($company['expiration_date']) ? $company['expiration_date'] : null
+                                    'expiration_date' => !empty($company['expiration_date']) ? $company['expiration_date'] : null,
+                                    'permissions' => (isset($company['permissions']) && is_array($company['permissions'])) ? $company['permissions'] : []
                                 ];
                             }
                         }
@@ -299,7 +301,8 @@ try {
                         foreach ($company_ids as $company_id) {
                             $new_companies_data[] = [
                                 'company_id' => $company_id,
-                                'expiration_date' => null
+                                'expiration_date' => null,
+                                'permissions' => []
                             ];
                         }
                     }
@@ -453,27 +456,28 @@ try {
                 
                 // Insert new companies
                 if (!empty($companies_to_add)) {
-                    $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date) VALUES (?, ?, ?, ?)");
+                    $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions) VALUES (?, ?, ?, ?, ?)");
                     
                     foreach ($companies_to_add as $company_data) {
+                        $permissions_json = !empty($company_data['permissions']) && is_array($company_data['permissions']) ? json_encode($company_data['permissions']) : null;
                         $stmt->execute([
                             $company_data['company_id'], 
                             $id, 
                             $_SESSION['login_id'] ?? 'system',
-                            $company_data['expiration_date']
+                            $company_data['expiration_date'],
+                            $permissions_json
                         ]);
                     }
                 }
                 
-                // Update existing companies' expiration dates if changed
+                // Update existing companies' expiration dates and permissions if changed
                 foreach ($new_companies_data as $new_company) {
                     if (in_array($new_company['company_id'], $existing_company_ids)) {
-                        // 查找对应的现有公司记录
                         foreach ($existing_companies as $existing) {
                             if (strtoupper($existing['company_id']) === $new_company['company_id']) {
-                                // 更新到期日期
-                                $updateStmt = $pdo->prepare("UPDATE company SET expiration_date = ? WHERE id = ?");
-                                $updateStmt->execute([$new_company['expiration_date'], $existing['id']]);
+                                $permissions_json = !empty($new_company['permissions']) && is_array($new_company['permissions']) ? json_encode($new_company['permissions']) : null;
+                                $updateStmt = $pdo->prepare("UPDATE company SET expiration_date = ?, permissions = ? WHERE id = ?");
+                                $updateStmt->execute([$new_company['expiration_date'], $permissions_json, $existing['id']]);
                                 break;
                             }
                         }
@@ -652,10 +656,20 @@ try {
             }
             
             try {
-                $stmt = $pdo->prepare("SELECT company_id, expiration_date FROM company WHERE owner_id = ? ORDER BY company_id");
+                $stmt = $pdo->prepare("SELECT company_id, expiration_date, permissions FROM company WHERE owner_id = ? ORDER BY company_id");
                 $stmt->execute([$owner_id]);
-                $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
+                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $companies = [];
+                foreach ($rows as $row) {
+                    $perms = $row['permissions'];
+                    if ($perms !== null && $perms !== '') {
+                        $decoded = json_decode($perms, true);
+                        $row['permissions'] = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : [];
+                    } else {
+                        $row['permissions'] = [];
+                    }
+                    $companies[] = $row;
+                }
                 echo json_encode([
                     'success' => true,
                     'message' => 'OK',
@@ -685,7 +699,7 @@ try {
                 $stmt->execute([strtoupper($company_id)]);
                 $result = $stmt->fetch(PDO::FETCH_ASSOC);
                 
-                if ($result && $result['permissions']) {
+                if ($result && $result['permissions'] !== null && $result['permissions'] !== '') {
                     $permissions = json_decode($result['permissions'], true);
                     if (json_last_error() === JSON_ERROR_NONE && is_array($permissions)) {
                         echo json_encode([
@@ -694,19 +708,18 @@ try {
                             'data' => ['permissions' => $permissions]
                         ]);
                     } else {
-                        $permissions = ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
                         echo json_encode([
                             'success' => true,
                             'message' => 'OK',
-                            'data' => ['permissions' => $permissions]
+                            'data' => ['permissions' => []]
                         ]);
                     }
                 } else {
-                    $permissions = ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                    // 无权限设置或公司不存在：返回空数组，不再默认全选
                     echo json_encode([
                         'success' => true,
                         'message' => 'OK',
-                        'data' => ['permissions' => $permissions]
+                        'data' => ['permissions' => []]
                     ]);
                 }
             } catch (Exception $e) {

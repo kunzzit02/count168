@@ -433,6 +433,19 @@ function openCompanyExpDateModal(companyId) {
     // 设置公司名称
     document.getElementById('expDateCompanyName').textContent = `Company: ${company.company_id}`;
     
+    // 若本会话内已保存过权限，优先用 tempCompanies 中的显示，避免“再点回去全部点完”
+    if (company.permissions && Array.isArray(company.permissions)) {
+        const perms = company.permissions;
+        document.getElementById('permissionGambling').checked = perms.includes('Gambling');
+        document.getElementById('permissionBank').checked = perms.includes('Bank');
+        document.getElementById('permissionLoan').checked = perms.includes('Loan');
+        document.getElementById('permissionRate').checked = perms.includes('Rate');
+        document.getElementById('permissionMoney').checked = perms.includes('Money');
+        updatePermissionDisplay();
+    } else {
+        loadCompanyPermissions(company.company_id);
+    }
+    
     // 设置开始日期
     const startDate = company.startDate || new Date().toISOString().split('T')[0];
     document.getElementById('expDateStartDate').value = startDate;
@@ -462,9 +475,6 @@ function openCompanyExpDateModal(companyId) {
         // 更新到期日期显示（根据选择的period计算）
         updateExpDateDisplay();
     }
-    
-    // 加载权限设置
-    loadCompanyPermissions(company.company_id);
     
     // 添加事件监听器
     document.getElementById('expDateStartDate').onchange = function() {
@@ -534,33 +544,25 @@ function loadCompanyPermissions(companyId) {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success && data.data && data.data.permissions) {
-            // 设置复选框状态
-            const permissions = data.data.permissions;
-            document.getElementById('permissionGambling').checked = permissions.includes('Gambling');
-            document.getElementById('permissionBank').checked = permissions.includes('Bank');
-            document.getElementById('permissionLoan').checked = permissions.includes('Loan');
-            document.getElementById('permissionRate').checked = permissions.includes('Rate');
-            document.getElementById('permissionMoney').checked = permissions.includes('Money');
-            updatePermissionDisplay();
-        } else {
-            // 如果没有权限设置，默认全选
-            document.getElementById('permissionGambling').checked = true;
-            document.getElementById('permissionBank').checked = true;
-            document.getElementById('permissionLoan').checked = true;
-            document.getElementById('permissionRate').checked = true;
-            document.getElementById('permissionMoney').checked = true;
-            updatePermissionDisplay();
-        }
+        const permissions = (data.success && data.data && Array.isArray(data.data.permissions)) ? data.data.permissions : [];
+        document.getElementById('permissionGambling').checked = permissions.includes('Gambling');
+        document.getElementById('permissionBank').checked = permissions.includes('Bank');
+        document.getElementById('permissionLoan').checked = permissions.includes('Loan');
+        document.getElementById('permissionRate').checked = permissions.includes('Rate');
+        document.getElementById('permissionMoney').checked = permissions.includes('Money');
+        updatePermissionDisplay();
+        const company = tempCompanies.find(c => c.company_id === companyId);
+        if (company) company.permissions = permissions.slice();
     })
     .catch(error => {
         console.error('Error loading permissions:', error);
-        // 默认全选
-        document.getElementById('permissionGambling').checked = true;
-        document.getElementById('permissionBank').checked = true;
-        document.getElementById('permissionLoan').checked = true;
-        document.getElementById('permissionRate').checked = true;
-        document.getElementById('permissionMoney').checked = true;
+        const company = tempCompanies.find(c => c.company_id === companyId);
+        if (company) company.permissions = [];
+        document.getElementById('permissionGambling').checked = false;
+        document.getElementById('permissionBank').checked = false;
+        document.getElementById('permissionLoan').checked = false;
+        document.getElementById('permissionRate').checked = false;
+        document.getElementById('permissionMoney').checked = false;
         updatePermissionDisplay();
     });
 }
@@ -645,6 +647,8 @@ function saveCompanyExpDate() {
     if (document.getElementById('permissionLoan').checked) permissions.push('Loan');
     if (document.getElementById('permissionRate').checked) permissions.push('Rate');
     if (document.getElementById('permissionMoney').checked) permissions.push('Money');
+    // 存入当前公司，再次打开 Set 时优先用此显示
+    company.permissions = permissions.slice();
     
     // 保存权限到数据库
     fetch('api/domain/domain_api.php', {
@@ -796,10 +800,11 @@ function confirmCompanies() {
         return aId.localeCompare(bId);
     });
     
-    // 只保存需要的字段，不保存临时字段（originalExpirationDate, selectedPeriod）
+    // 只保存需要的字段，不保存临时字段（originalExpirationDate, selectedPeriod）；包含 permissions 供后端写入
     selectedCompanies = sortedCompanies.map(c => ({
         company_id: c.company_id,
-        expiration_date: c.expiration_date
+        expiration_date: c.expiration_date,
+        permissions: Array.isArray(c.permissions) ? c.permissions : []
     }));
     updateSelectedCompaniesDisplay();
     // 将 companies 数据序列化为 JSON 字符串
@@ -981,7 +986,8 @@ function editDomain(id) {
             if (data.success && data.data && data.data.companies) {
                 selectedCompanies = data.data.companies.map(c => ({
                     company_id: c.company_id,
-                    expiration_date: c.expiration_date || null
+                    expiration_date: c.expiration_date || null,
+                    permissions: Array.isArray(c.permissions) ? c.permissions : []
                 }));
                 updateSelectedCompaniesDisplay();
                 document.getElementById('companies').value = JSON.stringify(selectedCompanies);
