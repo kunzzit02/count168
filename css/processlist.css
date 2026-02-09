@@ -684,16 +684,6 @@
     border-color: #6366f1;
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
-/* Bank Add Process：必填未填时标红 */
-.bank-form .bank-input.bank-field-error,
-.bank-form .bank-select.bank-field-error {
-    border-color: #dc2626 !important;
-    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
-}
-.bank-form .account-select-with-buttons .custom-select-button.bank-field-error {
-    border-color: #dc2626 !important;
-    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
-}
  .account-select-with-buttons {
     display: flex;
     gap: 8px;
