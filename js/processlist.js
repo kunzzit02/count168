@@ -2933,26 +2933,39 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         // Profit calculation flag to prevent duplicate listeners
         let bankProfitCalculatorsInitialized = false;
 
-        // Load countries from server：优先用已选 Country 列表（服务端持久化），无则用该公司全部 Country
+        // 获取公司货币代码列表（与 Account 的 currency 同步，account 有什么 currency，Country 就有什么）
+        async function fetchCompanyCurrencyCodes() {
+            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+            let url = buildApiUrl('api/accounts/account_currency_api.php?action=get_available_currencies');
+            if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+            const res = await fetch(url);
+            const result = await res.json();
+            const data = (result.success && result.data && Array.isArray(result.data)) ? result.data : [];
+            return data.map(function (c) { return (c.code || '').toString().trim(); }).filter(Boolean);
+        }
+
+        // Load countries from server：与 account 的 currency 同步，优先用公司货币列表；无则回退到已选 Country / get_countries
         async function loadCountriesFromServer() {
             const select = document.getElementById('bank_country');
             if (!select) return;
             const currentVal = (select.value || '').trim();
             const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
             try {
-                let list = [];
-                if (companyId) {
-                    const selUrl = buildApiUrl('api/processes/processlist_api.php?action=get_selected_countries&company_id=' + encodeURIComponent(companyId));
-                    const selRes = await fetch(selUrl);
-                    const selResult = await selRes.json();
-                    list = (selResult.success && selResult.data && Array.isArray(selResult.data)) ? selResult.data : [];
-                }
+                let list = await fetchCompanyCurrencyCodes();
                 if (list.length === 0) {
-                    let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
-                    if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
-                    const res = await fetch(url);
-                    const result = await res.json();
-                    list = (result.success && result.data) ? result.data : [];
+                    if (companyId) {
+                        const selUrl = buildApiUrl('api/processes/processlist_api.php?action=get_selected_countries&company_id=' + encodeURIComponent(companyId));
+                        const selRes = await fetch(selUrl);
+                        const selResult = await selRes.json();
+                        list = (selResult.success && selResult.data && Array.isArray(selResult.data)) ? selResult.data : [];
+                    }
+                    if (list.length === 0) {
+                        let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
+                        if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+                        const res = await fetch(url);
+                        const result = await res.json();
+                        list = (result.success && result.data) ? result.data : [];
+                    }
                 }
                 select.innerHTML = '';
                 const opt0 = document.createElement('option');
@@ -3500,13 +3513,16 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             }
             let allCountries = [];
             try {
-                const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
-                let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
-                if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
-                const res = await fetch(url);
-                const result = await res.json();
-                allCountries = (result.success && result.data) ? result.data : [];
-            } catch (e) { console.warn('get_countries', e); }
+                allCountries = await fetchCompanyCurrencyCodes();
+                if (allCountries.length === 0) {
+                    const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+                    let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
+                    if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+                    const res = await fetch(url);
+                    const result = await res.json();
+                    allCountries = (result.success && result.data) ? result.data : [];
+                }
+            } catch (e) { console.warn('country list', e); }
             loadExistingCountries(allCountries);
             updateSelectedCountriesInModal();
             const modal = document.getElementById('countrySelectionModal');
