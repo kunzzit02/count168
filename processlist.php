@@ -747,7 +747,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_name">Card Owner</label>
-                                    <input type="text" id="bank_name" name="name" placeholder="Enter card owner"
+                                    <input type="text" id="bank_name" name="name" placeholder="Enter Card Owner"
                                         class="bank-input" oninput="this.value=this.value.toUpperCase()" required>
                                 </div>
                             </div>
