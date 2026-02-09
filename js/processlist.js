@@ -1077,32 +1077,32 @@
             const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
             const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id, 10)).filter(id => !isNaN(id));
             if (ids.length === 0) {
-                showNotification('Please select at least one process to delete.', 'warning');
+                showNotification('Please select at least one row to reject.', 'warning');
                 return;
             }
             const msg = ids.length === 1
-                ? 'Are you sure you want to delete this process? This action cannot be undone.'
-                : 'Are you sure you want to delete ' + ids.length + ' processes? This action cannot be undone.';
+                ? 'Reject this transaction? The row will be removed from Accounting Due and will not be posted. Process data is not changed.'
+                : 'Reject ' + ids.length + ' transactions? Selected rows will be removed from Accounting Due. Process data is not changed.';
             if (!confirm(msg)) return;
             const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
-            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Deleting...'; }
+            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Rejecting...'; }
             try {
-                const response = await fetch(buildApiUrl('api/processes/delete_processes_api.php'), {
+                const response = await fetch(buildApiUrl('api/processes/reject_accounting_api.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids: ids, permission: 'Bank' })
+                    body: JSON.stringify({ ids: ids })
                 });
                 const result = await response.json();
-                if (result.success && result.data && typeof result.data.deleted === 'number') {
-                    showNotification(result.data.deleted === 1 ? '1 process deleted successfully' : result.data.deleted + ' processes deleted successfully', 'success');
+                if (result.success && result.data && typeof result.data.rejected === 'number') {
+                    showNotification(result.data.rejected === 1 ? '1 item rejected' : result.data.rejected + ' items rejected', 'success');
                     loadAccountingInbox();
                     if (typeof fetchProcesses === 'function') fetchProcesses();
                 } else {
-                    showNotification(result.message || result.error || (result.data && result.data.error) || 'Delete failed', 'danger');
+                    showNotification(result.message || result.error || (result.data && result.data.error) || 'Reject failed', 'danger');
                 }
             } catch (err) {
-                console.error('Delete error:', err);
-                showNotification('Delete failed: ' + (err.message || 'Network error'), 'danger');
+                console.error('Reject error:', err);
+                showNotification('Reject failed: ' + (err.message || 'Network error'), 'danger');
             } finally {
                 if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = 'Delete'; updateAccountingInboxDeleteButton(); }
             }
