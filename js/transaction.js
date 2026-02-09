@@ -2433,6 +2433,12 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
                 document.getElementById('modal_title').textContent = 
                     `Payment History - ${titleCode} (${titleName})`;
                 
+                // Id Product 列表头：若 history 中有 bank process 交易则显示 "Card Owner"，否则显示 "Id Product"
+                const historyProductHeader = document.querySelector('#historyModal .transaction-table thead th.transaction-history-col-product');
+                if (historyProductHeader) {
+                    historyProductHeader.textContent = data.data.history.some(row => row.is_bank_process_transaction) ? 'Card Owner' : 'Id Product';
+                }
+                
                 // 填充表格
                 const tbody = document.getElementById('modal_tbody');
                 tbody.innerHTML = '';
