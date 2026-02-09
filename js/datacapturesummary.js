@@ -539,6 +539,7 @@ function getCurrentProcessId() {
                             const idProduct = rowData[1].value;
                             // Store id_product in all cells of this row for easy access
                             tr.setAttribute('data-id-product', idProduct);
+                            if (idProduct) td.setAttribute('title', idProduct); // 悬停显示完整 id_product
                         }
                         // If this row has id_product stored, add it to this cell
                         if (tr.getAttribute('data-id-product')) {
@@ -13208,9 +13209,8 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 if (existingRowIndex && existingRowIndex !== '' && existingRowIndex !== '999999') {
                     const existingIndexNum = Number(existingRowIndex);
                     if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
-                        // Row already has a valid row_index, preserve it to maintain initial order（分两行输出避免控制台截断长 id_product）
-                        console.log('Preserved existing row_index:', existingRowIndex);
-                        console.log('  id_product:', summaryIdProduct);
+                        // Row already has a valid row_index, preserve it（用对象输出便于在控制台展开查看完整 id_product）
+                        console.log('Preserved existing row_index:', existingRowIndex, { id_product: summaryIdProduct });
                         return; // Keep existing row_index - don't recalculate
                     }
                 }

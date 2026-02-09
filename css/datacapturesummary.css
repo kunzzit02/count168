@@ -497,6 +497,16 @@ body {
             text-align: center;
         }
         
+        /* Data Capture 表 id_Product 列（第 2 列）加宽并允许换行，避免长名称显示不完整 */
+        #capturedDataTable th:nth-child(2),
+        #capturedDataTable td:nth-child(2) {
+            min-width: 140px;
+            max-width: 280px;
+            white-space: normal !important;
+            word-break: break-word;
+            text-align: left;
+        }
+        
         /* Clickable table cell styles */
         .clickable-table-cell {
             cursor: pointer;
