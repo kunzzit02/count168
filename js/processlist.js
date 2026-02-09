@@ -937,8 +937,12 @@
             if (countModal) countModal.textContent = String(postableCount);
             if (selectAllCb) { selectAllCb.checked = postableCount > 0; selectAllCb.disabled = postableCount === 0; }
             if (count === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
                 if (postBtn) postBtn.disabled = true;
+                const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
+                if (deleteBtn) deleteBtn.disabled = true;
+                const deleteSelectAll = document.getElementById('processAccountingInboxDeleteSelectAll');
+                if (deleteSelectAll) { deleteSelectAll.checked = false; deleteSelectAll.disabled = true; }
                 return;
             }
             tbody.innerHTML = items.map((row, idx) => {
@@ -952,9 +956,14 @@
                 const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
                 const contractRaw = (row.contract || '').toString().trim() || '-';
                 const contractDisplay = ({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw;
-                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(startDate) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.bank || '-') + '</td><td>' + escapeHtml(contractDisplay) + '</td></tr>';
+                const deleteCbClass = 'process-accounting-inbox-delete-cb';
+                const deleteCbHtml = '<input type="checkbox" class="' + deleteCbClass + '" data-id="' + row.id + '" onchange="updateAccountingInboxDeleteButton()">';
+                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(startDate) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.bank || '-') + '</td><td>' + escapeHtml(contractDisplay) + '</td><td>' + deleteCbHtml + '</td></tr>';
             }).join('');
+            const deleteSelectAllEl = document.getElementById('processAccountingInboxDeleteSelectAll');
+            if (deleteSelectAllEl) { deleteSelectAllEl.checked = false; deleteSelectAllEl.disabled = false; }
             updateAccountingInboxPostButton();
+            updateAccountingInboxDeleteButton();
             (function bindSelectAll() {
                 const selectAll = document.getElementById('processAccountingInboxSelectAll');
                 if (!selectAll || selectAll.onAccountingInboxBound) return;
@@ -966,6 +975,29 @@
                     updateAccountingInboxPostButton();
                 });
             })();
+            (function bindDeleteSelectAll() {
+                const deleteSelectAll = document.getElementById('processAccountingInboxDeleteSelectAll');
+                if (!deleteSelectAll || deleteSelectAll.onAccountingInboxDeleteBound) return;
+                deleteSelectAll.onAccountingInboxDeleteBound = true;
+                deleteSelectAll.addEventListener('change', function () {
+                    const checked = this.checked;
+                    const box = document.getElementById('processAccountingInboxTbody');
+                    if (box) box.querySelectorAll('.process-accounting-inbox-delete-cb').forEach(cb => { cb.checked = checked; });
+                    updateAccountingInboxDeleteButton();
+                });
+            })();
+        }
+        function updateAccountingInboxDeleteButton() {
+            const tbody = document.getElementById('processAccountingInboxTbody');
+            const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
+            const deleteSelectAllCb = document.getElementById('processAccountingInboxDeleteSelectAll');
+            if (!tbody || !deleteBtn) return;
+            const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
+            const allDelete = tbody.querySelectorAll('.process-accounting-inbox-delete-cb');
+            deleteBtn.disabled = checked.length === 0;
+            if (deleteSelectAllCb && !deleteSelectAllCb.disabled) {
+                deleteSelectAllCb.checked = allDelete.length > 0 && allDelete.length === checked.length;
+            }
         }
         function updateAccountingInboxPostButton() {
             const tbody = document.getElementById('processAccountingInboxTbody');
@@ -1036,6 +1068,43 @@
             } catch (err) {
                 console.error('transaction error:', err);
                 showNotification('Request failed: ' + err.message, 'danger');
+            }
+        }
+
+        async function deleteAccountingInboxSelected() {
+            const tbody = document.getElementById('processAccountingInboxTbody');
+            if (!tbody) return;
+            const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
+            const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id, 10)).filter(id => !isNaN(id));
+            if (ids.length === 0) {
+                showNotification('Please select at least one process to delete.', 'warning');
+                return;
+            }
+            const msg = ids.length === 1
+                ? 'Are you sure you want to delete this process? This action cannot be undone.'
+                : 'Are you sure you want to delete ' + ids.length + ' processes? This action cannot be undone.';
+            if (!confirm(msg)) return;
+            const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
+            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Deleting...'; }
+            try {
+                const response = await fetch(buildApiUrl('api/processes/delete_processes_api.php'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: ids, permission: 'Bank' })
+                });
+                const result = await response.json();
+                if (result.success && result.data && typeof result.data.deleted === 'number') {
+                    showNotification(result.data.deleted === 1 ? '1 process deleted successfully' : result.data.deleted + ' processes deleted successfully', 'success');
+                    loadAccountingInbox();
+                    if (typeof fetchProcesses === 'function') fetchProcesses();
+                } else {
+                    showNotification(result.message || result.error || (result.data && result.data.error) || 'Delete failed', 'danger');
+                }
+            } catch (err) {
+                console.error('Delete error:', err);
+                showNotification('Delete failed: ' + (err.message || 'Network error'), 'danger');
+            } finally {
+                if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = 'Delete'; updateAccountingInboxDeleteButton(); }
             }
         }
 
@@ -2864,7 +2933,18 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         // Profit calculation flag to prevent duplicate listeners
         let bankProfitCalculatorsInitialized = false;
 
-        // Load countries from server：优先用已选 Country 列表（服务端持久化），无则用该公司全部 Country
+        // 获取公司货币代码列表（与 Account 的 currency 同步，account 有什么 currency，Country 就有什么）
+        async function fetchCompanyCurrencyCodes() {
+            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+            let url = buildApiUrl('api/accounts/account_currency_api.php?action=get_available_currencies');
+            if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+            const res = await fetch(url);
+            const result = await res.json();
+            const data = (result.success && result.data && Array.isArray(result.data)) ? result.data : [];
+            return data.map(function (c) { return (c.code || '').toString().trim(); }).filter(Boolean);
+        }
+
+        // Load countries from server：下拉只显示已选 Country（get_selected_countries），与 account 同步的是「可选来源」在弹窗里用公司货币
         async function loadCountriesFromServer() {
             const select = document.getElementById('bank_country');
             if (!select) return;
@@ -3431,13 +3511,16 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             }
             let allCountries = [];
             try {
-                const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
-                let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
-                if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
-                const res = await fetch(url);
-                const result = await res.json();
-                allCountries = (result.success && result.data) ? result.data : [];
-            } catch (e) { console.warn('get_countries', e); }
+                allCountries = await fetchCompanyCurrencyCodes();
+                if (allCountries.length === 0) {
+                    const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+                    let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
+                    if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+                    const res = await fetch(url);
+                    const result = await res.json();
+                    allCountries = (result.success && result.data) ? result.data : [];
+                }
+            } catch (e) { console.warn('country list', e); }
             loadExistingCountries(allCountries);
             updateSelectedCountriesInModal();
             const modal = document.getElementById('countrySelectionModal');

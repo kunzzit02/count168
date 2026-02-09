@@ -508,6 +508,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <th>Card Owner</th>
                                 <th>Bank</th>
                                 <th>Contract</th>
+                                <th style="width:36px;"><input type="checkbox" id="processAccountingInboxDeleteSelectAll" title="Select all for delete" class="process-accounting-inbox-delete-cb"></th>
                             </tr>
                         </thead>
                         <tbody id="processAccountingInboxTbody"></tbody>
@@ -515,6 +516,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 </div>
                 <div class="process-accounting-inbox-actions">
                     <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Transaction</button>
+                    <button type="button" class="btn btn-delete" id="processAccountingInboxDeleteBtn" onclick="deleteAccountingInboxSelected()" disabled>Delete</button>
                     <button type="button" class="btn btn-cancel" onclick="closeAccountingDueModal()">Cancel</button>
                 </div>
             </div>
