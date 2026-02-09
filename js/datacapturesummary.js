@@ -1373,6 +1373,10 @@ function getCurrentProcessId() {
 
         // Show Edit Formula Form as modal positioned slightly towards top
         function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
+            // 规格：非编辑已有行时（新增）不沿用上次编辑的行货币
+            if (!prePopulatedData || !prePopulatedData.accountDbId) {
+                window._editFormulaRowCurrency = null;
+            }
             // Ensure modal container exists
             let modal = document.getElementById('editFormulaModal');
             let modalContent = document.getElementById('editFormulaModalContent');
@@ -2365,16 +2369,23 @@ function getCurrentProcessId() {
         // preferredCurrency: 可选，已设置的货币（code 如 "JPY" 或 currency_id），优先选中该项，不强制默认 MYR
         async function loadCurrenciesForAccount(accountId, preferredCurrency) {
             try {
-                // 编辑已有行且当前账户=该行账户时：强制从当前行取货币，覆盖任何传入值，避免被默认 MYR 覆盖
+                // 规格：编辑已有行且当前账户=该行账户时，优先用点击 Edit 时保存的行货币（_editFormulaRowCurrency），再兜底从 DOM 取
                 if (window.isEditMode && window.currentEditRow) {
-                    const cells = window.currentEditRow.querySelectorAll('td');
-                    const rowAccountId = cells[1] && cells[1].getAttribute('data-account-id');
-                    if (rowAccountId && String(accountId) === String(rowAccountId) && cells[3]) {
-                        const fromRow = cells[3].getAttribute('data-currency-id') || cells[3].textContent.trim().replace(/[()]/g, '') || '';
-                        if (fromRow) preferredCurrency = String(fromRow).trim();
+                    const rowAccountId = (window.currentEditRow.querySelectorAll('td')[1] && window.currentEditRow.querySelectorAll('td')[1].getAttribute('data-account-id')) || '';
+                    if (rowAccountId && String(accountId) === String(rowAccountId)) {
+                        const fromSaved = window._editFormulaRowCurrency;
+                        if (fromSaved && (fromSaved.id || fromSaved.code)) {
+                            preferredCurrency = (fromSaved.id && String(fromSaved.id).trim()) || (fromSaved.code && String(fromSaved.code).trim()) || preferredCurrency;
+                        }
+                        if (!preferredCurrency || String(preferredCurrency).trim() === '') {
+                            const cells = window.currentEditRow.querySelectorAll('td');
+                            if (cells[3]) {
+                                const fromRow = cells[3].getAttribute('data-currency-id') || cells[3].textContent.trim().replace(/[()]/g, '') || '';
+                                if (fromRow) preferredCurrency = String(fromRow).trim();
+                            }
+                        }
                     }
                 }
-                // 兜底：非编辑模式或行上无货币时，若调用方未传则保持原逻辑
                 console.log('Loading currencies for account:', accountId, 'preferredCurrency:', preferredCurrency);
                 
                 const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
@@ -5797,12 +5808,17 @@ function getCurrentProcessId() {
                             }
                         }
                         
-                        // Load currencies for the selected account，传入行里已设置的 currency（优先 currencyDbId 再 currency code）
+                        // Load currencies for the selected account；规格：Edit Formula Currency 跟随行上已设置的货币（优先点击 Edit 时保存的 _editFormulaRowCurrency）
                         if (selectedAccountId) {
-                            let preferredCurrency = (data.currencyDbId != null && String(data.currencyDbId).trim() !== '')
-                                ? String(data.currencyDbId).trim()
-                                : (data.currency != null ? String(data.currency).trim() : '');
-                            // 兜底：编辑模式下若 data 里没有货币，从当前编辑行取，避免被默认 MYR 覆盖
+                            let preferredCurrency = '';
+                            if (window.isEditMode && window._editFormulaRowCurrency && (window._editFormulaRowCurrency.id || window._editFormulaRowCurrency.code)) {
+                                preferredCurrency = (window._editFormulaRowCurrency.id && String(window._editFormulaRowCurrency.id).trim()) || (window._editFormulaRowCurrency.code && String(window._editFormulaRowCurrency.code).trim()) || '';
+                            }
+                            if (!preferredCurrency) {
+                                preferredCurrency = (data.currencyDbId != null && String(data.currencyDbId).trim() !== '')
+                                    ? String(data.currencyDbId).trim()
+                                    : (data.currency != null ? String(data.currency).trim() : '');
+                            }
                             if ((!preferredCurrency || String(preferredCurrency).trim() === '') && window.isEditMode && window.currentEditRow) {
                                 const cells = window.currentEditRow.querySelectorAll('td');
                                 if (cells[3]) {
@@ -6106,6 +6122,7 @@ function getCurrentProcessId() {
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
             window.isEditMode = false;
+            window._editFormulaRowCurrency = null;
         }
 
         // Find summary table row by idProduct, accountId, and product type
@@ -11080,6 +11097,8 @@ function getCurrentProcessId() {
             // Store the current row reference globally so saveFormula can access it
             window.currentEditRow = row;
             window.isEditMode = true;
+            // 规格：Edit Formula 弹窗 Currency 跟随行上已设置的货币。在打开弹窗前保存该行货币，供 loadCurrenciesForAccount 优先使用
+            window._editFormulaRowCurrency = { code: (currencyValue || '').trim(), id: (currencyDbId || '').trim() };
             
             // Debug log before showing form
             console.log('editRowFormula - Passing to showEditFormulaForm:', {
