@@ -1951,16 +1951,6 @@
             });
         }
 
-        // Real-time filter when Waiting checkbox changes (only for Bank category)
-        const waitingCheckbox = document.getElementById('waiting');
-        if (waitingCheckbox) {
-            waitingCheckbox.addEventListener('change', function () {
-                waiting = this.checked;
-                currentPage = 1;
-                fetchProcesses();
-            });
-        }
-
         // 处理添加表单提交
         const addProcessForm = document.getElementById('addProcessForm');
         if (addProcessForm) {
@@ -4684,8 +4674,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
             });
 
-            // 根据类别显示/隐藏 waiting 复选框和更新表格头部
-            const waitingSection = document.getElementById('waitingCheckboxSection');
+            // 根据类别更新表格头部
             const gamblingHeaders = document.querySelectorAll('.gambling-header');
             const bankHeaders = document.querySelectorAll('.bank-header');
             const selectAllGambling = document.getElementById('selectAllProcesses');
@@ -4700,7 +4689,6 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 if (processTableWrapperEl) processTableWrapperEl.style.display = 'none';
                 if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'block';
                 if (processTableBodyEl) processTableBodyEl.classList.add('bank-mode');
-                if (waitingSection) waitingSection.style.display = 'flex';
                 gamblingHeaders.forEach(header => header.style.display = 'none');
                 bankHeaders.forEach(header => header.style.display = 'flex');
                 if (selectAllGambling) selectAllGambling.style.display = 'none';
@@ -4712,9 +4700,6 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'none';
                 if (processTableBodyEl) processTableBodyEl.classList.remove('bank-mode');
                 if (processTableBodyEl) processTableBodyEl.style.removeProperty('--table-header-width');
-                if (waitingSection) {
-                    waitingSection.style.display = 'none';
-                }
                 // 显示 Gambling 表格头部，隐藏 Bank 表格头部
                 gamblingHeaders.forEach(header => header.style.display = 'flex');
                 bankHeaders.forEach(header => header.style.display = 'none');

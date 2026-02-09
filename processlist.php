@@ -264,10 +264,6 @@ if ($current_user_id && count($user_companies) > 0) {
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAll ? 'checked' : ''; ?>>
                             <label for="showAll">Show All</label>
                         </div>
-                        <div class="checkbox-section" id="waitingCheckboxSection" style="display: none;">
-                            <input type="checkbox" id="waiting" name="waiting">
-                            <label for="waiting">Waiting</label>
-                        </div>
                     </div>
                     <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
                         title="Only inactive processes can be deleted" disabled>Delete</button>
