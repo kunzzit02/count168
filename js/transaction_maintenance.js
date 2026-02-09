@@ -164,6 +164,8 @@
             const result = await response.json();
             if (!result.success) {
                 console.error('更新 session 失败:', result.error);
+            } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
+                window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
             }
         } catch (error) {
             console.error('更新 session 时出错:', error);

@@ -3154,6 +3154,13 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     searchInput.value = '';
                     loadAccounts();
                     searchInput.focus();
+                    // 根据按钮下方可用视口空间设置下拉与选项区高度，尽量多显示选项
+                    const rect = accountButton.getBoundingClientRect();
+                    const spaceBelow = window.innerHeight - rect.bottom - 24;
+                    const searchHeight = 50;
+                    const maxOpt = Math.max(280, spaceBelow - searchHeight);
+                    if (optionsContainer) optionsContainer.style.maxHeight = maxOpt + 'px';
+                    accountDropdown.style.maxHeight = (maxOpt + searchHeight + 16) + 'px';
                 }
             });
 

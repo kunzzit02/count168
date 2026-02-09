@@ -125,6 +125,22 @@ if ($companyId) {
         $expiration_status = 'normal';
     }
 }
+
+// 获取当前公司是否开启 Gambling 权限（无 Gambling 则不显示侧边栏 Data Capture）
+$companyHasGambling = false;
+if ($companyId) {
+    try {
+        $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
+        $stmt->execute([$companyId]);
+        $permsJson = $stmt->fetchColumn();
+        if ($permsJson) {
+            $companyPerms = json_decode($permsJson, true);
+            $companyHasGambling = is_array($companyPerms) && in_array('Gambling', $companyPerms);
+        }
+    } catch (PDOException $e) {
+        error_log("获取公司权限失败: " . $e->getMessage());
+    }
+}
 ?>
 <!--
 ================================================================================
@@ -372,9 +388,9 @@ if ($companyId) {
             </div>
             <?php endif; ?>
 
-            <!-- Data Capture Section -->
+            <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Gambling 权限控制（含切换公司时即时更新） -->
             <?php if (empty($permissions) || in_array('datacapture', $permissions)): ?>
-            <div class="informationmenu-section">
+            <div class="informationmenu-section" id="sidebar-datacapture-section"<?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                 <div class="informationmenu-section-title" data-page="datacapture.php" onclick="window.location.href='datacapture.php'">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
@@ -497,16 +513,20 @@ if ($companyId) {
     </div>
 </div>
 
-<!-- Sidebar JavaScript: PHP 变量注入，调用外部 js/sidebar.js 中的 updateExpirationCountdown -->
+<!-- Sidebar JavaScript: PHP 变量注入，调用外部 js/sidebar.js 中的 updateExpirationCountdown / updateSidebarDataCaptureVisibility -->
 <script>
 window.SIDEBAR_IS_MEMBER = <?php echo $isMember ? 'true' : 'false'; ?>;
 window.SIDEBAR_EXPIRATION_DATE = '<?php echo $company_expiration_date ? addslashes($company_expiration_date) : ''; ?>';
+window.SIDEBAR_COMPANY_HAS_GAMBLING = <?php echo $companyHasGambling ? 'true' : 'false'; ?>;
 (function() {
     if (typeof updateExpirationCountdown === 'function') {
         if (window.SIDEBAR_EXPIRATION_DATE) {
             updateExpirationCountdown();
             setInterval(updateExpirationCountdown, 60000);
         }
+    }
+    if (typeof updateSidebarDataCaptureVisibility === 'function' && window.SIDEBAR_COMPANY_HAS_GAMBLING !== undefined) {
+        updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
     }
 })();
 </script>

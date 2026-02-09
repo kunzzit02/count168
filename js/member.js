@@ -97,6 +97,9 @@
                         if (!data.success) {
                             throw new Error(data.error || 'Failed to switch company');
                         }
+                        if (typeof window.updateSidebarDataCaptureVisibility === 'function' && data.data && data.data.has_gambling !== undefined) {
+                            window.updateSidebarDataCaptureVisibility(data.data.has_gambling);
+                        }
                         memberConfig.companyId = companyId;
 
                         // 更新按钮选中状态

@@ -749,7 +749,7 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     display: none;
-    max-height: 300px;
+    max-height: min(420px, 70vh);
     overflow: hidden;
     margin-top: 2px;
 }
@@ -773,7 +773,7 @@
     box-sizing: border-box;
 }
  .custom-select-options {
-    max-height: 250px;
+    max-height: min(380px, 60vh);
     overflow-y: auto;
 }
  .custom-select-option {
@@ -814,6 +814,31 @@
     margin-top: 20px;
     padding-top: 20px;
     border-top: 1px solid #eee;
+}
+
+/* Supplier/Customer/Company 账户下拉可溢出 Bank 弹窗显示，不被裁切 */
+#addBankModal .modal-content,
+#addBankModal .modal-body,
+#addBankModal .bank-form,
+#addBankModal .bank-form-row,
+#addBankModal .bank-form-cell,
+#addBankModal .bank-form-cell-left,
+#addBankModal .bank-form-cell-right,
+#addBankModal .form-row,
+#addBankModal .form-group,
+#addBankModal .account-select-with-buttons,
+#addBankModal .custom-select-wrapper {
+    overflow: visible !important;
+}
+#addBankModal .custom-select-wrapper {
+    position: relative;
+}
+/* Bank 弹窗内 Supplier/Customer/Company 下拉：选项区尽量占满视口，减少滚动 */
+#addBankModal .custom-select-dropdown {
+    max-height: min(500px, 85vh) !important;
+}
+#addBankModal .custom-select-options {
+    max-height: min(460px, 80vh) !important;
 }
 
 /* Add Account 弹窗优先级最高，在 Add Profit Sharing 之上显示（从 Profit Sharing 内点击 + 时） */
