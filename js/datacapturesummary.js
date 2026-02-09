@@ -2418,7 +2418,11 @@ function getCurrentProcessId() {
                             
                             // 若传入已设置的 preferredCurrency，优先选中该项；否则再默认 MYR 或第一项
                             if (currencySelect.options.length > 1) {
-                                const preferred = preferredCurrency != null ? String(preferredCurrency).trim() : '';
+                                let preferred = preferredCurrency != null ? String(preferredCurrency).trim() : '';
+                                // 规格：Save 后再 Edit 时行货币已更新，若前面未取到则在此再试一次 _editFormulaRowCurrency
+                                if (!preferred && window.isEditMode && window._editFormulaRowCurrency && (window._editFormulaRowCurrency.id || window._editFormulaRowCurrency.code)) {
+                                    preferred = (window._editFormulaRowCurrency.id && String(window._editFormulaRowCurrency.id).trim()) || (window._editFormulaRowCurrency.code && String(window._editFormulaRowCurrency.code).trim()) || '';
+                                }
                                 const preferredMatch = preferred && Array.from(currencySelect.options).find(opt => {
                                     const code = (opt.textContent || '').trim().toUpperCase();
                                     const val = (opt.value || '').toString();
