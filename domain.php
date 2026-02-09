@@ -83,7 +83,6 @@ try {
     <script src="js/domain.js?v=<?php echo file_exists('js/domain.js') ? filemtime('js/domain.js') : time(); ?>"></script>
 </head>
 <body>
-    <div id="notificationContainer" class="notification-container"></div>
     <div class="container">
         <h1>Domain List</h1>
         
@@ -352,5 +351,7 @@ try {
         </div>
     </div>
 
+    <!-- 通知容器放在 body 末尾，配合 CSS z-index:99999 确保始终显示在所有弹窗前面 -->
+    <div id="notificationContainer" class="notification-container"></div>
 </body>
 </html>

@@ -386,17 +386,18 @@ h1 {
     box-sizing: border-box !important;
 }
 
-/* Notification styles - 高于所有弹窗，确保 Company Settings 等操作的成功提示始终显示在最前 */
+/* Notification styles - 高于所有弹窗（含内联 z-index:10001~10003），确保 Company Settings 等操作的成功提示始终显示在最前 */
 .notification-container {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 10500;
+    z-index: 99999 !important;
     display: flex;
     flex-direction: column;
     gap: 12px;
     max-width: 400px;
     pointer-events: none;
+    isolation: isolate;
 }
 .notification-container .notification {
     pointer-events: auto;
