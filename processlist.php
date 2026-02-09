@@ -855,9 +855,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                         <option value="2 MONTHS">2 MONTHS</option>
                                         <option value="3 MONTHS">3 MONTHS</option>
                                         <option value="6 MONTHS">6 MONTHS</option>
-                                        <option value="1+1">1 MONTH + 1 MONTH</option>
-                                        <option value="1+2">1 MONTH + 2 MONTHS</option>
-                                        <option value="1+3">1 MONTH + 3 MONTHS</option>
+                                        <option value="1+1">1+1 MONTH</option>
+                                        <option value="1+2">1+2 MONTHS</option>
+                                        <option value="1+3">1+3 MONTHS</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
