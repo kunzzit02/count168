@@ -2871,18 +2871,27 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         // Profit calculation flag to prevent duplicate listeners
         let bankProfitCalculatorsInitialized = false;
 
-        // Load countries from server（按当前选中的 company 拉取，与 account-list 的 currency 一致）
+        // Load countries from server：优先用已选 Country 列表（服务端持久化），无则用该公司全部 Country
         async function loadCountriesFromServer() {
             const select = document.getElementById('bank_country');
             if (!select) return;
             const currentVal = (select.value || '').trim();
             const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
             try {
-                let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
-                if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
-                const res = await fetch(url);
-                const result = await res.json();
-                const list = (result.success && result.data) ? result.data : [];
+                let list = [];
+                if (companyId) {
+                    const selUrl = buildApiUrl('api/processes/processlist_api.php?action=get_selected_countries&company_id=' + encodeURIComponent(companyId));
+                    const selRes = await fetch(selUrl);
+                    const selResult = await selRes.json();
+                    list = (selResult.success && selResult.data && Array.isArray(selResult.data)) ? selResult.data : [];
+                }
+                if (list.length === 0) {
+                    let url = buildApiUrl('api/processes/processlist_api.php?action=get_countries');
+                    if (companyId) url += '&company_id=' + encodeURIComponent(companyId);
+                    const res = await fetch(url);
+                    const result = await res.json();
+                    list = (result.success && result.data) ? result.data : [];
+                }
                 select.innerHTML = '';
                 const opt0 = document.createElement('option');
                 opt0.value = '';
@@ -2895,19 +2904,22 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     select.appendChild(opt);
                 });
                 if (currentVal && list.indexOf(currentVal) >= 0) select.value = currentVal;
+                else if (list.length > 0) select.value = list[0];
                 else select.value = '';
             } catch (e) {
                 console.warn('loadCountriesFromServer', e);
             }
         }
 
-        // Load Bank Add Process Data（按当前 company 拉取 Country/Bank，与 account-list 的 currency 一致）
+        // Load Bank Add Process Data（Country 从服务端已选列表加载，Bank 从 country_bank 加载，登出/隔几小时后仍保持）
         async function loadAddBankProcessData() {
             try {
                 await loadCountriesFromServer();
-                restoreSelectedCountriesFromStorage();
                 restoreSelectedBanksByCountryFromStorage();
                 if (!window.selectedBanksByCountry || typeof window.selectedBanksByCountry !== 'object') window.selectedBanksByCountry = {};
+                const countrySelect = document.getElementById('bank_country');
+                const firstCountry = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
+                if (firstCountry) await loadBanksByCountry(firstCountry);
                 await loadBankAccounts();
                 initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
@@ -3399,17 +3411,28 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         }
 
         async function showAddCountryModal() {
-            // 每次打开弹窗都先从 localStorage 恢复 Selected Countries，保证 5 分钟/10 分钟后或点击 + 后选项一致
-            restoreSelectedCountriesFromStorage();
-            if (!window.selectedCountries || !Array.isArray(window.selectedCountries)) {
-                window.selectedCountries = [];
+            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+            if (companyId) {
+                try {
+                    const selUrl = buildApiUrl('api/processes/processlist_api.php?action=get_selected_countries&company_id=' + encodeURIComponent(companyId));
+                    const selRes = await fetch(selUrl);
+                    const selResult = await selRes.json();
+                    const serverList = (selResult.success && selResult.data && Array.isArray(selResult.data)) ? selResult.data : [];
+                    if (serverList.length > 0) {
+                        window.selectedCountries = serverList.slice();
+                    }
+                } catch (e) { console.warn('get_selected_countries', e); }
             }
+            if (!window.selectedCountries || !Array.isArray(window.selectedCountries)) window.selectedCountries = [];
             if (window.selectedCountries.length === 0) {
-                const select = document.getElementById('bank_country');
-                if (select && select.options) {
-                    for (let i = 0; i < select.options.length; i++) {
-                        const v = (select.options[i].value || '').trim();
-                        if (v && !window.selectedCountries.includes(v)) window.selectedCountries.push(v);
+                restoreSelectedCountriesFromStorage();
+                if (window.selectedCountries.length === 0) {
+                    const select = document.getElementById('bank_country');
+                    if (select && select.options) {
+                        for (let i = 0; i < select.options.length; i++) {
+                            const v = (select.options[i].value || '').trim();
+                            if (v && !window.selectedCountries.includes(v)) window.selectedCountries.push(v);
+                        }
                     }
                 }
             }
@@ -3619,27 +3642,34 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             document.querySelectorAll('input[name="available_countries"]').forEach(cb => cb.checked = false);
         }
 
-        function confirmCountries() {
+        async function confirmCountries() {
             const select = document.getElementById('bank_country');
             if (!select) { closeCountrySelectionModal(); return; }
-            // Dropdown shows only Selected countries, not Available.
+            const list = (window.selectedCountries || []).filter(function (name) { return (name || '').trim(); }).map(function (name) { return (name || '').trim(); });
             select.innerHTML = '';
             const opt0 = document.createElement('option');
             opt0.value = '';
             opt0.textContent = 'Select Country';
             select.appendChild(opt0);
-            (window.selectedCountries || []).forEach(function (name) {
-                const n = (name || '').trim();
-                if (!n) return;
+            list.forEach(function (name) {
                 const opt = document.createElement('option');
-                opt.value = n;
-                opt.textContent = n;
+                opt.value = name;
+                opt.textContent = name;
                 select.appendChild(opt);
             });
-            if (window.selectedCountries && window.selectedCountries.length > 0) {
-                select.value = window.selectedCountries[0] || '';
-            }
+            if (list.length > 0) select.value = list[0];
             persistSelectedCountriesToStorage();
+            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+            if (companyId && list.length >= 0) {
+                try {
+                    const fd = new FormData();
+                    fd.append('company_id', companyId);
+                    list.forEach(function (c) { fd.append('countries[]', c); });
+                    const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=save_selected_countries'), { method: 'POST', body: fd });
+                    const result = await res.json();
+                    if (!result.success) console.warn('save_selected_countries', result.error);
+                } catch (e) { console.warn('save_selected_countries', e); }
+            }
             closeCountrySelectionModal();
         }
 
