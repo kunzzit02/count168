@@ -936,25 +936,34 @@
             const countModal = document.getElementById('processAccountingInboxCountModal');
             if (countModal) countModal.textContent = String(postableCount);
             if (selectAllCb) { selectAllCb.checked = postableCount > 0; selectAllCb.disabled = postableCount === 0; }
+            const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
             if (count === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
                 if (postBtn) postBtn.disabled = true;
+                if (deleteBtn) deleteBtn.disabled = true;
+                const deleteSelectAll = document.getElementById('processAccountingInboxDeleteSelectAll');
+                if (deleteSelectAll) { deleteSelectAll.checked = false; deleteSelectAll.disabled = true; }
                 return;
             }
+            const deleteSelectAllEl = document.getElementById('processAccountingInboxDeleteSelectAll');
+            if (deleteSelectAllEl) { deleteSelectAllEl.checked = false; deleteSelectAllEl.disabled = false; }
             tbody.innerHTML = items.map((row, idx) => {
                 const name = (row.name || row.bank || '-');
                 const rowClass = row.already_posted_today ? ' class="process-accounting-inbox-row-posted"' : '';
                 const cbDisabled = row.already_posted_today ? ' disabled' : '';
                 const cbChecked = row.already_posted_today ? '' : ' checked';
                 const cbClass = 'process-accounting-inbox-row-cb';
+                const deleteCbClass = 'process-accounting-inbox-row-delete-cb';
                 const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_partial_first_month ? 'partial_first_month' : 'monthly');
                 const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
+                const deleteCbHtml = '<input type="checkbox" class="' + deleteCbClass + '" data-id="' + row.id + '" onchange="updateAccountingInboxDeleteButton()">';
                 const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
                 const contractRaw = (row.contract || '').toString().trim() || '-';
                 const contractDisplay = ({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw;
-                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(startDate) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.bank || '-') + '</td><td>' + escapeHtml(contractDisplay) + '</td></tr>';
+                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + deleteCbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(startDate) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.bank || '-') + '</td><td>' + escapeHtml(contractDisplay) + '</td></tr>';
             }).join('');
             updateAccountingInboxPostButton();
+            updateAccountingInboxDeleteButton();
             (function bindSelectAll() {
                 const selectAll = document.getElementById('processAccountingInboxSelectAll');
                 if (!selectAll || selectAll.onAccountingInboxBound) return;
@@ -964,6 +973,17 @@
                     const box = document.getElementById('processAccountingInboxTbody');
                     if (box) box.querySelectorAll('.process-accounting-inbox-row-cb:not([disabled])').forEach(cb => { cb.checked = checked; });
                     updateAccountingInboxPostButton();
+                });
+            })();
+            (function bindDeleteSelectAll() {
+                const deleteSelectAll = document.getElementById('processAccountingInboxDeleteSelectAll');
+                if (!deleteSelectAll || deleteSelectAll.onAccountingInboxDeleteBound) return;
+                deleteSelectAll.onAccountingInboxDeleteBound = true;
+                deleteSelectAll.addEventListener('change', function () {
+                    const checked = this.checked;
+                    const box = document.getElementById('processAccountingInboxTbody');
+                    if (box) box.querySelectorAll('.process-accounting-inbox-row-delete-cb').forEach(cb => { cb.checked = checked; });
+                    updateAccountingInboxDeleteButton();
                 });
             })();
         }
@@ -978,6 +998,55 @@
             if (selectAllCb && !selectAllCb.disabled) {
                 const postable = tbody.querySelectorAll('.process-accounting-inbox-row-cb:not([disabled])');
                 selectAllCb.checked = postable.length > 0 && postable.length === checked.length;
+            }
+        }
+        function updateAccountingInboxDeleteButton() {
+            const tbody = document.getElementById('processAccountingInboxTbody');
+            const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
+            const deleteSelectAllCb = document.getElementById('processAccountingInboxDeleteSelectAll');
+            if (!tbody || !deleteBtn) return;
+            const deleteCbs = tbody.querySelectorAll('.process-accounting-inbox-row-delete-cb');
+            const checked = tbody.querySelectorAll('.process-accounting-inbox-row-delete-cb:checked');
+            const count = checked.length;
+            deleteBtn.disabled = count === 0;
+            if (deleteSelectAllCb && !deleteSelectAllCb.disabled) {
+                deleteSelectAllCb.checked = deleteCbs.length > 0 && deleteCbs.length === checked.length;
+            }
+        }
+        async function deleteAccountingInboxSelected() {
+            const tbody = document.getElementById('processAccountingInboxTbody');
+            if (!tbody) return;
+            const checked = tbody.querySelectorAll('.process-accounting-inbox-row-delete-cb:checked');
+            const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id, 10)).filter(id => !isNaN(id));
+            if (ids.length === 0) {
+                showNotification('请至少选择一项要删除的流程。', 'warning');
+                return;
+            }
+            if (!confirm('确定删除所选 ' + ids.length + ' 项流程？')) return;
+            const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
+            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Deleting...'; }
+            try {
+                const body = { ids: ids };
+                if (selectedPermission === 'Bank') body.permission = 'Bank';
+                const response = await fetch(buildApiUrl('api/processes/delete_processes_api.php'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const result = await response.json();
+                if (result.success && result.data && typeof result.data.deleted === 'number') {
+                    showNotification(result.data.deleted === 1 ? '1 项已删除' : result.data.deleted + ' 项已删除', 'success');
+                    loadAccountingInbox();
+                    if (typeof loadProcesses === 'function') loadProcesses();
+                } else {
+                    const msg = result.message || result.error || (result.data && result.data.error) || '删除失败';
+                    showNotification(msg, 'danger');
+                }
+            } catch (err) {
+                console.error('Delete error:', err);
+                showNotification('删除失败: ' + (err.message || '网络错误'), 'danger');
+            } finally {
+                if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = 'Delete'; }
             }
         }
         function openAccountingDueModal() {
@@ -4587,6 +4656,10 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const accountingInboxPost = document.getElementById('processAccountingInboxPostBtn');
             if (accountingInboxPost) {
                 accountingInboxPost.addEventListener('click', () => postAccountingInboxToTransaction());
+            }
+            const accountingInboxDelete = document.getElementById('processAccountingInboxDeleteBtn');
+            if (accountingInboxDelete) {
+                accountingInboxDelete.addEventListener('click', () => deleteAccountingInboxSelected());
             }
             /* Accounting Due 弹窗：点击弹窗以外区域不关闭，仅通过 X 或 Cancel 关闭 */
         });
