@@ -3095,11 +3095,11 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // Normalize both values for comparison
-                const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct || '');
-                const normalizedIdProduct = normalizeIdProductText(idProduct || '');
+                // 方案 B：收紧匹配规则，按「完整 id_product」匹配（trim + 忽略大小写），避免不同子项（如 4DDMYMYR (T07) 与 AB4D55MYR (T38)）被当作同一行导致显示两行数据
+                const normalizedRowIdProduct = (rowIdProduct || '').trim().toUpperCase();
+                const normalizedIdProduct = (idProduct || '').trim().toUpperCase();
                 
-                if (normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct) {
+                if (normalizedRowIdProduct && normalizedIdProduct && normalizedRowIdProduct === normalizedIdProduct) {
                     // Create a separate row container for each matching row
                     const rowContainer = document.createElement('div');
                     rowContainer.className = 'formula-data-grid-row';
