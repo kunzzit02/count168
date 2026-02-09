@@ -267,7 +267,7 @@ $today = date('d/m/Y');
         window.MEMBER_ACCOUNT_NAME = <?php echo json_encode($accountName ?? ''); ?>;
         window.MEMBER_COMPANY_ID = <?php echo (int)$currentCompanyId; ?>;
     </script>
-    <script src="js/member.js?v=1"></script>
+    <script src="js/member.js?v=2"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </body>
 </html>
