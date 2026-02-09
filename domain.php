@@ -351,7 +351,7 @@ try {
         </div>
     </div>
 
-    <!-- 通知容器放在 body 末尾，配合 CSS z-index:99999 确保始终显示在所有弹窗前面 -->
-    <div id="notificationContainer" class="notification-container"></div>
+    <!-- 通知容器：内联 z-index 最高，确保压过所有弹窗（含 inline 10001~10003） -->
+    <div id="notificationContainer" class="notification-container" style="z-index: 2147483647;"></div>
 </body>
 </html>

@@ -841,7 +841,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function showAlert(message, type = 'success') {
     const container = document.getElementById('notificationContainer');
-    
+    if (!container) return;
+    // 每次显示通知时把容器移到 body 末尾，确保 DOM 顺序和堆叠顺序都在最前
+    document.body.appendChild(container);
+
     // 检查现有通知数量，最多保留2个
     const existingNotifications = container.querySelectorAll('.notification');
     if (existingNotifications.length >= 2) {
