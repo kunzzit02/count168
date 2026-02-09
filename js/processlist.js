@@ -2330,32 +2330,72 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         let currentEditAccountIdForBank = null;
 
         let bankAccountRoles = [];
-        /** Process List 的 Add Account 弹窗只用这 5 个 Role 选项（与 account-list 一致，但仅此 5 项） */
-        const BANK_ADD_ACCOUNT_ROLES = ['COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
+        /** Role 排序优先级（与 account-list 一致，Add Account 弹窗开放完整 Role 列表） */
+        const BANK_ROLE_PRIORITY = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
+
+        function getOrderedRolesBank(roles, includeStaff = true) {
+            const normalizedMap = new Map();
+            (roles || []).forEach(role => {
+                const trimmed = (role || '').trim();
+                if (!trimmed) return;
+                const upper = trimmed.toUpperCase();
+                if (!normalizedMap.has(upper)) {
+                    normalizedMap.set(upper, trimmed);
+                }
+            });
+            if (includeStaff) {
+                normalizedMap.set('STAFF', 'STAFF');
+            }
+            const orderedRoles = [];
+            BANK_ROLE_PRIORITY.forEach(role => {
+                if (normalizedMap.has(role)) {
+                    orderedRoles.push(normalizedMap.get(role));
+                    normalizedMap.delete(role);
+                }
+            });
+            const remaining = Array.from(normalizedMap.values()).sort((a, b) => a.localeCompare(b));
+            return orderedRoles.concat(remaining);
+        }
+
+        function populateRoleSelectBank(selectElement, roles, selectedRole = '', includeStaff = true) {
+            if (!selectElement) return;
+            const orderedRoles = getOrderedRolesBank(roles, includeStaff);
+            const selectedUpper = (selectedRole || '').toUpperCase();
+            selectElement.innerHTML = '<option value="">Select Role</option>';
+            orderedRoles.forEach(role => {
+                const opt = document.createElement('option');
+                opt.value = role;
+                opt.textContent = role;
+                if (selectedUpper && role.toUpperCase() === selectedUpper) opt.selected = true;
+                selectElement.appendChild(opt);
+            });
+            if (selectedUpper && !orderedRoles.some(r => r.toUpperCase() === selectedUpper)) {
+                const fallback = document.createElement('option');
+                fallback.value = selectedRole;
+                fallback.textContent = selectedRole;
+                fallback.selected = true;
+                selectElement.appendChild(fallback);
+            }
+        }
+
         async function loadEditDataBank() {
             try {
                 const res = await fetch(buildApiUrl('api/editdata/editdata_api.php'));
                 const result = await res.json();
                 if (!result.success) return;
-                bankAccountCurrencies = result.currencies || [];
-                bankAccountRoles = result.roles || [];
+                const data = result.data || result;
+                bankAccountCurrencies = data.currencies || [];
+                bankAccountRoles = data.roles || [];
                 const addRoleSelect = document.getElementById('add_role');
                 if (addRoleSelect) {
-                    addRoleSelect.innerHTML = '<option value="">Select Role</option>';
-                    const rolesForAdd = BANK_ADD_ACCOUNT_ROLES;
-                    rolesForAdd.forEach(code => {
-                        const opt = document.createElement('option');
-                        opt.value = code;
-                        opt.textContent = code;
-                        addRoleSelect.appendChild(opt);
-                    });
+                    populateRoleSelectBank(addRoleSelect, bankAccountRoles);
                 }
             } catch (e) {
                 console.error('loadEditDataBank', e);
                 const addRoleSelect = document.getElementById('add_role');
                 if (addRoleSelect) {
                     addRoleSelect.innerHTML = '<option value="">Select Role</option>';
-                    BANK_ADD_ACCOUNT_ROLES.forEach(code => {
+                    (bankAccountRoles.length > 0 ? getOrderedRolesBank(bankAccountRoles) : BANK_ROLE_PRIORITY).forEach(code => {
                         const opt = document.createElement('option');
                         opt.value = code;
                         opt.textContent = code;
@@ -3888,16 +3928,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 await loadEditDataBank();
                 const roleSelect = document.getElementById('edit_role');
                 if (roleSelect) {
-                    roleSelect.innerHTML = '<option value="">Select Role</option>';
-                    const roles = bankAccountRoles.length ? bankAccountRoles : BANK_ADD_ACCOUNT_ROLES;
-                    const accountRoleUpper = (account.role || '').trim().toUpperCase();
-                    roles.forEach(code => {
-                        const opt = document.createElement('option');
-                        opt.value = code;
-                        opt.textContent = code;
-                        if (String(code).toUpperCase() === accountRoleUpper) opt.selected = true;
-                        roleSelect.appendChild(opt);
-                    });
+                    populateRoleSelectBank(roleSelect, bankAccountRoles, account.role || '');
                 }
                 await loadAccountCurrenciesBank(accountId, 'edit');
                 await loadAccountCompaniesBank(accountId, 'edit');
