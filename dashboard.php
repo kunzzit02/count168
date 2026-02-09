@@ -54,6 +54,23 @@ if (isset($_SESSION['user_id'])) {
         }
     }
 
+    // 先处理 logout（member 也会通过 sidebar 跳转到 dashboard.php?logout=1，必须在此处理后再重定向）
+    if (isset($_GET['logout'])) {
+        if (isset($_SESSION['user_id'])) {
+            try {
+                $stmt = $pdo->prepare("UPDATE user SET remember_token = NULL, remember_token_expires = NULL WHERE id = ?");
+                $stmt->execute([$_SESSION['user_id']]);
+            } catch (PDOException $e) { /* user 表可能无此字段，member 从 account 登录 */ }
+        }
+        session_unset();
+        session_destroy();
+        if (isset($_COOKIE['remember_token'])) {
+            setcookie('remember_token', '', time() - 3600, "/", "", false, true);
+        }
+        header("Location: index.php");
+        exit();
+    }
+
     // member 不显示 Home 页，只显示 Win/Loss：访问 dashboard 时重定向到 member.php
     if (isset($_SESSION['user_type']) && strtolower($_SESSION['user_type']) === 'member') {
         header("Location: member.php");
@@ -94,28 +111,6 @@ $userData = [
 
 // 权限检查
 $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
-
-// 处理logout请求
-if (isset($_GET['logout'])) {
-    // 清除数据库中的remember token
-    if (isset($_SESSION['user_id'])) {
-        $stmt = $pdo->prepare("UPDATE user SET remember_token = NULL, remember_token_expires = NULL WHERE id = ?");
-        $stmt->execute([$_SESSION['user_id']]);
-    }
-    
-    // 清除session
-    session_unset();
-    session_destroy();
-    
-    // 清除所有相关cookies
-    if (isset($_COOKIE['remember_token'])) {
-        setcookie('remember_token', '', time() - 3600, "/", "", false, true);
-    }
-    
-    // 重定向到登录页
-    header("Location: index.php");
-    exit();
-}
 ?>
 
 <!DOCTYPE html>
