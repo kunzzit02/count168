@@ -441,6 +441,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                             <th class="transaction-history-col-product">Id Product</th>
                             <th class="transaction-history-col-currency">Currency</th>
                             <th class="transaction-history-col-rate">Rate</th>
+                            <th class="transaction-history-col-winloss">Win/Loss</th>
                             <th class="transaction-history-col-crdr">Cr/Dr</th>
                             <th class="transaction-history-col-balance">Balance</th>
                             <?php if ($useDescriptionColumn): ?>
