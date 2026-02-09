@@ -577,7 +577,7 @@ function updatePermissionDisplay() {
     // 确保 Expiration Date 所在整块区域保持显示（避免被误隐藏）
     const expDateBlock = displayEl.closest('.form-group');
     if (expDateBlock) expDateBlock.style.display = '';
-    // 确保 Expiration Date 显示与当前公司一致，避免因权限切换导致消失或清空
+    // 确保 Expiration Date 显示与当前公司一致；新增/移除 permission 时不清除已有到期日显示
     if (company.expiration_date) {
         displayEl.textContent = formatDate(company.expiration_date);
         displayEl.style.color = '#1e293b';
@@ -592,8 +592,13 @@ function updatePermissionDisplay() {
             displayEl.textContent = formatDate(expDate);
             displayEl.style.color = '#1e293b';
         } else {
-            displayEl.textContent = 'Not set';
-            displayEl.style.color = '#94a3b8';
+            // 仅当当前显示不是“日期”时才改为 Not set，避免勾选/取消 permission 时清除用户已选的到期日
+            const currentText = (displayEl.textContent || '').trim();
+            const looksLikeDate = /^\d{4}[\/\-]\d|^[A-Za-z]{3,}\s+\d{1,2},?\s+\d{4}$|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(currentText) || (currentText !== '' && currentText !== 'Not set');
+            if (!looksLikeDate) {
+                displayEl.textContent = 'Not set';
+                displayEl.style.color = '#94a3b8';
+            }
         }
     }
 }
