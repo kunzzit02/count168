@@ -586,6 +586,13 @@ try {
                 
         }
         
+        // Bank process 的 WIN/LOSE：History 中金额显示在 Win/Loss 列（与主表一致），Cr/Dr 显示 0
+        $isBankProcessTransaction = $has_source_bank_process_id && !empty($t['source_bank_process_id']);
+        if ($isBankProcessTransaction && in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
+            $win_loss = $cr_dr;
+            $cr_dr = 0;
+        }
+        
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
@@ -687,7 +694,6 @@ try {
         }
         
         // Bank process 历史中 Id Product 列显示 Add Process 的 Name（bank_process.name）；仅 bank process 交易显示 card_owner，其余显示 id product
-        $isBankProcessTransaction = $has_source_bank_process_id && !empty($t['source_bank_process_id']);
         $cardOwner = ($has_source_bank_process_id && !empty($t['bank_process_name'])) ? trim($t['bank_process_name']) : (($has_source_bank_process_id && !empty($t['card_owner_name'])) ? trim($t['card_owner_name']) : '-');
         
         $events[] = [
