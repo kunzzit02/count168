@@ -3069,6 +3069,39 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             if (!accountButton || !accountDropdown || !searchInput || !optionsContainer) return;
 
             let isOpen = false;
+            let dropdownOriginalParent = null;
+            let dropdownOriginalNextSibling = null;
+            const isInBankModal = accountDropdown.closest('#addBankModal');
+
+            function moveDropdownToBody() {
+                if (!isInBankModal) return;
+                const rect = accountButton.getBoundingClientRect();
+                dropdownOriginalParent = accountDropdown.parentNode;
+                dropdownOriginalNextSibling = accountDropdown.nextSibling;
+                document.body.appendChild(accountDropdown);
+                accountDropdown.style.position = 'fixed';
+                accountDropdown.style.left = rect.left + 'px';
+                accountDropdown.style.top = (rect.bottom + 2) + 'px';
+                accountDropdown.style.width = Math.max(rect.width, 220) + 'px';
+                accountDropdown.style.minWidth = Math.max(rect.width, 220) + 'px';
+                accountDropdown.style.zIndex = '10001';
+            }
+            function restoreDropdownToModal() {
+                if (!isInBankModal || !dropdownOriginalParent) return;
+                if (dropdownOriginalNextSibling) {
+                    dropdownOriginalParent.insertBefore(accountDropdown, dropdownOriginalNextSibling);
+                } else {
+                    dropdownOriginalParent.appendChild(accountDropdown);
+                }
+                accountDropdown.style.position = '';
+                accountDropdown.style.left = '';
+                accountDropdown.style.top = '';
+                accountDropdown.style.width = '';
+                accountDropdown.style.minWidth = '';
+                accountDropdown.style.zIndex = '';
+                dropdownOriginalParent = null;
+                dropdownOriginalNextSibling = null;
+            }
 
             // Load accounts into dropdown（API 已按 role 过滤为 company/staff/upline/agent/member，四类下拉共用同一列表与顺序）
             const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
@@ -3087,6 +3120,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     selectOpt.addEventListener('click', () => {
                         accountButton.textContent = placeholderText;
                         accountButton.setAttribute('data-value', '');
+                        restoreDropdownToModal();
                         accountDropdown.style.display = 'none';
                         isOpen = false;
                         updateBankAddButtonTitles();
@@ -3124,6 +3158,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                         option.addEventListener('click', () => {
                             accountButton.textContent = getDisplayText(account);
                             accountButton.setAttribute('data-value', account.id);
+                            restoreDropdownToModal();
                             accountDropdown.style.display = 'none';
                             isOpen = false;
                             updateBankAddButtonTitles();
@@ -3146,6 +3181,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             accountButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (isOpen) {
+                    restoreDropdownToModal();
                     accountDropdown.style.display = 'none';
                     accountDropdown.classList.remove('custom-select-dropdown-above');
                     isOpen = false;
@@ -3155,11 +3191,13 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     searchInput.value = '';
                     loadAccounts();
                     searchInput.focus();
+                    // 在 Bank 弹窗内时挂到 body 用 fixed 定位，完整溢出弹窗显示
+                    moveDropdownToBody();
                     const rect = accountButton.getBoundingClientRect();
                     const spaceBelow = window.innerHeight - rect.bottom - 24;
                     const spaceAbove = rect.top - 24;
                     const searchHeight = 50;
-                    const useAbove = spaceBelow < 280 && spaceAbove > spaceBelow;
+                    const useAbove = !isInBankModal && spaceBelow < 280 && spaceAbove > spaceBelow;
                     if (useAbove) {
                         accountDropdown.classList.add('custom-select-dropdown-above');
                         const maxOpt = Math.max(200, Math.min(320, spaceAbove - searchHeight));
@@ -3177,6 +3215,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             // Close on outside click
             document.addEventListener('click', (e) => {
                 if (!accountButton.contains(e.target) && !accountDropdown.contains(e.target)) {
+                    restoreDropdownToModal();
                     accountDropdown.style.display = 'none';
                     accountDropdown.classList.remove('custom-select-dropdown-above');
                     isOpen = false;
