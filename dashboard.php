@@ -53,6 +53,12 @@ if (isset($_SESSION['user_id'])) {
             exit();
         }
     }
+
+    // member 不显示 Home 页，只显示 Win/Loss：访问 dashboard 时重定向到 member.php
+    if (isset($_SESSION['user_type']) && strtolower($_SESSION['user_type']) === 'member') {
+        header("Location: member.php");
+        exit();
+    }
     
     // 更新活动时间戳
     $_SESSION['last_activity'] = time();
