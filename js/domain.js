@@ -302,14 +302,12 @@ function setupInputFormatting() {
 function openCompanyModal() {
     // 复制当前选中的companies到临时列表（深拷贝）
     tempCompanies = selectedCompanies.map(c => ({ ...c }));
-    // 重置所有公司的selectedPeriod，这样下拉框会显示"Period"
-    // 同时保存原始到期日期，这样每次选择period时都从原始日期开始计算
+    // 保留已有到期日的 selectedPeriod（用于再次打开 Set 时下拉框显示正确），无到期日则 null
     tempCompanies.forEach(company => {
-        company.selectedPeriod = null;
-        company.originalExpirationDate = company.expiration_date || null; // 保存原始到期日期
-        // 初始化开始日期：如果已有到期日期，说明是续上时间，不能修改开始日期；否则可以修改
-        company.startDate = company.expiration_date ? null : new Date().toISOString().split('T')[0]; // YYYY-MM-DD格式
-        company.isExtending = company.expiration_date ? true : false; // 标记是否为续上时间
+        company.originalExpirationDate = company.expiration_date || null;
+        company.selectedPeriod = company.expiration_date ? getPeriodFromDate(company.expiration_date) : null;
+        company.startDate = company.expiration_date ? null : new Date().toISOString().split('T')[0];
+        company.isExtending = company.expiration_date ? true : false;
     });
     updateCompanyDisplay();
     document.getElementById('companyModal').style.display = 'block';
@@ -637,10 +635,10 @@ function saveCompanyExpDate() {
         company.expiration_date = expDate;
         company.selectedPeriod = period;
     } else {
-        // 如果没有选择 period，清空到期日期相关设置
-        company.expiration_date = null;
-        company.selectedPeriod = null;
-        // 如果不是续上时间，可以更新开始日期
+        // 未选 period 时：只更新权限等，不清空已有到期日（避免仅添加/移除 permission 保存后 Expiration Date 消失）
+        if (!company.expiration_date) {
+            company.selectedPeriod = null;
+        }
         if (!company.isExtending && startDate) {
             company.startDate = startDate;
         }
