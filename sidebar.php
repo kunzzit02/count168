@@ -388,9 +388,9 @@ if ($companyId) {
             </div>
             <?php endif; ?>
 
-            <!-- Data Capture Section：用户有 datacapture 权限时输出，无 Gambling 时用 class 隐藏，切换公司后由 JS 立即显示/隐藏 -->
-            <?php if (empty($permissions) || in_array('datacapture', $permissions)): ?>
-            <div class="informationmenu-section <?php echo $companyHasGambling ? '' : 'sidebar-datacapture-hidden'; ?>" id="sidebar-datacapture-section">
+            <!-- Data Capture Section：仅当用户有 datacapture 权限且当前公司有 Gambling 权限时显示 -->
+            <?php if ((empty($permissions) || in_array('datacapture', $permissions)) && $companyHasGambling): ?>
+            <div class="informationmenu-section">
                 <div class="informationmenu-section-title" data-page="datacapture.php" onclick="window.location.href='datacapture.php'">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>

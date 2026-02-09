@@ -1502,9 +1502,6 @@ async function switchCompany(companyId, companyCode) {
         if (!result.success) {
                 throw new Error(result.error || '更新 session 失败');
         }
-        if (result.data && typeof result.data.has_gambling !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('companyChanged', { detail: { hasGambling: result.data.has_gambling === true } }));
-        }
     } catch (error) {
             if (error.name === 'AbortError') {
                 console.error('更新 session 超时');
