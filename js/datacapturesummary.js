@@ -5745,6 +5745,9 @@ function getCurrentProcessId() {
             if (inputMethodSelect) {
                 inputMethodSelect.addEventListener('change', function() {
                     recalculateProcessedAmountInForm();
+                    if (typeof updateEditFormulaSaveButtonState === 'function') {
+                        updateEditFormulaSaveButtonState();
+                    }
                 });
             }
             
@@ -6704,8 +6707,10 @@ function getCurrentProcessId() {
                 sourcePercentValue = '1';
             }
             const inputMethodSelect = document.getElementById('inputMethod');
-            const inputMethodValue = inputMethodSelect.value;
-            const inputMethodName = inputMethodSelect.options[inputMethodSelect.selectedIndex].text;
+            const inputMethodValue = (inputMethodSelect && inputMethodSelect.value != null) ? String(inputMethodSelect.value).trim() : '';
+            const inputMethodOpt = inputMethodSelect && inputMethodSelect.selectedIndex >= 0 && inputMethodSelect.options[inputMethodSelect.selectedIndex]
+                ? inputMethodSelect.options[inputMethodSelect.selectedIndex] : null;
+            const inputMethodName = (inputMethodOpt && inputMethodOpt.text) ? String(inputMethodOpt.text).trim() : '';
             if (formulaInput) {
                 console.log('saveFormula - Formula value read from input:', formulaInput.value, 'Type:', typeof formulaInput.value);
             }
