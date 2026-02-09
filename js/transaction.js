@@ -2454,12 +2454,12 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
                         ? `<td class="transaction-history-col-description text-uppercase">${descriptionDisplay}</td>
                            <td class="transaction-history-col-remark text-uppercase">${remarkValue}</td>`
                         : `<td class="transaction-history-col-remark text-uppercase">${remarkValue}</td>`;
-                    // Bank process 历史：显示 Card Owner，不显示 Id Product / Win-Loss / Profit
-                    const cardOwnerDisplay = row.card_owner != null && row.card_owner !== '' ? row.card_owner : (row.product || '-');
+                    // Id Product 列：仅 bank process 交易由 API 返回 card owner 到 product；contra/其他/Data Capture 均为 product（id product）
+                    const idProductDisplay = row.product != null && row.product !== '' ? row.product : '-';
                     
                     tr.innerHTML = `
                         <td class="transaction-history-col-date">${row.date}</td>
-                        <td class="transaction-history-col-product">${String(cardOwnerDisplay).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</td>
+                        <td class="transaction-history-col-product">${String(idProductDisplay).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</td>
                         <td class="transaction-history-col-currency">${row.currency || '-'}</td>
                         <td class="transaction-history-col-rate">${row.rate || '-'}</td>
                         <td class="transaction-history-col-crdr">${crDr}</td>
