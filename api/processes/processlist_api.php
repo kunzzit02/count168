@@ -144,6 +144,12 @@ switch ($action) {
     case 'save_country_banks':
         saveCountryBanks();
         break;
+    case 'get_selected_countries':
+        getSelectedCountries();
+        break;
+    case 'save_selected_countries':
+        saveSelectedCountries();
+        break;
     default:
         getProcesses();
         break;
@@ -919,6 +925,103 @@ function saveCountryBanks() {
         jsonResponse(true, 'Saved', null);
     } catch (Exception $e) {
         error_log("saveCountryBanks: " . $e->getMessage());
+        jsonResponse(false, $e->getMessage(), null);
+    }
+}
+
+/**
+ * 获取该公司在下拉中显示的已选 Country 列表（持久化，登出/换设备后仍保持）
+ */
+function getSelectedCountries() {
+    global $pdo;
+    try {
+        $companyId = isset($_GET['company_id']) && $_GET['company_id'] !== '' ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
+        if (!$companyId) {
+            jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
+            return;
+        }
+        $tableExists = false;
+        try {
+            $chk = $pdo->query("SHOW TABLES LIKE 'company_selected_countries'");
+            $tableExists = $chk && $chk->rowCount() > 0;
+        } catch (Throwable $e) { /* ignore */ }
+        if (!$tableExists) {
+            jsonResponse(true, '', []);
+            return;
+        }
+        $stmt = $pdo->prepare("SELECT country FROM company_selected_countries WHERE company_id = ? ORDER BY sort_order ASC, country ASC");
+        $stmt->execute([$companyId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        jsonResponse(true, '', array_values($rows));
+    } catch (Exception $e) {
+        error_log("getSelectedCountries: " . $e->getMessage());
+        jsonResponse(false, $e->getMessage(), []);
+    }
+}
+
+/**
+ * 保存该公司在下拉中显示的已选 Country 列表（持久化）
+ */
+function saveSelectedCountries() {
+    global $pdo;
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        jsonResponse(false, 'Method not allowed', null);
+        return;
+    }
+    try {
+        $companyId = isset($_POST['company_id']) && $_POST['company_id'] !== '' ? (int)$_POST['company_id'] : ($_SESSION['company_id'] ?? null);
+        if (!$companyId) {
+            jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
+            return;
+        }
+        $countries = isset($_POST['countries']) ? $_POST['countries'] : [];
+        if (!is_array($countries)) $countries = [];
+        $countries = array_values(array_unique(array_filter(array_map(function ($c) {
+            return trim((string)$c);
+        }, $countries))));
+
+        try {
+            $chk = $pdo->query("SHOW TABLES LIKE 'company_selected_countries'");
+            if (!$chk || $chk->rowCount() === 0) {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS company_selected_countries (
+                    company_id INT UNSIGNED NOT NULL,
+                    country VARCHAR(100) NOT NULL,
+                    sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+                    PRIMARY KEY (company_id, country),
+                    INDEX idx_company_selected_countries_company (company_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            }
+        } catch (Throwable $e) {
+            error_log("saveSelectedCountries create table: " . $e->getMessage());
+            jsonResponse(false, 'Database error', null);
+            return;
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $del = $pdo->prepare("DELETE FROM company_selected_countries WHERE company_id = ?");
+            $del->execute([$companyId]);
+            $ins = $pdo->prepare("INSERT IGNORE INTO company_selected_countries (company_id, country, sort_order) VALUES (?, ?, ?)");
+            foreach ($countries as $i => $country) {
+                if ($country === '') continue;
+                $ins->execute([$companyId, $country, $i]);
+            }
+            $pdo->commit();
+            jsonResponse(true, 'Saved', null);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    } catch (Exception $e) {
+        error_log("saveSelectedCountries: " . $e->getMessage());
         jsonResponse(false, $e->getMessage(), null);
     }
 }
