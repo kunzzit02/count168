@@ -833,6 +833,13 @@
 #addBankModal .custom-select-wrapper {
     position: relative;
 }
+/* Bank 弹窗内 Supplier/Customer/Company 下拉：选项区尽量占满视口，减少滚动 */
+#addBankModal .custom-select-dropdown {
+    max-height: min(500px, 85vh) !important;
+}
+#addBankModal .custom-select-options {
+    max-height: min(460px, 80vh) !important;
+}
 
 /* Add Account 弹窗优先级最高，在 Add Profit Sharing 之上显示（从 Profit Sharing 内点击 + 时） */
 #addAccountModal {
