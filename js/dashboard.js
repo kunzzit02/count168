@@ -1529,15 +1529,15 @@ async function switchCompany(companyId, companyCode) {
     
     console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
     
-    // 切换公司后默认选 MYR，并重新加载币别列表
+    // 切换公司后刷新页面，使侧栏根据新 session 重新渲染（选 C168 时显示 Domain / Announcement）
+    window.location.reload();
+    return;
+    
+    // 以下在 reload 后由页面重新加载时执行
     window.dashboardCurrency = 'MYR';
     await loadCurrencies();
-        
-        // 重置上次请求参数，允许重新加载
-        lastRequestParams = null;
-    
-    // 重新加载数据
-    await loadData(true); // 切换公司时立即执行
+    lastRequestParams = null;
+    await loadData(true);
     } catch (error) {
         console.error('切换公司失败:', error);
         showError('Error switching company');
