@@ -1076,6 +1076,9 @@
         // 切换流程状态
         async function toggleProcessStatus(processId, currentStatus) {
             try {
+                if (selectedPermission === 'Bank' && (currentStatus || '').toLowerCase() === 'active') {
+                    if (!confirm('确定将此 Bank Process 切换为 Inactive？')) return;
+                }
                 const formData = new FormData();
                 formData.append('id', processId);
                 if (selectedPermission === 'Bank') {
