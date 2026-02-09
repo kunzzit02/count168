@@ -565,10 +565,35 @@ function loadCompanyPermissions(companyId) {
     });
 }
 
-// 更新权限显示
+// 更新权限显示（勾选/取消 permission 时保持 Expiration Date 区域可见且内容不丢失）
 function updatePermissionDisplay() {
-    // 这个函数可以用于更新权限相关的UI显示
-    // 目前主要用于触发样式更新
+    if (!currentEditingCompanyId) return;
+    const company = tempCompanies.find(c => c.company_id === currentEditingCompanyId);
+    if (!company) return;
+    const displayEl = document.getElementById('expDateDisplay');
+    if (!displayEl) return;
+    // 确保 Expiration Date 所在整块区域保持显示（避免被误隐藏）
+    const expDateBlock = displayEl.closest('.form-group');
+    if (expDateBlock) expDateBlock.style.display = '';
+    // 确保 Expiration Date 显示与当前公司一致，避免因权限切换导致消失或清空
+    if (company.expiration_date) {
+        displayEl.textContent = formatDate(company.expiration_date);
+        displayEl.style.color = '#1e293b';
+    } else {
+        const periodEl = document.getElementById('expDatePeriod');
+        const period = periodEl ? periodEl.value : '';
+        if (period) {
+            const startDateEl = document.getElementById('expDateStartDate');
+            const startDate = startDateEl ? startDateEl.value : '';
+            const baseDate = company.isExtending ? (company.originalExpirationDate || null) : (startDate || new Date().toISOString().split('T')[0]);
+            const expDate = calculateExpirationDate(period, baseDate);
+            displayEl.textContent = formatDate(expDate);
+            displayEl.style.color = '#1e293b';
+        } else {
+            displayEl.textContent = 'Not set';
+            displayEl.style.color = '#94a3b8';
+        }
+    }
 }
 
 // 保存到期日期设置
