@@ -756,6 +756,13 @@
  .custom-select-dropdown.show {
     display: block;
 }
+/* 下方空间不足时下拉在按钮上方展开，避免 Company 等靠下字段被遮挡 */
+ .custom-select-dropdown.custom-select-dropdown-above {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 2px;
+}
  .custom-select-search {
     padding: 8px;
     border-bottom: 1px solid #eee;

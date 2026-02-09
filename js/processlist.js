@@ -3147,6 +3147,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 e.stopPropagation();
                 if (isOpen) {
                     accountDropdown.style.display = 'none';
+                    accountDropdown.classList.remove('custom-select-dropdown-above');
                     isOpen = false;
                 } else {
                     accountDropdown.style.display = 'block';
@@ -3154,13 +3155,22 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     searchInput.value = '';
                     loadAccounts();
                     searchInput.focus();
-                    // 选项区高度：在视口内且不超过上限，避免下拉过长
                     const rect = accountButton.getBoundingClientRect();
                     const spaceBelow = window.innerHeight - rect.bottom - 24;
+                    const spaceAbove = rect.top - 24;
                     const searchHeight = 50;
-                    const maxOpt = Math.max(200, Math.min(320, spaceBelow - searchHeight));
-                    if (optionsContainer) optionsContainer.style.maxHeight = maxOpt + 'px';
-                    accountDropdown.style.maxHeight = (maxOpt + searchHeight + 16) + 'px';
+                    const useAbove = spaceBelow < 280 && spaceAbove > spaceBelow;
+                    if (useAbove) {
+                        accountDropdown.classList.add('custom-select-dropdown-above');
+                        const maxOpt = Math.max(200, Math.min(320, spaceAbove - searchHeight));
+                        if (optionsContainer) optionsContainer.style.maxHeight = maxOpt + 'px';
+                        accountDropdown.style.maxHeight = (maxOpt + searchHeight + 16) + 'px';
+                    } else {
+                        accountDropdown.classList.remove('custom-select-dropdown-above');
+                        const maxOpt = Math.max(200, Math.min(320, spaceBelow - searchHeight));
+                        if (optionsContainer) optionsContainer.style.maxHeight = maxOpt + 'px';
+                        accountDropdown.style.maxHeight = (maxOpt + searchHeight + 16) + 'px';
+                    }
                 }
             });
 
@@ -3168,6 +3178,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             document.addEventListener('click', (e) => {
                 if (!accountButton.contains(e.target) && !accountDropdown.contains(e.target)) {
                     accountDropdown.style.display = 'none';
+                    accountDropdown.classList.remove('custom-select-dropdown-above');
                     isOpen = false;
                 }
             });
