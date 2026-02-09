@@ -2346,6 +2346,15 @@ function getCurrentProcessId() {
         // preferredCurrency: 可选，已设置的货币（code 如 "JPY" 或 currency_id），优先选中该项，不强制默认 MYR
         async function loadCurrenciesForAccount(accountId, preferredCurrency) {
             try {
+                // 兜底：编辑已有行时若调用方未传 preferredCurrency，从当前编辑行取已设置的货币，避免被默认 MYR 覆盖
+                if ((preferredCurrency == null || String(preferredCurrency).trim() === '') && window.isEditMode && window.currentEditRow) {
+                    const cells = window.currentEditRow.querySelectorAll('td');
+                    const rowAccountId = cells[1] && cells[1].getAttribute('data-account-id');
+                    if (rowAccountId && String(accountId) === String(rowAccountId) && cells[3]) {
+                        const fromRow = cells[3].getAttribute('data-currency-id') || cells[3].textContent.trim().replace(/[()]/g, '') || '';
+                        if (fromRow) preferredCurrency = String(fromRow).trim();
+                    }
+                }
                 console.log('Loading currencies for account:', accountId, 'preferredCurrency:', preferredCurrency);
                 
                 const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
