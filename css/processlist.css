@@ -496,6 +496,14 @@
     opacity: 0.7;
     cursor: not-allowed;
 }
+/* Bank Add Process 必填未填时红框 */
+#addBankModal .bank-field-error,
+#addBankModal .bank-select.bank-field-error,
+#addBankModal .bank-input.bank-field-error,
+#addBankModal .custom-select-button.bank-field-error {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+}
  /* Bank Modal Styles - Separate from Gambling modal */
 .bank-modal .bank-modal-content {
     max-width: 1000px;

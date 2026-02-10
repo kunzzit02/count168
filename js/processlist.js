@@ -399,6 +399,7 @@
                     applySelectedBanksToDropdown(countryEl ? countryEl.value : '');
                     renderSelectedProfitSharing();
                     document.getElementById('addBankModal').style.display = 'block';
+                    if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
                     updateBankSubmitButtonState();
                 });
             } else {
@@ -607,6 +608,7 @@
                 renderSelectedProfitSharing();
                 updateBankSubmitButtonState();
                 if (typeof updateBankProfitDisplay === 'function') updateBankProfitDisplay();
+                if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
                 document.getElementById('addBankModal').style.display = 'block';
             } catch (error) {
                 console.error('Error opening bank edit modal:', error);
@@ -2116,11 +2118,63 @@
             });
         }
 
+        // Bank Add Process 必填项未填时显示红框
+        var bankRequiredFieldIds = ['bank_country', 'bank_bank', 'bank_type', 'bank_name', 'bank_cost', 'bank_price', 'bank_contract', 'bank_card_merchant', 'bank_customer', 'bank_profit_account'];
+        function clearBankFieldErrors() {
+            bankRequiredFieldIds.forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.classList.remove('bank-field-error');
+            });
+        }
+        function markBankRequiredErrors() {
+            clearBankFieldErrors();
+            var country = (document.getElementById('bank_country') && document.getElementById('bank_country').value || '').trim();
+            var bank = (document.getElementById('bank_bank') && document.getElementById('bank_bank').value || '').trim();
+            var type = (document.getElementById('bank_type') && document.getElementById('bank_type').value || '').trim();
+            var name = (document.getElementById('bank_name') && document.getElementById('bank_name').value || '').trim();
+            var cost = (document.getElementById('bank_cost') && document.getElementById('bank_cost').value || '').trim();
+            var price = (document.getElementById('bank_price') && document.getElementById('bank_price').value || '').trim();
+            var contract = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value || '').trim();
+            var cardMerchantBtn = document.getElementById('bank_card_merchant');
+            var customerBtn = document.getElementById('bank_customer');
+            var profitAccountBtn = document.getElementById('bank_profit_account');
+            var cardMerchant = cardMerchantBtn && cardMerchantBtn.getAttribute('data-value');
+            var customer = customerBtn && customerBtn.getAttribute('data-value');
+            var profitAccount = profitAccountBtn && profitAccountBtn.getAttribute('data-value');
+            var hasError = false;
+            if (!country) { var el = document.getElementById('bank_country'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
+            if (!bank) { var el = document.getElementById('bank_bank'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
+            if (!type) { var el = document.getElementById('bank_type'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
+            if (!name) { var el = document.getElementById('bank_name'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
+            if (!cost) { var el = document.getElementById('bank_cost'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
+            if (!price) { var el = document.getElementById('bank_price'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
+            if (!contract) { var el = document.getElementById('bank_contract'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
+            if (!cardMerchant && cardMerchantBtn) { cardMerchantBtn.classList.add('bank-field-error'); hasError = true; }
+            if (!customer && customerBtn) { customerBtn.classList.add('bank-field-error'); hasError = true; }
+            if (!profitAccount && profitAccountBtn) { profitAccountBtn.classList.add('bank-field-error'); hasError = true; }
+            return hasError;
+        }
+        function bindBankFieldErrorClear() {
+            bankRequiredFieldIds.forEach(function (id) {
+                var el = document.getElementById(id);
+                if (!el || el._bankErrorBound) return;
+                el._bankErrorBound = true;
+                el.addEventListener('input', function () { this.classList.remove('bank-field-error'); });
+                el.addEventListener('change', function () { this.classList.remove('bank-field-error'); });
+            });
+        }
+
         // 处理 Bank Add/Edit Process 表单提交（Edit 时走 update_process）
         const addBankProcessForm = document.getElementById('addBankProcessForm');
         if (addBankProcessForm) {
+            bindBankFieldErrorClear();
             addBankProcessForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
+                if (markBankRequiredErrors()) {
+                    showNotification('Please fill in all required fields. Only Insurance and Profit Sharing are optional.', 'danger');
+                    return;
+                }
+                clearBankFieldErrors();
                 const country = (document.getElementById('bank_country') && document.getElementById('bank_country').value || '').trim();
                 const bank = (document.getElementById('bank_bank') && document.getElementById('bank_bank').value || '').trim();
                 const type = (document.getElementById('bank_type') && document.getElementById('bank_type').value || '').trim();
@@ -2135,7 +2189,6 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const customer = customerBtn && customerBtn.getAttribute('data-value');
             const profitAccount = profitAccountBtn && profitAccountBtn.getAttribute('data-value');
             if (!country || !bank || !type || !name || !cost || !price || !contract || !cardMerchant || !customer || !profitAccount) {
-                    showNotification('Please fill in all required fields. Only Insurance and Profit Sharing are optional.', 'danger');
                     return;
                 }
                 const editId = document.getElementById('bank_edit_id').value;
@@ -3261,6 +3314,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                         option.addEventListener('click', () => {
                             accountButton.textContent = getDisplayText(account);
                             accountButton.setAttribute('data-value', account.id);
+                            accountButton.classList.remove('bank-field-error');
                             closeThisDropdown();
                             updateBankAddButtonTitles();
                             if (typeof updateBankSubmitButtonState === 'function') updateBankSubmitButtonState();
