@@ -13206,7 +13206,12 @@ function findSummaryRowByIdProduct(idProduct) {
         const productValues = getProductValuesFromCell(idProductCell);
         const mainCellText = normalizeIdProductText(productValues.main || '');
         const subCellText = normalizeIdProductText(productValues.sub || '');
-        if (mainCellText === desired || subCellText === desired) {
+        const mainRaw = (productValues.main || '').trim();
+        const subRaw = (productValues.sub || '').trim();
+        const mainMatch = mainCellText === desired || subCellText === desired
+            || (desired && mainRaw.indexOf(' - ') >= 0 && (mainRaw === desired || mainRaw.startsWith(desired + ' ') || mainRaw.startsWith(desired + '(')));
+        const subMatch = desired && subRaw.indexOf(' - ') >= 0 && (subRaw === desired || subRaw.startsWith(desired + ' ') || subRaw.startsWith(desired + '('));
+        if (mainMatch || subMatch) {
             return row;
         }
     }
@@ -13366,13 +13371,21 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         // But use normalized version to find the row in the table
         // IMPORTANT: Use original full idProduct value (from normalizedIdMap) when applying templates
         // to preserve complete text (e.g., "AG(AGIN) - OP7AUD=SLOT" instead of just "AG")
+        // 兼容：API 可能用短 id（如 G8:GAMEPLAY）作 key，行 id 为完整串；用 templateKey 匹配「行 id 以 templateKey 开头」的项
         uniqueIds.forEach(normalizedIdProduct => {
-            if (templates[normalizedIdProduct]) {
-                // Get the original full idProduct value from the map
-                const originalIdProduct = normalizedIdMap.get(normalizedIdProduct) || normalizedIdProduct;
-                
+            let template = templates[normalizedIdProduct];
+            let originalIdProduct = normalizedIdMap.get(normalizedIdProduct) || normalizedIdProduct;
+            if (!template && normalizedIdProduct.indexOf(' - ') >= 0) {
+                for (const templateKey of Object.keys(templates)) {
+                    if (templateKey === normalizedIdProduct || normalizedIdProduct.startsWith(templateKey + ' ') || normalizedIdProduct.startsWith(templateKey + '(')) {
+                        template = templates[templateKey];
+                        originalIdProduct = normalizedIdMap.get(normalizedIdProduct) || normalizedIdProduct;
+                        break;
+                    }
+                }
+            }
+            if (template) {
                 // Check if there are multiple main templates for the same id_product (different accounts)
-                const template = templates[normalizedIdProduct];
                 if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
                     // Sort templates by row_index to apply them in the correct order
                     const sortedTemplates = [...template.allMains].sort((a, b) => {
@@ -14025,6 +14038,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const templateId = mainTemplate.id ? String(mainTemplate.id) : null;
 
         // Collect all matching rows (same id_product)
+        // 兼容：模板 id 可能为短 id（如 G8:GAMEPLAY），行 id 为完整串（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)），用相等或「完整 id 以短 id 开头」匹配
         const candidateRows = [];
         allRows.forEach((row, index) => {
             const productType = row.getAttribute('data-product-type') || 'main';
@@ -14033,8 +14047,11 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             const idProductCell = row.querySelector('td:first-child');
             const productValues = getProductValuesFromCell(idProductCell);
             const mainCellText = normalizeIdProductText(productValues.main || '');
+            const mainRaw = (productValues.main || '').trim();
+            const idMatches = mainCellText === normalizedTargetId
+                || (normalizedTargetId && mainRaw.indexOf(' - ') >= 0 && (mainRaw === normalizedTargetId || mainRaw.startsWith(normalizedTargetId + ' ') || mainRaw.startsWith(normalizedTargetId + '(')));
             
-            if (mainCellText === normalizedTargetId) {
+            if (idMatches) {
                 const accountCell = row.querySelector('td:nth-child(2)');
                 const rowAccountId = accountCell?.getAttribute('data-account-id');
                 const rowFormulaVariant = row.getAttribute('data-formula-variant');
