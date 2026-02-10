@@ -15,6 +15,14 @@ $canApproveContra = in_array($viewerRole, ['manager', 'admin', 'owner'], true);
 
 // 获取 session 中的 company_id（用于跨页面同步）
 $session_company_id = $_SESSION['company_id'] ?? null;
+
+// Capture Date 默认与 Dashboard 一致：本周一至今天
+$today_dt = new DateTime('today');
+$day_of_week = (int)$today_dt->format('w');
+$days_to_monday = $day_of_week === 0 ? 6 : $day_of_week - 1;
+$monday_dt = (clone $today_dt)->modify("-{$days_to_monday} days");
+$default_date_from = $monday_dt->format('d/m/Y');
+$default_date_to = $today_dt->format('d/m/Y');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -100,9 +108,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 <div class="transaction-form-group">
                     <label class="transaction-label">Capture Date</label>
                     <div class="transaction-date-inputs">
-                        <input type="text" id="date_from" class="transaction-input transaction-date-input" value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
+                        <input type="text" id="date_from" class="transaction-input transaction-date-input" value="<?php echo $default_date_from; ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
                         <span style="margin: 0 5px;">to</span>
-                        <input type="text" id="date_to" class="transaction-input transaction-date-input" value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
+                        <input type="text" id="date_to" class="transaction-input transaction-date-input" value="<?php echo $default_date_to; ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
                     </div>
                 </div>
                 

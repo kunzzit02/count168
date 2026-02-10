@@ -2695,19 +2695,24 @@ function initDatePickers() {
         return;
     }
     
-    // Capture Date From
+    // Capture Date：与 Dashboard 一致，默认本周一至今天
+    const fromVal = document.getElementById("date_from") && document.getElementById("date_from").value;
+    const toVal = document.getElementById("date_to") && document.getElementById("date_to").value;
+    const parseDmy = (s) => {
+        if (!s || !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s.trim())) return null;
+        const [d, m, y] = s.trim().split('/').map(Number);
+        return new Date(y, m - 1, d);
+    };
     flatpickr("#date_from", {
         dateFormat: "d/m/Y",
         allowInput: false,
-        defaultDate: new Date(),
+        defaultDate: parseDmy(fromVal) || new Date(),
         onChange: () => searchTransactions()
     });
-    
-    // Capture Date To
     flatpickr("#date_to", {
         dateFormat: "d/m/Y",
         allowInput: false,
-        defaultDate: new Date(),
+        defaultDate: parseDmy(toVal) || new Date(),
         onChange: () => searchTransactions()
     });
     
