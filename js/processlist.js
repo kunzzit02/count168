@@ -765,6 +765,7 @@
         // 存储待删除的 ID 列表
         let pendingDeleteIds = [];
         let pendingToggleProcessId = null;
+        let pendingDismissPairs = [];
 
         function deleteSelected() {
             const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked:not([disabled])');
@@ -1079,7 +1080,7 @@
         }
 
         // 从待入账列表移除选中的行（不进行入账、不删 Process，仅让该行从 Accounting Due 消失）
-        async function deleteAccountingInboxSelected() {
+        function deleteAccountingInboxSelected() {
             const tbody = document.getElementById('processAccountingInboxTbody');
             if (!tbody) return;
             const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
@@ -1093,12 +1094,36 @@
                 showNotification('Please select at least one row to remove from Accounting Due', 'warning');
                 return;
             }
-            const msg = pairs.length === 1
-                ? 'Skip this post? This row will be removed from Accounting Due. Process data will not change.'
-                : 'Skip these ' + pairs.length + ' posts? Selected rows will be removed from Accounting Due. Process data will not change.';
-            if (!confirm(msg)) return;
+            showConfirmAccountingDueDeleteModal(pairs);
+        }
+
+        function showConfirmAccountingDueDeleteModal(pairs) {
+            pendingDismissPairs = pairs.slice();
+            const msgEl = document.getElementById('confirmAccountingDueDeleteMessage');
+            if (msgEl) {
+                msgEl.textContent = pairs.length === 1
+                    ? 'This row will be removed from Accounting Due. Process data will not change.'
+                    : 'These ' + pairs.length + ' rows will be removed from Accounting Due. Process data will not change.';
+            }
+            document.getElementById('confirmAccountingDueDeleteModal').style.display = 'block';
+        }
+
+        function closeConfirmAccountingDueDeleteModal() {
+            document.getElementById('confirmAccountingDueDeleteModal').style.display = 'none';
+            pendingDismissPairs = [];
+        }
+
+        async function confirmAccountingDueDelete() {
+            if (pendingDismissPairs.length === 0) {
+                closeConfirmAccountingDueDeleteModal();
+                return;
+            }
+            const pairs = pendingDismissPairs.slice();
+            closeConfirmAccountingDueDeleteModal();
             const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
+            const confirmBtn = document.getElementById('confirmAccountingDueDeleteBtn');
             if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Removing...'; }
+            if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Removing...'; }
             try {
                 const formData = new FormData();
                 pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
@@ -1115,6 +1140,7 @@
                 showNotification('Request failed: ' + (err.message || 'Network error'), 'danger');
             } finally {
                 if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = 'Delete'; updateAccountingInboxDeleteButton(); }
+                if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Delete'; }
             }
         }
 

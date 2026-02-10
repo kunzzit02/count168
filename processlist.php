@@ -1336,6 +1336,24 @@ if ($current_user_id && count($user_companies) > 0) {
         </div>
     </div>
 
+    <!-- Confirm Remove from Accounting Due Modal -->
+    <div id="confirmAccountingDueDeleteModal" class="process-modal" style="display: none;">
+        <div class="process-confirm-modal-content">
+            <div class="process-confirm-icon-container">
+                <svg class="process-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h2 class="process-confirm-title">Remove from Accounting Due</h2>
+            <p id="confirmAccountingDueDeleteMessage" class="process-confirm-message">Selected rows will be removed from Accounting Due. Process data will not change.</p>
+            <div class="process-confirm-actions">
+                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmAccountingDueDeleteModal()">Cancel</button>
+                <button type="button" class="process-btn process-btn-delete confirm-delete" id="confirmAccountingDueDeleteBtn" onclick="confirmAccountingDueDelete()">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         window.PROCESSLIST_SHOW_INACTIVE = <?php echo isset($_GET['showInactive']) ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_ALL = <?php echo isset($_GET['showAll']) ? 'true' : 'false'; ?>;
