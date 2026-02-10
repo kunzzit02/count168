@@ -2,6 +2,10 @@
 // 使用统一的session检查
 require_once __DIR__ . '/session_check.php';
 
+// 强制浏览器使用最新页面与资源，避免旧缓存
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
 // 检查用户类型是否为member
 if (strtolower($_SESSION['user_type'] ?? '') !== 'member') {
     header('Location: index.php');
@@ -159,7 +163,7 @@ $default_date_to = $today_dt->format('d/m/Y');
     <link rel="icon" type="image/png" href="images/count_logo.png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/member.css">
+    <link rel="stylesheet" href="css/member.css?v=<?php echo file_exists('css/member.css') ? filemtime('css/member.css') : time(); ?>">
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
 </head>
@@ -276,7 +280,7 @@ $default_date_to = $today_dt->format('d/m/Y');
         window.MEMBER_ACCOUNT_NAME = <?php echo json_encode($accountName ?? ''); ?>;
         window.MEMBER_COMPANY_ID = <?php echo (int)$currentCompanyId; ?>;
     </script>
-    <script src="js/member.js?v=2"></script>
+    <script src="js/member.js?v=<?php echo file_exists('js/member.js') ? filemtime('js/member.js') : time(); ?>"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </body>
 </html>
