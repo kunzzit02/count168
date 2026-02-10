@@ -404,9 +404,9 @@ if ($companyId) {
             </div>
             <?php endif; ?>
 
-            <!-- Report Section -->
+            <!-- Report Section（仅当前公司有 Gambling 权限时显示） -->
             <?php if (empty($permissions) || in_array('report', $permissions)): ?>
-            <div class="informationmenu-section">
+            <div class="informationmenu-section" id="sidebar-report-section"<?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                 <div class="menu-item-wrapper">
                     <div class="informationmenu-section-title" data-section="report">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">

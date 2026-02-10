@@ -264,8 +264,10 @@
         }
     }
 
-    // 切换公司后由各页调用，即时显示/隐藏侧边栏 Data Capture
-    // 以及 Maintenance 子菜单里只在 Gambling 权限下可用的项
+    // 切换公司后由各页调用，即时显示/隐藏：
+    // - 侧边栏 Data Capture
+    // - Maintenance 子菜单里 Gambling 才能用的项
+    // - 侧边栏 Report 区块（仅 Gambling 可见）
     function updateSidebarDataCaptureVisibility(hasGambling) {
         var dcSection = document.getElementById('sidebar-datacapture-section');
         if (dcSection) dcSection.style.display = hasGambling ? '' : 'none';
@@ -275,6 +277,9 @@
 
         var maintFormula = document.getElementById('maintenance-formula-link');
         if (maintFormula) maintFormula.style.display = hasGambling ? '' : 'none';
+
+        var reportSection = document.getElementById('sidebar-report-section');
+        if (reportSection) reportSection.style.display = hasGambling ? '' : 'none';
     }
 
     // 暴露给 HTML onclick 和 PHP 初始化脚本
