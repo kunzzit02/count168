@@ -559,7 +559,9 @@
                 const customerBtn = document.getElementById('bank_customer');
                 if (cardMerchantBtn && process.card_merchant_id) {
                     cardMerchantBtn.setAttribute('data-value', process.card_merchant_id);
-                    cardMerchantBtn.textContent = process.card_merchant_name || process.card_merchant_id || 'Select Account';
+                    const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
+                    const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
+                    cardMerchantBtn.textContent = (cmName !== '' && cmCode !== '') ? (cmName + ' (' + cmCode + ')') : (process.card_merchant_name || process.card_merchant_account_id || process.card_merchant_id || 'Select Account');
                 } else if (cardMerchantBtn) {
                     cardMerchantBtn.removeAttribute('data-value');
                     cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
@@ -3332,11 +3334,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
 
                 // Filter by the same text we display so search matches what user sees (exact match on displayed string)
-                // Supplier only: show "account_id (name)"; others: show account_id only
+                // Supplier only: show "name (account_id)" so account name is primary; others: show account_id only
                 function getDisplayText(account) {
                     const code = String(account.account_id ?? account.name ?? '').trim();
-                    if (showNameInParentheses && (account.name != null && String(account.name).trim() !== '')) {
-                        return code + ' (' + String(account.name).trim() + ')';
+                    const nameStr = (account.name != null && String(account.name).trim() !== '') ? String(account.name).trim() : '';
+                    if (showNameInParentheses && nameStr !== '') {
+                        return nameStr + ' (' + code + ')';
                     }
                     return code;
                 }
