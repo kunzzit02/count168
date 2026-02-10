@@ -1,9 +1,4 @@
 <?php
-/**
- * Toggle Process Status API (Bank / Gambling)
- * 路径: api/processes/toggle_process_status_api.php
- */
-
 session_start();
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../api_response.php';
@@ -16,32 +11,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 function getBankProcessCurrent(PDO $pdo, int $id, int $companyId): ?array {
-    $stmt = $pdo->prepare("SELECT status, contract, day_end, dts_modified FROM bank_process WHERE id = ? AND company_id = ?");
+    // 不再依赖 contract / dts_modified 等额外字段，只读取当前状态
+    $stmt = $pdo->prepare("SELECT status FROM bank_process WHERE id = ? AND company_id = ?");
     $stmt->execute([$id, $companyId]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-}
-
-/** 本次 inactive 之后是否已做过 Transaction（只有本次 inactive 后已入账才允许手动切回 active，每次都要先 transaction） */
-function hasManualInactivePostedSince(PDO $pdo, int $processId, int $companyId, ?string $dtsModified): bool {
-    if ($dtsModified === null || $dtsModified === '') {
-        return false;
-    }
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM process_accounting_posted LIKE 'period_type'");
-        if (!$stmt || $stmt->rowCount() === 0) {
-            return false;
-        }
-        $ts = strtotime($dtsModified);
-        if ($ts === false) {
-            return false;
-        }
-        $sinceDate = date('Y-m-d', $ts);
-        $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type = 'manual_inactive' AND posted_date >= ? LIMIT 1");
-        $stmt->execute([$companyId, $processId, $sinceDate]);
-        return (bool) $stmt->fetch();
-    } catch (Throwable $e) {
-        return false;
-    }
 }
 
 function updateBankProcessStatus(PDO $pdo, string $newStatus, ?string $newDayEnd, int $id, int $companyId): void {
@@ -86,37 +59,14 @@ try {
             exit;
         }
         $status = $current['status'];
-        $contract = isset($current['contract']) ? trim((string) $current['contract']) : '';
-        $shortTermContracts = ['1 MONTH', '2 MONTHS', '3 MONTHS', '6 MONTHS'];
-        $sinceDate = null;
-        // inactive 时：1/2/3/6 months 不允许切回 active；1+1/1+2/1+3 须先做 Transaction 才能切回 active
+        // Bank：不再限制 INACTIVE → ACTIVE 的切换，也不依赖 Transaction 记录
         if ($status === 'inactive') {
-            if (in_array($contract, $shortTermContracts, true)) {
-                api_error('短期合同（1/2/3/6 个月）切换为 Inactive 后不可再切换回 Active', 400);
-                exit;
-            }
-            $dtsModified = $current['dts_modified'] ?? null;
-            if (!hasManualInactivePostedSince($pdo, $id, $companyId, $dtsModified)) {
-                api_error('只有通过 Accounting Due 的 Transaction 后，才能手动将状态改为 Active', 400);
-                exit;
-            }
-            $ts = $dtsModified ? strtotime($dtsModified) : false;
-            $sinceDate = ($ts !== false) ? date('Y-m-d', $ts) : null;
             $newStatus = 'active';
         } else {
             $newStatus = ($status === 'active') ? 'inactive' : (($status === 'waiting') ? 'active' : 'active');
         }
-        // 1+1/1+2/1+3 的「额外 1/2/3 个月」不在切换为 inactive 时加进 day_end，只在 Accounting Due 做 Transaction 转为 active 时由 process_post_to_transaction_api 加进 day_start
+        // day_end 逻辑保持由其他流程（如 Accounting Due Transaction）控制，这里只更新状态本身
         updateBankProcessStatus($pdo, $newStatus, null, $id, $companyId);
-        // 从 inactive 切回 active 时「消耗」一条 manual_inactive 入账记录，下次 inactive 必须再做一次 transaction 才能切回 active
-        if ($newStatus === 'active' && $sinceDate !== null) {
-            try {
-                $del = $pdo->prepare("DELETE FROM process_accounting_posted WHERE id = (SELECT id FROM (SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type = 'manual_inactive' AND posted_date >= ? ORDER BY posted_date ASC LIMIT 1) AS t)");
-                $del->execute([$companyId, $id, $sinceDate]);
-            } catch (Throwable $e) {
-                // 忽略删除失败，不影响切换结果
-            }
-        }
         api_success(['newStatus' => $newStatus], '状态更新成功');
         exit;
     }

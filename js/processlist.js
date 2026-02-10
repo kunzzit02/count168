@@ -249,11 +249,8 @@
                 const cost = dashIfEmpty(process.cost);
                 const price = dashIfEmpty(process.price);
                 const profit = dashIfEmpty(process.profit);
-                const shortTermContracts = ['1 MONTH', '2 MONTHS', '3 MONTHS', '6 MONTHS'];
-                const cannotSwitchBack = process.status === 'inactive' && shortTermContracts.indexOf(contract) !== -1;
-                const statusBadge = cannotSwitchBack
-                    ? '<span class="role-badge ' + statusClass + '" title="Short-term contract cannot be reactivated after Inactive" style="cursor: not-allowed; opacity: 0.8;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>'
-                    : '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
+                // 状态徽章：Bank 现在允许 INACTIVE ↔ ACTIVE 自由切换，前端只做确认弹窗，不再禁止点击
+                const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
                     (process.status === 'active' ? '' : (process.has_transactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                 const tr = document.createElement('tr');
@@ -1232,12 +1229,7 @@
                 } else {
                     const statusClass = newStatus === 'active' ? 'status-active' : (newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
                     const process = processes.find(p => p.id === processId);
-                    const contractNorm = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
-                    const shortTermContracts = ['1 MONTH', '2 MONTHS', '3 MONTHS', '6 MONTHS'];
-                    const cannotSwitchBack = selectedPermission === 'Bank' && newStatus === 'inactive' && shortTermContracts.indexOf(contractNorm) !== -1;
-                    const statusBadge = cannotSwitchBack
-                        ? `<span class="role-badge ${statusClass}" title="Short-term contract cannot be reactivated after Inactive" style="cursor: not-allowed; opacity: 0.8;">${escapeHtml((newStatus || '').toUpperCase())}</span>`
-                        : `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
+                    const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
 
                     if (selectedPermission === 'Bank') {
                         const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
@@ -1314,9 +1306,18 @@
         // 切换流程状态
         async function toggleProcessStatus(processId, currentStatus) {
             try {
-                if (selectedPermission === 'Bank' && (currentStatus || '').toLowerCase() === 'active') {
-                    showConfirmInactiveModal(processId);
-                    return;
+                if (selectedPermission === 'Bank') {
+                    const statusLower = (currentStatus || '').toLowerCase();
+                    // active → inactive：继续使用自定义确认弹窗
+                    if (statusLower === 'active') {
+                        showConfirmInactiveModal(processId);
+                        return;
+                    }
+                    // inactive → active：改为简单确认弹窗后直接切换（后端不再限制）
+                    if (statusLower === 'inactive') {
+                        const ok = window.confirm('Confirm switching this Bank Process to Active?');
+                        if (!ok) return;
+                    }
                 }
                 await performToggleStatus(processId);
             } catch (error) {
