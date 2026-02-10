@@ -539,12 +539,8 @@
 
             if (!targetCurrencies.length) {
                 if (availableCurrencies.length > 0) {
-                    // 没有选择任何货币时，不显示任何货币资料
-                    const grouped = {};
-                    availableCurrencies.forEach(code => {
-                        grouped[code || '-'] = [];
-                    });
-                    renderCurrencyTables(grouped, availableCurrencies);
+                    // 没有选择任何货币时，不显示任何表格，只显示提示
+                    setMemberTablesPlaceholder('请选择货币');
                     return;
                 }
                 // summary 未返回币别，尝试拉取一次 history（不传 currency）以兜底显示数据
