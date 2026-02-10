@@ -1126,17 +1126,17 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <button type="button" class="bank-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
                                 </div>
                             </div>
-                            <div class="form-group">
+                            <div class="form-group profit-sharing-amount-with-add">
                                 <label for="profit_sharing_amount">Amount</label>
-                                <input type="number" id="profit_sharing_amount" name="amount"
-                                    class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01"
-                                    min="0">
+                                <div class="account-select-with-buttons">
+                                    <input type="number" id="profit_sharing_amount" name="amount"
+                                        class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01"
+                                        min="0" style="flex: 1;">
+                                    <button type="button" class="bank-add-btn" id="profitSharingAddRowBtn"
+                                        title="Add another Account &amp; Amount">+</button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="profit-sharing-add-row-wrap" style="margin-top: 10px;">
-                        <button type="button" class="bank-add-btn" id="profitSharingAddRowBtn"
-                            title="Add another Account &amp; Amount">+</button>
                     </div>
                     <div class="form-actions bank-actions" style="margin-top: 16px;">
                         <button type="submit" class="btn btn-save">Add</button>
