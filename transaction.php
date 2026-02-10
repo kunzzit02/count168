@@ -35,7 +35,7 @@ $default_date_to = $today_dt->format('d/m/Y');
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>">
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/sidebar.css?v=1">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
 </head>
 <body class="transaction-page">
