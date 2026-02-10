@@ -1171,12 +1171,15 @@ function getCurrentProcessId() {
                 if (processRowIndex >= 2 && processRowIndex < processRow.length) {
                     const cellData = processRow[processRowIndex];
                     if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                        // Extract numeric value (remove formatting including $ symbol)
-                        const cellValue = cellData.value.toString();
-                        // Remove $ symbol and other formatting characters
-                        const numericValue = cellValue.replace(/\$/g, '').replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                        let cellValue = cellData.value.toString();
+                        // 去掉货币显示 (MYR)、(USD)、() 等，避免公式求值时 "Expression contains invalid characters"
+                        cellValue = cellValue.replace(/^\s*\([^)]*\)\s*/, '').trim();
+                        cellValue = cellValue.replace(/\$/g, '');
+                        let numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                        // 去掉前导 "() " 等，只保留可参与计算的数字部分
+                        numericValue = numericValue.replace(/^\s*\(\s*\)\s*/, '').trim();
                         console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
-                        return numericValue || cellValue;
+                        return (numericValue && numericValue !== '') ? numericValue : cellValue;
                     }
                 }
                 
@@ -4125,21 +4128,16 @@ function getCurrentProcessId() {
                 return;
             }
             
-            // 从当前的 data-clicked-cell-refs 中提取引用
+            // 从当前的 data-clicked-cell-refs 中提取引用（用 parseIdProductColumnRef 正确解析含冒号的 id_product）
             const currentRefs = currentClickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
-            
-            // 创建一个映射：dataColumnIndex -> 引用列表
             const refMapByDataColumnIndex = new Map();
             currentRefs.forEach((ref) => {
-                const parts = ref.split(':');
-                if (parts.length >= 2) {
-                    const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                    if (!isNaN(refDataColumnIndex)) {
-                        if (!refMapByDataColumnIndex.has(refDataColumnIndex)) {
-                            refMapByDataColumnIndex.set(refDataColumnIndex, []);
-                        }
-                        refMapByDataColumnIndex.get(refDataColumnIndex).push(ref);
+                const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
+                if (parsed && !isNaN(parsed.dataColumnIndex)) {
+                    if (!refMapByDataColumnIndex.has(parsed.dataColumnIndex)) {
+                        refMapByDataColumnIndex.set(parsed.dataColumnIndex, []);
                     }
+                    refMapByDataColumnIndex.get(parsed.dataColumnIndex).push(ref);
                 }
             });
             
@@ -4310,18 +4308,14 @@ function getCurrentProcessId() {
                             const displayColumnIndex = match.columnNumber;
                             const dataColumnIndex = displayColumnIndex - 1;
                             
-                            // 尝试从引用中获取row_label
+                            // 尝试从引用中获取 row_label（用 parseIdProductColumnRef 保留完整 id_product）
                             let rowLabel = null;
                             if (refIndex < refs.length) {
                                 const ref = refs[refIndex];
-                                const parts = ref.split(':');
-                                if (parts.length >= 2) {
-                                    const refIdProduct = parts[0];
-                                    // 检查id_product是否匹配
-                                    if (normalizeIdProductText(refIdProduct) === normalizeIdProductText(idProduct)) {
-                                        rowLabel = parts.length === 3 ? parts[1] : null;
-                                        refIndex++;
-                                    }
+                                const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
+                                if (parsed && (normalizeIdProductText(parsed.idProduct) === normalizeIdProductText(idProduct)) && parsed.dataColumnIndex === dataColumnIndex) {
+                                    rowLabel = parsed.rowLabel;
+                                    refIndex++;
                                 }
                             }
                             
@@ -5965,24 +5959,21 @@ function getCurrentProcessId() {
                                                 const displayColumnIndex = columnNumber;
                                                 const dataColumnIndex = displayColumnIndex - 1;
                                                 
-                                                // 在 convertedRefs 中查找匹配的引用（按顺序）
+                                                // 在 convertedRefs 中查找匹配的引用（按顺序，用 parseIdProductColumnRef 保留完整 id_product）
                                                 let matchedRef = null;
                                                 for (let i = 0; i < convertedRefs.length; i++) {
                                                     const ref = convertedRefs[i];
-                                                    const parts = ref.split(':');
-                                                    if (parts.length >= 2) {
-                                                        const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                                                        if (refDataColumnIndex === dataColumnIndex) {
-                                                            matchedRef = ref;
-                                                            break;
-                                                        }
+                                                    const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
+                                                    if (parsed && parsed.dataColumnIndex === dataColumnIndex) {
+                                                        matchedRef = ref;
+                                                        break;
                                                     }
                                                 }
                                                 
                                                 if (matchedRef) {
-                                                    const parts = matchedRef.split(':');
-                                                    const idProduct = parts[0];
-                                                    const refRowLabel = parts.length === 3 ? parts[1] : null;
+                                                    const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(matchedRef) : null;
+                                                    const idProduct = parsed ? parsed.idProduct : (function() { const p = matchedRef.split(':'); return p.length >= 2 ? p[0] : ''; })();
+                                                    const refRowLabel = parsed ? parsed.rowLabel : (function() { const p = matchedRef.split(':'); return p.length === 3 ? p[1] : null; })();
                                                     
                                                     // 获取当前编辑row的row_label
                                                     const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
@@ -7732,21 +7723,14 @@ function getCurrentProcessId() {
                             let columnValue = null;
                             const dataColumnIndex = dollarMatch.columnNumber - 1;
                             
-                            // 按顺序查找匹配的引用（从 refIndex 开始，避免重复使用）
+                            // 按顺序查找匹配的引用（使用 parseIdProductColumnRef 保留完整 id_product）
                             for (let j = refIndex; j < refs.length; j++) {
                                 const ref = refs[j];
-                                const parts = ref.split(':');
-                                if (parts.length >= 2) {
-                                    const refIdProduct = parts[0];
-                                    const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                                    const refRowLabel = parts.length === 3 ? parts[1] : null;
-                                    
-                                    // 如果 dataColumnIndex 匹配，使用这个引用
-                                    if (!isNaN(refDataColumnIndex) && refDataColumnIndex === dataColumnIndex) {
-                                        columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
-                                        refIndex = j + 1; // 更新已使用的引用索引
-                                        break;
-                                    }
+                                const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
+                                if (parsed && parsed.dataColumnIndex === dataColumnIndex) {
+                                    columnValue = getCellValueByIdProductAndColumn(parsed.idProduct, parsed.dataColumnIndex, parsed.rowLabel);
+                                    refIndex = j + 1;
+                                    break;
                                 }
                             }
                             
@@ -9223,13 +9207,14 @@ function getCurrentProcessId() {
                     return 0;
                 }
                 
-                const sanitizedExpression = removeThousandsSeparators(expression);
-                // Remove any whitespace and validate the expression
+                let sanitizedExpression = removeThousandsSeparators(expression);
+                // 去掉货币显示 (MYR)、() 等，避免 "(MYR) 70.50" 导致 invalid characters
+                sanitizedExpression = sanitizedExpression.replace(/\s*\([A-Z]{2,4}\)\s*/g, ' ');
+                sanitizedExpression = sanitizedExpression.replace(/\s*\(\s*\)\s*/g, ' ');
                 let jsExpression = sanitizedExpression.trim();
                 
                 // Validate that the expression doesn't contain invalid characters
                 // Allow: numbers, operators (+-*/), parentheses, decimal points, spaces
-                // IMPORTANT: This regex allows negative numbers in parentheses like (-1234.56)-(-2234.78)
                 if (!/^[0-9+\-*/().\s]+$/.test(jsExpression)) {
                     console.error('Expression contains invalid characters:', jsExpression);
                     return 0;
