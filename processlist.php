@@ -1123,7 +1123,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                             <div class="custom-select-options"></div>
                                         </div>
                                     </div>
-                                    <button type="button" class="bank-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
+                                    <button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick('profit_sharing_account_btn', 'profit_sharing_account_id')" title="Add New Account">+</button>
                                 </div>
                             </div>
                             <div class="form-group">
