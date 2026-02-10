@@ -823,6 +823,7 @@
             };
             const defaultFrom = parseDmy(fromVal) || new Date();
             const defaultTo = parseDmy(toVal) || new Date();
+            const rangeInput = document.getElementById('report_date_range');
             flatpickr('#report_date_range', {
                 mode: 'range',
                 dateFormat: 'd/m/Y',
@@ -830,12 +831,16 @@
                 defaultDate: [defaultFrom, defaultTo],
                 onChange: function(selectedDates) {
                     if (selectedDates.length === 2) {
-                        document.getElementById('date_from').value = formatDmy(selectedDates[0]);
-                        document.getElementById('date_to').value = formatDmy(selectedDates[1]);
+                        const fromStr = formatDmy(selectedDates[0]);
+                        const toStr = formatDmy(selectedDates[1]);
+                        document.getElementById('date_from').value = fromStr;
+                        document.getElementById('date_to').value = toStr;
+                        if (rangeInput) rangeInput.value = fromStr + ' - ' + toStr;
                         debouncedLoadReport();
                     }
                 }
             });
+            if (rangeInput && fromVal && toVal) rangeInput.value = fromVal + ' - ' + toVal;
             window.toggleReportQuickSelectDropdown = function() {
                 const dropdown = document.getElementById('report-quick-select-dropdown');
                 if (!dropdown) return;
