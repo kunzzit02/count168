@@ -552,6 +552,7 @@ try {
                       AND tt.amount = ?
                       AND tt.transaction_type = ?
                       AND tt.id <> ?
+                      AND tt.account_id <> ?
                     ORDER BY tt.id ASC
                     LIMIT 1
                 ");
@@ -563,6 +564,7 @@ try {
                 $t['amount'],
                 $oppositeType,
                 $t['id'],
+                $t['account_id'],
             ]);
             $otherAccountCodeForManualProfit = $manualProfitPairStmt->fetchColumn() ?: null;
         }
