@@ -552,6 +552,7 @@ try {
                       AND tt.amount = ?
                       AND tt.transaction_type = ?
                       AND tt.id <> ?
+                      AND tt.account_id <> ?
                     ORDER BY tt.id ASC
                     LIMIT 1
                 ");
@@ -563,6 +564,7 @@ try {
                 $t['amount'],
                 $oppositeType,
                 $t['id'],
+                $t['account_id'],
             ]);
             $otherAccountCodeForManualProfit = $manualProfitPairStmt->fetchColumn() ?: null;
         }
@@ -656,18 +658,20 @@ try {
             }
         }
         
-        // 如果是手动 PROFIT（WIN/LOSE 且非 Bank Process），根据当前查看的账户生成和 CONTRA 类似的描述
+        // 如果是手动 PROFIT（WIN/LOSE 且非 Bank Process），根据当前账户在 Win/Loss 的正负来决定 FROM / TO
         if ($isManualProfit) {
-            if ($is_to_account && !$is_from_account) {
-                // 当前账户是 To Account：从对方账户进来的 PROFIT
-                $other = $otherAccountCodeForManualProfit ?: $t['from_account_code'] ?: '-';
+            // 先根据配对交易找对手账户编号，找不到就退回到 join 出来的 account code
+            $fallbackOther = $t['from_account_code'] ?: $t['to_account_code'] ?: '-';
+            $other = $otherAccountCodeForManualProfit ?: $fallbackOther;
+
+            if ($win_loss > 0) {
+                // 当前账户这笔是赚（正数）：从对方进来的 PROFIT
                 $description = 'PROFIT FROM ' . $other;
-            } elseif ($is_from_account && !$is_to_account) {
-                // 当前账户是 From Account：给对方账户的 PROFIT
-                $other = $otherAccountCodeForManualProfit ?: $t['to_account_code'] ?: '-';
+            } elseif ($win_loss < 0) {
+                // 当前账户这笔是亏（负数）：给对方的 PROFIT
                 $description = 'PROFIT TO ' . $other;
             } else {
-                // 内部转账或资料不足时，给一个通用描述
+                // 金额是 0 或资料不足时给通用描述
                 $description = 'PROFIT';
             }
         }
