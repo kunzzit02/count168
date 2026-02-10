@@ -238,7 +238,13 @@
                 const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
                 const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
-                const contractClass = process.status === 'inactive' ? 'contract-inactive' : baseContractClass;
+                let contractClass = baseContractClass;
+                if (process.status === 'inactive') {
+                    contractClass = 'contract-inactive';
+                } else if (contract === '1 MONTH' && baseContractClass === 'contract-active') {
+                    // Special rule: 1 MONTH contract shows gray while in effect
+                    contractClass = 'contract-1month-active';
+                }
                 const contractCell = (contract && contractClass)
                     ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contract) + '</span>'
                     : (contract ? escapeHtml(contract) : escapeHtml('-'));
@@ -1231,10 +1237,15 @@
                             row.setAttribute('data-status', newStatus || '');
                             const cells = row.querySelectorAll('td');
                             if (cells.length >= 15) {
-                                // Contract cell (index 6): force gray when status is inactive
+                                // Contract cell (index 6): apply 1 MONTH gray rule and inactive gray rule
                                 const contractRaw = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
                                 const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
-                                const contractClass = newStatus === 'inactive' ? 'contract-inactive' : baseContractClass;
+                                let contractClass = baseContractClass;
+                                if (newStatus === 'inactive') {
+                                    contractClass = 'contract-inactive';
+                                } else if (contractRaw === '1 MONTH' && baseContractClass === 'contract-active') {
+                                    contractClass = 'contract-1month-active';
+                                }
                                 const contractCellHtml = (contractRaw && contractClass)
                                     ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contractRaw) + '</span>'
                                     : (contractRaw ? escapeHtml(contractRaw) : escapeHtml('-'));
