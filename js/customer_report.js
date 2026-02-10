@@ -576,14 +576,12 @@
 
         function initCustomerReportDateRange() {
             const input = document.getElementById('customerReportDateRange');
-            const display = document.getElementById('customerReportDateRangeDisplay');
-            if (!input || !display || typeof flatpickr === 'undefined') return;
+            if (!input || typeof flatpickr === 'undefined') return;
             const today = new Date();
             const todayStr = today.toISOString().split('T')[0];
             customerReportDateFrom = todayStr;
             customerReportDateTo = todayStr;
             const initialText = formatCustomerReportDateDisplay(todayStr) + ' - ' + formatCustomerReportDateDisplay(todayStr);
-            display.textContent = initialText;
             input.value = initialText;
             const fp = flatpickr(input, {
                 mode: 'range',
@@ -593,24 +591,18 @@
                     if (selectedDates.length === 2) {
                         customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
                         customerReportDateTo = selectedDates[1].toISOString().split('T')[0];
-                        const text = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
-                        display.textContent = text;
-                        input.value = text;
+                        input.value = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
                         debouncedLoadReport();
                     } else if (selectedDates.length === 1) {
                         customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
-                        const text = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - Select end date';
-                        display.textContent = text;
-                        input.value = text;
+                        input.value = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - Select end date';
                     }
                 },
                 onReady: function(selectedDates) {
                     if (selectedDates.length === 2) {
                         customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
                         customerReportDateTo = selectedDates[1].toISOString().split('T')[0];
-                        const text = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
-                        display.textContent = text;
-                        input.value = text;
+                        input.value = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
                     }
                 }
             });

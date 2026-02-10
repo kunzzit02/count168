@@ -378,14 +378,12 @@ function showNotification(message, type = 'success') {
 
         function initDomainReportDateRange() {
             const input = document.getElementById('domainReportDateRange');
-            const display = document.getElementById('domainReportDateRangeDisplay');
-            if (!input || !display || typeof flatpickr === 'undefined') return;
+            if (!input || typeof flatpickr === 'undefined') return;
             const today = new Date();
             const todayStr = today.toISOString().split('T')[0];
             domainReportDateFrom = todayStr;
             domainReportDateTo = todayStr;
             const initialText = formatReportDateDisplay(todayStr) + ' - ' + formatReportDateDisplay(todayStr);
-            display.textContent = initialText;
             input.value = initialText;
             const fp = flatpickr(input, {
                 mode: 'range',
@@ -395,24 +393,18 @@ function showNotification(message, type = 'success') {
                     if (selectedDates.length === 2) {
                         domainReportDateFrom = selectedDates[0].toISOString().split('T')[0];
                         domainReportDateTo = selectedDates[1].toISOString().split('T')[0];
-                        const text = formatReportDateDisplay(domainReportDateFrom) + ' - ' + formatReportDateDisplay(domainReportDateTo);
-                        display.textContent = text;
-                        input.value = text;
+                        input.value = formatReportDateDisplay(domainReportDateFrom) + ' - ' + formatReportDateDisplay(domainReportDateTo);
                         debouncedLoadReport();
                     } else if (selectedDates.length === 1) {
                         domainReportDateFrom = selectedDates[0].toISOString().split('T')[0];
-                        const text = formatReportDateDisplay(domainReportDateFrom) + ' - Select end date';
-                        display.textContent = text;
-                        input.value = text;
+                        input.value = formatReportDateDisplay(domainReportDateFrom) + ' - Select end date';
                     }
                 },
                 onReady: function(selectedDates) {
                     if (selectedDates.length === 2) {
                         domainReportDateFrom = selectedDates[0].toISOString().split('T')[0];
                         domainReportDateTo = selectedDates[1].toISOString().split('T')[0];
-                        const text = formatReportDateDisplay(domainReportDateFrom) + ' - ' + formatReportDateDisplay(domainReportDateTo);
-                        display.textContent = text;
-                        input.value = text;
+                        input.value = formatReportDateDisplay(domainReportDateFrom) + ' - ' + formatReportDateDisplay(domainReportDateTo);
                     }
                 }
             });
