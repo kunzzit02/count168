@@ -539,13 +539,15 @@
 
             if (!targetCurrencies.length) {
                 if (availableCurrencies.length > 0) {
-                    // 没有选择任何货币时，视为选择全部，避免无数据显示
-                    targetCurrencies = availableCurrencies;
-                    memberIsAllSelected = true;
-                    memberSelectedCurrencies.clear();
-                    renderCurrencyFilters();
-                } else {
-                    // summary 未返回币别，尝试拉取一次 history（不传 currency）以兜底显示数据
+                    // 没有选择任何货币时，不显示任何货币资料
+                    const grouped = {};
+                    availableCurrencies.forEach(code => {
+                        grouped[code || '-'] = [];
+                    });
+                    renderCurrencyTables(grouped, availableCurrencies);
+                    return;
+                }
+                // summary 未返回币别，尝试拉取一次 history（不传 currency）以兜底显示数据
                 const paramsFallback = new URLSearchParams({
                     account_id: Number(memberConfig.accountId),
                     date_from: dateFrom,
@@ -586,7 +588,6 @@
                         showNotification(err.message || 'No data in the selected date range.', 'info');
                     });
                 return;
-                }
             }
 
             // 多币别时只请求一次 history（不传 currency），在前端按 currency 分组，减少请求数
