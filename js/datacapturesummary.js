@@ -16080,12 +16080,14 @@ function normalizeIdProductText(text) {
     if (!trimmed) {
         return '';
     }
+    // 完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）整串保留，不截掉括号及后面内容
+    if (trimmed.indexOf(' - ') >= 0) {
+        return trimmed.replace(/[: ]+$/, '').trim();
+    }
     const match = trimmed.match(/^([^(]+)/);
     if (match) {
-        // Remove trailing colons, spaces, and trim
         return match[1].replace(/[: ]+$/, '').trim();
     }
-    // If no parentheses, still clean trailing colons and spaces
     return trimmed.replace(/[: ]+$/, '').trim();
 }
 
