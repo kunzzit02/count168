@@ -178,9 +178,30 @@ $default_date_to = $today_dt->format('d/m/Y');
             <div class="transaction-search-section" style="flex:1;">
                 <div class="transaction-form-group transaction-capture-date-group">
                     <label class="transaction-label transaction-date-range-label">Capture Date</label>
-                    <div class="transaction-date-range-wrap" id="capture_date_range_wrap">
-                        <i class="fas fa-calendar-alt" aria-hidden="true"></i>
-                        <input type="text" id="capture_date_range" class="transaction-input transaction-date-range-input" value="<?php echo $default_date_from . ' - ' . $default_date_to; ?>" placeholder="Select date range" readonly style="cursor: pointer;">
+                    <div class="transaction-capture-date-row">
+                        <div class="transaction-date-range-wrap" id="capture_date_range_wrap">
+                            <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+                            <input type="text" id="capture_date_range" class="transaction-input transaction-date-range-input" value="<?php echo $default_date_from . ' - ' . $default_date_to; ?>" placeholder="Select date range" readonly style="cursor: pointer;">
+                        </div>
+                        <div class="transaction-quick-select-wrap">
+                            <div class="dropdown transaction-quick-select-dropdown">
+                                <button type="button" class="btn btn-secondary dropdown-toggle transaction-quick-select-btn" onclick="toggleQuickSelectDropdown()">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <span id="quick-select-text">Period</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="dropdown-menu" id="quick-select-dropdown">
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <input type="hidden" id="date_from" value="<?php echo $default_date_from; ?>">
                     <input type="hidden" id="date_to" value="<?php echo $default_date_to; ?>">
