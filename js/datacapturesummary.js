@@ -1010,11 +1010,12 @@ function getCurrentProcessId() {
             const dataColumnIndex = parseInt(colPart, 10);
             if (isNaN(dataColumnIndex) || colPart !== String(dataColumnIndex)) return null;
             const rest = p.substring(0, lastColon);
-            const rowLabelMatch = rest.match(/:([A-Z])$/);
+            // 支持多字母 row_label（如 AF），避免 "(T07):AF:3" 被解析成 id_product="(T07):A" rowLabel="F"
+            const rowLabelMatch = rest.match(/:([A-Z]+)$/);
             let idProduct, rowLabel = null;
             if (rowLabelMatch) {
                 rowLabel = rowLabelMatch[1];
-                idProduct = rest.substring(0, rest.length - 2);
+                idProduct = rest.substring(0, rest.length - rowLabel.length - 1);
             } else {
                 idProduct = rest;
             }
@@ -1068,6 +1069,9 @@ function getCurrentProcessId() {
         // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
         function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null) {
             try {
+                // 若传入的是截断 id（如 "(T07)"），先解析为完整 id_product，避免 No row found / Cell value not found（有 row_label 时优先按行标签匹配）
+                const idProductResolved = typeof resolveToFullIdProduct === 'function' ? resolveToFullIdProduct(idProduct, rowLabel) : idProduct;
+
                 // Use transformed table data if available, otherwise get from localStorage
                 let parsedTableData;
                 if (window.transformedTableData) {
@@ -1093,7 +1097,7 @@ function getCurrentProcessId() {
                     const capturedTableBody = document.getElementById('capturedTableBody');
                     if (capturedTableBody) {
                         const rows = capturedTableBody.querySelectorAll('tr');
-                        console.log('getCellValueByIdProductAndColumn: Searching for row_label:', rowLabel, 'id_product:', idProduct, 'total rows:', rows.length);
+                        console.log('getCellValueByIdProductAndColumn: Searching for row_label:', rowLabel, 'id_product:', idProductResolved, 'total rows:', rows.length);
                         for (let i = 0; i < rows.length; i++) {
                             const row = rows[i];
                             const rowHeaderCell = row.querySelector('.row-header');
@@ -1116,12 +1120,12 @@ function getCurrentProcessId() {
                                 const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
                                 if (idProductCell) {
                                     const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
-                                    const idProductTrimmed = (idProduct || '').trim();
-                                    if (typeof isFullIdProduct === 'function' && isFullIdProduct(idProduct)) {
+                                    const idProductTrimmed = (idProductResolved || '').trim();
+                                    if (typeof isFullIdProduct === 'function' && isFullIdProduct(idProductResolved)) {
                                         rowIndexIdProductMatches = (cellIdProductText === idProductTrimmed);
                                     } else {
                                         const cellIdProduct = normalizeIdProductText(cellIdProductText);
-                                        const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                        const normalizedIdProduct = normalizeIdProductText(idProductResolved);
                                         rowIndexIdProductMatches = (cellIdProduct === normalizedIdProduct);
                                     }
                                     console.log('getCellValueByIdProductAndColumn: Verified id_product - match:', rowIndexIdProductMatches);
@@ -1142,8 +1146,8 @@ function getCurrentProcessId() {
                     // Only use rowIndex if id_product matches
                     if (rowIndex !== null && rowIndexIdProductMatches) {
                         console.log('getCellValueByIdProductAndColumn: Using rowIndex:', rowIndex, 'for row_label:', rowLabel, 'id_product matches');
-                        processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
-                        console.log('getCellValueByIdProductAndColumn: Found row by row_label:', rowLabel, 'rowIndex:', rowIndex, 'id_product:', idProduct, 'processRow:', processRow ? 'found' : 'not found');
+                        processRow = findProcessRow(parsedTableData, idProductResolved, rowIndex);
+                        console.log('getCellValueByIdProductAndColumn: Found row by row_label:', rowLabel, 'rowIndex:', rowIndex, 'id_product:', idProductResolved, 'processRow:', processRow ? 'found' : 'not found');
                     } else {
                         console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch or row_label not found:', rowLabel, 'falling back to id_product search');
                     }
@@ -1152,14 +1156,14 @@ function getCurrentProcessId() {
                 // CRITICAL: Always fallback to id_product search if row_label didn't yield a valid match
                 // This ensures correct data is read even when row positions change
                 if (!processRow) {
-                    processRow = findProcessRow(parsedTableData, idProduct);
+                    processRow = findProcessRow(parsedTableData, idProductResolved);
                     if (rowLabel) {
-                        console.warn('getCellValueByIdProductAndColumn: Row not found by row_label or id_product mismatch, falling back to first matching row for id_product:', idProduct);
+                        console.warn('getCellValueByIdProductAndColumn: Row not found by row_label or id_product mismatch, falling back to first matching row for id_product:', idProductResolved);
                     }
                 }
                 
                 if (!processRow) {
-                    console.error('Process row not found for id_product:', idProduct, 'row_label:', rowLabel);
+                    console.error('Process row not found for id_product:', idProductResolved, 'row_label:', rowLabel);
                     return null;
                 }
                 
@@ -1178,12 +1182,12 @@ function getCurrentProcessId() {
                         let numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
                         // 去掉前导 "() " 等，只保留可参与计算的数字部分
                         numericValue = numericValue.replace(/^\s*\(\s*\)\s*/, '').trim();
-                        console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
+                        console.log('Found cell value for id_product:', idProductResolved, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
                         return (numericValue && numericValue !== '') ? numericValue : cellValue;
                     }
                 }
                 
-                console.error('Cell not found for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex);
+                console.error('Cell not found for id_product:', idProductResolved, 'row_label:', rowLabel, 'column:', columnIndex);
                 return null;
             } catch (error) {
                 console.error('Error getting cell value by id_product and column:', error);
@@ -5878,27 +5882,36 @@ function getCurrentProcessId() {
                                 // But for backward compatibility with old data, we check if conversion is needed
                                 const parts = data.clickedColumns.split(/\s+/).filter(c => c.trim() !== '');
                                 const convertedRefs = parts.map(part => {
-                                    // Try format with row label: "id_product:row_label:column_index"
+                                    const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(part) : null;
+                                    if (parsed) {
+                                        // 若 id_product 为截断（如 "(T07)"），解析为完整 id 并写回，避免后续仍保存错误引用
+                                        const idProduct = typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(parsed.idProduct)
+                                            ? resolveToFullIdProduct(parsed.idProduct, parsed.rowLabel) : parsed.idProduct;
+                                        if (parsed.rowLabel) {
+                                            return `${idProduct}:${parsed.rowLabel}:${parsed.dataColumnIndex}`;
+                                        }
+                                        return `${idProduct}:${parsed.dataColumnIndex}`;
+                                    }
+                                    // 兼容旧格式：id_product 不含冒号时的正则
                                     let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                                     if (match) {
-                                        const idProduct = match[1];
+                                        let idProduct = match[1];
                                         const rowLabel = match[2];
                                         const columnIndex = parseInt(match[3]);
-                                        // After fix: saved value is already dataColumnIndex, use directly
-                                        // For backward compatibility: if this is from old data (displayColumnIndex),
-                                        // the reading logic will handle it correctly by adding 1
-                                        // So we use the value as-is, assuming it's dataColumnIndex (new format)
+                                        if (typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(idProduct)) {
+                                            idProduct = resolveToFullIdProduct(idProduct, rowLabel);
+                                        }
                                         return `${idProduct}:${rowLabel}:${columnIndex}`;
                                     }
-                                    // Try format without row label: "id_product:column_index"
                                     match = part.match(/^([^:]+):(\d+)$/);
                                     if (match) {
-                                        const idProduct = match[1];
+                                        let idProduct = match[1];
                                         const columnIndex = parseInt(match[2]);
-                                        // After fix: saved value is already dataColumnIndex, use directly
+                                        if (typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(idProduct)) {
+                                            idProduct = resolveToFullIdProduct(idProduct);
+                                        }
                                         return `${idProduct}:${columnIndex}`;
                                     }
-                                    // If format doesn't match, return as-is (shouldn't happen)
                                     return part;
                                 });
                                 
@@ -7436,13 +7449,66 @@ function getCurrentProcessId() {
             return t.indexOf(' - ') >= 0 || /\(T\d+\)/i.test(t);
         }
 
+        // 判断是否为截断的 id_product（如仅 "(T07)"），此类需从 process 表解析为完整 id
+        function isTruncatedIdProduct(value) {
+            if (!value || typeof value !== 'string') return false;
+            const t = value.trim();
+            return /^\(T\d+\)$/i.test(t) || (t.length < 25 && t.indexOf(' - ') < 0);
+        }
+
+        // 从 process 表数据中把截断的 id_product（如 "(T07)"）解析为完整 id_product
+        // 若提供 rowLabel，优先返回该行标签对应行的完整 id
+        function resolveToFullIdProduct(shortId, rowLabel) {
+            if (!shortId || !isTruncatedIdProduct(shortId)) return shortId;
+            let parsedTableData;
+            if (window.transformedTableData) {
+                parsedTableData = window.transformedTableData;
+            } else {
+                try {
+                    const tableData = localStorage.getItem('capturedTableData');
+                    if (!tableData) return shortId;
+                    parsedTableData = JSON.parse(tableData);
+                } catch (e) { return shortId; }
+            }
+            if (!parsedTableData || !parsedTableData.rows) return shortId;
+            const shortTrim = shortId.trim();
+            if (rowLabel) {
+                for (let i = 0; i < parsedTableData.rows.length; i++) {
+                    const row = parsedTableData.rows[i];
+                    if (row && row.length > 1 && row[0].type === 'header' && row[1].type === 'data') {
+                        const headerVal = (row[0].value || '').trim();
+                        if (headerVal !== rowLabel) continue;
+                        const full = (row[1].value || '').trim();
+                        if (full === shortTrim || full.endsWith(shortTrim) || normalizeIdProductText(full) === normalizeIdProductText(shortTrim)) {
+                            console.log('resolveToFullIdProduct: resolved', shortTrim, 'with rowLabel', rowLabel, '->', full);
+                            return full;
+                        }
+                    }
+                }
+            }
+            for (let i = 0; i < parsedTableData.rows.length; i++) {
+                const row = parsedTableData.rows[i];
+                if (row && row.length > 1 && row[1].type === 'data') {
+                    const full = (row[1].value || '').trim();
+                    if (full === shortTrim || full.endsWith(shortTrim) || normalizeIdProductText(full) === normalizeIdProductText(shortTrim)) {
+                        console.log('resolveToFullIdProduct: resolved', shortTrim, '->', full);
+                        return full;
+                    }
+                }
+            }
+            return shortId;
+        }
+
         // Find the row that matches the process value
         function findProcessRow(tableData, processValue, rowIndex = null) {
             if (!tableData.rows) return null;
 
+            // 若传入的是截断 id（如 "(T07)"），先解析为完整 id_product
+            const processValueResolved = typeof resolveToFullIdProduct === 'function' ? resolveToFullIdProduct(processValue) : processValue;
+
             // Normalize the process value for comparison (only used when not full id)
-            const normalizedProcessValue = normalizeIdProductText(processValue);
-            const useExactOnly = isFullIdProduct(processValue);
+            const normalizedProcessValue = normalizeIdProductText(processValueResolved);
+            const useExactOnly = isFullIdProduct(processValueResolved);
 
             // CRITICAL: Always prioritize id_product matching over rowIndex
             // If rowIndex is provided, verify that the row at that index matches the id_product
@@ -7452,14 +7518,14 @@ function getCurrentProcessId() {
                 if (row && row.length > 1 && row[1].type === 'data') {
                     const rowValue = row[1].value;
                     const normalizedRowValue = normalizeIdProductText(rowValue);
-                    const exactMatch = (rowValue === processValue);
+                    const exactMatch = (rowValue === processValueResolved);
                     const normalizedMatch = !useExactOnly && normalizedRowValue && normalizedRowValue === normalizedProcessValue;
                     if (exactMatch || normalizedMatch) {
-                        console.log('findProcessRow: Found row by rowIndex:', rowIndex, 'id_product matches:', processValue);
+                        console.log('findProcessRow: Found row by rowIndex:', rowIndex, 'id_product matches:', processValueResolved);
                         return row;
                     } else {
                         // CRITICAL: If id_product doesn't match, DO NOT use this row
-                        console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValue, 'Found:', rowValue, '. Falling back to id_product search.');
+                        console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValueResolved, 'Found:', rowValue, '. Falling back to id_product search.');
                     }
                 } else {
                     console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but row is invalid. Falling back to id_product search.');
@@ -7468,12 +7534,12 @@ function getCurrentProcessId() {
 
             // Look for the row where column A (index 1) matches the process value
             // 完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - AB4D55MYR (T38)）只做精确匹配，避免误取 4DDMYMYR (T07) 等同行数据
-            console.log('findProcessRow: Searching all rows for id_product:', processValue);
+            console.log('findProcessRow: Searching all rows for id_product:', processValueResolved);
             for (let i = 0; i < tableData.rows.length; i++) {
                 const row = tableData.rows[i];
                 if (row.length > 1 && row[1].type === 'data') {
                     const rowValue = row[1].value;
-                    if (rowValue === processValue) {
+                    if (rowValue === processValueResolved) {
                         console.log('findProcessRow: Found row at index:', i, 'by exact match');
                         return row;
                     }
@@ -7487,7 +7553,7 @@ function getCurrentProcessId() {
                 }
             }
             
-            console.error('findProcessRow: No row found for processValue:', processValue, 'rowIndex:', rowIndex);
+            console.error('findProcessRow: No row found for processValue:', processValueResolved, 'rowIndex:', rowIndex);
             return null;
         }
 
