@@ -412,7 +412,8 @@
             retained.forEach(code => memberSelectedCurrencies.add(code));
 
             if (memberSelectedCurrencies.size === 0) {
-                memberIsAllSelected = true;
+                memberIsAllSelected = false;
+                memberSelectedCurrencies.add(currencies[0]);
             }
         }
 
