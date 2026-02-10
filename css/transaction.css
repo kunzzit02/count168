@@ -236,6 +236,9 @@ body.transaction-page {
 .transaction-page .transaction-quick-select-btn #quick-select-text {
     white-space: nowrap;
 }
+.transaction-page .transaction-quick-select-btn .fa-calendar-alt {
+    color: #3b82f6;
+}
 .transaction-page #quick-select-dropdown.dropdown-menu {
     display: none;
     position: absolute;
