@@ -3,15 +3,6 @@ session_start();
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../api_response.php';
 
-/**
- * 角色工具：manager 以上（含 owner）判定
- */
-function isManagerOrAboveRole(string $role): bool
-{
-    $role = strtolower(trim($role));
-    return in_array($role, ['manager', 'admin', 'owner'], true);
-}
-
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -68,14 +59,8 @@ try {
             exit;
         }
         $status = $current['status'];
-
-        // Bank：只有 manager 以上（含 owner）才能将 inactive 切回 active
+        // Bank：不再限制 INACTIVE → ACTIVE 的切换，也不依赖 Transaction 记录
         if ($status === 'inactive') {
-            $userRole = $_SESSION['role'] ?? '';
-            if (!isManagerOrAboveRole($userRole)) {
-                api_error('Only manager or above can reactivate this process', 403);
-                exit;
-            }
             $newStatus = 'active';
         } else {
             $newStatus = ($status === 'active') ? 'inactive' : (($status === 'waiting') ? 'active' : 'active');
