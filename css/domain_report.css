@@ -350,7 +350,6 @@ body {
 .domain-report-filter-container .report-date-range-picker {
     display: flex;
     align-items: center;
-    gap: clamp(4px, 0.42vw, 8px);
     background: white;
     border: 1px solid #3b82f6;
     border-radius: clamp(6px, 0.6vw, 12px);
@@ -365,17 +364,22 @@ body {
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
+/* 日历图标在框内左侧，颜色 #3b82f6 */
 .domain-report-filter-container .report-date-range-picker i {
+    position: absolute;
+    left: clamp(8px, 0.83vw, 16px);
+    top: 50%;
+    transform: translateY(-50%);
     color: #3b82f6;
     font-size: clamp(9px, 0.74vw, 14px);
-    margin: 0 clamp(2px, 0.32vw, 6px);
+    pointer-events: none;
 }
 .domain-report-filter-container .report-date-range-picker input.report-date-range-input {
     flex: 1;
     min-width: 0;
     border: none !important;
     background: transparent !important;
-    padding: 0 !important;
+    padding: 0 0 0 1.75em !important;
     margin: 0;
     font-size: clamp(9px, 0.74vw, 14px);
     font-weight: 500;
