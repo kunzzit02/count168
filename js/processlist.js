@@ -582,7 +582,7 @@
                 document.getElementById('bank_contract').value = process.contract || '';
                 document.getElementById('bank_insurance').value = process.insurance != null && process.insurance !== '' ? process.insurance : '';
                 const bankRemarkEl = document.getElementById('bank_remark');
-                if (bankRemarkEl) bankRemarkEl.value = (process.remark != null && process.remark !== undefined) ? process.remark : '';
+                if (bankRemarkEl) bankRemarkEl.value = (process.remark != null && process.remark !== undefined) ? String(process.remark).toUpperCase() : '';
                 document.getElementById('bank_cost').value = process.cost != null && process.cost !== '' ? process.cost : '';
                 document.getElementById('bank_price').value = process.price != null && process.price !== '' ? process.price : '';
                 document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
@@ -4481,7 +4481,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
             });
 
-            // 统一管理需要大写的输入框
+            // 统一管理需要大写的输入框（Remarks/Remark 默认大写英语字母）
             const uppercaseInputs = [
                 'add_process_id',
                 'new_description_name',
@@ -4492,7 +4492,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 'edit_remove_words',
                 'edit_replace_word_from',
                 'edit_replace_word_to',
-                'edit_remarks'
+                'edit_remarks',
+                'bank_remark'
             ];
 
             // 为所有需要大写的输入框添加事件监听
