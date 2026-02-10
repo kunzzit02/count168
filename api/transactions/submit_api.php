@@ -189,7 +189,7 @@ try {
         }
     }
 
-    // WIN/LOSE（PROFIT）：允许存储 from_account_id，使前后两个账户的 Payment History 都能显示该笔交易（若数据库有触发器禁止，需删除该触发器）
+    // WIN/LOSE（PROFIT）：数据库触发器要求 from_account_id 必须为 NULL，插入前会强制置空；前端可选填 From Account 仅用于展示
     // 验证 From Account（PAYMENT/RECEIVE/CONTRA/CLAIM 需要，RATE 有特殊处理）
     if (in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'])) {
         if (!$from_account_id || $from_account_id <= 0) {
@@ -782,6 +782,11 @@ try {
             // 非 RATE 类型的原有逻辑
             // 确保金额是正数（对于所有交易类型）
             $amount = abs($amount);
+            
+            // WIN/LOSE（含前端 PROFIT）：数据库触发器要求 from_account_id 必须为 NULL，此处强制置空，避免触发错误
+            if (in_array($transaction_type, ['WIN', 'LOSE'])) {
+                $from_account_id = null;
+            }
             
             // 插入交易记录（只创建一条记录；余额计算逻辑会自动处理 From Account 和 To Account）
             $txnRow = [
