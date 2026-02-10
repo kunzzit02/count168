@@ -620,8 +620,6 @@
                         cal.style.width = CALENDAR_NATURAL_WIDTH + 'px';
                         cal.style.transformOrigin = 'top left';
                         cal.style.transform = 'scale(' + scale + ')';
-                        cal.style.minWidth = '';
-                        cal.style.maxWidth = '';
                     }
                     alignToDateRange();
                     requestAnimationFrame(function() {
