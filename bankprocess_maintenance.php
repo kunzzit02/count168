@@ -2,12 +2,30 @@
 // 使用统一的session检查
 require_once 'session_check.php';
 
+// 仅当公司具有 Bank category 权限时才可访问此页（与侧边栏 Maintenance > Process 可见性一致）
+$session_company_id = $_SESSION['company_id'] ?? null;
+if ($session_company_id) {
+    try {
+        $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
+        $stmt->execute([$session_company_id]);
+        $permsJson = $stmt->fetchColumn();
+        $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
+        if (!is_array($companyPerms) || !in_array('Bank', $companyPerms)) {
+            header('Location: processlist.php?error=no_bank_permission');
+            exit;
+        }
+    } catch (PDOException $e) {
+        header('Location: processlist.php?error=permission_check_failed');
+        exit;
+    }
+} else {
+    header('Location: processlist.php');
+    exit;
+}
+
 // Get URL parameters for notifications
 $success = isset($_GET['success']) ? true : false;
 $error = isset($_GET['error']) ? true : false;
-
-// 获取 session 中的 company_id（用于跨页面同步）
-$session_company_id = $_SESSION['company_id'] ?? null;
 ?>
 
 <!DOCTYPE html>
