@@ -18,6 +18,8 @@ $isOwner = ($userRole === 'owner');
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/customer_report.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
@@ -46,13 +48,13 @@ $isOwner = ($userRole === 'owner');
                             </div>
                         </div>
                     </div>
-                    <div class="customer-report-filter-group">
-                        <label for="dateFrom">Date From</label>
-                        <input type="date" id="dateFrom" required>
-                    </div>
-                    <div class="customer-report-filter-group">
-                        <label for="dateTo">Date To</label>
-                        <input type="date" id="dateTo" required>
+                    <div class="customer-report-filter-group report-date-range-group">
+                        <label for="customerReportDateRange">Date Range</label>
+                        <div class="report-date-range-picker">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="customerReportDateRangeDisplay">Select date range</span>
+                            <input type="text" id="customerReportDateRange" readonly placeholder="Select date range" aria-hidden="true" tabindex="-1">
+                        </div>
                     </div>
                     <div class="customer-report-filter-group">
                         <div class="customer-report-checkbox-section">
@@ -123,6 +125,7 @@ $isOwner = ($userRole === 'owner');
     <script>
         window.CUSTOMER_REPORT_COMPANY_ID = <?php echo $company_id; ?>;
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="js/customer_report.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

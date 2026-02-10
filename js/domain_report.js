@@ -365,11 +365,56 @@ function showNotification(message, type = 'success') {
             });
         }
 
+        let domainReportDateFrom = '';
+        let domainReportDateTo = '';
+
+        function formatReportDateDisplay(date) {
+            const d = new Date(date);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        function initDomainReportDateRange() {
+            const input = document.getElementById('domainReportDateRange');
+            const display = document.getElementById('domainReportDateRangeDisplay');
+            if (!input || !display || typeof flatpickr === 'undefined') return;
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            domainReportDateFrom = todayStr;
+            domainReportDateTo = todayStr;
+            display.textContent = formatReportDateDisplay(todayStr) + ' - ' + formatReportDateDisplay(todayStr);
+            flatpickr(input, {
+                mode: 'range',
+                dateFormat: 'Y-m-d',
+                defaultDate: [todayStr, todayStr],
+                onChange: function(selectedDates) {
+                    if (selectedDates.length === 2) {
+                        domainReportDateFrom = selectedDates[0].toISOString().split('T')[0];
+                        domainReportDateTo = selectedDates[1].toISOString().split('T')[0];
+                        display.textContent = formatReportDateDisplay(domainReportDateFrom) + ' - ' + formatReportDateDisplay(domainReportDateTo);
+                        debouncedLoadReport();
+                    } else if (selectedDates.length === 1) {
+                        domainReportDateFrom = selectedDates[0].toISOString().split('T')[0];
+                        display.textContent = formatReportDateDisplay(domainReportDateFrom) + ' - Select end date';
+                    }
+                },
+                onReady: function(selectedDates) {
+                    if (selectedDates.length === 2) {
+                        domainReportDateFrom = selectedDates[0].toISOString().split('T')[0];
+                        domainReportDateTo = selectedDates[1].toISOString().split('T')[0];
+                        display.textContent = formatReportDateDisplay(domainReportDateFrom) + ' - ' + formatReportDateDisplay(domainReportDateTo);
+                    }
+                }
+            });
+        }
+
         async function loadReport() {
             const processButton = document.getElementById('processSelect');
             const processId = processButton?.getAttribute('data-value') || '';
-            const dateFrom = document.getElementById('dateFrom').value;
-            const dateTo = document.getElementById('dateTo').value;
+            const dateFrom = domainReportDateFrom;
+            const dateTo = domainReportDateTo;
 
             if (!dateFrom || !dateTo) {
                 showNotification('Please select start date and end date', 'danger');
@@ -469,15 +514,8 @@ function showNotification(message, type = 'success') {
             document.getElementById('domainReportTotal').style.display = 'grid';
         }
 
-        function setDefaultDates() {
-            const today = new Date();
-            const todayStr = today.toISOString().split('T')[0];
-            document.getElementById('dateFrom').value = todayStr;
-            document.getElementById('dateTo').value = todayStr;
-        }
-
         document.addEventListener('DOMContentLoaded', async () => {
-            setDefaultDates();
+            initDomainReportDateRange();
             await loadOwnerCompanies();
             await loadProcesses();
             
@@ -487,6 +525,4 @@ function showNotification(message, type = 'success') {
             await loadReport();
 
             document.getElementById('processSelect').addEventListener('change', debouncedLoadReport);
-            document.getElementById('dateFrom').addEventListener('change', debouncedLoadReport);
-            document.getElementById('dateTo').addEventListener('change', debouncedLoadReport);
         });

@@ -563,12 +563,57 @@
             }, 300); // Wait 300ms after user stops typing/selecting
         }
 
+        let customerReportDateFrom = '';
+        let customerReportDateTo = '';
+
+        function formatCustomerReportDateDisplay(date) {
+            const d = new Date(date);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        function initCustomerReportDateRange() {
+            const input = document.getElementById('customerReportDateRange');
+            const display = document.getElementById('customerReportDateRangeDisplay');
+            if (!input || !display || typeof flatpickr === 'undefined') return;
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            customerReportDateFrom = todayStr;
+            customerReportDateTo = todayStr;
+            display.textContent = formatCustomerReportDateDisplay(todayStr) + ' - ' + formatCustomerReportDateDisplay(todayStr);
+            flatpickr(input, {
+                mode: 'range',
+                dateFormat: 'Y-m-d',
+                defaultDate: [todayStr, todayStr],
+                onChange: function(selectedDates) {
+                    if (selectedDates.length === 2) {
+                        customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
+                        customerReportDateTo = selectedDates[1].toISOString().split('T')[0];
+                        display.textContent = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
+                        debouncedLoadReport();
+                    } else if (selectedDates.length === 1) {
+                        customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
+                        display.textContent = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - Select end date';
+                    }
+                },
+                onReady: function(selectedDates) {
+                    if (selectedDates.length === 2) {
+                        customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
+                        customerReportDateTo = selectedDates[1].toISOString().split('T')[0];
+                        display.textContent = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
+                    }
+                }
+            });
+        }
+
         // Load report data
         async function loadReport() {
             const accountButton = document.getElementById('accountSelect');
             const accountId = accountButton?.getAttribute('data-value') || '';
-            const dateFrom = document.getElementById('dateFrom').value;
-            const dateTo = document.getElementById('dateTo').value;
+            const dateFrom = customerReportDateFrom;
+            const dateTo = customerReportDateTo;
             const showAll = document.getElementById('showAll').checked;
             
             if (!dateFrom || !dateTo) {
@@ -798,18 +843,9 @@
             });
         }
 
-        // Set default dates (today)
-        function setDefaultDates() {
-            const today = new Date();
-            const todayStr = today.toISOString().split('T')[0];
-            
-            document.getElementById('dateFrom').value = todayStr;
-            document.getElementById('dateTo').value = todayStr;
-        }
-
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
-            setDefaultDates();
+            initCustomerReportDateRange();
             await loadOwnerCompanies(); // Load company buttons first (for owner)
             await loadCompanyCurrencies(); // Load currency buttons
             await loadAccounts();
@@ -822,15 +858,6 @@
             
             // Auto-update when account selection changes
             document.getElementById('accountSelect').addEventListener('change', function() {
-                debouncedLoadReport();
-            });
-            
-            // Auto-update when date changes
-            document.getElementById('dateFrom').addEventListener('change', function() {
-                debouncedLoadReport();
-            });
-            
-            document.getElementById('dateTo').addEventListener('change', function() {
                 debouncedLoadReport();
             });
             
