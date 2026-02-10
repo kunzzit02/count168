@@ -681,16 +681,17 @@
                     }
 
                     // Handle remarks
-                    if (process.remarks) {
-                        try {
-                            const meta = JSON.parse(process.remarks);
-                            let remarksText = '';
-                            if (meta.user_remarks) {
-                                remarksText = meta.user_remarks;
+                    const editRemarksEl = document.getElementById('edit_remarks');
+                    if (editRemarksEl) {
+                        if (process.remarks) {
+                            try {
+                                const meta = JSON.parse(process.remarks);
+                                editRemarksEl.value = (meta.user_remarks != null && meta.user_remarks !== '') ? meta.user_remarks : (process.remarks || '');
+                            } catch (e) {
+                                editRemarksEl.value = process.remarks;
                             }
-                            document.getElementById('edit_remarks').value = remarksText;
-                        } catch (e) {
-                            document.getElementById('edit_remarks').value = process.remarks;
+                        } else {
+                            editRemarksEl.value = '';
                         }
                     }
 
@@ -2369,7 +2370,11 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     if (result.success) {
                         const message = result.message || 'Process updated successfully!';
                         showNotification(message, 'success');
-                        closeEditModal();
+                        document.getElementById('editModal').style.display = 'none';
+                        document.getElementById('edit_all_day').checked = false;
+                        if (window.selectedDescriptions) window.selectedDescriptions = [];
+                        document.getElementById('edit_selected_descriptions_display').style.display = 'none';
+                        document.getElementById('edit_description').value = '';
                         fetchProcesses(); // Refresh the list
                     } else {
                         let errorMessage = result.error || 'Unknown error occurred';
