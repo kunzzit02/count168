@@ -194,7 +194,8 @@
 
             tbody.innerHTML = '';
             const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' };
-            const todayStr = new Date().toISOString().slice(0, 10);
+            const now = new Date();
+            const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             function getContractStateClass(dayStart, dayEnd) {
                 if (!dayStart && !dayEnd) return '';
                 if (dayStart && todayStr < dayStart) return 'contract-pending';
