@@ -530,8 +530,13 @@ try {
         $win_loss = 0;
         $cr_dr = 0;
         $approvalStatus = $has_approval_status ? ($t['approval_status'] ?? null) : null;
+        // 原始 description，用于判断是否为手动 PROFIT（WIN/LOSE 且 description 不以 "Process: " 开头）
+        $rawDescription = $t['description'] ?? '';
         // 关联账户间内部转账：to 和 from 都在聚合列表内时，对聚合视图 Cr/Dr 为 0
         $is_internal_transfer = $is_to_account && $is_from_account;
+        // 手动 PROFIT：WIN/LOSE 且非 Bank Process，description 不以 "Process: " 开头
+        $isManualProfit = in_array($t['transaction_type'], ['WIN', 'LOSE'], true)
+            && stripos((string)$rawDescription, 'Process: ') !== 0;
         
         // 根据交易类型计算 Win/Loss 和 Cr/Dr
         // Win/Loss 只包含 Data Capture，WIN/LOSE 交易移到 Cr/Dr
@@ -594,9 +599,10 @@ try {
                 
         }
         
-        // Bank process 的 WIN/LOSE：History 中金额显示在 Win/Loss 列（与主表一致），Cr/Dr 显示 0
+        // Bank process 的 WIN/LOSE + 手动 PROFIT：
+        // History 中金额统一显示在 Win/Loss 列（与主表一致），Cr/Dr 显示 0
         $isBankProcessTransaction = $has_source_bank_process_id && !empty($t['source_bank_process_id']);
-        if ($isBankProcessTransaction && in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
+        if (($isBankProcessTransaction || $isManualProfit) && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
             $win_loss = $cr_dr;
             $cr_dr = 0;
         }
@@ -618,6 +624,22 @@ try {
             }
             if ($isBankProcessTransaction && !empty($t['bank_name'])) {
                 $description = $description . ' (' . trim($t['bank_name']) . ')';
+            }
+        }
+        
+        // 如果是手动 PROFIT（WIN/LOSE 且非 Bank Process），根据当前查看的账户生成和 CONTRA 类似的描述
+        if ($isManualProfit) {
+            if ($is_to_account && !$is_from_account) {
+                // 当前账户是 To Account：从对方账户进来的 PROFIT
+                $other = $t['from_account_code'] ?: '-';
+                $description = 'PROFIT FROM ' . $other;
+            } elseif ($is_from_account && !$is_to_account) {
+                // 当前账户是 From Account：给对方账户的 PROFIT
+                $other = $t['to_account_code'] ?: '-';
+                $description = 'PROFIT TO ' . $other;
+            } else {
+                // 内部转账或资料不足时，给一个通用描述
+                $description = 'PROFIT';
             }
         }
         
@@ -706,6 +728,8 @@ try {
         
         // Bank process 历史中 Id Product 列显示 Add Process 的 Name（bank_process.name）；仅 bank process 交易显示 card_owner，其余显示 id product
         $cardOwner = ($has_source_bank_process_id && !empty($t['bank_process_name'])) ? trim($t['bank_process_name']) : (($has_source_bank_process_id && !empty($t['card_owner_name'])) ? trim($t['card_owner_name']) : '-');
+        // Id Product：手动 PROFIT（WIN/LOSE，非 Bank Process）统一显示为 PROFIT，其余沿用 transaction_type
+        $productLabel = $isManualProfit ? 'PROFIT' : $t['transaction_type'];
         
         $events[] = [
             'row_type' => 'transaction',
@@ -717,7 +741,7 @@ try {
             'cr_dr' => $cr_dr,
             'date' => date('d/m/Y', strtotime($t['transaction_date'])),
             'source' => $t['transaction_type'],
-            'product' => $t['transaction_type'],
+            'product' => $productLabel,
             'card_owner' => $cardOwner,
             'is_bank_process_transaction' => $isBankProcessTransaction,
             'currency' => $transactionCurrency,
