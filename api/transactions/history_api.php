@@ -324,7 +324,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -408,6 +408,14 @@ try {
         $stmt->execute([$account_ids[0]]);
         $bfCurrency = $stmt->fetchColumn();
     }
+    $bfDescription = 'Opening Balance';
+    $ph_bf = implode(',', array_fill(0, count($account_ids), '?'));
+    $stmt = $pdo->prepare("SELECT bp.bank FROM bank_process bp WHERE bp.card_merchant_id IN ($ph_bf) AND bp.company_id = ? AND bp.bank IS NOT NULL AND bp.bank != '' LIMIT 1");
+    $stmt->execute(array_merge($account_ids, [$company_id]));
+    $bfBankName = $stmt->fetchColumn();
+    if ($bfBankName) {
+        $bfDescription = 'Opening Balance (' . trim($bfBankName) . ')';
+    }
     $history[] = [
         'row_type' => 'bf',
         'date' => 'B/F',
@@ -420,7 +428,7 @@ try {
         'win_loss' => '-',
         'cr_dr' => '-',
         'balance' => number_format($bf, 2),
-        'description' => 'Opening Balance',
+        'description' => $bfDescription,
         'sms' => '-',
         'created_by' => '-'
     ];
@@ -596,7 +604,7 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
-        // WIN/LOSE（Bank process 入账）：按入账类型显示，加 "bill" 表示收费/账单
+        // WIN/LOSE（Bank process 入账）：按入账类型显示，加 "bill" 表示收费/账单；Supplier Payment History 前加银行名
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
             $periodType = isset($t['period_type']) ? trim((string)$t['period_type']) : '';
             if ($periodType === 'partial_first_month') {
@@ -607,6 +615,9 @@ try {
                 $description = 'Monthly bill';
             } else {
                 $description = 'Monthly bill';
+            }
+            if ($isBankProcessTransaction && !empty($t['bank_name'])) {
+                $description = $description . ' (' . trim($t['bank_name']) . ')';
             }
         }
         
