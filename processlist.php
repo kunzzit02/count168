@@ -1110,7 +1110,11 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="modal-content" style="max-width: 480px;">
             <div class="modal-header">
                 <h2>Add Profit Sharing</h2>
-                <span class="close" onclick="closeProfitSharingModal()">&times;</span>
+                <div class="modal-header-actions">
+                    <button type="button" class="bank-add-btn" id="profitSharingAddRowBtn"
+                        title="Add another Account &amp; Amount">+</button>
+                    <span class="close" onclick="closeProfitSharingModal()">&times;</span>
+                </div>
             </div>
             <div class="modal-body">
                 <form id="profitSharingForm" class="bank-form" style="display: block;">
@@ -1132,14 +1136,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <button type="button" class="bank-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
                                 </div>
                             </div>
-                            <div class="form-group profit-sharing-amount-with-add">
+                            <div class="form-group">
                                 <label for="profit_sharing_amount">Amount</label>
                                 <div class="account-select-with-buttons">
                                     <input type="number" id="profit_sharing_amount" name="amount"
                                         class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01"
                                         min="0" style="flex: 1;">
-                                    <button type="button" class="bank-add-btn" id="profitSharingAddRowBtn"
-                                        title="Add another Account &amp; Amount">+</button>
                                 </div>
                             </div>
                         </div>
