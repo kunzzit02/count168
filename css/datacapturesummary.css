@@ -442,6 +442,12 @@ body {
             text-align: left;
             white-space: nowrap;
         }
+        /* 第一列 Id Product 不参与 nowrap，避免被上面的规则覆盖 */
+        #summaryTable th:nth-child(1),
+        #summaryTable td:nth-child(1),
+        #summaryTable td.id-product {
+            white-space: normal !important;
+        }
 
         #summaryTable tfoot tr {
             background-color: #f6f8fa;
@@ -526,11 +532,13 @@ body {
             white-space: normal !important;
             word-break: break-word;
             overflow: visible !important;
+            text-overflow: unset;
             min-width: 160px;
         }
         #summaryTable th:nth-child(1) {
             white-space: normal !important;
             overflow: visible;
+            text-overflow: unset;
         }
         
         /* Id Product Main and Sub cell styling */
