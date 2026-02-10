@@ -396,7 +396,8 @@
                 window.selectedProfitSharingEntries = [];
                 loadAddBankProcessData().then(async () => {
                     const countryEl = document.getElementById('bank_country');
-                    applySelectedBanksToDropdown(countryEl ? countryEl.value : '');
+                    if (countryEl) countryEl.value = '';
+                    applySelectedBanksToDropdown('');
                     renderSelectedProfitSharing();
                     document.getElementById('addBankModal').style.display = 'block';
                     if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
