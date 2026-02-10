@@ -109,14 +109,16 @@ body.transaction-page {
     min-width: 0;
 }
 
-/* Capture Date：标签与输入框文字使用指定样式 */
+/* Capture Date：标签样式与 Currency: 一致（无下划线、同字重与字号） */
 .transaction-page .transaction-capture-date-group .transaction-date-range-label {
     display: block;
     margin-bottom: 6px;
     color: #374151;
-    font-size: clamp(8px, 0.74vw, 14px);
-    font-weight: 500;
+    font-size: clamp(10px, 0.73vw, 14px);
+    font-weight: bold;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    text-decoration: none;
+    border-bottom: none;
 }
 .transaction-page .transaction-date-range-wrap {
     display: flex;
