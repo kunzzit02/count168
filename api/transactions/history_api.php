@@ -627,6 +627,22 @@ try {
             }
         }
         
+        // 如果是手动 PROFIT（WIN/LOSE 且非 Bank Process），根据当前查看的账户生成和 CONTRA 类似的描述
+        if ($isManualProfit) {
+            if ($is_to_account && !$is_from_account) {
+                // 当前账户是 To Account：从对方账户进来的 PROFIT
+                $other = $t['from_account_code'] ?: '-';
+                $description = 'PROFIT FROM ' . $other;
+            } elseif ($is_from_account && !$is_to_account) {
+                // 当前账户是 From Account：给对方账户的 PROFIT
+                $other = $t['to_account_code'] ?: '-';
+                $description = 'PROFIT TO ' . $other;
+            } else {
+                // 内部转账或资料不足时，给一个通用描述
+                $description = 'PROFIT';
+            }
+        }
+        
         // 如果是 CONTRA/PAYMENT/RECEIVE/CLAIM/RATE，根据当前查看的账户调整 description
         if (in_array($t['transaction_type'], ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'RATE'])) {
             if (empty($t['description'])) {
