@@ -936,3 +936,18 @@
 #profitSharingModal .form-actions.bank-actions {
     justify-content: center;
 }
+/* Amount 旁的 + 按钮保持可见：输入框可收缩，按钮不收缩 */
+#profitSharingModal .profit-sharing-amount-with-add .account-select-with-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+#profitSharingModal .profit-sharing-amount-with-add .account-select-with-buttons .bank-input {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+}
+#profitSharingModal .profit-sharing-amount-with-add .account-select-with-buttons .bank-add-btn,
+#profitSharingModal .account-select-with-buttons .bank-add-btn {
+    flex-shrink: 0;
+}
