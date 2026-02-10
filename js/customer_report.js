@@ -582,8 +582,10 @@
             const todayStr = today.toISOString().split('T')[0];
             customerReportDateFrom = todayStr;
             customerReportDateTo = todayStr;
-            display.textContent = formatCustomerReportDateDisplay(todayStr) + ' - ' + formatCustomerReportDateDisplay(todayStr);
-            flatpickr(input, {
+            const initialText = formatCustomerReportDateDisplay(todayStr) + ' - ' + formatCustomerReportDateDisplay(todayStr);
+            display.textContent = initialText;
+            input.value = initialText;
+            const fp = flatpickr(input, {
                 mode: 'range',
                 dateFormat: 'Y-m-d',
                 defaultDate: [todayStr, todayStr],
@@ -591,21 +593,29 @@
                     if (selectedDates.length === 2) {
                         customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
                         customerReportDateTo = selectedDates[1].toISOString().split('T')[0];
-                        display.textContent = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
+                        const text = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
+                        display.textContent = text;
+                        input.value = text;
                         debouncedLoadReport();
                     } else if (selectedDates.length === 1) {
                         customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
-                        display.textContent = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - Select end date';
+                        const text = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - Select end date';
+                        display.textContent = text;
+                        input.value = text;
                     }
                 },
                 onReady: function(selectedDates) {
                     if (selectedDates.length === 2) {
                         customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
                         customerReportDateTo = selectedDates[1].toISOString().split('T')[0];
-                        display.textContent = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
+                        const text = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
+                        display.textContent = text;
+                        input.value = text;
                     }
                 }
             });
+            const wrap = input.closest('.report-date-range-picker');
+            if (wrap && fp) wrap.addEventListener('click', function(e) { e.preventDefault(); fp.open(); });
         }
 
         // Load report data

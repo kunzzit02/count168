@@ -428,6 +428,7 @@ body {
     flex: 1;
     min-width: 0;
 }
+/* 隐藏 input，仅用 span 显示 d/m/Y；避免出现 Y-m-d "to" 格式 */
 .customer-report-filter-container .report-date-range-picker input.report-date-range-input {
     position: absolute;
     left: 0;
@@ -440,7 +441,8 @@ body {
     background: transparent !important;
     padding: 0 !important;
     margin: 0;
-    font-size: inherit;
+    font-size: 0;
+    color: transparent !important;
     box-shadow: none !important;
     outline: none !important;
 }
