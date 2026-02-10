@@ -153,28 +153,42 @@ body {
 .customer-report-filter-container #report-quick-select-dropdown .dropdown-item:hover {
     background-color: rgba(59, 130, 246, 0.1);
 }
-/* Date Range 与第二张图一致：浅蓝细边框、明显圆角、简洁留白 */
+/* Date Range 与 Dashboard 完全一致：尺寸、宽度、样式 */
+.customer-report-filter-container .transaction-capture-date-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.customer-report-filter-container .transaction-capture-date-group .transaction-date-range-label {
+    display: block;
+    margin: 0;
+    font-size: clamp(10px, 0.75vw, 14px);
+    font-weight: bold;
+    color: #374151;
+}
 .customer-report-filter-container .transaction-date-range-wrap {
     display: flex;
     align-items: center;
-    gap: clamp(6px, 0.5vw, 10px);
+    gap: clamp(4px, 0.42vw, 8px);
     background: white;
-    border: 1px solid #93c5fd;
-    border-radius: 10px;
-    padding: clamp(8px, 0.65vw, 12px) clamp(12px, 1vw, 18px);
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
     cursor: pointer;
     transition: all 0.2s;
     position: relative;
     min-width: clamp(120px, 12vw, 240px);
+    width: clamp(120px, 12vw, 240px);
+    box-sizing: border-box;
     z-index: 1;
 }
 .customer-report-filter-container .transaction-date-range-wrap:hover {
-    border-color: #60a5fa;
-    box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.3);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 .customer-report-filter-container .transaction-date-range-wrap .fa-calendar-alt {
     color: #3b82f6;
-    font-size: clamp(10px, 0.8vw, 14px);
+    font-size: clamp(9px, 0.74vw, 14px);
     margin: 0 clamp(2px, 0.32vw, 6px);
 }
 .customer-report-filter-container .transaction-date-range-input {
@@ -184,19 +198,14 @@ body {
     background: transparent;
     cursor: pointer;
     padding: 0;
-    color: #111827;
-    font-size: clamp(10px, 0.8vw, 14px);
-    font-weight: 600;
+    color: #374151;
+    font-size: clamp(9px, 0.74vw, 14px);
+    font-weight: 500;
     caret-color: transparent;
 }
 .customer-report-filter-container .transaction-date-range-input::-ms-clear,
 .customer-report-filter-container .transaction-date-range-input::-webkit-search-cancel-button {
     display: none;
-}
-.customer-report-filter-container .transaction-capture-date-group .transaction-date-range-label {
-    font-weight: 700;
-    color: #111827;
-    margin-bottom: 4px;
 }
 
 .customer-report-checkbox-section {
