@@ -52,7 +52,7 @@ $isOwner = ($userRole === 'owner');
                         <div class="report-date-range-picker">
                             <i class="fas fa-calendar-alt"></i>
                             <span id="domainReportDateRangeDisplay">Select date range</span>
-                            <input type="text" id="domainReportDateRange" readonly placeholder="Select date range" aria-hidden="true" tabindex="-1">
+                            <input type="text" id="domainReportDateRange" class="report-date-range-input" readonly placeholder="Select date range" aria-hidden="true" tabindex="-1">
                         </div>
                     </div>
                 </div>

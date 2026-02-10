@@ -42,7 +42,7 @@ body {
 }
 
 .domain-report-filter-group select,
-.domain-report-filter-group input:not([type="checkbox"]) {
+.domain-report-filter-group input:not([type="checkbox"]):not(.report-date-range-input) {
     padding: clamp(8px, 0.65vw, 12px) clamp(10px, 1vw, 14px);
     border: 0.125rem solid #e5e7eb;
     border-radius: 0.5rem;
@@ -377,7 +377,7 @@ body {
     flex: 1;
     min-width: 0;
 }
-.domain-report-filter-container .report-date-range-picker input {
+.domain-report-filter-container .report-date-range-picker input.report-date-range-input {
     position: absolute;
     left: 0;
     top: 0;
@@ -385,10 +385,13 @@ body {
     height: 100%;
     opacity: 0;
     cursor: pointer;
-    border: none;
-    padding: 0;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
     margin: 0;
     font-size: inherit;
+    box-shadow: none !important;
+    outline: none !important;
 }
 .domain-report-filter-container .report-date-range-group label {
     display: block;
