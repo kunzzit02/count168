@@ -145,27 +145,35 @@ body.transaction-page {
     min-width: 0;
 }
 
-/* Capture Date：单格日期范围（与 Dashboard Date Range 一致） */
+/* Capture Date：与 Dashboard Date Range 字体和 icon 完全一致 */
+.transaction-page .transaction-capture-date-group .transaction-date-range-label {
+    display: block;
+    font-size: clamp(10px, 0.75vw, 14px);
+    font-weight: bold;
+    color: #000000ff;
+    margin-bottom: clamp(4px, 0.5vw, 8px);
+}
 .transaction-page .transaction-date-range-wrap {
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: #fff;
+    gap: clamp(4px, 0.42vw, 8px);
+    background: white;
     border: 1px solid #d1d5db;
-    border-radius: 6px;
-    padding: 6px 10px;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
     cursor: pointer;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    min-width: 180px;
+    transition: all 0.2s;
+    position: relative;
+    min-width: clamp(120px, 12vw, 240px);
 }
 .transaction-page .transaction-date-range-wrap:hover {
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
-.transaction-page .transaction-date-range-icon {
-    width: 18px;
-    height: 18px;
+.transaction-page .transaction-date-range-wrap .fa-calendar-alt {
     color: #3b82f6;
+    font-size: clamp(9px, 0.74vw, 14px);
+    margin: 0 clamp(2px, 0.32vw, 6px);
     flex-shrink: 0;
 }
 .transaction-page .transaction-date-range-input {
@@ -173,12 +181,17 @@ body.transaction-page {
     min-width: 0;
     border: none;
     background: transparent;
-    font-size: inherit;
     cursor: pointer;
     padding: 0;
+    color: #374151;
+    font-size: clamp(9px, 0.74vw, 14px);
+    font-weight: 500;
 }
 .transaction-page .transaction-date-range-input:focus {
     outline: none;
+}
+.transaction-page .transaction-date-range-input::placeholder {
+    color: #374151;
 }
 
 .transaction-page .transaction-account-inputs {

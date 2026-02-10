@@ -39,6 +39,7 @@ $default_date_to = $today_dt->format('d/m/Y');
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo file_exists('css/transaction.css') ? filemtime('css/transaction.css') : time(); ?>">
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/sidebar.css?v=1">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
 </head>
@@ -109,12 +110,10 @@ $default_date_to = $today_dt->format('d/m/Y');
                     </select>
                 </div>
                 
-                <div class="transaction-form-group">
-                    <label class="transaction-label">Capture Date</label>
+                <div class="transaction-form-group transaction-capture-date-group">
+                    <label class="transaction-label transaction-date-range-label">Capture Date</label>
                     <div class="transaction-date-range-wrap" id="capture_date_range_wrap">
-                        <svg class="transaction-date-range-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/>
-                        </svg>
+                        <i class="fas fa-calendar-alt" aria-hidden="true"></i>
                         <input type="text" id="capture_date_range" class="transaction-input transaction-date-range-input" value="<?php echo $default_date_from . ' - ' . $default_date_to; ?>" placeholder="Select date range" readonly style="cursor: pointer;">
                     </div>
                     <input type="hidden" id="date_from" value="<?php echo $default_date_from; ?>">
