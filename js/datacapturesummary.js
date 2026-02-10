@@ -12835,23 +12835,27 @@ function getCurrentProcessId() {
                 
                 if (cells[0]) { // Id Product (merged)
                     const productValues = getProductValuesFromCell(cells[0]);
-                    // Strip any existing description in parentheses from idProduct to avoid duplicate "Q (AAA) (AAA)" when re-editing without refresh
-                    const bareIdProduct = (data.idProduct || '').replace(/\s*\([^)]+\)\s*$/, '').trim();
-                    let idProductText = bareIdProduct;
-                    if (data.description && data.description.trim() !== '') {
-                        idProductText += ` (${data.description})`;
-                    }
-                    
-                    // Determine if this is a main or sub row update
-                    const isSubRow = !productValues.main || !productValues.main.trim();
-                    if (isSubRow) {
-                        // Update sub product value
-                        productValues.sub = idProductText;
-                        cells[0].setAttribute('data-sub-product', idProductText);
-                    } else {
-                        // Update main product value
-                        productValues.main = idProductText;
-                        cells[0].setAttribute('data-main-product', idProductText);
+                    // 刷新后应用模板时保留行上已有的完整 Id Product 显示，不因模板中的短 id_product 覆盖导致「后面部分消失」
+                    const preserveIdProduct = data.preserveIdProductDisplay && (productValues.main || '').trim() !== '';
+                    if (!preserveIdProduct) {
+                        // Strip any existing description in parentheses from idProduct to avoid duplicate "Q (AAA) (AAA)" when re-editing without refresh
+                        const bareIdProduct = (data.idProduct || '').replace(/\s*\([^)]+\)\s*$/, '').trim();
+                        let idProductText = bareIdProduct;
+                        if (data.description && data.description.trim() !== '') {
+                            idProductText += ` (${data.description})`;
+                        }
+                        
+                        // Determine if this is a main or sub row update
+                        const isSubRow = !productValues.main || !productValues.main.trim();
+                        if (isSubRow) {
+                            // Update sub product value
+                            productValues.sub = idProductText;
+                            cells[0].setAttribute('data-sub-product', idProductText);
+                        } else {
+                            // Update main product value
+                            productValues.main = idProductText;
+                            cells[0].setAttribute('data-main-product', idProductText);
+                        }
                     }
                     
                     // Update merged cell text 并设置 title 以便悬停显示完整 id_product
@@ -13862,7 +13866,8 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 productType: 'main',
                 rowIndex: (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null)
                     ? Number(mainTemplate.row_index)
-                    : null
+                    : null,
+                preserveIdProductDisplay: true
             };
 
             updateSummaryTableRow(idProduct, data, targetRow);
@@ -14756,7 +14761,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             productType: 'main',
             rowIndex: (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null)
                 ? Number(mainTemplate.row_index)
-                : null
+                : null,
+            preserveIdProductDisplay: true
         };
 
         updateSummaryTableRow(idProduct, data, targetRow);
