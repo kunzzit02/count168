@@ -604,6 +604,16 @@
                         customerReportDateTo = selectedDates[1].toISOString().split('T')[0];
                         input.value = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
                     }
+                },
+                onOpen: function() {
+                    const wrap = input.closest('.report-date-range-picker');
+                    if (!wrap) return;
+                    const cal = fp.calendarContainer;
+                    if (!cal) return;
+                    const rect = wrap.getBoundingClientRect();
+                    cal.style.position = 'fixed';
+                    cal.style.left = rect.left + 'px';
+                    cal.style.top = (rect.bottom + 8) + 'px';
                 }
             });
             const wrap = input.closest('.report-date-range-picker');
