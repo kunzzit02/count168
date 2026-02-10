@@ -2527,6 +2527,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         let currentEditAccountIdForBank = null;
         /** 从 Supplier 或 Customer 的 + 打开 Add Account 时记录，添加成功后自动选中新账户；Company 不自动选 */
         let bankAddAccountTriggerFieldId = null;
+        // For Profit Sharing rows: remember which hidden input should receive the new account id
+        let bankAddAccountTriggerHiddenInputId = null;
 
         let bankAccountRoles = [];
         /** Role 排序优先级（与 account-list 一致，Add Account 弹窗开放完整 Role 列表） */
@@ -2959,6 +2961,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                         selectedCurrencyIdsForAdd = [];
                         selectedCompanyIdsForAdd = currentCompanyId ? [currentCompanyId] : [];
                         var triggerFieldId = bankAddAccountTriggerFieldId;
+                        var triggerHiddenId = bankAddAccountTriggerHiddenInputId;
                         closeAddAccountModal();
                         await loadBankAccounts();
                         refreshBankAccountDropdowns();
@@ -2969,6 +2972,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                                 targetBtn.textContent = displayText;
                                 targetBtn.setAttribute('data-value', newAccountId);
                                 targetBtn.classList.remove('bank-field-error');
+                            }
+                            if (triggerHiddenId) {
+                                const hiddenInput = document.getElementById(triggerHiddenId);
+                                if (hiddenInput) {
+                                    hiddenInput.value = newAccountId;
+                                }
                             }
                         }
                     } else {
@@ -4223,6 +4232,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
 
         function closeAddAccountModal() {
             bankAddAccountTriggerFieldId = null;
+            bankAddAccountTriggerHiddenInputId = null;
             const modal = document.getElementById('addAccountModal');
             if (modal) {
                 modal.style.display = 'none';
@@ -4249,9 +4259,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const accountId = btn && btn.getAttribute('data-value');
             if (accountId) {
                 bankAddAccountTriggerFieldId = null;
+                bankAddAccountTriggerHiddenInputId = null;
                 openEditAccountModalFromBank(parseInt(accountId, 10));
             } else {
-                bankAddAccountTriggerFieldId = (fieldId === 'bank_card_merchant' || fieldId === 'bank_customer') ? fieldId : null;
+                // Supplier, Customer, Company: remember which select bar should auto-select the new account
+                bankAddAccountTriggerFieldId = fieldId;
+                bankAddAccountTriggerHiddenInputId = null;
                 showAddAccountModal();
             }
         }
@@ -4345,10 +4358,24 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const amountId = 'profit_sharing_amount_' + ts;
             const row = document.createElement('div');
             row.className = 'form-row bank-row-two-cols profit-sharing-row';
-            row.innerHTML = '<div class="form-group"><label for="' + btnId + '">Account</label><input type="hidden" id="' + hiddenId + '" class="profit-sharing-account-id" name="account_id" value=""><div class="account-select-with-buttons"><div class="custom-select-wrapper"><button type="button" class="custom-select-button profit-sharing-account-btn" id="' + btnId + '" data-placeholder="Select Account">Select Account</button><div class="custom-select-dropdown" id="' + dropdownId + '"><div class="custom-select-search"><input type="text" placeholder="Search account..." autocomplete="off"></div><div class="custom-select-options"></div></div></div><button type="button" class="bank-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button></div></div><div class="form-group"><label for="' + amountId + '">Amount</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0"></div>';
+            row.innerHTML = '<div class="form-group"><label for="' + btnId + '">Account</label><input type="hidden" id="' + hiddenId + '" class="profit-sharing-account-id" name="account_id" value=""><div class="account-select-with-buttons"><div class="custom-select-wrapper"><button type="button" class="custom-select-button profit-sharing-account-btn" id="' + btnId + '" data-placeholder="Select Account">Select Account</button><div class="custom-select-dropdown" id="' + dropdownId + '"><div class="custom-select-search"><input type="text" placeholder="Search account..." autocomplete="off"></div><div class="custom-select-options"></div></div></div><button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick(\'' + btnId + '\', \'' + hiddenId + '\')" title="Add New Account">+</button></div></div><div class="form-group"><label for="' + amountId + '">Amount</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0"></div>';
             container.appendChild(row);
             if (typeof initProfitSharingAccountSelect === 'function') {
                 initProfitSharingAccountSelect(btnId, dropdownId, hiddenId);
+            }
+        }
+
+        function profitSharingAccountPlusClick(buttonId, hiddenInputId) {
+            const btn = document.getElementById(buttonId);
+            const accountId = btn && btn.getAttribute('data-value');
+            if (accountId) {
+                bankAddAccountTriggerFieldId = null;
+                bankAddAccountTriggerHiddenInputId = null;
+                openEditAccountModalFromBank(parseInt(accountId, 10));
+            } else {
+                bankAddAccountTriggerFieldId = buttonId;
+                bankAddAccountTriggerHiddenInputId = hiddenInputId;
+                showAddAccountModal();
             }
         }
 
