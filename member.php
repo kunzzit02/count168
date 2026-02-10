@@ -142,6 +142,13 @@ try {
 // }
 
 $today = date('d/m/Y');
+// Capture Date 默认与 Dashboard 一致：本周一至今天
+$today_dt = new DateTime('today');
+$day_of_week = (int)$today_dt->format('w');
+$days_to_monday = $day_of_week === 0 ? 6 : $day_of_week - 1;
+$monday_dt = (clone $today_dt)->modify("-{$days_to_monday} days");
+$default_date_from = $monday_dt->format('d/m/Y');
+$default_date_to = $today_dt->format('d/m/Y');
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -151,6 +158,7 @@ $today = date('d/m/Y');
     <title>Member Win/Loss</title>
     <link rel="icon" type="image/png" href="images/count_logo.png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/member.css">
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
@@ -164,13 +172,14 @@ $today = date('d/m/Y');
 
         <div class="transaction-main-content">
             <div class="transaction-search-section" style="flex:1;">
-                <div class="transaction-form-group">
-                    <label class="transaction-label">Capture Date</label>
-                    <div class="transaction-date-inputs">
-                        <input type="text" id="date_from" class="transaction-input transaction-date-input" value="<?php echo $today; ?>" readonly>
-                        <span style="margin:0 5px;">to</span>
-                        <input type="text" id="date_to" class="transaction-input transaction-date-input" value="<?php echo $today; ?>" readonly>
+                <div class="transaction-form-group transaction-capture-date-group">
+                    <label class="transaction-label transaction-date-range-label">Capture Date</label>
+                    <div class="transaction-date-range-wrap" id="capture_date_range_wrap">
+                        <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+                        <input type="text" id="capture_date_range" class="transaction-input transaction-date-range-input" value="<?php echo $default_date_from . ' - ' . $default_date_to; ?>" placeholder="Select date range" readonly style="cursor: pointer;">
                     </div>
+                    <input type="hidden" id="date_from" value="<?php echo $default_date_from; ?>">
+                    <input type="hidden" id="date_to" value="<?php echo $default_date_to; ?>">
                 </div>
                 <?php
                 try {

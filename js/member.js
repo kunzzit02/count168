@@ -45,33 +45,42 @@
                 console.error('Flatpickr not loaded');
                 return;
             }
-            flatpickr('#date_from', {
+            const fromVal = document.getElementById('date_from') && document.getElementById('date_from').value;
+            const toVal = document.getElementById('date_to') && document.getElementById('date_to').value;
+            const parseDmy = (s) => {
+                if (!s || !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(s).trim())) return null;
+                const parts = String(s).trim().split('/').map(Number);
+                if (parts.length !== 3) return null;
+                const [d, m, y] = parts;
+                return new Date(y, m - 1, d);
+            };
+            const formatDmy = (date) => {
+                const d = date.getDate();
+                const m = date.getMonth() + 1;
+                const y = date.getFullYear();
+                return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+            };
+            const defaultFrom = parseDmy(fromVal) || new Date();
+            const defaultTo = parseDmy(toVal) || new Date();
+            flatpickr('#capture_date_range', {
+                mode: 'range',
                 dateFormat: 'd/m/Y',
-                defaultDate: new Date(),
-                allowInput: false
-            });
-            flatpickr('#date_to', {
-                dateFormat: 'd/m/Y',
-                defaultDate: new Date(),
-                allowInput: false
+                allowInput: false,
+                defaultDate: [defaultFrom, defaultTo],
+                onChange: function (selectedDates) {
+                    if (selectedDates.length === 2) {
+                        document.getElementById('date_from').value = formatDmy(selectedDates[0]);
+                        document.getElementById('date_to').value = formatDmy(selectedDates[1]);
+                        performMemberSearch();
+                    }
+                }
             });
         }
 
         function setupFormListeners() {
-            const dateFromInput = document.getElementById('date_from');
-            const dateToInput = document.getElementById('date_to');
-
             const handleChange = () => {
                 performMemberSearch();
             };
-
-            if (dateFromInput) {
-                dateFromInput.addEventListener('change', handleChange);
-            }
-            if (dateToInput) {
-                dateToInput.addEventListener('change', handleChange);
-            }
-
             document.addEventListener('flatpickr:onChange', handleChange);
         }
 
