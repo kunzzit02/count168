@@ -13228,8 +13228,9 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 if (existingRowIndex && existingRowIndex !== '' && existingRowIndex !== '999999') {
                     const existingIndexNum = Number(existingRowIndex);
                     if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
-                        // Row already has a valid row_index, preserve it（用对象输出便于在控制台展开查看完整 id_product）
-                        console.log('Preserved existing row_index:', existingRowIndex, { id_product: summaryIdProduct });
+                        // Row already has a valid row_index, preserve it（输出完整 id_product 便于控制台查看）
+                        const idProductFull = (productValues.main || '').trim();
+                        console.log('Preserved existing row_index:', existingRowIndex, idProductFull || summaryIdProduct);
                         return; // Keep existing row_index - don't recalculate
                     }
                 }
@@ -13246,13 +13247,14 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 const matchedIndex = idProductToRowIndex.get(summaryIdProduct);
                 
                 // Set row_index based on Data Capture Table position (only if not already set)
+                const idProductFullForLog = (productValues.main || '').trim() || summaryIdProduct;
                 if (matchedIndex !== undefined && matchedIndex >= 0) {
                     summaryRow.setAttribute('data-row-index', String(matchedIndex));
-                    console.log('Set row_index:', matchedIndex, 'for id_product:', summaryIdProduct, 'based on Data Capture Table position');
+                    console.log('Set row_index:', matchedIndex, 'for id_product:', idProductFullForLog, 'based on Data Capture Table position');
                 } else {
                     // If no match found in Data Capture Table, use fallback
                     summaryRow.setAttribute('data-row-index', '999999');
-                    console.warn('No Data Capture Table match found for id_product:', summaryIdProduct, 'using fallback row_index 999999');
+                    console.warn('No Data Capture Table match found for id_product:', idProductFullForLog, 'using fallback row_index 999999');
                 }
             });
         } else if (summaryTableBody) {

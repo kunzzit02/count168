@@ -533,12 +533,14 @@ body {
             word-break: break-word;
             overflow: visible !important;
             text-overflow: unset;
-            min-width: 160px;
+            min-width: 260px;
+            max-width: none;
         }
         #summaryTable th:nth-child(1) {
             white-space: normal !important;
             overflow: visible;
             text-overflow: unset;
+            min-width: 260px;
         }
         
         /* Id Product Main and Sub cell styling */
