@@ -36,7 +36,7 @@ $default_date_to = $today_dt->format('d/m/Y');
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/sidebar.css?v=1">
-    <script src="js/sidebar.js?v=1"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
 </head>
 <body class="transaction-page">
     <?php include 'sidebar.php'; ?>
@@ -477,6 +477,6 @@ $default_date_to = $today_dt->format('d/m/Y');
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="js/transaction.js?v=<?php echo time(); ?>"></script>
+    <script src="js/transaction.js?v=1>"></script>
 </body>
 </html>
