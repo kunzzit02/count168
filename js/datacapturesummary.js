@@ -12856,6 +12856,12 @@ function getCurrentProcessId() {
                             productValues.main = idProductText;
                             cells[0].setAttribute('data-main-product', idProductText);
                         }
+                    } else {
+                        // 保留时显式写回 data-main-product，确保完整名称不丢失
+                        const mainVal = (productValues.main || '').trim();
+                        if (mainVal) {
+                            cells[0].setAttribute('data-main-product', mainVal);
+                        }
                     }
                     
                     // Update merged cell text 并设置 title 以便悬停显示完整 id_product
