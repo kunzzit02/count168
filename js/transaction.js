@@ -897,8 +897,30 @@ function loadCompanyCurrencies() {
             });
             
             if (data.success && data.data.length > 0) {
-                // 保存 currency 列表（按 ID 排序，从旧到新）
-                currencyList = [...data.data];
+                // 应用保存的拖动顺序（与 Member Win/Loss 一致）
+                const savedOrderKey = 'transaction_currency_order_' + (currentCompanyId || 0);
+                let orderedData = [...data.data];
+                try {
+                    const saved = localStorage.getItem(savedOrderKey);
+                    if (saved) {
+                        const order = JSON.parse(saved);
+                        if (Array.isArray(order) && order.length > 0) {
+                            const byCode = new Map(orderedData.map(c => [c.code, c]));
+                            const ordered = [];
+                            order.forEach(code => {
+                                if (byCode.has(code)) {
+                                    ordered.push(byCode.get(code));
+                                    byCode.delete(code);
+                                }
+                            });
+                            byCode.forEach(c => ordered.push(c));
+                            orderedData = ordered;
+                        }
+                    }
+                } catch (e) { /* ignore */ }
+                
+                // 保存 currency 列表（按显示顺序）
+                currencyList = [...orderedData];
                 
                 const wrapper = document.getElementById('currency-buttons-wrapper');
                 const container = document.getElementById('currency-buttons-container');
@@ -913,7 +935,7 @@ function loadCompanyCurrencies() {
                 
                 container.innerHTML = '';
                 
-                console.log('✅ 开始加载 Currency 按钮，数据量:', data.data.length);
+                console.log('✅ 开始加载 Currency 按钮，数据量:', orderedData.length);
                 
                 // 保存之前的状态
                 const previousSelected = [...selectedCurrencies];
@@ -932,46 +954,38 @@ function loadCompanyCurrencies() {
                 });
                 container.appendChild(allBtn);
                 
-                // 先确定要选中的 currency（在创建按钮之前）
+                // 先确定要选中的 currency：默认第一个货币（与 Member Win/Loss 一致）
                 let currenciesToSelect = [];
                 if (previousSelected.length === 0 && !previousShowAll) {
-                    // 如果之前没有选中的 currency 且没有选择 All，默认选中 MYR 或第一个 currency
-                    const myrCurrency = data.data.find(c => c.code === 'MYR');
-                    const defaultCurrency = myrCurrency || data.data[0];
-                    if (defaultCurrency) {
-                        currenciesToSelect = [defaultCurrency.code];
+                    const firstCurrency = orderedData[0];
+                    if (firstCurrency) {
+                        currenciesToSelect = [firstCurrency.code];
                     }
                     showAllCurrencies = false;
                 } else {
-                    // 过滤掉不存在的 currency
-                    currenciesToSelect = previousSelected.filter(code => 
-                        data.data.some(c => c.code === code)
+                    currenciesToSelect = previousSelected.filter(code =>
+                        orderedData.some(c => c.code === code)
                     );
-                    // 如果过滤后没有选中的 currency 且没有选择 All，自动选择默认 currency
                     if (currenciesToSelect.length === 0 && !previousShowAll) {
-                        const myrCurrency = data.data.find(c => c.code === 'MYR');
-                        const defaultCurrency = myrCurrency || data.data[0];
-                        if (defaultCurrency) {
-                            currenciesToSelect = [defaultCurrency.code];
+                        const firstCurrency = orderedData[0];
+                        if (firstCurrency) {
+                            currenciesToSelect = [firstCurrency.code];
                         }
                     }
                 }
-                // 更新 selectedCurrencies
                 selectedCurrencies = currenciesToSelect;
                 
-                // 先显示 wrapper（在创建按钮之前就显示，确保用户能看到）
                 if (wrapper) {
                     wrapper.style.display = 'flex';
                 }
                 
-                // 创建各个 currency 按钮（可多选 toggle）
-                data.data.forEach(currency => {
+                // 创建各个 currency 按钮（可多选、可拖动）
+                orderedData.forEach(currency => {
                     const btn = document.createElement('button');
                     btn.className = 'transaction-company-btn';
                     btn.textContent = currency.code;
                     btn.dataset.currencyCode = currency.code;
                     
-                    // 检查是否应该选中（使用更新后的 selectedCurrencies）
                     if (selectedCurrencies.includes(currency.code)) {
                         btn.classList.add('active');
                     }
@@ -982,7 +996,7 @@ function loadCompanyCurrencies() {
                     container.appendChild(btn);
                 });
                 
-                // 确保按钮状态正确（再次更新以确保同步）
+                initCurrencyDragDrop();
                 updateCurrencyButtonsState();
                 
                 console.log('✅ Currency 按钮已创建并显示:', {
@@ -1009,7 +1023,7 @@ function loadCompanyCurrencies() {
                     sel.element.innerHTML = `<option value="">${sel.placeholder}</option>`;
                 });
                 
-                data.data.forEach(currency => {
+                orderedData.forEach(currency => {
                     currencySelects.forEach(sel => {
                         if (!sel.element) return;
                         const option = document.createElement('option');
@@ -1019,7 +1033,7 @@ function loadCompanyCurrencies() {
                     });
                 });
                 
-                const defaultCurrency = data.data.find(c => c.code === 'MYR') || data.data[0];
+                const defaultCurrency = orderedData[0];
                 
                 currencySelects.forEach(sel => {
                     if (!sel.element) return;
@@ -1033,7 +1047,7 @@ function loadCompanyCurrencies() {
                     }
                 });
                 
-                console.log('✅ Currency 按钮加载成功:', data.data, '选中的:', selectedCurrencies);
+                console.log('✅ Currency 按钮加载成功:', orderedData, '选中的:', selectedCurrencies);
             } else {
                 // 没有 currency 数据
                 const wrapper = document.getElementById('currency-buttons-wrapper');
@@ -1063,6 +1077,65 @@ function loadCompanyCurrencies() {
             console.error('❌ 加载 Currency 列表失败:', error);
             return { success: true, data: [] };
         });
+}
+
+// ==================== Currency 拖动排序（与 Member Win/Loss 一致） ====================
+function initCurrencyDragDrop() {
+    const container = document.getElementById('currency-buttons-container');
+    if (!container) return;
+    let draggedCode = null;
+    container.querySelectorAll('.transaction-company-btn[data-currency-code]').forEach(btn => {
+        if (btn.dataset.currencyCode === 'ALL') return;
+        btn.setAttribute('draggable', 'true');
+        btn.addEventListener('dragstart', function(e) {
+            draggedCode = btn.getAttribute('data-currency-code');
+            e.dataTransfer.setData('text/plain', draggedCode);
+            e.dataTransfer.effectAllowed = 'move';
+            btn.classList.add('transaction-currency-dragging');
+        });
+        btn.addEventListener('dragend', function() {
+            btn.classList.remove('transaction-currency-dragging');
+            draggedCode = null;
+        });
+    });
+    container.addEventListener('dragover', function(e) {
+        if (!draggedCode) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const target = e.target.closest('.transaction-company-btn[data-currency-code]');
+        if (target && target.dataset.currencyCode !== 'ALL' && target !== document.querySelector('.transaction-currency-dragging')) {
+            target.classList.add('transaction-currency-drag-over');
+        }
+    });
+    container.addEventListener('dragleave', function(e) {
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+            container.querySelectorAll('.transaction-currency-drag-over').forEach(el => el.classList.remove('transaction-currency-drag-over'));
+        }
+    });
+    container.addEventListener('drop', function(e) {
+        e.preventDefault();
+        container.querySelectorAll('.transaction-currency-drag-over').forEach(el => el.classList.remove('transaction-currency-drag-over'));
+        if (!draggedCode) return;
+        const target = e.target.closest('.transaction-company-btn[data-currency-code]');
+        if (!target || target.dataset.currencyCode === 'ALL') return;
+        const allButtons = [...container.querySelectorAll('.transaction-company-btn[data-currency-code]')];
+        const fromIndex = allButtons.findIndex(b => b.getAttribute('data-currency-code') === draggedCode);
+        const toIndex = allButtons.indexOf(target);
+        if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+        const moved = allButtons[fromIndex];
+        if (toIndex < fromIndex) {
+            container.insertBefore(moved, allButtons[toIndex]);
+        } else {
+            container.insertBefore(moved, allButtons[toIndex].nextSibling);
+        }
+        const newOrder = [...container.querySelectorAll('.transaction-company-btn[data-currency-code]')]
+            .map(b => b.getAttribute('data-currency-code'))
+            .filter(code => code && code !== 'ALL');
+        try {
+            const key = 'transaction_currency_order_' + (currentCompanyId || 0);
+            localStorage.setItem(key, JSON.stringify(newOrder));
+        } catch (err) { /* ignore */ }
+    });
 }
 
 // ==================== 切换 All Currencies ====================
