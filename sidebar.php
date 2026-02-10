@@ -442,22 +442,18 @@ if ($companyId) {
                     </div>
                     <div class="submenu" id="maintenance-submenu">
                         <div class="submenu-content">
-                            <?php if ($companyHasGambling): ?>
                             <a href="capture_maintenance.php" class="submenu-item">
                                 <span>Data Capture</span>
                             </a>
-                            <?php endif; ?>
                             <a href="transaction_maintenance.php" class="submenu-item">
                                 <span>Transaction</span>
                             </a>
                             <a href="payment_maintenance.php" class="submenu-item">
                                 <span>Payment</span>
                             </a>
-                            <?php if ($companyHasGambling): ?>
                             <a href="formula_maintenance.php" class="submenu-item">
                                 <span>Formula</span>
                             </a>
-                            <?php endif; ?>
                             <?php if (!empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
                             <a href="bankprocess_maintenance.php" class="submenu-item">
                                 <span>Process</span>

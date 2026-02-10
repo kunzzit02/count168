@@ -910,21 +910,6 @@
 /* 弹窗及到下拉之间的所有祖先都允许溢出，让 Account 下拉可以溢出弹窗显示（覆盖 processCSS 的 overflow: hidden） */
 #profitSharingModal.modal,
 #profitSharingModal .modal-content,
-/* Add Profit Sharing 弹窗：+ 按钮在右上角，与关闭 × 并列 */
-#profitSharingModal .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-}
-#profitSharingModal .modal-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-#profitSharingModal .modal-header .close {
-    position: static;
-}
 #profitSharingModal .modal-header,
 #profitSharingModal .modal-body,
 #profitSharingModal .bank-form,
