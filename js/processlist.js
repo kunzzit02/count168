@@ -247,7 +247,7 @@
                 const shortTermContracts = ['1 MONTH', '2 MONTHS', '3 MONTHS', '6 MONTHS'];
                 const cannotSwitchBack = process.status === 'inactive' && shortTermContracts.indexOf(contract) !== -1;
                 const statusBadge = cannotSwitchBack
-                    ? '<span class="role-badge ' + statusClass + '" title="短期合同 Inactive 后不可再激活" style="cursor: not-allowed; opacity: 0.8;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>'
+                    ? '<span class="role-badge ' + statusClass + '" title="Short-term contract cannot be reactivated after Inactive" style="cursor: not-allowed; opacity: 0.8;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>'
                     : '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
                     (process.status === 'active' ? '' : (process.has_transactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
@@ -1090,12 +1090,12 @@
                 return { id, periodType };
             }).filter(p => !isNaN(p.id));
             if (pairs.length === 0) {
-                showNotification('请至少勾选一行要从待入账列表移除', 'warning');
+                showNotification('Please select at least one row to remove from Accounting Due', 'warning');
                 return;
             }
             const msg = pairs.length === 1
-                ? '确定不进行这笔入账？该行将从待入账列表移除，Process 数据不变。'
-                : '确定不进行这 ' + pairs.length + ' 笔入账？选中的行将从待入账列表移除，Process 数据不变。';
+                ? 'Skip this post? This row will be removed from Accounting Due. Process data will not change.'
+                : 'Skip these ' + pairs.length + ' posts? Selected rows will be removed from Accounting Due. Process data will not change.';
             if (!confirm(msg)) return;
             const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
             if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Removing...'; }
@@ -1105,14 +1105,14 @@
                 const response = await fetch(buildApiUrl('api/processes/dismiss_accounting_due_api.php'), { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
-                    showNotification(result.message || '已从待入账列表移除', 'success');
+                    showNotification(result.message || 'Removed from Accounting Due', 'success');
                     loadAccountingInbox();
                 } else {
-                    showNotification(result.message || result.error || '移除失败', 'danger');
+                    showNotification(result.message || result.error || 'Remove failed', 'danger');
                 }
             } catch (err) {
                 console.error('Dismiss error:', err);
-                showNotification('请求失败: ' + (err.message || 'Network error'), 'danger');
+                showNotification('Request failed: ' + (err.message || 'Network error'), 'danger');
             } finally {
                 if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = 'Delete'; updateAccountingInboxDeleteButton(); }
             }
@@ -1125,10 +1125,10 @@
                 return row && row.getAttribute('data-status') === 'active';
             }).map(cb => cb.dataset.id);
             if (activeSelectedIds.length === 0) {
-                showNotification('请先勾选要入账的 Process（仅 active 的 Process 可入账）', 'warning');
+                showNotification('Please select Process(es) to post (only active processes can be posted)', 'warning');
                 return;
             }
-            if (!confirm('确定将选中的 ' + activeSelectedIds.length + ' 个 Process 入账？\n\nBuy Price → Supplier 账户\nSell Price → Customer 账户\nProfit → Company 账户\n\n将在 Transaction 页面生成对应交易记录。')) {
+            if (!confirm('Confirm posting ' + activeSelectedIds.length + ' selected Process(es)?\n\nBuy Price → Supplier account\nSell Price → Customer account\nProfit → Company account\n\nCorresponding transaction records will be created on the Transaction page.')) {
                 return;
             }
             try {
@@ -1140,15 +1140,15 @@
                 });
                 const result = await response.json();
                 if (result.success) {
-                    showNotification(result.message || '入账成功', 'success');
+                    showNotification(result.message || 'Posted successfully', 'success');
                     updateDeleteButton();
                     fetchProcesses();
                 } else {
-                    showNotification(result.error || '入账失败', 'danger');
+                    showNotification(result.error || 'Post failed', 'danger');
                 }
             } catch (err) {
                 console.error('transaction error:', err);
-                showNotification('入账请求失败: ' + err.message, 'danger');
+                showNotification('Post request failed: ' + err.message, 'danger');
             }
         }
 
@@ -1189,7 +1189,7 @@
                     const shortTermContracts = ['1 MONTH', '2 MONTHS', '3 MONTHS', '6 MONTHS'];
                     const cannotSwitchBack = selectedPermission === 'Bank' && newStatus === 'inactive' && shortTermContracts.indexOf(contractNorm) !== -1;
                     const statusBadge = cannotSwitchBack
-                        ? `<span class="role-badge ${statusClass}" title="短期合同 Inactive 后不可再激活" style="cursor: not-allowed; opacity: 0.8;">${escapeHtml((newStatus || '').toUpperCase())}</span>`
+                        ? `<span class="role-badge ${statusClass}" title="Short-term contract cannot be reactivated after Inactive" style="cursor: not-allowed; opacity: 0.8;">${escapeHtml((newStatus || '').toUpperCase())}</span>`
                         : `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
 
                     if (selectedPermission === 'Bank') {
