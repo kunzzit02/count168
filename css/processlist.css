@@ -936,12 +936,17 @@
 #profitSharingModal .form-actions.bank-actions {
     justify-content: center;
 }
+/* Amount 列可收缩，避免 grid 把按钮挤出 */
+#profitSharingModal .profit-sharing-amount-with-add {
+    min-width: 0;
+}
 /* Amount 旁的 + 按钮保持可见，并放在右侧蓝框位置 */
 #profitSharingModal .profit-sharing-amount-with-add .account-select-with-buttons {
     display: flex;
     gap: 8px;
     align-items: center;
     width: 100%;
+    min-width: 0;
 }
 #profitSharingModal .profit-sharing-amount-with-add .account-select-with-buttons .bank-input {
     flex: 1;
@@ -951,8 +956,12 @@
 #profitSharingModal .profit-sharing-amount-with-add .account-select-with-buttons .bank-add-btn,
 #profitSharingModal .account-select-with-buttons .bank-add-btn {
     flex-shrink: 0;
+    min-width: 24px;
+    min-height: 24px;
 }
-/* Amount 后的“添加一行”+ 按钮右对齐到蓝框位置 */
+/* Amount 后的“添加一行”+ 按钮右对齐到蓝框位置，确保始终可见 */
 #profitSharingModal .profit-sharing-amount-with-add .account-select-with-buttons #profitSharingAddRowBtn {
     margin-left: auto;
+    visibility: visible;
+    opacity: 1;
 }
