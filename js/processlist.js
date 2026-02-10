@@ -3021,7 +3021,6 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     select.appendChild(opt);
                 });
                 if (currentVal && list.indexOf(currentVal) >= 0) select.value = currentVal;
-                else if (list.length > 0) select.value = list[0];
                 else select.value = '';
             } catch (e) {
                 console.warn('loadCountriesFromServer', e);
