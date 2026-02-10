@@ -3092,7 +3092,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const firstCountry = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
                 if (firstCountry) await loadBanksByCountry(firstCountry);
                 await loadBankAccounts();
-                initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
+                initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown', true);  // Supplier: show account_id (name)
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
                 initBankAccountSelect('bank_profit_account', 'bank_profit_account_dropdown');
                 updateBankAddButtonTitles();
@@ -3251,7 +3251,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         }
 
         // Initialize Bank Account Select (custom dropdown with search, like datacapturesummary Account)
-        function initBankAccountSelect(buttonId, dropdownId) {
+        // showNameInParentheses: only for Supplier – display "account_id (name)" in dropdown
+        function initBankAccountSelect(buttonId, dropdownId, showNameInParentheses) {
             const accountButton = document.getElementById(buttonId);
             const accountDropdown = document.getElementById(dropdownId);
             const searchInput = accountDropdown?.querySelector('.custom-select-search input');
@@ -3326,8 +3327,13 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
 
                 // Filter by the same text we display so search matches what user sees (exact match on displayed string)
+                // Supplier only: show "account_id (name)"; others: show account_id only
                 function getDisplayText(account) {
-                    return String(account.account_id ?? account.name ?? '').trim();
+                    const code = String(account.account_id ?? account.name ?? '').trim();
+                    if (showNameInParentheses && (account.name != null && String(account.name).trim() !== '')) {
+                        return code + ' (' + String(account.name).trim() + ')';
+                    }
+                    return code;
                 }
                 let filteredAccounts = accounts.filter(account => {
                     const displayText = getDisplayText(account).toLowerCase();
