@@ -933,3 +933,6 @@
     max-height: 280px;
     overflow-y: auto;
 }
+#profitSharingModal .form-actions.bank-actions {
+    justify-content: center;
+}
