@@ -610,7 +610,6 @@
                     if (!wrap) return;
                     const cal = fp.calendarContainer;
                     if (!cal) return;
-                    cal.style.visibility = 'hidden';
                     var CALENDAR_NATURAL_WIDTH = 307;
                     function alignToDateRange() {
                         const rect = wrap.getBoundingClientRect();
@@ -627,12 +626,20 @@
                     alignToDateRange();
                     requestAnimationFrame(function() {
                         alignToDateRange();
-                        cal.style.visibility = '';
+                        cal.classList.add('report-calendar-ready');
                     });
+                },
+                onClose: function() {
+                    const cal = fp.calendarContainer;
+                    if (cal) cal.classList.remove('report-calendar-ready');
                 }
             });
             const wrap = input.closest('.report-date-range-picker');
-            if (wrap && fp) wrap.addEventListener('click', function(e) { e.preventDefault(); fp.open(); });
+            if (wrap && fp) wrap.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (fp.isOpen) fp.close(); else fp.open();
+            });
         }
 
         // Load report data

@@ -408,6 +408,13 @@ body {
     padding-bottom: 12px;
     box-sizing: border-box;
 }
+/* 打开时先隐藏，定位完成后再显示，避免先错位再纠正的闪烁 */
+.flatpickr-calendar.open {
+    visibility: hidden;
+}
+.flatpickr-calendar.open.report-calendar-ready {
+    visibility: visible !important;
+}
 .flatpickr-calendar .flatpickr-days {
     border: none;
 }
