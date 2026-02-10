@@ -595,6 +595,19 @@ body.transaction-page {
     background: #e2e8f0;
     border-color: #a5b4fc;
 }
+.member-currency-buttons .transaction-company-btn[data-currency] {
+    cursor: grab;
+}
+.member-currency-buttons .transaction-company-btn[data-currency]:active {
+    cursor: grabbing;
+}
+.member-currency-buttons .transaction-company-btn.member-currency-dragging {
+    opacity: 0.6;
+}
+.member-currency-buttons .transaction-company-btn.member-currency-drag-over {
+    outline: 2px dashed #3b82f6;
+    outline-offset: 2px;
+}
 .member-currency-buttons .transaction-company-btn.active {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: #fff;

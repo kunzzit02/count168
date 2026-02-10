@@ -7,6 +7,7 @@
 
         let memberCurrencySummary = [];
         const memberCurrencySortOrder = new Map();
+        let memberCurrencyDisplayOrder = null;
         const memberSelectedCurrencies = new Set();
         let memberIsAllSelected = true;
 
@@ -378,8 +379,10 @@
                             }
                         });
                         updateCurrencySelection();
-                        renderCurrencyFilters();
-                        resolve();
+                        loadMemberCurrencyOrder().then(() => {
+                            renderCurrencyFilters();
+                            resolve();
+                        });
                     })
                     .catch(err => {
                         console.error('Summary fetch failed:', err);
@@ -431,6 +434,22 @@
                 codes.push(code);
             });
             const unique = [...new Set(codes)];
+            if (memberCurrencyDisplayOrder && memberCurrencyDisplayOrder.length > 0) {
+                const orderSet = new Set(memberCurrencyDisplayOrder);
+                const inOrder = unique.filter(c => orderSet.has(c));
+                const notInOrder = unique.filter(c => !orderSet.has(c));
+                const ordered = [];
+                memberCurrencyDisplayOrder.forEach(c => {
+                    if (inOrder.includes(c)) ordered.push(c);
+                });
+                notInOrder.sort((a, b) => {
+                    const orderA = memberCurrencySortOrder.get(a) ?? Number.MAX_SAFE_INTEGER;
+                    const orderB = memberCurrencySortOrder.get(b) ?? Number.MAX_SAFE_INTEGER;
+                    if (orderA !== orderB) return orderA - orderB;
+                    return a.localeCompare(b);
+                });
+                return [...ordered, ...notInOrder];
+            }
             return unique.sort((a, b) => {
                 const orderA = memberCurrencySortOrder.get(a) ?? Number.MAX_SAFE_INTEGER;
                 const orderB = memberCurrencySortOrder.get(b) ?? Number.MAX_SAFE_INTEGER;
@@ -438,6 +457,96 @@
                     return orderA - orderB;
                 }
                 return a.localeCompare(b);
+            });
+        }
+
+        function loadMemberCurrencyOrder() {
+            return fetch('api/transactions/member_currency_order_api.php?_t=' + Date.now(), { cache: 'no-cache' })
+                .then(res => res.text())
+                .then(text => {
+                    try {
+                        const data = typeof text === 'string' ? JSON.parse(text) : text;
+                        if (data && data.success && Array.isArray(data.data?.order) && data.data.order.length > 0) {
+                            memberCurrencyDisplayOrder = data.data.order;
+                        } else {
+                            memberCurrencyDisplayOrder = null;
+                        }
+                    } catch (e) {
+                        memberCurrencyDisplayOrder = null;
+                    }
+                })
+                .catch(() => { memberCurrencyDisplayOrder = null; });
+        }
+
+        function saveMemberCurrencyOrder(order) {
+            return fetch('api/transactions/member_currency_order_api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: order })
+            })
+                .then(res => res.text())
+                .then(text => {
+                    const data = typeof text === 'string' ? JSON.parse(text) : text;
+                    if (data && data.success) {
+                        memberCurrencyDisplayOrder = data.data?.order ?? order;
+                        showNotification('货币顺序已保存', 'success');
+                    }
+                })
+                .catch(err => {
+                    console.error('Save currency order failed:', err);
+                    showNotification('保存顺序失败', 'error');
+                });
+        }
+
+        function initCurrencyDragDrop() {
+            const container = document.getElementById('member_currency_buttons');
+            if (!container) return;
+            let draggedCode = null;
+            container.querySelectorAll('.transaction-company-btn[data-currency]').forEach(btn => {
+                btn.setAttribute('draggable', 'true');
+                btn.addEventListener('dragstart', (e) => {
+                    draggedCode = btn.getAttribute('data-currency');
+                    e.dataTransfer.setData('text/plain', draggedCode);
+                    e.dataTransfer.effectAllowed = 'move';
+                    btn.classList.add('member-currency-dragging');
+                });
+                btn.addEventListener('dragend', () => {
+                    btn.classList.remove('member-currency-dragging');
+                    draggedCode = null;
+                });
+            });
+            container.addEventListener('dragover', (e) => {
+                if (!draggedCode) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const target = e.target.closest('.transaction-company-btn[data-currency]');
+                if (target && target !== document.querySelector('.member-currency-dragging')) {
+                    target.classList.add('member-currency-drag-over');
+                }
+            });
+            container.addEventListener('dragleave', (e) => {
+                if (!e.currentTarget.contains(e.relatedTarget)) {
+                    container.querySelectorAll('.member-currency-drag-over').forEach(el => el.classList.remove('member-currency-drag-over'));
+                }
+            });
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                container.querySelectorAll('.member-currency-drag-over').forEach(el => el.classList.remove('member-currency-drag-over'));
+                if (!draggedCode) return;
+                const target = e.target.closest('.transaction-company-btn[data-currency]');
+                if (!target) return;
+                const allButtons = [...container.querySelectorAll('.transaction-company-btn[data-currency]')];
+                const fromIndex = allButtons.findIndex(b => b.getAttribute('data-currency') === draggedCode);
+                const toIndex = allButtons.indexOf(target);
+                if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+                const moved = allButtons[fromIndex];
+                if (toIndex < fromIndex) {
+                    container.insertBefore(moved, allButtons[toIndex]);
+                } else {
+                    container.insertBefore(moved, allButtons[toIndex].nextSibling);
+                }
+                const newOrder = [...container.querySelectorAll('.transaction-company-btn[data-currency]')].map(b => b.getAttribute('data-currency'));
+                saveMemberCurrencyOrder(newOrder);
             });
         }
 
@@ -473,12 +582,14 @@
             currencies.forEach(code => {
                 buttonsContainer.appendChild(createCurrencyButton(code, code));
             });
+            initCurrencyDragDrop();
         }
 
         function createCurrencyButton(code, label, isAll = false) {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'transaction-company-btn';
+            btn.className = 'transaction-company-btn' + (isAll ? ' member-currency-all' : '');
+            if (!isAll) btn.setAttribute('data-currency', code);
             const isActive = isAll ? memberIsAllSelected : memberSelectedCurrencies.has(code);
             if (isActive) {
                 btn.classList.add('active');
