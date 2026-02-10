@@ -1318,6 +1318,24 @@ if ($current_user_id && count($user_companies) > 0) {
         </div>
     </div>
 
+    <!-- Confirm Switch to Inactive Modal (Bank Process) -->
+    <div id="confirmInactiveModal" class="process-modal" style="display: none;">
+        <div class="process-confirm-modal-content">
+            <div class="process-confirm-icon-container">
+                <svg class="process-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 9v2m0 4h.01M14 9v2m0 4h.01M5 9h14a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4a1 1 0 011-1z" />
+                </svg>
+            </div>
+            <h2 class="process-confirm-title">Switch to Inactive</h2>
+            <p id="confirmInactiveMessage" class="process-confirm-message">确定将此 Bank Process 切换为 Inactive？</p>
+            <div class="process-confirm-actions">
+                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmInactiveModal()">Cancel</button>
+                <button type="button" class="process-btn process-btn-inactive confirm-inactive" id="confirmInactiveBtn" onclick="confirmInactive()">Inactive</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         window.PROCESSLIST_SHOW_INACTIVE = <?php echo isset($_GET['showInactive']) ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_ALL = <?php echo isset($_GET['showAll']) ? 'true' : 'false'; ?>;

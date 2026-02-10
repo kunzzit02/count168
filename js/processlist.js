@@ -764,6 +764,7 @@
 
         // 存储待删除的 ID 列表
         let pendingDeleteIds = [];
+        let pendingToggleProcessId = null;
 
         function deleteSelected() {
             const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked:not([disabled])');
@@ -1151,112 +1152,138 @@
             }
         }
 
-        // 切换流程状态
-        async function toggleProcessStatus(processId, currentStatus) {
-            try {
-                if (selectedPermission === 'Bank' && (currentStatus || '').toLowerCase() === 'active') {
-                    if (!confirm('确定将此 Bank Process 切换为 Inactive？')) return;
-                }
-                const formData = new FormData();
-                formData.append('id', processId);
-                if (selectedPermission === 'Bank') {
-                    formData.append('permission', 'Bank');
-                }
-                const response = await fetch(buildApiUrl('api/processes/toggle_process_status_api.php'), {
-                    method: 'POST',
-                    body: formData
-                });
+        // 执行状态切换（API + 本地更新）
+        async function performToggleStatus(processId) {
+            const formData = new FormData();
+            formData.append('id', processId);
+            if (selectedPermission === 'Bank') {
+                formData.append('permission', 'Bank');
+            }
+            const response = await fetch(buildApiUrl('api/processes/toggle_process_status_api.php'), {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
 
-                const result = await response.json();
+            if (result.success) {
+                const newStatus = (result.data && result.data.newStatus !== undefined) ? result.data.newStatus : result.newStatus;
+                const newDayEnd = (result.data && result.data.newDayEnd !== undefined) ? result.data.newDayEnd : result.newDayEnd;
+                const process = processes.find(p => p.id === processId);
+                if (process) {
+                    process.status = newStatus;
+                    if (newDayEnd) process.day_end = newDayEnd;
+                }
 
-                if (result.success) {
-                    const newStatus = (result.data && result.data.newStatus !== undefined) ? result.data.newStatus : result.newStatus;
-                    const newDayEnd = (result.data && result.data.newDayEnd !== undefined) ? result.data.newDayEnd : result.newDayEnd;
+                const shouldShow = showAll ? true : (showInactive ? newStatus === 'inactive' : newStatus === 'active');
+
+                if (!shouldShow) {
+                    const processIndex = processes.findIndex(p => p.id === processId);
+                    if (processIndex > -1) processes.splice(processIndex, 1);
+                    renderTable();
+                } else if (newDayEnd) {
+                    renderTable();
+                } else {
+                    const statusClass = newStatus === 'active' ? 'status-active' : (newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
                     const process = processes.find(p => p.id === processId);
-                    if (process) {
-                        process.status = newStatus;
-                        if (newDayEnd) process.day_end = newDayEnd;
-                    }
+                    const contractNorm = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
+                    const shortTermContracts = ['1 MONTH', '2 MONTHS', '3 MONTHS', '6 MONTHS'];
+                    const cannotSwitchBack = selectedPermission === 'Bank' && newStatus === 'inactive' && shortTermContracts.indexOf(contractNorm) !== -1;
+                    const statusBadge = cannotSwitchBack
+                        ? `<span class="role-badge ${statusClass}" title="短期合同 Inactive 后不可再激活" style="cursor: not-allowed; opacity: 0.8;">${escapeHtml((newStatus || '').toUpperCase())}</span>`
+                        : `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
 
-                    const shouldShow = showAll ? true : (showInactive ? newStatus === 'inactive' : newStatus === 'active');
-
-                    if (!shouldShow) {
-                        const processIndex = processes.findIndex(p => p.id === processId);
-                        if (processIndex > -1) processes.splice(processIndex, 1);
-                        renderTable();
-                    } else if (newDayEnd) {
-                        // If day_end changed, we must re-render to update the Date cell and Contract class logic
-                        renderTable();
-                    } else {
-                        // Manual DOM update for simple status change
-                        const statusClass = newStatus === 'active' ? 'status-active' : (newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
-                        const process = processes.find(p => p.id === processId);
-                        const contractNorm = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
-                        const shortTermContracts = ['1 MONTH', '2 MONTHS', '3 MONTHS', '6 MONTHS'];
-                        const cannotSwitchBack = selectedPermission === 'Bank' && newStatus === 'inactive' && shortTermContracts.indexOf(contractNorm) !== -1;
-                        const statusBadge = cannotSwitchBack
-                            ? `<span class="role-badge ${statusClass}" title="短期合同 Inactive 后不可再激活" style="cursor: not-allowed; opacity: 0.8;">${escapeHtml((newStatus || '').toUpperCase())}</span>`
-                            : `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
-
-                        if (selectedPermission === 'Bank') {
-                            const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
-                            const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
-                            const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                                (newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
-                            if (row) {
-                                row.setAttribute('data-status', newStatus || '');
-                                const cells = row.querySelectorAll('td');
-                                if (cells.length >= 15) {
-                                    cells[12].innerHTML = statusBadge;
-                                    cells[14].innerHTML = bankActionCellHtml;
-                                }
+                    if (selectedPermission === 'Bank') {
+                        const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
+                        const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
+                        const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
+                            (newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
+                        if (row) {
+                            row.setAttribute('data-status', newStatus || '');
+                            const cells = row.querySelectorAll('td');
+                            if (cells.length >= 15) {
+                                cells[12].innerHTML = statusBadge;
+                                cells[14].innerHTML = bankActionCellHtml;
                             }
-                        } else {
-                            const card = document.querySelector(`.process-card[data-id="${processId}"]`);
-                            if (card) {
-                                const items = card.querySelectorAll('.card-item');
-                                if (items.length > 3) {
-                                    items[3].innerHTML = statusBadge;
-                                    const actionCell = items[6];
-                                    if (actionCell) {
-                                        const existingCheckbox = actionCell.querySelector('.row-checkbox');
-                                        const existingMuted = actionCell.querySelector('.text-muted');
-                                        if (newStatus === 'active') {
-                                            if (existingCheckbox) existingCheckbox.remove();
-                                            if (existingMuted) existingMuted.remove();
-                                        } else {
-                                            const proc = processes.find(function (p) { return p.id === processId; });
-                                            if (!existingCheckbox && !existingMuted && (!proc || !proc.has_transactions)) {
-                                                const checkbox = document.createElement('input');
-                                                checkbox.type = 'checkbox';
-                                                checkbox.className = 'row-checkbox';
-                                                checkbox.dataset.id = String(processId);
-                                                checkbox.title = 'Select for deletion';
-                                                checkbox.style.marginLeft = '10px';
-                                                checkbox.onchange = updateDeleteButton;
-                                                actionCell.appendChild(checkbox);
-                                            }
+                        }
+                    } else {
+                        const card = document.querySelector(`.process-card[data-id="${processId}"]`);
+                        if (card) {
+                            const items = card.querySelectorAll('.card-item');
+                            if (items.length > 3) {
+                                items[3].innerHTML = statusBadge;
+                                const actionCell = items[6];
+                                if (actionCell) {
+                                    const existingCheckbox = actionCell.querySelector('.row-checkbox');
+                                    const existingMuted = actionCell.querySelector('.text-muted');
+                                    if (newStatus === 'active') {
+                                        if (existingCheckbox) existingCheckbox.remove();
+                                        if (existingMuted) existingMuted.remove();
+                                    } else {
+                                        const proc = processes.find(function (p) { return p.id === processId; });
+                                        if (!existingCheckbox && !existingMuted && (!proc || !proc.has_transactions)) {
+                                            const checkbox = document.createElement('input');
+                                            checkbox.type = 'checkbox';
+                                            checkbox.className = 'row-checkbox';
+                                            checkbox.dataset.id = String(processId);
+                                            checkbox.title = 'Select for deletion';
+                                            checkbox.style.marginLeft = '10px';
+                                            checkbox.onchange = updateDeleteButton;
+                                            actionCell.appendChild(checkbox);
                                         }
                                     }
                                 }
                             }
                         }
                     }
-
-
-                    updateDeleteButton();
-                    updateSelectAllProcessesVisibility();
-
-                    // Bank：改为 inactive 后立即刷新 Accounting Due 徽章和列表，马上显示 1 和该行数据
-                    if (selectedPermission === 'Bank' && newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
-                        await loadAccountingInbox();
-                    }
-
-                    const statusText = newStatus === 'active' ? 'activated' : 'deactivated';
-                    showNotification(`Process status changed to ${statusText}`, 'success');
-                } else {
-                    showNotification(result.error || 'Status toggle failed', 'danger');
                 }
+
+                updateDeleteButton();
+                updateSelectAllProcessesVisibility();
+
+                if (selectedPermission === 'Bank' && newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
+                    await loadAccountingInbox();
+                }
+
+                const statusText = newStatus === 'active' ? 'activated' : 'deactivated';
+                showNotification(`Process status changed to ${statusText}`, 'success');
+            } else {
+                showNotification(result.error || 'Status toggle failed', 'danger');
+            }
+        }
+
+        // 切换流程状态
+        async function toggleProcessStatus(processId, currentStatus) {
+            try {
+                if (selectedPermission === 'Bank' && (currentStatus || '').toLowerCase() === 'active') {
+                    showConfirmInactiveModal(processId);
+                    return;
+                }
+                await performToggleStatus(processId);
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Status toggle failed', 'danger');
+            }
+        }
+
+        function showConfirmInactiveModal(processId) {
+            pendingToggleProcessId = processId;
+            document.getElementById('confirmInactiveModal').style.display = 'block';
+        }
+
+        function closeConfirmInactiveModal() {
+            document.getElementById('confirmInactiveModal').style.display = 'none';
+            pendingToggleProcessId = null;
+        }
+
+        async function confirmInactive() {
+            if (!pendingToggleProcessId) {
+                closeConfirmInactiveModal();
+                return;
+            }
+            const processId = pendingToggleProcessId;
+            closeConfirmInactiveModal();
+            try {
+                await performToggleStatus(processId);
             } catch (error) {
                 console.error('Error:', error);
                 showNotification('Status toggle failed', 'danger');
