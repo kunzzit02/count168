@@ -48,6 +48,7 @@ $isOwner = ($userRole === 'owner');
                         </div>
                     </div>
                     <div class="domain-report-filter-group report-date-range-group">
+                        <label for="domainReportDateRange">Date Range</label>
                         <div class="report-date-range-picker">
                             <i class="fas fa-calendar-alt"></i>
                             <span id="domainReportDateRangeDisplay">Select date range</span>
