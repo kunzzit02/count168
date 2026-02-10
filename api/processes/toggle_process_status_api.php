@@ -11,8 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 function getBankProcessCurrent(PDO $pdo, int $id, int $companyId): ?array {
-    // 不再依赖 contract / dts_modified 等额外字段，只读取当前状态
-    $stmt = $pdo->prepare("SELECT status FROM bank_process WHERE id = ? AND company_id = ?");
+    // 读取当前状态与 dts_modified，便于在从 inactive 切回 active 时重置本轮 manual_inactive 记录
+    $stmt = $pdo->prepare("SELECT status, dts_modified FROM bank_process WHERE id = ? AND company_id = ?");
     $stmt->execute([$id, $companyId]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
@@ -65,8 +65,22 @@ try {
         } else {
             $newStatus = ($status === 'active') ? 'inactive' : (($status === 'waiting') ? 'active' : 'active');
         }
+
         // day_end 逻辑保持由其他流程（如 Accounting Due Transaction）控制，这里只更新状态本身
         updateBankProcessStatus($pdo, $newStatus, null, $id, $companyId);
+
+        // 修复 1+1 / 1+2 / 1+3：从 inactive 切回 active 之后，下次再改为 inactive 仍然可以产生 manual_inactive Transaction。
+        // 方式：当本次是 inactive → active 时，清掉该流程在本轮产生的 manual_inactive 记录，
+        // 让 accounting_inbox_api 的 NOT EXISTS 条件重新为真。
+        if ($status === 'inactive' && $newStatus === 'active') {
+            try {
+                $del = $pdo->prepare("DELETE FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type = 'manual_inactive'");
+                $del->execute([$companyId, $id]);
+            } catch (Throwable $e) {
+                // 删除失败不影响状态切换本身
+            }
+        }
+
         api_success(['newStatus' => $newStatus], '状态更新成功');
         exit;
     }
