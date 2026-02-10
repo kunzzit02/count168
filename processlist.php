@@ -2,6 +2,12 @@
 // 使用统一的session检查
 require_once 'session_check.php';
 
+// 强制刷新缓存：禁止浏览器缓存本页，确保每次获取最新静态资源
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Cache-Control: post-check=0, pre-check=0', false);
+header('Pragma: no-cache');
+header('Expires: 0');
+
 // 处理删除请求（只允许删除inactive状态的进程）
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
     try {
@@ -208,7 +214,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <title>Process List</title>
     <link rel="stylesheet" href="css/processCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
-    <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo time(); ?>">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/processlist.css?v=<?php echo time(); ?>">
