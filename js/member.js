@@ -501,11 +501,7 @@
                     memberSelectedCurrencies.add(code);
                 }
 
-                if (memberSelectedCurrencies.size === 0) {
-                    memberIsAllSelected = true;
-                } else {
-                    memberIsAllSelected = false;
-                }
+                memberIsAllSelected = false;
 
                 renderCurrencyFilters();
                 fetchMemberHistory();
