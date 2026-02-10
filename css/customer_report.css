@@ -403,8 +403,8 @@ body {
     align-items: center;
     gap: clamp(4px, 0.42vw, 8px);
     background: white;
-    border: 1px solid #d1d5db;
-    border-radius: clamp(4px, 0.42vw, 8px);
+    border: 1px solid #3b82f6;
+    border-radius: clamp(6px, 0.6vw, 12px);
     padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
     cursor: pointer;
     transition: all 0.2s;
@@ -413,8 +413,8 @@ body {
     z-index: 1;
 }
 .customer-report-filter-container .report-date-range-picker:hover {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 .customer-report-filter-container .report-date-range-picker i {
     color: #3b82f6;
@@ -451,4 +451,36 @@ body {
     color: #000000ff;
     margin-bottom: clamp(4px, 0.5vw, 8px);
     font-family: 'Amaranth', sans-serif;
+}
+
+/* Report 页 Flatpickr 日历：与第一张图一致（白底、大圆角、选中蓝底白字） */
+.flatpickr-calendar {
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+}
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+    background: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+    color: #fff !important;
+    border-radius: 6px;
+}
+.flatpickr-day.inRange {
+    background: rgba(59, 130, 246, 0.25) !important;
+    border-color: transparent !important;
+    box-shadow: -5px 0 0 rgba(59, 130, 246, 0.25), 5px 0 0 rgba(59, 130, 246, 0.25);
+    border-radius: 0;
+}
+.flatpickr-day.today {
+    border-color: #3b82f6;
+}
+.flatpickr-day.today:hover,
+.flatpickr-day.today:focus {
+    background: #dbeafe;
+    border-color: #3b82f6;
+}
+.flatpickr-months .flatpickr-month {
+    background: #fff;
 }
