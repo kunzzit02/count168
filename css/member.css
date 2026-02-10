@@ -136,7 +136,7 @@ body.transaction-page {
     box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 .transaction-page .transaction-date-range-wrap .fa-calendar-alt {
-    color: #66B3FF;
+    color: #3b82f6;
     font-size: 15px;
     margin: 0 4px 0 0;
     flex-shrink: 0;
