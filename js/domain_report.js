@@ -412,10 +412,14 @@ function showNotification(message, type = 'success') {
                     if (!wrap) return;
                     const cal = fp.calendarContainer;
                     if (!cal) return;
-                    const rect = wrap.getBoundingClientRect();
-                    cal.style.position = 'fixed';
-                    cal.style.left = rect.left + 'px';
-                    cal.style.top = (rect.bottom + 8) + 'px';
+                    function alignToDateRange() {
+                        const rect = wrap.getBoundingClientRect();
+                        cal.style.position = 'fixed';
+                        cal.style.left = rect.left + 'px';
+                        cal.style.top = (rect.bottom + 8) + 'px';
+                    }
+                    alignToDateRange();
+                    requestAnimationFrame(alignToDateRange);
                 }
             });
             const wrap = input.closest('.report-date-range-picker');
