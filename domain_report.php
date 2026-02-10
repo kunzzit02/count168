@@ -23,12 +23,12 @@ $default_date_to = $today_dt->format('d/m/Y');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Domain Report</title>
-    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
-    <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
-    <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>" />
+    <link rel="stylesheet" href="css/transaction.css?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>" />
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>">
+    <script src="js/sidebar.js?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
-    <link rel="stylesheet" href="css/domain_report.css">
+    <link rel="stylesheet" href="css/domain_report.css?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
@@ -127,6 +127,6 @@ $default_date_to = $today_dt->format('d/m/Y');
         window.DOMAIN_REPORT_COMPANY_ID = <?php echo $company_id; ?>;
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="js/domain_report.js"></script>
+    <script src="js/domain_report.js?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>"></script>
 </body>
 </html>

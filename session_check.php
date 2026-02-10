@@ -20,6 +20,12 @@ $isApiRequest = (
 
 require_once 'config.php';
 
+// 非 API 请求时禁止缓存页面，便于发布后用户拿到最新 HTML 和资源
+if (!$isApiRequest && !headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+}
+
 // 统一的超时时间（秒）- 1小时
 define('SESSION_TIMEOUT', 3600);
 
