@@ -538,17 +538,14 @@
             }
 
             if (!targetCurrencies.length) {
-                // 没有任何币别时：若 summary 未返回币别，仍尝试拉取一次 history（不传 currency）以兜底显示数据
                 if (availableCurrencies.length > 0) {
-                    const grouped = {};
-                    availableCurrencies.forEach(code => {
-                        const key = code || '-';
-                        grouped[key] = [];
-                    });
-                    renderCurrencyTables(grouped, availableCurrencies);
-                    showNotification('No transaction records found in the selected date range, empty table displayed', 'info');
-                    return;
-                }
+                    // 没有选择任何货币时，视为选择全部，避免无数据显示
+                    targetCurrencies = availableCurrencies;
+                    memberIsAllSelected = true;
+                    memberSelectedCurrencies.clear();
+                    renderCurrencyFilters();
+                } else {
+                    // summary 未返回币别，尝试拉取一次 history（不传 currency）以兜底显示数据
                 const paramsFallback = new URLSearchParams({
                     account_id: Number(memberConfig.accountId),
                     date_from: dateFrom,
