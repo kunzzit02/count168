@@ -537,6 +537,35 @@ try {
         // 手动 PROFIT：WIN/LOSE 且非 Bank Process，description 不以 "Process: " 开头
         $isManualProfit = in_array($t['transaction_type'], ['WIN', 'LOSE'], true)
             && stripos((string)$rawDescription, 'Process: ') !== 0;
+
+        // 为手动 PROFIT 尝试找出对应的对手账户（另一条相反类型、相同日期和金额的交易）
+        $otherAccountCodeForManualProfit = null;
+        if ($isManualProfit) {
+            static $manualProfitPairStmt = null;
+            if ($manualProfitPairStmt === null) {
+                $manualProfitPairStmt = $pdo->prepare("
+                    SELECT a.account_id
+                    FROM transactions tt
+                    JOIN account a ON tt.account_id = a.id
+                    WHERE tt.company_id = ?
+                      AND tt.transaction_date = ?
+                      AND tt.amount = ?
+                      AND tt.transaction_type = ?
+                      AND tt.id <> ?
+                    ORDER BY tt.id ASC
+                    LIMIT 1
+                ");
+            }
+            $oppositeType = ($t['transaction_type'] === 'WIN') ? 'LOSE' : 'WIN';
+            $manualProfitPairStmt->execute([
+                $company_id,
+                $t['transaction_date'],
+                $t['amount'],
+                $oppositeType,
+                $t['id'],
+            ]);
+            $otherAccountCodeForManualProfit = $manualProfitPairStmt->fetchColumn() ?: null;
+        }
         
         // 根据交易类型计算 Win/Loss 和 Cr/Dr
         // Win/Loss 只包含 Data Capture，WIN/LOSE 交易移到 Cr/Dr
@@ -631,11 +660,11 @@ try {
         if ($isManualProfit) {
             if ($is_to_account && !$is_from_account) {
                 // 当前账户是 To Account：从对方账户进来的 PROFIT
-                $other = $t['from_account_code'] ?: '-';
+                $other = $otherAccountCodeForManualProfit ?: $t['from_account_code'] ?: '-';
                 $description = 'PROFIT FROM ' . $other;
             } elseif ($is_from_account && !$is_to_account) {
                 // 当前账户是 From Account：给对方账户的 PROFIT
-                $other = $t['to_account_code'] ?: '-';
+                $other = $otherAccountCodeForManualProfit ?: $t['to_account_code'] ?: '-';
                 $description = 'PROFIT TO ' . $other;
             } else {
                 // 内部转账或资料不足时，给一个通用描述
