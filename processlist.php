@@ -1101,7 +1101,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
     <!-- Profit Sharing Modal (account select + amount input) -->
     <div id="profitSharingModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 420px;">
+        <div class="modal-content" style="max-width: 480px;">
             <div class="modal-header">
                 <h2>Add Profit Sharing</h2>
                 <span class="close" onclick="closeProfitSharingModal()">&times;</span>
