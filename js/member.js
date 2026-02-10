@@ -380,6 +380,12 @@
                         });
                         updateCurrencySelection();
                         loadMemberCurrencyOrder().then(() => {
+                            const currencies = getAvailableCurrencies();
+                            if (currencies.length > 0) {
+                                memberIsAllSelected = false;
+                                memberSelectedCurrencies.clear();
+                                memberSelectedCurrencies.add(currencies[0]);
+                            }
                             renderCurrencyFilters();
                             resolve();
                         });
