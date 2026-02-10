@@ -6,14 +6,6 @@ require_once 'session_check.php';
 $company_id = $_SESSION['company_id'];
 $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
 $isOwner = ($userRole === 'owner');
-
-// 默认日期范围：本周一至今天（与 Transaction List 一致，d/m/Y）
-$today_dt = new DateTime('today');
-$day_of_week = (int)$today_dt->format('w');
-$days_to_monday = $day_of_week === 0 ? 6 : $day_of_week - 1;
-$monday_dt = (clone $today_dt)->modify("-{$days_to_monday} days");
-$default_date_from = $monday_dt->format('d/m/Y');
-$default_date_to = $today_dt->format('d/m/Y');
 ?>
 
 <!DOCTYPE html>
@@ -23,14 +15,12 @@ $default_date_to = $today_dt->format('d/m/Y');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Domain Report</title>
-    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>" />
-    <link rel="stylesheet" href="css/transaction.css?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>" />
-    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>">
-    <script src="js/sidebar.js?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>"></script>
+    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/sidebar.css">
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
-    <link rel="stylesheet" href="css/domain_report.css?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/domain_report.css">
 
 </head>
 <body>
@@ -55,35 +45,13 @@ $default_date_to = $today_dt->format('d/m/Y');
                             </div>
                         </div>
                     </div>
-                    <div class="domain-report-filter-group transaction-form-group transaction-capture-date-group">
-                        <label class="transaction-label transaction-date-range-label">Date Range</label>
-                        <div class="transaction-capture-date-row">
-                            <div class="transaction-date-range-wrap" id="report_date_range_wrap">
-                                <i class="fas fa-calendar-alt" aria-hidden="true"></i>
-                                <input type="text" id="report_date_range" class="transaction-input transaction-date-range-input" value="<?php echo $default_date_from . ' - ' . $default_date_to; ?>" placeholder="Select date range" readonly style="cursor: pointer;">
-                            </div>
-                            <div class="transaction-quick-select-wrap">
-                                <div class="dropdown transaction-quick-select-dropdown">
-                                    <button type="button" class="btn btn-secondary dropdown-toggle transaction-quick-select-btn" onclick="toggleReportQuickSelectDropdown()">
-                                        <i class="fas fa-calendar-alt"></i>
-                                        <span id="report-quick-select-text">Period</span>
-                                        <i class="fas fa-chevron-down"></i>
-                                    </button>
-                                    <div class="dropdown-menu" id="report-quick-select-dropdown">
-                                        <button type="button" class="dropdown-item" onclick="selectReportQuickRange('today')">Today</button>
-                                        <button type="button" class="dropdown-item" onclick="selectReportQuickRange('yesterday')">Yesterday</button>
-                                        <button type="button" class="dropdown-item" onclick="selectReportQuickRange('thisWeek')">This Week</button>
-                                        <button type="button" class="dropdown-item" onclick="selectReportQuickRange('lastWeek')">Last Week</button>
-                                        <button type="button" class="dropdown-item" onclick="selectReportQuickRange('thisMonth')">This Month</button>
-                                        <button type="button" class="dropdown-item" onclick="selectReportQuickRange('lastMonth')">Last Month</button>
-                                        <button type="button" class="dropdown-item" onclick="selectReportQuickRange('thisYear')">This Year</button>
-                                        <button type="button" class="dropdown-item" onclick="selectReportQuickRange('lastYear')">Last Year</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <input type="hidden" id="date_from" value="<?php echo $default_date_from; ?>">
-                        <input type="hidden" id="date_to" value="<?php echo $default_date_to; ?>">
+                    <div class="domain-report-filter-group">
+                        <label for="dateFrom">Date From</label>
+                        <input type="date" id="dateFrom" required>
+                    </div>
+                    <div class="domain-report-filter-group">
+                        <label for="dateTo">Date To</label>
+                        <input type="date" id="dateTo" required>
                     </div>
                 </div>
 
@@ -126,7 +94,6 @@ $default_date_to = $today_dt->format('d/m/Y');
     <script>
         window.DOMAIN_REPORT_COMPANY_ID = <?php echo $company_id; ?>;
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="js/domain_report.js?v=<?php echo defined('ASSET_VERSION') ? ASSET_VERSION : time(); ?>"></script>
+    <script src="js/domain_report.js"></script>
 </body>
 </html>

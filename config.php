@@ -7,14 +7,6 @@ $dbpass = 'Kholdings1688@';
 // 设置PHP时区为马来西亚时间
 date_default_timezone_set('Asia/Kuala_Lumpur');
 
-/**
- * 强制刷新前端缓存：修改此值后，所有使用 ASSET_VERSION 的 CSS/JS 会重新加载。
- * 需要强制用户刷新缓存时：改为 time() 或递增数字（如 2025021002），部署一次即可。
- */
-if (!defined('ASSET_VERSION')) {
-    define('ASSET_VERSION', time()); // 当前为每次请求刷新；上线后可改为如 2025021001，发版时递增
-}
-
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $dbuser, $dbpass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

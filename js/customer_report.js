@@ -563,20 +563,12 @@
             }, 300); // Wait 300ms after user stops typing/selecting
         }
 
-        function dmyToYmd(dmy) {
-            if (!dmy || !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(dmy).trim())) return '';
-            const [d, m, y] = String(dmy).trim().split('/').map(Number);
-            return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        }
-
         // Load report data
         async function loadReport() {
             const accountButton = document.getElementById('accountSelect');
             const accountId = accountButton?.getAttribute('data-value') || '';
-            const dateFromDmy = document.getElementById('date_from') && document.getElementById('date_from').value;
-            const dateToDmy = document.getElementById('date_to') && document.getElementById('date_to').value;
-            const dateFrom = dmyToYmd(dateFromDmy);
-            const dateTo = dmyToYmd(dateToDmy);
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
             const showAll = document.getElementById('showAll').checked;
             
             if (!dateFrom || !dateTo) {
@@ -806,136 +798,43 @@
             });
         }
 
-        function initReportDatePickers() {
-            if (typeof flatpickr === 'undefined') return;
-            const fromVal = document.getElementById('date_from') && document.getElementById('date_from').value;
-            const toVal = document.getElementById('date_to') && document.getElementById('date_to').value;
-            const parseDmy = (s) => {
-                if (!s || !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(s).trim())) return null;
-                const [d, m, y] = String(s).trim().split('/').map(Number);
-                return new Date(y, m - 1, d);
-            };
-            const formatDmy = (date) => {
-                const d = date.getDate();
-                const m = date.getMonth() + 1;
-                const y = date.getFullYear();
-                return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
-            };
-            const defaultFrom = parseDmy(fromVal) || new Date();
-            const defaultTo = parseDmy(toVal) || new Date();
-            const rangeInput = document.getElementById('report_date_range');
-            flatpickr('#report_date_range', {
-                mode: 'range',
-                dateFormat: 'd/m/Y',
-                allowInput: false,
-                defaultDate: [defaultFrom, defaultTo],
-                onChange: function(selectedDates) {
-                    if (selectedDates.length === 2) {
-                        const fromStr = formatDmy(selectedDates[0]);
-                        const toStr = formatDmy(selectedDates[1]);
-                        document.getElementById('date_from').value = fromStr;
-                        document.getElementById('date_to').value = toStr;
-                        if (rangeInput) rangeInput.value = fromStr + ' - ' + toStr;
-                        debouncedLoadReport();
-                    }
-                }
-            });
-            if (rangeInput && fromVal && toVal) rangeInput.value = fromVal + ' - ' + toVal;
-            window.toggleReportQuickSelectDropdown = function() {
-                const dropdown = document.getElementById('report-quick-select-dropdown');
-                if (!dropdown) return;
-                dropdown.classList.toggle('show');
-            };
-            window.selectReportQuickRange = function(range) {
-                const today = new Date();
-                let startDate, endDate;
-                switch (range) {
-                    case 'today': startDate = endDate = new Date(today); break;
-                    case 'yesterday':
-                        const yesterday = new Date(today);
-                        yesterday.setDate(yesterday.getDate() - 1);
-                        startDate = endDate = yesterday;
-                        break;
-                    case 'thisWeek':
-                        const thisWeekStart = new Date(today);
-                        const dayOfWeek = thisWeekStart.getDay();
-                        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                        thisWeekStart.setDate(thisWeekStart.getDate() - daysToMonday);
-                        startDate = thisWeekStart;
-                        endDate = new Date(today);
-                        break;
-                    case 'lastWeek':
-                        const lastWeekEnd = new Date(today);
-                        const lastWeekDayOfWeek = lastWeekEnd.getDay();
-                        const daysToLastSunday = lastWeekDayOfWeek === 0 ? 0 : lastWeekDayOfWeek;
-                        lastWeekEnd.setDate(lastWeekEnd.getDate() - daysToLastSunday - 1);
-                        const lastWeekStart = new Date(lastWeekEnd);
-                        lastWeekStart.setDate(lastWeekStart.getDate() - 6);
-                        startDate = lastWeekStart;
-                        endDate = lastWeekEnd;
-                        break;
-                    case 'thisMonth':
-                        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-                        endDate = new Date(today);
-                        break;
-                    case 'lastMonth':
-                        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-                        startDate = lastMonth;
-                        endDate = lastMonthEnd;
-                        break;
-                    case 'thisYear':
-                        startDate = new Date(today.getFullYear(), 0, 1);
-                        endDate = new Date(today);
-                        break;
-                    case 'lastYear':
-                        startDate = new Date(today.getFullYear() - 1, 0, 1);
-                        endDate = new Date(today.getFullYear() - 1, 11, 31);
-                        break;
-                    default: return;
-                }
-                const formatDmy = (date) => {
-                    const d = date.getDate();
-                    const m = date.getMonth() + 1;
-                    const y = date.getFullYear();
-                    return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
-                };
-                document.getElementById('date_from').value = formatDmy(startDate);
-                document.getElementById('date_to').value = formatDmy(endDate);
-                const rangeInput = document.getElementById('report_date_range');
-                if (rangeInput) rangeInput.value = formatDmy(startDate) + ' - ' + formatDmy(endDate);
-                const fp = rangeInput && rangeInput._flatpickr;
-                if (fp) fp.setDate([startDate, endDate]);
-                const quickSelectText = document.getElementById('report-quick-select-text');
-                const rangeTexts = { today: 'Today', yesterday: 'Yesterday', thisWeek: 'This Week', lastWeek: 'Last Week', thisMonth: 'This Month', lastMonth: 'Last Month', thisYear: 'This Year', lastYear: 'Last Year' };
-                if (quickSelectText) quickSelectText.textContent = rangeTexts[range] || 'Period';
-                const dropdown = document.getElementById('report-quick-select-dropdown');
-                if (dropdown) dropdown.classList.remove('show');
-                debouncedLoadReport();
-            };
-            if (!document._customerReportQuickSelectClickBound) {
-                document._customerReportQuickSelectClickBound = true;
-                document.addEventListener('click', function(e) {
-                    if (e.target.closest('.transaction-quick-select-dropdown')) return;
-                    const d = document.getElementById('report-quick-select-dropdown');
-                    if (d) d.classList.remove('show');
-                });
-            }
+        // Set default dates (today)
+        function setDefaultDates() {
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            
+            document.getElementById('dateFrom').value = todayStr;
+            document.getElementById('dateTo').value = todayStr;
         }
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
-            await loadOwnerCompanies();
-            await loadCompanyCurrencies();
+            setDefaultDates();
+            await loadOwnerCompanies(); // Load company buttons first (for owner)
+            await loadCompanyCurrencies(); // Load currency buttons
             await loadAccounts();
+            
+            // Initialize custom select
             initAccountSelect();
-            initReportDatePickers();
+            
+            // Auto-load report after accounts are loaded and dates are set
             loadReport();
             
+            // Auto-update when account selection changes
             document.getElementById('accountSelect').addEventListener('change', function() {
                 debouncedLoadReport();
             });
             
+            // Auto-update when date changes
+            document.getElementById('dateFrom').addEventListener('change', function() {
+                debouncedLoadReport();
+            });
+            
+            document.getElementById('dateTo').addEventListener('change', function() {
+                debouncedLoadReport();
+            });
+            
+            // Auto-update when show all checkbox changes
             document.getElementById('showAll').addEventListener('change', function() {
                 debouncedLoadReport();
             });
