@@ -398,6 +398,19 @@
 
         // 其他必要的函数
         function addProcess() {
+            // 如果权限还没加载出来，先加载权限，再根据结果打开对应的 Add 弹窗
+            if (!selectedPermission && typeof loadPermissionButtons === 'function') {
+                loadPermissionButtons().then(() => {
+                    if (selectedPermission) {
+                        openAddProcessForSelectedPermission();
+                    }
+                });
+                return;
+            }
+            openAddProcessForSelectedPermission();
+        }
+
+        function openAddProcessForSelectedPermission() {
             if (selectedPermission === 'Bank') {
                 window.selectedProfitSharingEntries = [];
                 loadAddBankProcessData().then(async () => {
