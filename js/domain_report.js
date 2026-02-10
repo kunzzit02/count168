@@ -412,6 +412,7 @@ function showNotification(message, type = 'success') {
                     if (!wrap) return;
                     const cal = fp.calendarContainer;
                     if (!cal) return;
+                    cal.style.visibility = 'hidden';
                     var CALENDAR_NATURAL_WIDTH = 307;
                     function alignToDateRange() {
                         const rect = wrap.getBoundingClientRect();
@@ -426,7 +427,10 @@ function showNotification(message, type = 'success') {
                         cal.style.maxWidth = '';
                     }
                     alignToDateRange();
-                    requestAnimationFrame(alignToDateRange);
+                    requestAnimationFrame(function() {
+                        alignToDateRange();
+                        cal.style.visibility = '';
+                    });
                 }
             });
             const wrap = input.closest('.report-date-range-picker');
