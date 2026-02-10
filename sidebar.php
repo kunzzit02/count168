@@ -442,7 +442,9 @@ if ($companyId) {
                     </div>
                     <div class="submenu" id="maintenance-submenu">
                         <div class="submenu-content">
-                            <a href="capture_maintenance.php" class="submenu-item">
+                            <a href="capture_maintenance.php"
+                               class="submenu-item"
+                               id="maintenance-capture-link"<?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                                 <span>Data Capture</span>
                             </a>
                             <a href="transaction_maintenance.php" class="submenu-item">
@@ -451,7 +453,9 @@ if ($companyId) {
                             <a href="payment_maintenance.php" class="submenu-item">
                                 <span>Payment</span>
                             </a>
-                            <a href="formula_maintenance.php" class="submenu-item">
+                            <a href="formula_maintenance.php"
+                               class="submenu-item"
+                               id="maintenance-formula-link"<?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                                 <span>Formula</span>
                             </a>
                             <?php if (!empty($companyCategories) && in_array('Bank', $companyCategories)): ?>

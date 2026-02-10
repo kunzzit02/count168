@@ -264,10 +264,17 @@
         }
     }
 
-    // 切换公司后由各页调用，即时显示/隐藏侧边栏 Data Capture（根据该公司是否有 Gambling 权限）
+    // 切换公司后由各页调用，即时显示/隐藏侧边栏 Data Capture
+    // 以及 Maintenance 子菜单里只在 Gambling 权限下可用的项
     function updateSidebarDataCaptureVisibility(hasGambling) {
-        var el = document.getElementById('sidebar-datacapture-section');
-        if (el) el.style.display = hasGambling ? '' : 'none';
+        var dcSection = document.getElementById('sidebar-datacapture-section');
+        if (dcSection) dcSection.style.display = hasGambling ? '' : 'none';
+
+        var maintCapture = document.getElementById('maintenance-capture-link');
+        if (maintCapture) maintCapture.style.display = hasGambling ? '' : 'none';
+
+        var maintFormula = document.getElementById('maintenance-formula-link');
+        if (maintFormula) maintFormula.style.display = hasGambling ? '' : 'none';
     }
 
     // 暴露给 HTML onclick 和 PHP 初始化脚本
