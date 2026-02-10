@@ -782,7 +782,9 @@
 
         // 存储待删除的 ID 列表
         let pendingDeleteIds = [];
+        // Bank 状态切换确认弹窗相关
         let pendingToggleProcessId = null;
+        let pendingToggleNewStatus = null;
         let pendingDismissPairs = [];
 
         function deleteSelected() {
@@ -1308,16 +1310,10 @@
             try {
                 if (selectedPermission === 'Bank') {
                     const statusLower = (currentStatus || '').toLowerCase();
-                    // active → inactive：继续使用自定义确认弹窗
-                    if (statusLower === 'active') {
-                        showConfirmInactiveModal(processId);
-                        return;
-                    }
-                    // inactive → active：改为简单确认弹窗后直接切换（后端不再限制）
-                    if (statusLower === 'inactive') {
-                        const ok = window.confirm('Confirm switching this Bank Process to Active?');
-                        if (!ok) return;
-                    }
+                    const targetStatus = statusLower === 'active' ? 'inactive' : 'active';
+                    // Bank：无论 active→inactive 还是 inactive→active，都使用同一个自定义确认弹窗
+                    showConfirmInactiveModal(processId, targetStatus);
+                    return;
                 }
                 await performToggleStatus(processId);
             } catch (error) {
@@ -1326,14 +1322,33 @@
             }
         }
 
-        function showConfirmInactiveModal(processId) {
+        function showConfirmInactiveModal(processId, targetStatus) {
             pendingToggleProcessId = processId;
-            document.getElementById('confirmInactiveModal').style.display = 'block';
+            pendingToggleNewStatus = (targetStatus || '').toLowerCase();
+
+            const modal = document.getElementById('confirmInactiveModal');
+            const titleEl = modal ? modal.querySelector('.process-confirm-title') : null;
+            const messageEl = document.getElementById('confirmInactiveMessage');
+            const confirmBtn = document.getElementById('confirmInactiveBtn');
+
+            if (pendingToggleNewStatus === 'inactive') {
+                if (titleEl) titleEl.textContent = 'Switch to Inactive';
+                if (messageEl) messageEl.textContent = 'Confirm switching this Bank Process to Inactive?';
+                if (confirmBtn) confirmBtn.textContent = 'Inactive';
+            } else {
+                if (titleEl) titleEl.textContent = 'Switch to Active';
+                if (messageEl) messageEl.textContent = 'Confirm switching this Bank Process to Active?';
+                if (confirmBtn) confirmBtn.textContent = 'Active';
+            }
+
+            if (modal) modal.style.display = 'block';
         }
 
         function closeConfirmInactiveModal() {
-            document.getElementById('confirmInactiveModal').style.display = 'none';
+            const modal = document.getElementById('confirmInactiveModal');
+            if (modal) modal.style.display = 'none';
             pendingToggleProcessId = null;
+            pendingToggleNewStatus = null;
         }
 
         async function confirmInactive() {
@@ -1344,6 +1359,7 @@
             const processId = pendingToggleProcessId;
             closeConfirmInactiveModal();
             try {
+                // 无论目标是 Active 还是 Inactive，都交给同一个切换函数处理
                 await performToggleStatus(processId);
             } catch (error) {
                 console.error('Error:', error);
