@@ -2695,7 +2695,7 @@ function initDatePickers() {
         return;
     }
     
-    // Capture Date：与 Dashboard 一致，默认本周一至今天
+    // Capture Date：单格日期范围（与 Dashboard Date Range 一致）
     const fromVal = document.getElementById("date_from") && document.getElementById("date_from").value;
     const toVal = document.getElementById("date_to") && document.getElementById("date_to").value;
     const parseDmy = (s) => {
@@ -2703,17 +2703,26 @@ function initDatePickers() {
         const [d, m, y] = s.trim().split('/').map(Number);
         return new Date(y, m - 1, d);
     };
-    flatpickr("#date_from", {
+    const formatDmy = (date) => {
+        const d = date.getDate();
+        const m = date.getMonth() + 1;
+        const y = date.getFullYear();
+        return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+    };
+    const defaultFrom = parseDmy(fromVal) || new Date();
+    const defaultTo = parseDmy(toVal) || new Date();
+    flatpickr("#capture_date_range", {
+        mode: "range",
         dateFormat: "d/m/Y",
         allowInput: false,
-        defaultDate: parseDmy(fromVal) || new Date(),
-        onChange: () => searchTransactions()
-    });
-    flatpickr("#date_to", {
-        dateFormat: "d/m/Y",
-        allowInput: false,
-        defaultDate: parseDmy(toVal) || new Date(),
-        onChange: () => searchTransactions()
+        defaultDate: [defaultFrom, defaultTo],
+        onChange: function (selectedDates) {
+            if (selectedDates.length === 2) {
+                document.getElementById("date_from").value = formatDmy(selectedDates[0]);
+                document.getElementById("date_to").value = formatDmy(selectedDates[1]);
+                searchTransactions();
+            }
+        }
     });
     
     // Transaction Date

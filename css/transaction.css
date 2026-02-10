@@ -145,6 +145,42 @@ body.transaction-page {
     min-width: 0;
 }
 
+/* Capture Date：单格日期范围（与 Dashboard Date Range 一致） */
+.transaction-page .transaction-date-range-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    min-width: 180px;
+}
+.transaction-page .transaction-date-range-wrap:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.transaction-page .transaction-date-range-icon {
+    width: 18px;
+    height: 18px;
+    color: #3b82f6;
+    flex-shrink: 0;
+}
+.transaction-page .transaction-date-range-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    font-size: inherit;
+    cursor: pointer;
+    padding: 0;
+}
+.transaction-page .transaction-date-range-input:focus {
+    outline: none;
+}
+
 .transaction-page .transaction-account-inputs {
     display: flex;
     flex: 1;
