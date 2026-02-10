@@ -2,6 +2,10 @@
 session_start();
 require_once 'config.php';
 
+// 强制浏览器使用最新页面与资源，避免旧缓存
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
 // 检查用户是否已登录
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
@@ -32,7 +36,7 @@ $default_date_to = $today_dt->format('d/m/Y');
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Transaction Payment</title>
     <link rel="icon" type="image/png" href="images/count_logo.png">
-    <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="css/transaction.css?v=<?php echo file_exists('css/transaction.css') ? filemtime('css/transaction.css') : time(); ?>">
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/sidebar.css?v=1">
@@ -477,6 +481,6 @@ $default_date_to = $today_dt->format('d/m/Y');
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="js/transaction.js?v=1"></script>
+    <script src="js/transaction.js?v=<?php echo file_exists('js/transaction.js') ? filemtime('js/transaction.js') : time(); ?>"></script>
 </body>
 </html>
