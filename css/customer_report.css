@@ -459,11 +459,11 @@ body {
     padding-bottom: 12px;
     box-sizing: border-box;
 }
-/* 打开时先隐藏，定位完成后再显示，避免先错位再纠正的闪烁 */
-.flatpickr-calendar.open {
+/* Report 页：日历一出现就隐藏，定位完成后再显示，直接展开即第二张图 */
+.report-page .flatpickr-calendar {
     visibility: hidden;
 }
-.flatpickr-calendar.open.report-calendar-ready {
+.report-page .flatpickr-calendar.report-calendar-ready {
     visibility: visible !important;
 }
 .flatpickr-calendar .flatpickr-days {

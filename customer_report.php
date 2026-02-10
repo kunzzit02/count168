@@ -27,7 +27,7 @@ $isOwner = ($userRole === 'owner');
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
-<body>
+<body class="report-page">
     <div class="container">
         <div class="content">
             <div class="report-header">

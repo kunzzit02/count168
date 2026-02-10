@@ -28,7 +28,7 @@ $isOwner = ($userRole === 'owner');
     <link rel="stylesheet" href="css/domain_report.css?v=<?php echo time(); ?>">
 
 </head>
-<body>
+<body class="report-page">
     <div class="container">
         <div class="content">
             <div class="report-header">
