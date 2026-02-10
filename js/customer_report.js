@@ -615,6 +615,7 @@
                         cal.style.position = 'fixed';
                         cal.style.left = rect.left + 'px';
                         cal.style.top = (rect.bottom + 8) + 'px';
+                        cal.style.width = rect.width + 'px';
                     }
                     alignToDateRange();
                     requestAnimationFrame(alignToDateRange);
