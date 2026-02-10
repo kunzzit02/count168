@@ -999,10 +999,32 @@ function getCurrentProcessId() {
             }
         }
 
+        // 从单段引用解析出完整 id_product、row_label、dataColumnIndex（id_product 可含冒号，如 G8:GAMEPLAY (M)- RSLOTS - AB4D55MYR (T38)）
+        // 格式：id_product:row_label:column_index 或 id_product:column_index，从右侧解析以保留完整 id_product
+        function parseIdProductColumnRef(part) {
+            const p = (part || '').trim();
+            if (!p) return null;
+            const lastColon = p.lastIndexOf(':');
+            if (lastColon <= 0) return null;
+            const colPart = p.substring(lastColon + 1);
+            const dataColumnIndex = parseInt(colPart, 10);
+            if (isNaN(dataColumnIndex) || colPart !== String(dataColumnIndex)) return null;
+            const rest = p.substring(0, lastColon);
+            const rowLabelMatch = rest.match(/:([A-Z])$/);
+            let idProduct, rowLabel = null;
+            if (rowLabelMatch) {
+                rowLabel = rowLabelMatch[1];
+                idProduct = rest.substring(0, rest.length - 2);
+            } else {
+                idProduct = rest;
+            }
+            return { idProduct, rowLabel, dataColumnIndex };
+        }
+
         // Check if sourceColumnsValue is in new format
-        // Supports two formats:
-        // 1. "id_product:row_label:column_index" (e.g., "BB:C:3") - with row label
-        // 2. "id_product:column_index" (e.g., "BB:3") - backward compatibility
+        // Supports two formats (id_product may contain colons, e.g. G8:GAMEPLAY (M)- RSLOTS - AB4D55MYR (T38)):
+        // 1. "id_product:row_label:column_index" (e.g., "BB:C:3")
+        // 2. "id_product:column_index" (e.g., "BB:3")
         function isNewIdProductColumnFormat(sourceColumnsValue) {
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
                 return false;
@@ -1011,67 +1033,33 @@ function getCurrentProcessId() {
             if (parts.length === 0) {
                 return false;
             }
-            // Check for new format with row label: "id_product:row_label:column_index" (e.g., "BB:C:3")
-            const newFormatWithRowLabel = /^[^:]+:[A-Z]+:\d+$/;
-            // Check for new format without row label: "id_product:column_index" (e.g., "BB:3")
-            const newFormatWithoutRowLabel = /^[^:]+:\d+$/;
-            // Return true if matches either format
-            return newFormatWithRowLabel.test(parts[0]) || newFormatWithoutRowLabel.test(parts[0]);
+            return parseIdProductColumnRef(parts[0]) !== null;
         }
         
         // Parse new format source_columns and get cell values
-        // Supports two formats:
-        // 1. "id_product:row_label:column_index" (e.g., "BB:C:3") - with row label to distinguish multiple rows
-        // 2. "id_product:column_index" (e.g., "BB:3") - backward compatibility, uses first matching row
+        // id_product 抓取完整（可含冒号），如 G8:GAMEPLAY (M)- RSLOTS - AB4D55MYR (T38)
         function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue) {
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
                 console.log('getCellValuesFromNewFormat: sourceColumnsValue is empty');
                 return [];
             }
             
-            const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
             const cellValues = [];
             
-            console.log('getCellValuesFromNewFormat: parsing parts:', parts, 'sourceColumnsValue:', sourceColumnsValue);
-            
             parts.forEach(part => {
-                // Try new format with row label first: "id_product:row_label:column_index"
-                // IMPORTANT: sourceColumns stored in database uses dataColumnIndex (1-based data column index)
-                // For example, if user clicks column 7 (colIdx=7), dataColumnIndex = colIdx - 1 = 6
-                // So saved format is "OVERALL:A:6" (not "OVERALL:A:7")
-                // getCellValueByIdProductAndColumn expects dataColumnIndex (1-based data column index)
-                // So we should use the saved value directly without subtracting 1
-                let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
-                if (match) {
-                    const idProduct = match[1];
-                    const rowLabel = match[2];
-                    const dataColumnIndex = parseInt(match[3]); // Already dataColumnIndex, use directly
-                    console.log('getCellValuesFromNewFormat: new format match - idProduct:', idProduct, 'rowLabel:', rowLabel, 'dataColumnIndex:', dataColumnIndex);
+                const parsed = parseIdProductColumnRef(part);
+                if (parsed) {
+                    const { idProduct, rowLabel, dataColumnIndex } = parsed;
                     const cellValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
-                    console.log('getCellValuesFromNewFormat: cellValue from new format:', cellValue);
                     if (cellValue !== null && cellValue !== '') {
                         cellValues.push(cellValue);
                     }
                 } else {
-                    // Fallback to old format: "id_product:column_index" (backward compatibility)
-                    match = part.match(/^([^:]+):(\d+)$/);
-                    if (match) {
-                        const idProduct = match[1];
-                        const dataColumnIndex = parseInt(match[2]); // Already dataColumnIndex, use directly
-                        console.log('getCellValuesFromNewFormat: old format match - idProduct:', idProduct, 'dataColumnIndex:', dataColumnIndex);
-                        const cellValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex);
-                        console.log('getCellValuesFromNewFormat: cellValue from old format:', cellValue);
-                        if (cellValue !== null && cellValue !== '') {
-                            cellValues.push(cellValue);
-                        }
-                    } else {
-                        console.warn('getCellValuesFromNewFormat: part does not match any format:', part);
-                    }
+                    console.warn('getCellValuesFromNewFormat: part does not match any format:', part);
                 }
             });
             
-            console.log('getCellValuesFromNewFormat: final cellValues:', cellValues);
             return cellValues;
         }
         
@@ -1124,13 +1112,19 @@ function getCurrentProcessId() {
                                 console.log('getCellValueByIdProductAndColumn: Found row by row_label! rowIndex:', rowIndex, 'rowLabel:', rowLabel);
                                 
                                 // CRITICAL: Verify id_product matches - if not, ignore this rowIndex
+                                // 完整 id_product（如含 RSLOTS、(T07)）必须精确匹配，避免 4DDMYMYR (T07) 与 AB4D55MYR (T38) 串行
                                 const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
                                 if (idProductCell) {
                                     const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
-                                    const cellIdProduct = normalizeIdProductText(cellIdProductText);
-                                    const normalizedIdProduct = normalizeIdProductText(idProduct);
-                                    rowIndexIdProductMatches = (cellIdProduct === normalizedIdProduct);
-                                    console.log('getCellValueByIdProductAndColumn: Verified id_product - cellIdProduct:', cellIdProduct, 'normalizedIdProduct:', normalizedIdProduct, 'match:', rowIndexIdProductMatches);
+                                    const idProductTrimmed = (idProduct || '').trim();
+                                    if (typeof isFullIdProduct === 'function' && isFullIdProduct(idProduct)) {
+                                        rowIndexIdProductMatches = (cellIdProductText === idProductTrimmed);
+                                    } else {
+                                        const cellIdProduct = normalizeIdProductText(cellIdProductText);
+                                        const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                        rowIndexIdProductMatches = (cellIdProduct === normalizedIdProduct);
+                                    }
+                                    console.log('getCellValueByIdProductAndColumn: Verified id_product - match:', rowIndexIdProductMatches);
                                     
                                     if (!rowIndexIdProductMatches) {
                                         console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch! rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected id_product:', normalizedIdProduct, 'found id_product:', cellIdProduct, 'Will fallback to id_product search');
@@ -4164,16 +4158,18 @@ function getCurrentProcessId() {
                 }
             });
             
-            // 处理 [id_product,数字] 格式（其他 row）
+            // 处理 [id_product,数字] 格式（其他 row），使用 parseIdProductColumnRef 保留完整 id_product 比较
             bracketMatches.forEach((bracketMatch) => {
                 const matchingRefs = refMapByDataColumnIndex.get(bracketMatch.dataColumnIndex);
                 if (matchingRefs && matchingRefs.length > 0) {
-                    // 找到匹配 id_product 的引用
                     for (const ref of matchingRefs) {
-                        const parts = ref.split(':');
-                        if (parts.length >= 1) {
-                            const refIdProduct = parts[0];
-                            if (normalizeIdProductText(refIdProduct) === normalizeIdProductText(bracketMatch.idProduct)) {
+                        const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
+                        if (parsed) {
+                            const refIdProduct = parsed.idProduct;
+                            const match = (typeof isFullIdProduct === 'function' && isFullIdProduct(bracketMatch.idProduct))
+                                ? (refIdProduct.trim() === (bracketMatch.idProduct || '').trim())
+                                : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(bracketMatch.idProduct));
+                            if (match) {
                                 if (!syncedRefs.includes(ref)) {
                                     syncedRefs.push(ref);
                                 }
@@ -4335,25 +4331,23 @@ function getCurrentProcessId() {
                                 console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], value:', columnValue);
                             }
                         } else {
-                            // 当前row格式 $数字：从引用中按顺序获取
+                            // 当前row格式 $数字：从引用中按顺序获取（parseIdProductColumnRef 保留完整 id_product）
                             if (refIndex < refs.length) {
                                 const ref = refs[refIndex];
-                                const parts = ref.split(':');
-                                if (parts.length >= 2) {
-                                    const refIdProduct = parts[0];
-                                    const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                                    const refRowLabel = parts.length === 3 ? parts[1] : null;
-                                    
-                                    // 检查是否是当前row的引用
-                                    const isCurrentRowRef = currentIdProduct && 
-                                                             normalizeIdProductText(refIdProduct) === normalizeIdProductText(currentIdProduct);
-                                    
-                                    if (isCurrentRowRef && !isNaN(refDataColumnIndex)) {
-                                        // 计算displayColumnIndex（dataColumnIndex + 1）
+                                const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
+                                if (parsed) {
+                                    const refIdProduct = parsed.idProduct;
+                                    const refDataColumnIndex = parsed.dataColumnIndex;
+                                    const refRowLabel = parsed.rowLabel;
+                                    const isCurrentRowRef = currentIdProduct && (
+                                        (typeof isFullIdProduct === 'function' && isFullIdProduct(refIdProduct))
+                                            ? (refIdProduct.trim() === (currentIdProduct || '').trim())
+                                            : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(currentIdProduct))
+                                    );
+                                    if (isCurrentRowRef) {
                                         const displayColumnIndex = refDataColumnIndex + 1;
                                         if (displayColumnIndex === match.columnNumber) {
                                             columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
-                                            console.log('updateFormulaDisplay: Matched $' + match.columnNumber + ' to ref[' + refIndex + ']:', ref, 'value:', columnValue);
                                             refIndex++;
                                         }
                                     }
@@ -6794,22 +6788,21 @@ function getCurrentProcessId() {
                     // 但是，我们需要确保只保存 formula 中实际存在的 $数字 对应的引用
                     // 如果 data-clicked-cell-refs 中有多余的引用（比如被删除的数据），不应该保存
                     
-                    // 首先，创建一个映射：dataColumnIndex -> 引用列表（可能有多个匹配的引用）
+                    // 首先，创建一个映射：dataColumnIndex -> 引用列表（使用 parseIdProductColumnRef 保留完整 id_product）
                     const refMapByDataColumnIndex = new Map();
                     refs.forEach((ref, index) => {
-                        const parts = ref.split(':');
-                        if (parts.length >= 2) {
-                            const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                            if (!isNaN(refDataColumnIndex)) {
-                                if (!refMapByDataColumnIndex.has(refDataColumnIndex)) {
-                                    refMapByDataColumnIndex.set(refDataColumnIndex, []);
-                                }
-                                refMapByDataColumnIndex.get(refDataColumnIndex).push({
-                                    ref: ref,
-                                    index: index,
-                                    parts: parts
-                                });
+                        const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
+                        if (parsed) {
+                            if (!refMapByDataColumnIndex.has(parsed.dataColumnIndex)) {
+                                refMapByDataColumnIndex.set(parsed.dataColumnIndex, []);
                             }
+                            refMapByDataColumnIndex.get(parsed.dataColumnIndex).push({
+                                ref: ref,
+                                index: index,
+                                idProduct: parsed.idProduct,
+                                rowLabel: parsed.rowLabel,
+                                dataColumnIndex: parsed.dataColumnIndex
+                            });
                         }
                     });
                     
@@ -6821,10 +6814,10 @@ function getCurrentProcessId() {
                         // 查找匹配 dataColumnIndex 的引用
                         const matchingRefs = refMapByDataColumnIndex.get(dollarMatch.dataColumnIndex);
                         if (matchingRefs && matchingRefs.length > 0) {
-                            // 使用第一个匹配的引用（如果有多个，使用第一个）
+                            // 使用第一个匹配的引用（完整 id_product）
                             const matchedRef = matchingRefs[0];
-                            const refIdProduct = matchedRef.parts[0];
-                            const refRowLabel = matchedRef.parts.length === 3 ? matchedRef.parts[1] : null;
+                            const refIdProduct = matchedRef.idProduct;
+                            const refRowLabel = matchedRef.rowLabel;
                             
                             // 构建保存格式：id_product:row_label:dataColumnIndex
                             // IMPORTANT: 保存 dataColumnIndex 而不是 displayColumnIndex，以便读取时正确转换
@@ -7445,12 +7438,20 @@ function getCurrentProcessId() {
             }
         }
 
+        // 判断是否为「完整」id_product（如含 RSLOTS、T07 等），此类只做精确匹配，不做归一化匹配，避免 4DDMYMYR (T07) 与 AB4D55MYR (T38) 互相串行
+        function isFullIdProduct(value) {
+            if (!value || typeof value !== 'string') return false;
+            const t = value.trim();
+            return t.indexOf(' - ') >= 0 || /\(T\d+\)/i.test(t);
+        }
+
         // Find the row that matches the process value
         function findProcessRow(tableData, processValue, rowIndex = null) {
             if (!tableData.rows) return null;
 
-            // Normalize the process value for comparison
+            // Normalize the process value for comparison (only used when not full id)
             const normalizedProcessValue = normalizeIdProductText(processValue);
+            const useExactOnly = isFullIdProduct(processValue);
 
             // CRITICAL: Always prioritize id_product matching over rowIndex
             // If rowIndex is provided, verify that the row at that index matches the id_product
@@ -7460,16 +7461,14 @@ function getCurrentProcessId() {
                 if (row && row.length > 1 && row[1].type === 'data') {
                     const rowValue = row[1].value;
                     const normalizedRowValue = normalizeIdProductText(rowValue);
-                    // Check if this row matches the process value
-                    if (rowValue === processValue || (normalizedRowValue && normalizedRowValue === normalizedProcessValue)) {
+                    const exactMatch = (rowValue === processValue);
+                    const normalizedMatch = !useExactOnly && normalizedRowValue && normalizedRowValue === normalizedProcessValue;
+                    if (exactMatch || normalizedMatch) {
                         console.log('findProcessRow: Found row by rowIndex:', rowIndex, 'id_product matches:', processValue);
                         return row;
                     } else {
                         // CRITICAL: If id_product doesn't match, DO NOT use this row
-                        // Fallback to searching all rows by id_product instead
-                        // This ensures correct data is read even when row positions change
                         console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValue, 'Found:', rowValue, '. Falling back to id_product search.');
-                        // Continue to search all rows below
                     }
                 } else {
                     console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but row is invalid. Falling back to id_product search.');
@@ -7477,7 +7476,7 @@ function getCurrentProcessId() {
             }
 
             // Look for the row where column A (index 1) matches the process value
-            // This is the primary search method - always search by id_product to ensure correct match
+            // 完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - AB4D55MYR (T38)）只做精确匹配，避免误取 4DDMYMYR (T07) 等同行数据
             console.log('findProcessRow: Searching all rows for id_product:', processValue);
             for (let i = 0; i < tableData.rows.length; i++) {
                 const row = tableData.rows[i];
@@ -7487,10 +7486,12 @@ function getCurrentProcessId() {
                         console.log('findProcessRow: Found row at index:', i, 'by exact match');
                         return row;
                     }
-                    const normalizedRowValue = normalizeIdProductText(rowValue);
-                    if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
-                        console.log('findProcessRow: Found row at index:', i, 'by normalized match');
-                        return row;
+                    if (!useExactOnly) {
+                        const normalizedRowValue = normalizeIdProductText(rowValue);
+                        if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
+                            console.log('findProcessRow: Found row at index:', i, 'by normalized match');
+                            return row;
+                        }
                     }
                 }
             }
