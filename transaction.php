@@ -118,10 +118,6 @@ $default_date_to = $today_dt->format('d/m/Y');
                             <input type="text" id="capture_date_range" class="transaction-input transaction-date-range-input" value="<?php echo $default_date_from . ' - ' . $default_date_to; ?>" placeholder="Select date range" readonly style="cursor: pointer;">
                         </div>
                         <div class="transaction-quick-select-wrap">
-                            <label class="transaction-quick-select-label">
-                                <i class="fas fa-clock" aria-hidden="true"></i>
-                                Quick Select
-                            </label>
                             <div class="dropdown transaction-quick-select-dropdown">
                                 <button type="button" class="btn btn-secondary dropdown-toggle transaction-quick-select-btn" onclick="toggleQuickSelectDropdown()">
                                     <i class="fas fa-calendar-alt"></i>

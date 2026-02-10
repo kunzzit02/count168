@@ -207,19 +207,6 @@ body.transaction-page {
     flex-direction: column;
     gap: clamp(0px, 0.21vw, 4px);
 }
-.transaction-page .transaction-quick-select-label {
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-weight: bold;
-    color: #374151;
-    font-size: small;
-    font-family: 'Amaranth', sans-serif;
-}
-.transaction-page .transaction-quick-select-label .fa-clock {
-    color: #3b82f6;
-}
 .transaction-page .transaction-quick-select-dropdown.dropdown {
     position: relative;
     display: inline-block;
