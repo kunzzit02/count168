@@ -7465,8 +7465,21 @@ function getCurrentProcessId() {
 
         // 从 process 表数据中把截断的 id_product（如 "(T07)"）解析为完整 id_product
         // 若提供 rowLabel，优先返回该行标签对应行的完整 id
+        // 支持 shortId 为 "id:rowLabel" 格式（如 "(T07):AF"），自动拆出 rowLabel 再解析
         function resolveToFullIdProduct(shortId, rowLabel) {
-            if (!shortId || !isTruncatedIdProduct(shortId)) return shortId;
+            let shortTrim = (shortId || '').trim();
+            if (!shortTrim) return shortId;
+            // 若传入的是 "(T07):AF" 这类格式且未传 rowLabel，先拆出 rowLabel 再解析
+            let extractedRowLabel = rowLabel || null;
+            if (shortTrim.indexOf(':') >= 0 && !extractedRowLabel) {
+                const labelMatch = shortTrim.match(/:([A-Z]+)$/);
+                if (labelMatch) {
+                    extractedRowLabel = labelMatch[1];
+                    shortTrim = shortTrim.substring(0, shortTrim.length - labelMatch[0].length).trim();
+                    if (!shortTrim) return shortId;
+                }
+            }
+            if (!isTruncatedIdProduct(shortTrim)) return shortId;
             let parsedTableData;
             if (window.transformedTableData) {
                 parsedTableData = window.transformedTableData;
@@ -7477,29 +7490,52 @@ function getCurrentProcessId() {
                     parsedTableData = JSON.parse(tableData);
                 } catch (e) { return shortId; }
             }
-            if (!parsedTableData || !parsedTableData.rows) return shortId;
-            const shortTrim = shortId.trim();
-            if (rowLabel) {
+            if (parsedTableData && parsedTableData.rows) {
+                if (extractedRowLabel) {
+                    for (let i = 0; i < parsedTableData.rows.length; i++) {
+                        const row = parsedTableData.rows[i];
+                        if (row && row.length > 1 && row[0].type === 'header' && row[1].type === 'data') {
+                            const headerVal = (row[0].value || '').trim();
+                            if (headerVal !== extractedRowLabel) continue;
+                            const full = (row[1].value || '').trim();
+                            if (full === shortTrim || full.endsWith(shortTrim) || normalizeIdProductText(full) === normalizeIdProductText(shortTrim)) {
+                                console.log('resolveToFullIdProduct: resolved', shortTrim, 'with rowLabel', extractedRowLabel, '->', full);
+                                return full;
+                            }
+                        }
+                    }
+                }
                 for (let i = 0; i < parsedTableData.rows.length; i++) {
                     const row = parsedTableData.rows[i];
-                    if (row && row.length > 1 && row[0].type === 'header' && row[1].type === 'data') {
-                        const headerVal = (row[0].value || '').trim();
-                        if (headerVal !== rowLabel) continue;
+                    if (row && row.length > 1 && row[1].type === 'data') {
                         const full = (row[1].value || '').trim();
                         if (full === shortTrim || full.endsWith(shortTrim) || normalizeIdProductText(full) === normalizeIdProductText(shortTrim)) {
-                            console.log('resolveToFullIdProduct: resolved', shortTrim, 'with rowLabel', rowLabel, '->', full);
+                            console.log('resolveToFullIdProduct: resolved', shortTrim, '->', full);
                             return full;
                         }
                     }
                 }
             }
-            for (let i = 0; i < parsedTableData.rows.length; i++) {
-                const row = parsedTableData.rows[i];
-                if (row && row.length > 1 && row[1].type === 'data') {
-                    const full = (row[1].value || '').trim();
-                    if (full === shortTrim || full.endsWith(shortTrim) || normalizeIdProductText(full) === normalizeIdProductText(shortTrim)) {
-                        console.log('resolveToFullIdProduct: resolved', shortTrim, '->', full);
-                        return full;
+            // 回退：从 Data Capture 表 DOM 按行标签取完整 id_product（表数据可能为截断 id）
+            if (extractedRowLabel) {
+                const capturedTableBody = document.getElementById('capturedTableBody');
+                if (capturedTableBody) {
+                    const rows = capturedTableBody.querySelectorAll('tr');
+                    for (let i = 0; i < rows.length; i++) {
+                        const row = rows[i];
+                        const rowHeaderCell = row.querySelector('.row-header');
+                        if (!rowHeaderCell) continue;
+                        const headerText = (rowHeaderCell.textContent || '').trim();
+                        if (headerText !== extractedRowLabel) continue;
+                        const idCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
+                        if (idCell) {
+                            const full = (idCell.textContent || '').trim();
+                            if (full && (full === shortTrim || full.endsWith(shortTrim) || full.indexOf(' - ') >= 0)) {
+                                console.log('resolveToFullIdProduct: resolved from DOM', shortTrim, 'with rowLabel', extractedRowLabel, '->', full);
+                                return full;
+                            }
+                        }
+                        break;
                     }
                 }
             }
