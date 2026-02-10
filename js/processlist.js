@@ -238,8 +238,9 @@
                 const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
                 const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
-                // Special rule: only 1 MONTH during active period uses gray style
-                const contractClass = (contract === '1 MONTH' && baseContractClass === 'contract-active')
+                // Special rule: 1 MONTH / 1+1 / 1+2 / 1+3 during active period use gray style
+                const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
+                const contractClass = (grayContracts.indexOf(contract) !== -1 && baseContractClass === 'contract-active')
                     ? 'contract-1month-active'
                     : baseContractClass;
                 const contractCell = (contract && contractClass)
@@ -1234,10 +1235,11 @@
                             row.setAttribute('data-status', newStatus || '');
                             const cells = row.querySelectorAll('td');
                             if (cells.length >= 15) {
-                                // Contract cell (index 6): only apply 1 MONTH gray rule
+                                // Contract cell (index 6): apply gray rule for 1 MONTH / 1+1 / 1+2 / 1+3 during active period
                                 const contractRaw = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
                                 const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
-                                const contractClass = (contractRaw === '1 MONTH' && baseContractClass === 'contract-active')
+                                const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
+                                const contractClass = (grayContracts.indexOf(contractRaw) !== -1 && baseContractClass === 'contract-active')
                                     ? 'contract-1month-active'
                                     : baseContractClass;
                                 const contractCellHtml = (contractRaw && contractClass)
