@@ -2447,6 +2447,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         // Edit Account modal state (for + button when account selected)
         let selectedCompanyIdsForEdit = [];
         let currentEditAccountIdForBank = null;
+        /** 从 Supplier 或 Customer 的 + 打开 Add Account 时记录，添加成功后自动选中新账户；Company 不自动选 */
+        let bankAddAccountTriggerFieldId = null;
 
         let bankAccountRoles = [];
         /** Role 排序优先级（与 account-list 一致，Add Account 弹窗开放完整 Role 列表） */
@@ -2881,17 +2883,15 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                         closeAddAccountModal();
                         await loadBankAccounts();
                         refreshBankAccountDropdowns();
-                        if (newAccountId) {
-                            const cardBtn = document.getElementById('bank_card_merchant');
-                            const customerBtn = document.getElementById('bank_customer');
-                            const displayText = result.data.account_id || result.data.name || String(newAccountId);
-                            if (cardBtn && !cardBtn.getAttribute('data-value')) {
-                                cardBtn.textContent = displayText;
-                                cardBtn.setAttribute('data-value', newAccountId);
-                            } else if (customerBtn && !customerBtn.getAttribute('data-value')) {
-                                customerBtn.textContent = displayText;
-                                customerBtn.setAttribute('data-value', newAccountId);
+                        if (newAccountId && bankAddAccountTriggerFieldId) {
+                            const targetBtn = document.getElementById(bankAddAccountTriggerFieldId);
+                            if (targetBtn) {
+                                const displayText = result.data.account_id || result.data.name || String(newAccountId);
+                                targetBtn.textContent = displayText;
+                                targetBtn.setAttribute('data-value', newAccountId);
+                                targetBtn.classList.remove('bank-field-error');
                             }
+                            bankAddAccountTriggerFieldId = null;
                         }
                     } else {
                         showNotification(result.error || 'Failed to add account', 'danger');
@@ -4115,6 +4115,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         }
 
         function closeAddAccountModal() {
+            bankAddAccountTriggerFieldId = null;
             const modal = document.getElementById('addAccountModal');
             if (modal) {
                 modal.style.display = 'none';
@@ -4140,8 +4141,10 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const btn = document.getElementById(fieldId);
             const accountId = btn && btn.getAttribute('data-value');
             if (accountId) {
+                bankAddAccountTriggerFieldId = null;
                 openEditAccountModalFromBank(parseInt(accountId, 10));
             } else {
+                bankAddAccountTriggerFieldId = (fieldId === 'bank_card_merchant' || fieldId === 'bank_customer') ? fieldId : null;
                 showAddAccountModal();
             }
         }
