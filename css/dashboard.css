@@ -78,6 +78,14 @@ body.dashboard-page {
     color: #fff;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
+/* Currency 拖动（与 Transaction List / Member Win/Loss 一致） */
+#currency-buttons-container .transaction-company-btn.transaction-currency-dragging {
+    opacity: 0.6;
+}
+#currency-buttons-container .transaction-company-btn.transaction-currency-drag-over {
+    outline: 2px dashed #3b82f6;
+    outline-offset: 2px;
+}
 
 .dashboard-content {
     display: flex;
