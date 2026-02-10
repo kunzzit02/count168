@@ -6203,30 +6203,37 @@ function getCurrentProcessId() {
             let descriptionSub = '';
             
             // Parse main product value
+            // 完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）整串作为 idProductMain，不截断
             const mainText = productValues.main || '';
             if (mainText) {
-                const match = mainText.match(/^([^(]+)(?:\(([^)]+)\))?/);
-                if (match) {
-                    // Remove trailing colons and spaces for consistency
-                    idProductMain = match[1].replace(/[: ]+$/, '').trim();
-                    descriptionMain = match[2] ? match[2].trim() : '';
-                } else {
-                    // Even without parentheses, clean trailing colons and spaces
+                if (mainText.indexOf(' - ') >= 0) {
                     idProductMain = mainText.replace(/[: ]+$/, '').trim();
+                    descriptionMain = '';
+                } else {
+                    const match = mainText.match(/^([^(]+)(?:\(([^)]+)\))?/);
+                    if (match) {
+                        idProductMain = match[1].replace(/[: ]+$/, '').trim();
+                        descriptionMain = match[2] ? match[2].trim() : '';
+                    } else {
+                        idProductMain = mainText.replace(/[: ]+$/, '').trim();
+                    }
                 }
             }
             
-            // Parse sub product value
+            // Parse sub product value（同上：完整 id 整串作为 idProductSub）
             const subText = productValues.sub || '';
             if (subText) {
-                const match = subText.match(/^([^(]+)(?:\(([^)]+)\))?/);
-                if (match) {
-                    // Remove trailing colons and spaces for consistency
-                    idProductSub = match[1].replace(/[: ]+$/, '').trim();
-                    descriptionSub = match[2] ? match[2].trim() : '';
-                } else {
-                    // Even without parentheses, clean trailing colons and spaces
+                if (subText.indexOf(' - ') >= 0) {
                     idProductSub = subText.replace(/[: ]+$/, '').trim();
+                    descriptionSub = '';
+                } else {
+                    const match = subText.match(/^([^(]+)(?:\(([^)]+)\))?/);
+                    if (match) {
+                        idProductSub = match[1].replace(/[: ]+$/, '').trim();
+                        descriptionSub = match[2] ? match[2].trim() : '';
+                    } else {
+                        idProductSub = subText.replace(/[: ]+$/, '').trim();
+                    }
                 }
             }
             
@@ -12883,11 +12890,17 @@ function getCurrentProcessId() {
                     // 刷新后应用模板时保留行上已有的完整 Id Product 显示，不因模板中的短 id_product 覆盖导致「后面部分消失」
                     const preserveIdProduct = data.preserveIdProductDisplay && (productValues.main || '').trim() !== '';
                     if (!preserveIdProduct) {
-                        // Strip any existing description in parentheses from idProduct to avoid duplicate "Q (AAA) (AAA)" when re-editing without refresh
-                        const bareIdProduct = (data.idProduct || '').replace(/\s*\([^)]+\)\s*$/, '').trim();
-                        let idProductText = bareIdProduct;
-                        if (data.description && data.description.trim() !== '') {
-                            idProductText += ` (${data.description})`;
+                        // 完整 id_product（含 " - "）整串显示，不截断；否则沿用旧逻辑（bareIdProduct + description）
+                        const rawIdProduct = (data.idProduct || '').trim();
+                        let idProductText;
+                        if (rawIdProduct.indexOf(' - ') >= 0) {
+                            idProductText = rawIdProduct.replace(/[: ]+$/, '').trim();
+                        } else {
+                            const bareIdProduct = rawIdProduct.replace(/\s*\([^)]+\)\s*$/, '').trim();
+                            idProductText = bareIdProduct;
+                            if (data.description && data.description.trim() !== '') {
+                                idProductText += ` (${data.description})`;
+                            }
                         }
                         
                         // Determine if this is a main or sub row update
@@ -16939,24 +16952,35 @@ function formatPercentValue(value) {
                     const idProductSubRaw = productValues.sub || '';
                     
                     // Extract product ID and description from main
+                    // 完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）整串作为 cleanIdProductMain
                     let cleanIdProductMain = '';
                     let descriptionMain = '';
                     if (idProductMainRaw) {
-                        const mainMatch = idProductMainRaw.match(/^([^(]+)(?:\(([^)]+)\))?/);
-                        if (mainMatch) {
-                            cleanIdProductMain = mainMatch[1].trim();
-                            descriptionMain = mainMatch[2] ? mainMatch[2].trim() : '';
+                        if (idProductMainRaw.indexOf(' - ') >= 0) {
+                            cleanIdProductMain = idProductMainRaw.replace(/[: ]+$/, '').trim();
+                            descriptionMain = '';
+                        } else {
+                            const mainMatch = idProductMainRaw.match(/^([^(]+)(?:\(([^)]+)\))?/);
+                            if (mainMatch) {
+                                cleanIdProductMain = mainMatch[1].trim();
+                                descriptionMain = mainMatch[2] ? mainMatch[2].trim() : '';
+                            }
                         }
                     }
                     
-                    // Extract product ID and description from sub
+                    // Extract product ID and description from sub（同上：完整 id 整串）
                     let cleanIdProductSub = '';
                     let descriptionSub = '';
                     if (idProductSubRaw) {
-                        const subMatch = idProductSubRaw.match(/^([^(]+)(?:\(([^)]+)\))?/);
-                        if (subMatch) {
-                            cleanIdProductSub = subMatch[1].trim();
-                            descriptionSub = subMatch[2] ? subMatch[2].trim() : '';
+                        if (idProductSubRaw.indexOf(' - ') >= 0) {
+                            cleanIdProductSub = idProductSubRaw.replace(/[: ]+$/, '').trim();
+                            descriptionSub = '';
+                        } else {
+                            const subMatch = idProductSubRaw.match(/^([^(]+)(?:\(([^)]+)\))?/);
+                            if (subMatch) {
+                                cleanIdProductSub = subMatch[1].trim();
+                                descriptionSub = subMatch[2] ? subMatch[2].trim() : '';
+                            }
                         }
                     }
                     
