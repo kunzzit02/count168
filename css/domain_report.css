@@ -138,19 +138,29 @@ body {
 .domain-report-filter-container #report-quick-select-dropdown .dropdown-item:hover {
     background-color: rgba(59, 130, 246, 0.1);
 }
+/* Date Range 与 Dashboard 第一张图格式一致 */
 .domain-report-filter-container .transaction-date-range-wrap {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: clamp(4px, 0.42vw, 8px);
     background: white;
     border: 1px solid #d1d5db;
     border-radius: clamp(4px, 0.42vw, 8px);
     padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
     cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
     min-width: clamp(120px, 12vw, 240px);
+    z-index: 1;
+}
+.domain-report-filter-container .transaction-date-range-wrap:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 .domain-report-filter-container .transaction-date-range-wrap .fa-calendar-alt {
     color: #3b82f6;
+    font-size: clamp(9px, 0.74vw, 14px);
+    margin: 0 clamp(2px, 0.32vw, 6px);
 }
 .domain-report-filter-container .transaction-date-range-input {
     flex: 1;
@@ -159,8 +169,9 @@ body {
     background: transparent;
     cursor: pointer;
     padding: 0;
-    font-size: small;
-    font-family: 'Amaranth', sans-serif;
+    color: #374151;
+    font-size: clamp(9px, 0.74vw, 14px);
+    font-weight: 500;
 }
 
 /* Override for custom select button to match datacapture.php style */
