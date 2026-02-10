@@ -7449,21 +7449,18 @@ function getCurrentProcessId() {
             }
         }
 
-        // 判断是否为「完整」id_product（如含 RSLOTS、T07 等），此类只做精确匹配，不做归一化匹配，避免 4DDMYMYR (T07) 与 AB4D55MYR (T38) 互相串行
-        // (TXX) 括号前面有字才算完整 id；整串仅为 "(T07)" 时不算完整 id，避免冲突
+        // 判断是否为「完整」id_product（含 " - " 的整串），此类只做精确匹配，不做归一化匹配
         function isFullIdProduct(value) {
             if (!value || typeof value !== 'string') return false;
             const t = value.trim();
-            if (t.indexOf(' - ') >= 0) return true;
-            if (/\(T\d+\)/i.test(t) && t.indexOf('(') > 0) return true; // (TXX) 前有字才是完整 id
-            return false;
+            return t.indexOf(' - ') >= 0;
         }
 
-        // 判断是否为截断的 id_product（如仅 "(T07)"），此类需从 process 表解析为完整 id
+        // 判断是否为截断的 id_product（短且不含 " - "），此类需从 process 表解析为完整 id
         function isTruncatedIdProduct(value) {
             if (!value || typeof value !== 'string') return false;
             const t = value.trim();
-            return /^\(T\d+\)$/i.test(t) || (t.length < 25 && t.indexOf(' - ') < 0);
+            return t.length < 25 && t.indexOf(' - ') < 0;
         }
 
         // 从 process 表数据中把截断的 id_product（如 "(T07)"）解析为完整 id_product
