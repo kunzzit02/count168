@@ -1127,7 +1127,7 @@ function getCurrentProcessId() {
                                     console.log('getCellValueByIdProductAndColumn: Verified id_product - match:', rowIndexIdProductMatches);
                                     
                                     if (!rowIndexIdProductMatches) {
-                                        console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch! rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected id_product:', normalizedIdProduct, 'found id_product:', cellIdProduct, 'Will fallback to id_product search');
+                                        console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch! rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected:', idProductTrimmed, 'found:', cellIdProductText, 'Will fallback to id_product search');
                                         rowIndex = null; // Reset rowIndex if id_product doesn't match
                                     }
                                 } else {
@@ -12074,25 +12074,24 @@ function getCurrentProcessId() {
                     }
                 }
             } else {
-                // Original behavior: find parent row and last sub row of this parent
+                // 查找父 main 行：完整 id_product 用精确匹配，确保 SUB 插在对应 main 下面
+                const parentTrimmed = (parentProcessValue || '').trim();
+                const useExactMatch = typeof isFullIdProduct === 'function' && isFullIdProduct(parentProcessValue);
                 for (let i = 0; i < rows.length; i++) {
                     const row = rows[i];
-                    const idProductCell = row.querySelector('td:first-child'); // Merged product column
+                    const idProductCell = row.querySelector('td:first-child');
                     const productValues = getProductValuesFromCell(idProductCell);
                     if (productValues.main) {
-                        // Get the text without description
-                        let cellText = productValues.main.trim();
-                        
-                        // Remove description in parentheses if present
-                        const match = cellText.match(/^([^(]+)/);
-                        const cleanCellText = match ? match[1].trim() : cellText;
-                        const normalizedCellText = normalizeIdProductText(cellText);
-                        
-                        console.log('Checking row', i, 'with text:', cleanCellText, 'against:', parentProcessValue);
-                        if (cleanCellText === parentProcessValue || normalizedCellText === normalizedParentValue) {
+                        const cellText = productValues.main.trim();
+                        const isMainRow = row.getAttribute('data-product-type') !== 'sub';
+                        if (!isMainRow) continue;
+                        const match = useExactMatch
+                            ? (cellText === parentTrimmed)
+                            : (cellText === parentTrimmed || normalizeIdProductText(cellText) === normalizedParentValue);
+                        if (match) {
                             targetRow = row;
                             insertAfterIndex = i;
-                            console.log('Found parent row at index:', insertAfterIndex);
+                            console.log('Found parent main row at index:', insertAfterIndex, 'for id_product:', parentTrimmed);
                             break;
                         }
                     }
@@ -12103,16 +12102,23 @@ function getCurrentProcessId() {
                     return;
                 }
                 
-                // If no specific row given, place after last sub row of this parent
+                // 若无指定行，则插在「该父 main 的最后一个 sub」之后，保证 SUB 在 main 下面
+                const isSameParent = (row) => {
+                    const parentAttr = (row.getAttribute('data-parent-id-product') || '').trim();
+                    if (parentAttr && useExactMatch) return parentAttr === parentTrimmed;
+                    if (parentAttr) return normalizeIdProductText(parentAttr) === normalizedParentValue;
+                    return false;
+                };
                 for (let i = insertAfterIndex + 1; i < rows.length; i++) {
                     const row = rows[i];
                     const idProductCell = row.querySelector('td:first-child');
                     const productValues = getProductValuesFromCell(idProductCell);
-                    
-                    // Check if this is a sub row of the same parent
-                    if (!productValues.main || !productValues.main.trim()) {
-                        // Check Add column for button
-                        const accountCell = row.querySelector('td:nth-child(3)'); // Add column (button is here)
+                    if (productValues.main && productValues.main.trim()) {
+                        break;
+                    }
+                    let sameParent = isSameParent(row);
+                    if (!sameParent && (!productValues.main || !productValues.main.trim())) {
+                        const accountCell = row.querySelector('td:nth-child(3)');
                         if (accountCell) {
                             const button = accountCell.querySelector('button');
                             if (button) {
@@ -12120,34 +12126,21 @@ function getCurrentProcessId() {
                                 if (buttonOnclick) {
                                     const buttonValue = buttonOnclick.match(/handleAddAccount\([^,]+,\s*['"]([^'"]+)['"]/);
                                     if (buttonValue) {
-                                        const normalizedButtonValue = normalizeIdProductText(buttonValue[1]);
-                                        if (normalizedButtonValue === normalizedParentValue) {
-                                            insertAfterIndex = i;
-                                            console.log('Found sub row with button at index:', i);
-                                            continue;
-                                        }
+                                        if (useExactMatch) sameParent = (buttonValue[1] || '').trim() === parentTrimmed;
+                                        else sameParent = normalizeIdProductText(buttonValue[1]) === normalizedParentValue;
                                     } else if (buttonOnclick.includes(parentProcessValue)) {
-                                        insertAfterIndex = i;
-                                        console.log('Found sub row with button at index:', i);
-                                        continue;
+                                        sameParent = true;
                                     }
                                 }
                             }
                         }
-                        
-                        // Check if this is a processed sub row (has text in Sub value)
-                        const subText = productValues.sub.trim();
-                        if (subText) {
-                            const normalizedSubText = normalizeIdProductText(subText);
-                            if (normalizedSubText === normalizedParentValue) {
-                                insertAfterIndex = i;
-                                console.log('Found processed sub row at index:', i);
-                                continue;
-                            }
+                        if (!sameParent && productValues.sub && productValues.sub.trim()) {
+                            if (useExactMatch) sameParent = false;
+                            else sameParent = normalizeIdProductText(productValues.sub) === normalizedParentValue;
                         }
-                    } else if (productValues.main && productValues.main.trim()) {
-                        // If we hit another main row, stop
-                        break;
+                    }
+                    if (sameParent) {
+                        insertAfterIndex = i;
                     }
                 }
             }
