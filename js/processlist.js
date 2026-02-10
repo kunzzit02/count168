@@ -2880,18 +2880,18 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                         else showNotification('Account added successfully!', 'success');
                         selectedCurrencyIdsForAdd = [];
                         selectedCompanyIdsForAdd = currentCompanyId ? [currentCompanyId] : [];
+                        var triggerFieldId = bankAddAccountTriggerFieldId;
                         closeAddAccountModal();
                         await loadBankAccounts();
                         refreshBankAccountDropdowns();
-                        if (newAccountId && bankAddAccountTriggerFieldId) {
-                            const targetBtn = document.getElementById(bankAddAccountTriggerFieldId);
+                        if (newAccountId && triggerFieldId) {
+                            const targetBtn = document.getElementById(triggerFieldId);
                             if (targetBtn) {
                                 const displayText = result.data.account_id || result.data.name || String(newAccountId);
                                 targetBtn.textContent = displayText;
                                 targetBtn.setAttribute('data-value', newAccountId);
                                 targetBtn.classList.remove('bank-field-error');
                             }
-                            bankAddAccountTriggerFieldId = null;
                         }
                     } else {
                         showNotification(result.error || 'Failed to add account', 'danger');
