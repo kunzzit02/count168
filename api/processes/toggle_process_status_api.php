@@ -10,6 +10,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+/**
+ * 判断角色是否为 manager 及以上（manager / admin / owner）
+ */
+function isManagerOrAboveRole(string $role): bool {
+    $role = strtolower(trim($role));
+    return in_array($role, ['manager', 'admin', 'owner'], true);
+}
+
 function getBankProcessCurrent(PDO $pdo, int $id, int $companyId): ?array {
     // 读取当前状态与 dts_modified，便于在从 inactive 切回 active 时重置本轮 manual_inactive 记录
     $stmt = $pdo->prepare("SELECT status, dts_modified FROM bank_process WHERE id = ? AND company_id = ?");
@@ -61,6 +69,12 @@ try {
         $status = $current['status'];
         // Bank：不再限制 INACTIVE → ACTIVE 的切换，也不依赖 Transaction 记录
         if ($status === 'inactive') {
+            // 只有 manager 及以上（manager / admin / owner）可以将 inactive 切回 active
+            $sessionRole = isset($_SESSION['role']) ? (string) $_SESSION['role'] : '';
+            if (!isManagerOrAboveRole($sessionRole)) {
+                api_error('Only manager or above can change Bank Process from INACTIVE to ACTIVE', 403);
+                exit;
+            }
             $newStatus = 'active';
         } else {
             $newStatus = ($status === 'active') ? 'inactive' : (($status === 'waiting') ? 'active' : 'active');
