@@ -586,6 +586,7 @@
                         showNotification(err.message || 'No data in the selected date range.', 'info');
                     });
                 return;
+                }
             }
 
             // 多币别时只请求一次 history（不传 currency），在前端按 currency 分组，减少请求数
