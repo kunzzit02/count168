@@ -490,6 +490,13 @@
                     if (data && data.success) {
                         memberCurrencyDisplayOrder = data.data?.order ?? order;
                         showNotification('货币顺序已保存', 'success');
+                        if (memberCurrencyDisplayOrder && memberCurrencyDisplayOrder.length > 0) {
+                            memberIsAllSelected = false;
+                            memberSelectedCurrencies.clear();
+                            memberSelectedCurrencies.add(memberCurrencyDisplayOrder[0]);
+                            renderCurrencyFilters();
+                            fetchMemberHistory();
+                        }
                     }
                 })
                 .catch(err => {
