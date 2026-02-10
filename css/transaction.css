@@ -145,13 +145,14 @@ body.transaction-page {
     min-width: 0;
 }
 
-/* Capture Date：与 Dashboard Date Range 字体和 icon 完全一致 */
+/* Capture Date：文字颜色、字体大小与 Category 一致 */
 .transaction-page .transaction-capture-date-group .transaction-date-range-label {
     display: block;
-    font-size: clamp(10px, 0.75vw, 14px);
+    margin-bottom: 0;
     font-weight: bold;
-    color: #000000ff;
-    margin-bottom: clamp(4px, 0.5vw, 8px);
+    color: #374151;
+    font-size: small;
+    font-family: 'Amaranth', sans-serif;
 }
 .transaction-page .transaction-date-range-wrap {
     display: flex;
@@ -184,8 +185,8 @@ body.transaction-page {
     cursor: pointer;
     padding: 0;
     color: #374151;
-    font-size: clamp(9px, 0.74vw, 14px);
-    font-weight: 500;
+    font-size: small;
+    font-family: 'Amaranth', sans-serif;
 }
 .transaction-page .transaction-date-range-input:focus {
     outline: none;
