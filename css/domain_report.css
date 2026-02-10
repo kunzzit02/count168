@@ -172,6 +172,11 @@ body {
     color: #374151;
     font-size: clamp(9px, 0.74vw, 14px);
     font-weight: 500;
+    caret-color: transparent;
+}
+.domain-report-filter-container .transaction-date-range-input::-ms-clear,
+.domain-report-filter-container .transaction-date-range-input::-webkit-search-cancel-button {
+    display: none;
 }
 
 /* Override for custom select button to match datacapture.php style */
