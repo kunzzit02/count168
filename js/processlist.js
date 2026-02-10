@@ -3032,7 +3032,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         async function loadAddBankProcessData() {
             try {
                 await loadCountriesFromServer();
-                restoreSelectedBanksByCountryFromStorage();
+                await restoreSelectedBanksByCountryFromStorage();
                 if (!window.selectedBanksByCountry || typeof window.selectedBanksByCountry !== 'object') window.selectedBanksByCountry = {};
                 const countrySelect = document.getElementById('bank_country');
                 const firstCountry = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
@@ -3803,7 +3803,19 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             return 'processlist_selected_banks_by_country' + (companyId ? '_' + companyId : '');
         }
 
-        function restoreSelectedBanksByCountryFromStorage() {
+        async function restoreSelectedBanksByCountryFromStorage() {
+            const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+            if (companyId) {
+                try {
+                    const url = buildApiUrl('api/processes/processlist_api.php?action=get_selected_banks&company_id=' + encodeURIComponent(companyId));
+                    const res = await fetch(url);
+                    const result = await res.json();
+                    if (result.success && result.data && typeof result.data === 'object' && !Array.isArray(result.data)) {
+                        window.selectedBanksByCountry = result.data;
+                        return;
+                    }
+                } catch (e) { /* ignore */ }
+            }
             try {
                 const raw = localStorage.getItem(getSelectedBanksByCountryStorageKey());
                 if (!raw) return;
@@ -4087,11 +4099,22 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     if (!result.success) console.warn('save_country_banks', result.error);
                 } catch (e) { console.warn('save_country_banks', e); }
             }
-            // 按 Country 保存 Selected Banks，并只用品项更新 Bank 下拉
+            // 按 Country 保存 Selected Banks 到内存、localStorage 和服务端（登出/隔几小时后仍保持）
             if (country) {
                 if (!window.selectedBanksByCountry) window.selectedBanksByCountry = {};
                 window.selectedBanksByCountry[country] = selectedList.slice();
                 persistSelectedBanksByCountryToStorage();
+                const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+                if (companyId) {
+                    try {
+                        const fd = new FormData();
+                        fd.append('company_id', companyId);
+                        fd.append('selected', JSON.stringify(window.selectedBanksByCountry));
+                        const saveRes = await fetch(buildApiUrl('api/processes/processlist_api.php?action=save_selected_banks'), { method: 'POST', body: fd });
+                        const saveResult = await saveRes.json();
+                        if (!saveResult.success) console.warn('save_selected_banks', saveResult.error);
+                    } catch (e) { console.warn('save_selected_banks', e); }
+                }
             }
             const select = document.getElementById('bank_bank');
             if (!select) { closeBankSelectionModal(); return; }

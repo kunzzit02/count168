@@ -150,6 +150,12 @@ switch ($action) {
     case 'save_selected_countries':
         saveSelectedCountries();
         break;
+    case 'get_selected_banks':
+        getSelectedBanks();
+        break;
+    case 'save_selected_banks':
+        saveSelectedBanks();
+        break;
     default:
         getProcesses();
         break;
@@ -1024,6 +1030,122 @@ function saveSelectedCountries() {
         }
     } catch (Exception $e) {
         error_log("saveSelectedCountries: " . $e->getMessage());
+        jsonResponse(false, $e->getMessage(), null);
+    }
+}
+
+/**
+ * 获取该公司每个 Country 在下拉中显示的已选 Bank 列表（持久化，登出/换设备后仍保持）
+ * 返回 { "AA": ["b1","b2"], "ABC": ["b3"] }
+ */
+function getSelectedBanks() {
+    global $pdo;
+    try {
+        $companyId = isset($_GET['company_id']) && $_GET['company_id'] !== '' ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
+        if (!$companyId) {
+            jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
+            return;
+        }
+        $tableExists = false;
+        try {
+            $chk = $pdo->query("SHOW TABLES LIKE 'company_selected_banks'");
+            $tableExists = $chk && $chk->rowCount() > 0;
+        } catch (Throwable $e) { /* ignore */ }
+        if (!$tableExists) {
+            jsonResponse(true, '', (object)[]);
+            return;
+        }
+        $stmt = $pdo->prepare("SELECT country, bank, sort_order FROM company_selected_banks WHERE company_id = ? ORDER BY country ASC, sort_order ASC, bank ASC");
+        $stmt->execute([$companyId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $byCountry = [];
+        foreach ($rows as $r) {
+            $c = trim((string)($r['country'] ?? ''));
+            $b = trim((string)($r['bank'] ?? ''));
+            if ($c === '' || $b === '') continue;
+            if (!isset($byCountry[$c])) $byCountry[$c] = [];
+            $byCountry[$c][] = $b;
+        }
+        jsonResponse(true, '', $byCountry);
+    } catch (Exception $e) {
+        error_log("getSelectedBanks: " . $e->getMessage());
+        jsonResponse(false, $e->getMessage(), []);
+    }
+}
+
+/**
+ * 保存该公司每个 Country 在下拉中显示的已选 Bank 列表（持久化）
+ * POST: company_id, selected (JSON 对象 { "AA": ["b1","b2"], "ABC": ["b3"] })
+ */
+function saveSelectedBanks() {
+    global $pdo;
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        jsonResponse(false, 'Method not allowed', null);
+        return;
+    }
+    try {
+        $companyId = isset($_POST['company_id']) && $_POST['company_id'] !== '' ? (int)$_POST['company_id'] : ($_SESSION['company_id'] ?? null);
+        if (!$companyId) {
+            jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
+            return;
+        }
+        $selected = isset($_POST['selected']) ? $_POST['selected'] : null;
+        if (is_string($selected)) {
+            $decoded = json_decode($selected, true);
+            $selected = is_array($decoded) ? $decoded : [];
+        }
+        if (!is_array($selected)) $selected = [];
+
+        try {
+            $chk = $pdo->query("SHOW TABLES LIKE 'company_selected_banks'");
+            if (!$chk || $chk->rowCount() === 0) {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS company_selected_banks (
+                    company_id INT UNSIGNED NOT NULL,
+                    country VARCHAR(100) NOT NULL,
+                    bank VARCHAR(200) NOT NULL,
+                    sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+                    PRIMARY KEY (company_id, country, bank),
+                    INDEX idx_company_selected_banks_company (company_id),
+                    INDEX idx_company_selected_banks_country (company_id, country)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            }
+        } catch (Throwable $e) {
+            error_log("saveSelectedBanks create table: " . $e->getMessage());
+            jsonResponse(false, 'Database error', null);
+            return;
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $del = $pdo->prepare("DELETE FROM company_selected_banks WHERE company_id = ?");
+            $del->execute([$companyId]);
+            $ins = $pdo->prepare("INSERT IGNORE INTO company_selected_banks (company_id, country, bank, sort_order) VALUES (?, ?, ?, ?)");
+            foreach ($selected as $country => $banks) {
+                $country = trim((string)$country);
+                if ($country === '') continue;
+                if (!is_array($banks)) $banks = [];
+                foreach (array_values($banks) as $i => $bank) {
+                    $bank = trim((string)$bank);
+                    if ($bank === '') continue;
+                    $ins->execute([$companyId, $country, $bank, $i]);
+                }
+            }
+            $pdo->commit();
+            jsonResponse(true, 'Saved', null);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    } catch (Exception $e) {
+        error_log("saveSelectedBanks: " . $e->getMessage());
         jsonResponse(false, $e->getMessage(), null);
     }
 }
