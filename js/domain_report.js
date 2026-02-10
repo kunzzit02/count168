@@ -412,12 +412,16 @@ function showNotification(message, type = 'success') {
                     if (!wrap) return;
                     const cal = fp.calendarContainer;
                     if (!cal) return;
+                    var CALENDAR_NATURAL_WIDTH = 307;
                     function alignToDateRange() {
                         const rect = wrap.getBoundingClientRect();
+                        var scale = Math.max(0.5, Math.min(1, rect.width / CALENDAR_NATURAL_WIDTH));
                         cal.style.position = 'fixed';
                         cal.style.left = rect.left + 'px';
                         cal.style.top = (rect.bottom + 8) + 'px';
-                        cal.style.width = '';
+                        cal.style.width = CALENDAR_NATURAL_WIDTH + 'px';
+                        cal.style.transformOrigin = 'top left';
+                        cal.style.transform = 'scale(' + scale + ')';
                         cal.style.minWidth = '';
                         cal.style.maxWidth = '';
                     }
