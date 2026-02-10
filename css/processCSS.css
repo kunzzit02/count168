@@ -427,6 +427,13 @@ body.process-page {
     border: 0.0625rem solid #e8e8e8;
 }
 
+/* Inactive status: force contract badge to gray regardless of date */
+.contract-badge.contract-inactive {
+    background-color: #e0e0e0;
+    color: #000000;
+    border: 0.0625rem solid #e0e0e0;
+}
+
 /* Table Header - copied from accountCSS.css */
 .process-page .table-header {
     display: grid;

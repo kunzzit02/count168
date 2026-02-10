@@ -237,7 +237,8 @@
             pageItems.forEach((process, idx) => {
                 const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
-                const contractClass = getContractStateClass(process.day_start || null, process.day_end || null);
+                const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
+                const contractClass = process.status === 'inactive' ? 'contract-inactive' : baseContractClass;
                 const contractCell = (contract && contractClass)
                     ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contract) + '</span>'
                     : (contract ? escapeHtml(contract) : escapeHtml('-'));
@@ -1230,6 +1231,16 @@
                             row.setAttribute('data-status', newStatus || '');
                             const cells = row.querySelectorAll('td');
                             if (cells.length >= 15) {
+                                // Contract cell (index 6): force gray when status is inactive
+                                const contractRaw = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
+                                const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
+                                const contractClass = newStatus === 'inactive' ? 'contract-inactive' : baseContractClass;
+                                const contractCellHtml = (contractRaw && contractClass)
+                                    ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contractRaw) + '</span>'
+                                    : (contractRaw ? escapeHtml(contractRaw) : escapeHtml('-'));
+                                cells[6].innerHTML = contractCellHtml;
+
+                                // Status & action cells
                                 cells[12].innerHTML = statusBadge;
                                 cells[14].innerHTML = bankActionCellHtml;
                             }
