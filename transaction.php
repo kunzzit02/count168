@@ -477,6 +477,6 @@ $default_date_to = $today_dt->format('d/m/Y');
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="js/transaction.js?v=1>"></script>
+    <script src="js/transaction.js?v=1"></script>
 </body>
 </html>
