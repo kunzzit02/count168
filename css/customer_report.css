@@ -450,11 +450,20 @@ body {
     color: #9ca3af;
 }
 
-/* Report 页 Flatpickr 日历：与第一张图一致（白底、大圆角、选中蓝底白字） */
+/* Report 页 Flatpickr 日历：与第二张图一致（展开大小、白底、圆角、日期不裁切） */
 .flatpickr-calendar {
     border-radius: 12px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
     overflow: visible;
+    min-width: 307px;
+    padding-bottom: 12px;
+    box-sizing: border-box;
+}
+.flatpickr-calendar .flatpickr-days {
+    border: none;
+}
+.flatpickr-calendar .dayContainer {
+    min-width: 100%;
 }
 .flatpickr-day.selected,
 .flatpickr-day.startRange,
