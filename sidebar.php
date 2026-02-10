@@ -126,8 +126,9 @@ if ($companyId) {
     }
 }
 
-// 获取当前公司是否开启 Gambling 权限（无 Gambling 则不显示侧边栏 Data Capture）
+// 获取当前公司的 category 权限（Gambling/Bank/Loan/Rate/Money），用于 Data Capture 与 Maintenance > Process 等可见性
 $companyHasGambling = false;
+$companyCategories = [];
 if ($companyId) {
     try {
         $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
@@ -135,7 +136,8 @@ if ($companyId) {
         $permsJson = $stmt->fetchColumn();
         if ($permsJson) {
             $companyPerms = json_decode($permsJson, true);
-            $companyHasGambling = is_array($companyPerms) && in_array('Gambling', $companyPerms);
+            $companyCategories = is_array($companyPerms) ? $companyPerms : [];
+            $companyHasGambling = in_array('Gambling', $companyCategories);
         }
     } catch (PDOException $e) {
         error_log("获取公司权限失败: " . $e->getMessage());
@@ -452,9 +454,11 @@ if ($companyId) {
                             <a href="formula_maintenance.php" class="submenu-item">
                                 <span>Formula</span>
                             </a>
+                            <?php if (!empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
                             <a href="bankprocess_maintenance.php" class="submenu-item">
                                 <span>Process</span>
                             </a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
