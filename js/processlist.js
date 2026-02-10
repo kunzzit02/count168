@@ -2271,26 +2271,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         allowOnlyNumberCommaPeriod(document.getElementById('bank_cost'));
         allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
 
-        /** Bank Add/Edit 表单：仅当除 Insurance 外所有必填项都填写后，“Add Process”按钮才可点击 */
+        /** Bank Add/Edit 表单：按钮始终可点，提交时校验必填并显示红框（不再因未填而禁用） */
         function updateBankSubmitButtonState() {
             const modal = document.getElementById('addBankModal');
             const btn = document.getElementById('bankSubmitBtn');
             if (!modal || modal.style.display !== 'block' || !btn) return;
-            const country = (document.getElementById('bank_country') && document.getElementById('bank_country').value || '').trim();
-            const bank = (document.getElementById('bank_bank') && document.getElementById('bank_bank').value || '').trim();
-            const type = (document.getElementById('bank_type') && document.getElementById('bank_type').value || '').trim();
-            const name = (document.getElementById('bank_name') && document.getElementById('bank_name').value || '').trim();
-            const cost = (document.getElementById('bank_cost') && document.getElementById('bank_cost').value || '').trim();
-            const price = (document.getElementById('bank_price') && document.getElementById('bank_price').value || '').trim();
-            const contract = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value || '').trim();
-            const cardMerchant = document.getElementById('bank_card_merchant') && document.getElementById('bank_card_merchant').getAttribute('data-value');
-            const customer = document.getElementById('bank_customer') && document.getElementById('bank_customer').getAttribute('data-value');
-            const profitAccount = document.getElementById('bank_profit_account') && document.getElementById('bank_profit_account').getAttribute('data-value');
-            const allFilled = !!(
-                country && bank && type && name && cost && price && contract &&
-                cardMerchant && customer && profitAccount
-            );
-            btn.disabled = !allFilled;
+            btn.disabled = false;
         }
 
         // 处理编辑表单提交
