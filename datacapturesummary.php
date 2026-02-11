@@ -192,7 +192,7 @@ $company_id = $_SESSION['company_id'] ?? null;
                             </div>
                             <div class="account-form-group">
                                 <label for="add_password">Password *</label>
-                                <input type="password" id="add_password" name="password" required>
+                                <input type="password" id="add_password" name="password" required autocomplete="new-password">
                             </div>
                         </div>
                         
