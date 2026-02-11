@@ -136,54 +136,9 @@
     }
 
     function handleLogout() {
-        showLogoutModal();
-    }
-
-    function showLogoutModal() {
-        var overlay = document.getElementById('logoutConfirmOverlay');
-        var modal = document.getElementById('logoutConfirmModal');
-        if (!overlay || !modal) {
-            overlay = document.createElement('div');
-            overlay.id = 'logoutConfirmOverlay';
-            overlay.className = 'logout-confirm-overlay show';
-            overlay.onclick = closeLogoutModal;
-            modal = document.createElement('div');
-            modal.id = 'logoutConfirmModal';
-            modal.className = 'logout-confirm-modal show';
-            modal.innerHTML = '<div class="logout-confirm-title">count168.com 显示</div>' +
-                '<div class="logout-confirm-message">Are you sure you want to logout?</div>' +
-                '<div class="logout-confirm-actions">' +
-                '<button type="button" class="logout-confirm-btn logout-confirm-btn-ok">确定</button>' +
-                '<button type="button" class="logout-confirm-btn logout-confirm-btn-cancel">取消</button>' +
-                '</div>';
-            var okBtn = modal.querySelector('.logout-confirm-btn-ok');
-            var cancelBtn = modal.querySelector('.logout-confirm-btn-cancel');
-            if (okBtn) okBtn.onclick = confirmLogout;
-            if (cancelBtn) cancelBtn.onclick = closeLogoutModal;
-            document.body.appendChild(overlay);
-            document.body.appendChild(modal);
-        } else {
-            overlay.classList.add('show');
-            modal.classList.add('show');
+        if (confirm('Are you sure you want to logout?')) {
+            window.location.href = 'dashboard.php?logout=1';
         }
-    }
-
-    function closeLogoutModal() {
-        var overlay = document.getElementById('logoutConfirmOverlay');
-        var modal = document.getElementById('logoutConfirmModal');
-        if (overlay) overlay.classList.remove('show');
-        if (modal) modal.classList.remove('show');
-    }
-
-    function confirmLogout() {
-        closeLogoutModal();
-        window.location.href = 'dashboard.php?logout=1';
-    }
-
-    function forceRefreshPageCache() {
-        var sep = window.location.search ? '&' : '?';
-        var url = window.location.pathname + window.location.search + sep + '_=' + Date.now();
-        window.location.href = url;
     }
 
     function toggleLanguageDropdown() {
@@ -334,10 +289,6 @@
     window.selectGender = selectGender;
     window.selectAvatar = selectAvatar;
     window.handleLogout = handleLogout;
-    window.showLogoutModal = showLogoutModal;
-    window.closeLogoutModal = closeLogoutModal;
-    window.confirmLogout = confirmLogout;
-    window.forceRefreshPageCache = forceRefreshPageCache;
     window.toggleLanguageDropdown = toggleLanguageDropdown;
     window.selectLanguage = selectLanguage;
     window.toggleNotificationPanel = toggleNotificationPanel;

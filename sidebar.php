@@ -486,7 +486,6 @@ if ($companyId) {
             </div>
         </div>
         <?php endif; ?>
-        <button type="button" class="btn sidebar-cache-refresh-btn" onclick="forceRefreshPageCache()" title="强制刷新网页缓存，使用最新代码">强制刷新网页缓存</button>
         <button class="btn logout-btn" onclick="handleLogout()">
             Logout
         </button>
@@ -509,17 +508,6 @@ if ($companyId) {
     </div>
     <div class="notification-content" id="notificationContent">
         <!-- 鍏憡灏嗗湪杩欓噷鍔ㄦ€佸姞杞?-->
-    </div>
-</div>
-
-<!-- Logout 确认弹窗 -->
-<div class="logout-confirm-overlay" id="logoutConfirmOverlay" onclick="closeLogoutModal()"></div>
-<div class="logout-confirm-modal" id="logoutConfirmModal">
-    <div class="logout-confirm-title">count168.com 显示</div>
-    <div class="logout-confirm-message">Are you sure you want to logout?</div>
-    <div class="logout-confirm-actions">
-        <button type="button" class="logout-confirm-btn logout-confirm-btn-ok" onclick="confirmLogout()">确定</button>
-        <button type="button" class="logout-confirm-btn logout-confirm-btn-cancel" onclick="closeLogoutModal()">取消</button>
     </div>
 </div>
 
