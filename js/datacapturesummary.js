@@ -14095,7 +14095,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const templateId = mainTemplate.id ? String(mainTemplate.id) : null;
 
         // Collect all matching rows (same id_product)
-        // 兼容：模板 id 可能为短 id（如 G8:GAMEPLAY），行 id 为完整串（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)），用相等或「完整 id 以短 id 开头」匹配
+        // 完整 id（如 ALLBET95MS(SV)MYR / (KM)MYR）必须按「完整 id」匹配行，避免 SV 行被套用 KM 模板后变成 KM
+        const normalizeSpacesId = (s) => (s || '').trim().replace(/\s+/g, '');
         const candidateRows = [];
         allRows.forEach((row, index) => {
             const productType = row.getAttribute('data-product-type') || 'main';
@@ -14105,9 +14106,11 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             const productValues = getProductValuesFromCell(idProductCell);
             const mainCellText = normalizeIdProductText(productValues.main || '');
             const mainRaw = (productValues.main || '').trim();
-            const idMatches = mainCellText === normalizedTargetId
+            let idMatches = mainCellText === normalizedTargetId
                 || (normalizedTargetId && mainRaw.indexOf(' - ') >= 0 && (mainRaw === normalizedTargetId || mainRaw.startsWith(normalizedTargetId + ' ') || mainRaw.startsWith(normalizedTargetId + '(')));
-            
+            if (idMatches && typeof isFullIdProduct === 'function' && isFullIdProduct(idProduct)) {
+                idMatches = normalizeSpacesId(mainRaw) === normalizeSpacesId((idProduct || '').trim());
+            }
             if (idMatches) {
                 const accountCell = row.querySelector('td:nth-child(2)');
                 const rowAccountId = accountCell?.getAttribute('data-account-id');
