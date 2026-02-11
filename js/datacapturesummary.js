@@ -289,6 +289,14 @@ function getCurrentProcessId() {
             window.location.reload();
         }
 
+        // 强制刷新网页缓存：绕过浏览器缓存重新加载页面，使用最新的 JS/CSS 代码
+        function forceRefreshPageCache() {
+            if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+            const sep = window.location.search ? '&' : '?';
+            const url = window.location.pathname + window.location.search + sep + '_=' + Date.now();
+            window.location.href = url;
+        }
+
         // Load captured table data from localStorage and render it
         function loadAndRenderCapturedTable() {
             try {

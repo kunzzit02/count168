@@ -36,7 +36,7 @@ $company_id = $_SESSION['company_id'] ?? null;
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <title>Data Capture Summary</title>
     <link rel="stylesheet" href="css/sidebar.css">
-    <link rel="stylesheet" href="css/datacapturesummary.css?v=3">
+    <link rel="stylesheet" href="css/datacapturesummary.css?v=<?php echo time(); ?>">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
@@ -132,6 +132,7 @@ $company_id = $_SESSION['company_id'] ?? null;
             <button type="button" class="btn btn-refresh" onclick="refreshPage()" title="Refresh page">
                 <img src="images/refresh.svg" alt="Refresh" style="width: clamp(23px, 1.8vw, 35px); height: clamp(23px, 1.8vw, 35px);" />
             </button>
+            <button type="button" class="btn btn-cache-refresh" id="forceRefreshCacheBtn" onclick="forceRefreshPageCache()" title="强制刷新网页缓存，使用最新代码（绕过浏览器缓存重新加载页面和资源）">强制刷新网页缓存</button>
         </div>
         
     </div>
@@ -291,7 +292,7 @@ $company_id = $_SESSION['company_id'] ?? null;
     <script>
         window.DATACAPTURESUMMARY_COMPANY_ID = <?php echo json_encode($company_id); ?>;
     </script>
-    <script src="js/datacapturesummary.js?v=9"></script>
+    <script src="js/datacapturesummary.js?v=<?php echo time(); ?>"></script>
     
 </body>
 </html>

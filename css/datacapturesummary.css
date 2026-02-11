@@ -222,6 +222,26 @@ body {
             display: block;
         }
 
+        /* 强制刷新网页缓存按钮 */
+        .btn-cache-refresh {
+            margin-left: 10px;
+            background: linear-gradient(180deg, #6b9bd1 0%, #4a7ab8 100%);
+            color: white;
+            font-family: 'Amaranth';
+            padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1vw, 16px);
+            font-size: clamp(10px, 0.83vw, 14px);
+            border: none;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(74, 122, 184, 0.3);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .btn-cache-refresh:hover {
+            background: linear-gradient(180deg, #4a7ab8 0%, #6b9bd1 100%);
+            box-shadow: 0 4px 8px rgba(74, 122, 184, 0.4);
+        }
+
         .summary-btn {
             padding: clamp(6px, 0.52vw, 10px) clamp(12px, 1.04vw, 20px);
             border: none;
