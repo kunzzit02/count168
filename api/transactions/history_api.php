@@ -628,13 +628,6 @@ try {
                 }
                 break;
                 
-            case 'CLEAR':
-                // CLEAR：视为一笔普通的 Cr/Dr 交易，只影响 To Account
-                if ($is_to_account) {
-                    $cr_dr = $t['amount'];
-                }
-                break;
-                
         }
         
         // Bank process 的 WIN/LOSE + 手动 PROFIT：
@@ -971,7 +964,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
     $bf += $stmt->fetchColumn();
     
     // 2. 计算日期之前所有 transactions 的影响
-    // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM/CLEAR 影响 Cr/Dr（作为 To Account）- Win/Loss 只包含 Data Capture
+    // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM 影响 Cr/Dr（作为 To Account）- Win/Loss 只包含 Data Capture
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
                     WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN amount
@@ -1043,7 +1036,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
     $bf += $stmt->fetchColumn();
     
-    // 2. 计算起始日期之前所有 Cr/Dr（包括 WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM/CLEAR，作为 To Account，按 currency 过滤）
+    // 2. 计算起始日期之前所有 Cr/Dr（包括 WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM，作为 To Account，按 currency 过滤）
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 

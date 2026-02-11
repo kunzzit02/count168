@@ -232,7 +232,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                         </select>
                     </div>
                     
-                    <div class="transaction-form-group" id="amount_form_group">
+                    <div class="transaction-form-group">
                         <label class="transaction-label">Amount</label>
                         <input type="number" step="0.01" id="action_amount" class="transaction-input">
                     </div>
