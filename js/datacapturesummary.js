@@ -6311,11 +6311,10 @@ function getCurrentProcessId() {
                 }
             }
             
-            // Determine id_product based on product type
-            // Use the extracted value, or fallback to formData.processValue (which should be normalized)
+            // Determine id_product based on product type（main 优先用完整 id 存库，避免消失）
             const idProduct = productType === 'sub' 
-                ? (idProductSub || normalizeIdProductText(formData.processValue))
-                : (idProductMain || normalizeIdProductText(formData.processValue));
+                ? (idProductSub || (formData.processValue && formData.processValue.trim()) || normalizeIdProductText(formData.processValue))
+                : (idProductMain || (formData.processValue && formData.processValue.trim()) || normalizeIdProductText(formData.processValue) || '');
             
             // Get parent_id_product
             const parentIdProduct = productType === 'sub' 
@@ -12998,11 +12997,16 @@ function getCurrentProcessId() {
                 
                 if (cells[0]) { // Id Product (merged)
                     const productValues = getProductValuesFromCell(cells[0]);
-                    // 刷新后应用模板时保留行上已有的完整 Id Product 显示
+                    const idProductText = (data.idProduct || '').trim().replace(/[: ]+$/, '');
+                    const isSubRow = !productValues.main || !productValues.main.trim();
+                    // main 行：若 data.idProduct 为空且已有 main 显示，不覆盖，避免 main 的 Id_product 消失
                     const preserveIdProduct = data.preserveIdProductDisplay && (productValues.main || '').trim() !== '';
-                    if (!preserveIdProduct) {
-                        const idProductText = (data.idProduct || '').trim().replace(/[: ]+$/, '');
-                        const isSubRow = !productValues.main || !productValues.main.trim();
+                    const mainHasValue = (productValues.main || '').trim() !== '';
+                    const shouldKeepMain = !isSubRow && mainHasValue && !idProductText;
+                    if (preserveIdProduct || shouldKeepMain) {
+                        const mainVal = (productValues.main || '').trim();
+                        if (mainVal) cells[0].setAttribute('data-main-product', mainVal);
+                    } else if (!preserveIdProduct && idProductText) {
                         if (isSubRow) {
                             productValues.sub = idProductText;
                             cells[0].setAttribute('data-sub-product', idProductText);
@@ -13010,15 +13014,8 @@ function getCurrentProcessId() {
                             productValues.main = idProductText;
                             cells[0].setAttribute('data-main-product', idProductText);
                         }
-                    } else {
-                        // 保留时显式写回 data-main-product，确保完整名称不丢失
-                        const mainVal = (productValues.main || '').trim();
-                        if (mainVal) {
-                            cells[0].setAttribute('data-main-product', mainVal);
-                        }
                     }
                     
-                    // Update merged cell text 并设置 title 以便悬停显示完整 id_product
                     const mergedText = mergeProductValues(productValues.main, productValues.sub);
                     cells[0].textContent = mergedText;
                     if (mergedText) cells[0].setAttribute('title', mergedText);
@@ -14288,6 +14285,18 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         if (!targetRow) {
             console.warn('applyMainTemplateToRow: No row found for idProduct:', idProduct);
             return;
+        }
+
+        // 确保 main 行的 Id Product 单元格有显示（DB 有数据时从 template 恢复，否则用查找时用的 idProduct）
+        const mainDisplayId = (mainTemplate.id_product && mainTemplate.id_product.trim()) || (idProduct && idProduct.trim()) || '';
+        if (mainDisplayId) {
+            const idCell = targetRow.querySelector('td:first-child');
+            if (idCell) {
+                idCell.setAttribute('data-main-product', mainDisplayId);
+                idCell.setAttribute('data-sub-product', '');
+                idCell.textContent = mainDisplayId;
+                idCell.setAttribute('title', mainDisplayId);
+            }
         }
 
         // Check if row already has data (to avoid overwriting)
