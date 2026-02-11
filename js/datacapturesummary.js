@@ -7435,11 +7435,14 @@ function getCurrentProcessId() {
             return t.indexOf(' - ') >= 0;
         }
 
-        // 判断是否为截断的 id_product（短且不含 " - "），此类需从 process 表解析为完整 id
+        // 判断是否为截断的 id_product（仅对明确短格式解析，如 "(T07)"、"(T07):AF"、极短缩写）
+        // 含 " - " 或已较长视为完整 id；ALLBET95MS (KM) MYR / (SV) 等为完整 id，不解析
         function isTruncatedIdProduct(value) {
             if (!value || typeof value !== 'string') return false;
             const t = value.trim();
-            return t.length < 25 && t.indexOf(' - ') < 0;
+            if (t.indexOf(' - ') >= 0) return false;
+            if (t.length >= 25) return false;
+            return t.length < 15 || t.indexOf(':') >= 0 || /^\s*\([^)]*\)/.test(t);
         }
 
         // 将 Excel 风格行标签转为 0-based 行索引：A=0, B=1, ..., Z=25, AA=26, ..., AF=31
@@ -11250,8 +11253,8 @@ function getCurrentProcessId() {
             if (productValues.main) {
                 let mainText = productValues.main.trim().replace(/[: ]+$/, '').trim();
                 if (mainText) {
-                    // 若为短 id（如 "(T07):AF"），解析为完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）
-                    if (typeof resolveToFullIdProduct === 'function' && (mainText.indexOf(':') >= 0 || (mainText.length < 25 && mainText.indexOf(' - ') < 0))) {
+                    // 仅对明确截断的 id（如 "(T07):AF"）解析为完整 id_product，ALLBET95MS (KM)/(SV) MYR 等不解析
+                    if (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(mainText)) {
                         const resolved = resolveToFullIdProduct(mainText);
                         if (resolved && resolved !== mainText && resolved.indexOf(' - ') >= 0) mainText = resolved;
                     }
@@ -11263,8 +11266,8 @@ function getCurrentProcessId() {
             if (productValues.sub) {
                 let subText = productValues.sub.trim().replace(/[: ]+$/, '').trim();
                 if (subText) {
-                    // 若为短 id（如 "(T07):AF"），解析为完整 id_product
-                    if (typeof resolveToFullIdProduct === 'function' && (subText.indexOf(':') >= 0 || (subText.length < 25 && subText.indexOf(' - ') < 0))) {
+                    // 仅对明确截断的 id 解析为完整 id_product
+                    if (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(subText)) {
                         const resolved = resolveToFullIdProduct(subText);
                         if (resolved && resolved !== subText && resolved.indexOf(' - ') >= 0) subText = resolved;
                     }
