@@ -162,6 +162,11 @@ h1 {
     box-sizing: border-box;
 }
 
+/* Search 输入框高度与 Process、Date Range 一致 */
+.formula-maintenance-filters-wrap .maintenance-filters .maintenance-form-group .maintenance-input {
+    padding: clamp(6px, 0.5vw, 8px) clamp(10px, 1vw, 14px);
+}
+
 .maintenance-form-group {
     display: flex;
     flex-direction: column;
