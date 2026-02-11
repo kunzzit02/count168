@@ -132,7 +132,6 @@ $company_id = $_SESSION['company_id'] ?? null;
             <button type="button" class="btn btn-refresh" onclick="refreshPage()" title="Refresh page">
                 <img src="images/refresh.svg" alt="Refresh" style="width: clamp(23px, 1.8vw, 35px); height: clamp(23px, 1.8vw, 35px);" />
             </button>
-            <button type="button" class="btn btn-cache-refresh" id="forceRefreshCacheBtn" onclick="forceRefreshPageCache()" title="强制刷新网页缓存，使用最新代码（绕过浏览器缓存重新加载页面和资源）">强制刷新网页缓存</button>
         </div>
         
     </div>
