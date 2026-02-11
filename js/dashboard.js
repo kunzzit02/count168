@@ -34,6 +34,9 @@ let chartMetadata = {
 // 当前选择的图表数据类型（'all', 'capital', 'expenses', 'profit'）
 let selectedChartDataType = 'all';
 
+// 当前选择的范围类型（用于判断是否按月份显示）
+let currentRangeType = null; // 'year' 表示年份范围，null 表示其他范围
+
 // 初始化增强日期选择器
 function initEnhancedDatePickers() {
     const today = new Date();
@@ -588,6 +591,8 @@ async function updateDateRange() {
             month: calendarEndDate.getMonth() + 1,
             day: calendarEndDate.getDate()
         };
+        // 手动选择日期时，重置范围类型（按天显示）
+        currentRangeType = null;
         updateDateDisplay('start');
         updateDateDisplay('end');
         lastRequestParams = null;
@@ -602,6 +607,8 @@ async function handleMonthPickerChange() {
     const year = monthDateValue.year;
     const month = monthDateValue.month;
     if (year && month) {
+        // 选择了具体月份：按天显示
+        currentRangeType = null;
         const firstDay = `${year}-${String(month).padStart(2, '0')}-01`;
         const lastDay = new Date(year, month, 0).getDate();
         const lastDayFormatted = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
@@ -616,6 +623,8 @@ async function handleMonthPickerChange() {
         updateDateDisplay('end');
         updateDateRangeDisplay();
     } else if (year && !month) {
+        // 只选择了年份：按月份显示
+        currentRangeType = 'year';
         const firstDay = `${year}-01-01`;
         const lastDay = `${year}-12-31`;
         dateRange = { startDate: firstDay, endDate: lastDay };
@@ -739,6 +748,10 @@ async function selectQuickRange(range) {
         'lastYear': 'Last Year'
     };
     if (quickSelectText) quickSelectText.textContent = rangeTexts[range] || 'Period';
+    
+    // 设置范围类型：如果是年份范围，设置为 'year'
+    currentRangeType = (range === 'thisYear' || range === 'lastYear') ? 'year' : null;
+    
     const dropdown = document.getElementById('quick-select-dropdown');
     if (dropdown) dropdown.classList.remove('show');
     lastRequestParams = null;
@@ -1036,95 +1049,151 @@ function updateChart(data) {
     const expensesData = [];
     const profitData = [];
     
-    // 生成日期范围内的所有日期（从 startDate 到 endDate，包括每一天）
-    const allDatesInRange = [];
-    if (dateRange.startDate && dateRange.endDate) {
+    // 检查是否是年份范围，如果是则按月份聚合
+    if (currentRangeType === 'year' && dateRange.startDate && dateRange.endDate) {
+        // 年份范围：按月份聚合数据
         const startDate = new Date(dateRange.startDate);
         const endDate = new Date(dateRange.endDate);
         startDate.setHours(0, 0, 0, 0);
         endDate.setHours(0, 0, 0, 0);
         
-        const currentDate = new Date(startDate);
-        while (currentDate <= endDate) {
-            const dateStr = formatDateToYYYYMMDD(currentDate);
-            allDatesInRange.push(dateStr);
-            currentDate.setDate(currentDate.getDate() + 1);
+        // 生成所有月份
+        const months = [];
+        const currentMonth = new Date(startDate);
+        while (currentMonth <= endDate) {
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth() + 1;
+            const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+            months.push({ year, month, monthKey });
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
         }
-    }
-    
-    // 如果没有日期范围，使用API返回的日期（向后兼容）
-    const sortedDates = allDatesInRange.length > 0 ? allDatesInRange : [];
-    if (sortedDates.length === 0) {
-        // 如果没有日期范围，尝试从API数据中获取日期
-        const allDates = new Set();
-        if (dailyData.expenses && typeof dailyData.expenses === 'object') {
-            Object.keys(dailyData.expenses).forEach(date => allDates.add(date));
-        }
-        if (dailyData.profit && typeof dailyData.profit === 'object') {
-            Object.keys(dailyData.profit).forEach(date => allDates.add(date));
-        }
-        sortedDates.push(...Array.from(allDates).sort());
-    }
-    
-    if (sortedDates.length === 0) {
-        // 如果没有数据，显示空图表
-        console.warn('没有图表数据，显示空图表');
         
-        // 清空元数据
-        chartMetadata = {
-            sortedDates: [],
-            capitalData: [],
-            expensesData: [],
-            profitData: []
-        };
-        if (trendChart) {
-            trendChart.destroy();
-            trendChart = null;
-        }
-        // 创建空图表
-        const emptyChartData = {
-            labels: [],
-            datasets: []
-        };
-        createChart(chartCanvas, emptyChartData);
-        
-        // 更新日期范围显示
-        const chartDateRangeEl = document.getElementById('chart-date-range');
-        if (chartDateRangeEl && data.date_range) {
-            chartDateRangeEl.textContent = 
-                `${formatDateForDisplay(data.date_range.from)} to ${formatDateForDisplay(data.date_range.to)} (No data in this date range)`;
-            chartDateRangeEl.style.color = '#9ca3af';
-        } else if (chartDateRangeEl) {
-            chartDateRangeEl.textContent = 'No data in this date range';
-            chartDateRangeEl.style.color = '#9ca3af';
-        }
-        return;
-    }
-    
-    // 为范围内的每一天准备数据，没有数据的日期默认为0
-    sortedDates.forEach(date => {
-        try {
-            dates.push(date);
-            const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
-            const expenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
-            // Profit: 优先使用API返回的profit daily_data，否则 net = capital + expenses（expenses 带符号，正加负减）
-            let profit = 0;
-            if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
-                profit = parseFloat(dailyData.profit[date] || 0) || 0;
-            } else {
-                profit = capital + expenses;
+        // 为每个月聚合数据
+        months.forEach(({ year, month, monthKey }) => {
+            let monthCapital = 0;
+            let monthExpenses = 0;
+            let monthProfit = 0;
+            
+            // 遍历该月的所有日期
+            const firstDay = new Date(year, month - 1, 1);
+            const lastDay = new Date(year, month, 0);
+            
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dateObj = new Date(dateStr);
+                if (dateObj >= startDate && dateObj <= endDate) {
+                    const capital = parseFloat(dailyData.capital && dailyData.capital[dateStr] ? dailyData.capital[dateStr] : 0) || 0;
+                    const expenses = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
+                    let profit = 0;
+                    if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[dateStr] !== undefined) {
+                        profit = parseFloat(dailyData.profit[dateStr] || 0) || 0;
+                    } else {
+                        profit = capital + expenses;
+                    }
+                    monthCapital += capital;
+                    monthExpenses += expenses;
+                    monthProfit += profit;
+                }
             }
-            capitalData.push(capital);
-            expensesData.push(expenses);
-            profitData.push(profit);
-        } catch (e) {
-            console.warn('Error processing date data:', date, e);
-            // 如果出错，也添加0值
-            capitalData.push(0);
-            expensesData.push(0);
-            profitData.push(0);
+            
+            dates.push(monthKey);
+            capitalData.push(monthCapital);
+            expensesData.push(monthExpenses);
+            profitData.push(monthProfit);
+        });
+    } else {
+        // 非年份范围：按天显示
+        const allDatesInRange = [];
+        if (dateRange.startDate && dateRange.endDate) {
+            const startDate = new Date(dateRange.startDate);
+            const endDate = new Date(dateRange.endDate);
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(0, 0, 0, 0);
+            
+            const currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                const dateStr = formatDateToYYYYMMDD(currentDate);
+                allDatesInRange.push(dateStr);
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
         }
-    });
+        
+        // 如果没有日期范围，使用API返回的日期（向后兼容）
+        const sortedDates = allDatesInRange.length > 0 ? allDatesInRange : [];
+        if (sortedDates.length === 0) {
+            // 如果没有日期范围，尝试从API数据中获取日期
+            const allDates = new Set();
+            if (dailyData.expenses && typeof dailyData.expenses === 'object') {
+                Object.keys(dailyData.expenses).forEach(date => allDates.add(date));
+            }
+            if (dailyData.profit && typeof dailyData.profit === 'object') {
+                Object.keys(dailyData.profit).forEach(date => allDates.add(date));
+            }
+            sortedDates.push(...Array.from(allDates).sort());
+        }
+        
+        if (sortedDates.length === 0) {
+            // 如果没有数据，显示空图表
+            console.warn('没有图表数据，显示空图表');
+            
+            // 清空元数据
+            chartMetadata = {
+                sortedDates: [],
+                capitalData: [],
+                expensesData: [],
+                profitData: []
+            };
+            if (trendChart) {
+                trendChart.destroy();
+                trendChart = null;
+            }
+            // 创建空图表
+            const emptyChartData = {
+                labels: [],
+                datasets: []
+            };
+            createChart(chartCanvas, emptyChartData);
+            
+            // 更新日期范围显示
+            const chartDateRangeEl = document.getElementById('chart-date-range');
+            if (chartDateRangeEl && data.date_range) {
+                chartDateRangeEl.textContent = 
+                    `${formatDateForDisplay(data.date_range.from)} to ${formatDateForDisplay(data.date_range.to)} (No data in this date range)`;
+                chartDateRangeEl.style.color = '#9ca3af';
+            } else if (chartDateRangeEl) {
+                chartDateRangeEl.textContent = 'No data in this date range';
+                chartDateRangeEl.style.color = '#9ca3af';
+            }
+            return;
+        }
+        
+        // 为范围内的每一天准备数据，没有数据的日期默认为0
+        sortedDates.forEach(date => {
+            try {
+                dates.push(date);
+                const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
+                const expenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
+                // Profit: 优先使用API返回的profit daily_data，否则 net = capital + expenses（expenses 带符号，正加负减）
+                let profit = 0;
+                if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
+                    profit = parseFloat(dailyData.profit[date] || 0) || 0;
+                } else {
+                    profit = capital + expenses;
+                }
+                capitalData.push(capital);
+                expensesData.push(expenses);
+                profitData.push(profit);
+            } catch (e) {
+                console.warn('Error processing date data:', date, e);
+                // 如果出错，也添加0值
+                capitalData.push(0);
+                expensesData.push(0);
+                profitData.push(0);
+            }
+        });
+    }
+    
+    const sortedDates = dates;
     
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
@@ -1192,6 +1261,13 @@ function updateChart(data) {
     const chartData = {
         labels: dates.map(d => {
             try {
+                // 如果是年份范围，d 是 "YYYY-MM" 格式
+                if (currentRangeType === 'year' && d.match(/^\d{4}-\d{2}$/)) {
+                    const [year, month] = d.split('-');
+                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    return monthNames[parseInt(month) - 1];
+                }
+                // 否则是日期格式 "YYYY-MM-DD"
                 const date = new Date(d);
                 if (isNaN(date.getTime())) return d;
                 // 只显示日期，不显示年份（如果日期范围在同一年）
@@ -1320,6 +1396,13 @@ function createChart(canvas, chartData) {
                                     const date = sortedDates[dataIndex];
                                     if (date) {
                                         try {
+                                            // 如果是年份范围，date 是 "YYYY-MM" 格式
+                                            if (currentRangeType === 'year' && date.match(/^\d{4}-\d{2}$/)) {
+                                                const [year, month] = date.split('-');
+                                                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                                                return `${monthNames[parseInt(month) - 1]} ${year}`;
+                                            }
+                                            // 否则是日期格式
                                             const dateObj = new Date(date);
                                             if (!isNaN(dateObj.getTime())) {
                                                 return `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
