@@ -5,6 +5,7 @@
 
 (function() {
     'use strict';
+    var LOG = function() { console.log.apply(console, ['[Sidebar]'].concat(Array.prototype.slice.call(arguments))); };
 
     var sidebar = null;
     var overlay = null;
@@ -137,10 +138,11 @@
 
     function handleLogoutClick(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
+        LOG('handleLogoutClick');
         try {
             showLogoutModal();
         } catch (err) {
-            console.error('showLogoutModal error:', err);
+            console.error('[Sidebar] showLogoutModal error:', err);
             if (confirm('Are you sure you want to logout?')) {
                 window.location.href = 'dashboard.php?logout=1';
             }
@@ -152,9 +154,11 @@
     }
 
     function showLogoutModal() {
+        LOG('showLogoutModal');
         var overlay = document.getElementById('logoutConfirmOverlay');
         var modal = document.getElementById('logoutConfirmModal');
         if (!overlay || !modal) {
+            LOG('creating logout overlay/modal');
             overlay = document.createElement('div');
             overlay.id = 'logoutConfirmOverlay';
             overlay.className = 'logout-modal-overlay';
@@ -183,6 +187,7 @@
         overlay.style.display = 'flex';
         modal.style.display = 'block';
         document.body.style.overflow = 'hidden';
+        LOG('logout modal visible');
     }
 
     function closeLogoutModal() {
@@ -357,6 +362,7 @@
     window.updateSidebarDataCaptureVisibility = updateSidebarDataCaptureVisibility;
 
     function init() {
+        LOG('init() running');
         sidebar = document.querySelector('.informationmenu');
         overlay = document.querySelector('.informationmenu-overlay');
         userAvatar = document.getElementById('user-avatar');
@@ -366,6 +372,9 @@
         if (logoutBtn) {
             logoutBtn.removeEventListener('click', handleLogoutClick);
             logoutBtn.addEventListener('click', handleLogoutClick);
+            LOG('Logout button found, click listener attached');
+        } else {
+            LOG('Logout button NOT found');
         }
 
         if (userAvatar) {
@@ -613,6 +622,7 @@
         });
     }
 
+    LOG('script loaded');
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
