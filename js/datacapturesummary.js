@@ -17466,12 +17466,15 @@ function formatPercentValue(value) {
                     const responseText = await response.text();
                     
                     if (!response.ok) {
-                        // If it's a size-related error (403, 413, or contains size-related keywords)
-                        const isSizeError = response.status === 403 || 
-                                          response.status === 413 || 
-                                          responseText.includes('post_max_size') ||
-                                          responseText.includes('太大') ||
-                                          responseText.includes('exceeds');
+                        // 判断是否为“请求太大”相关错误
+                        // 这里只把 413 或包含 size 关键字的响应当成“体积过大”
+                        const lowerText = (responseText || '').toLowerCase();
+                        const isSizeError = response.status === 413 ||
+                                            lowerText.includes('post_max_size') ||
+                                            lowerText.includes('payload too large') ||
+                                            lowerText.includes('request entity too large') ||
+                                            lowerText.includes('数据太大') ||
+                                            lowerText.includes('exceeds');
                         
                         throw {
                             status: response.status,
