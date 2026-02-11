@@ -486,6 +486,7 @@ if ($companyId) {
             </div>
         </div>
         <?php endif; ?>
+        <button type="button" class="btn btn-link-force-refresh" id="sidebarForceRefreshBtn" title="重新加载页面并拉取最新 JS/CSS">强制刷新缓存</button>
         <button class="btn logout-btn" onclick="handleLogout()">
             Logout
         </button>

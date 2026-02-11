@@ -673,6 +673,20 @@
     transform: translateY(-1px);
 }
 
+.btn-link-force-refresh {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    border: none;
+    padding: 4px 12px;
+    margin-bottom: 8px;
+    font-size: clamp(10px, 0.8vw, 13px);
+    cursor: pointer;
+    text-decoration: underline;
+}
+.btn-link-force-refresh:hover {
+    color: #fff;
+}
+
 .informationmenu-footer {
     display: flex;
     flex-direction: column;
