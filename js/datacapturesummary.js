@@ -5629,19 +5629,15 @@ function getCurrentProcessId() {
             const idProductMatches = currentIdProduct && idProduct && 
                                      normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct);
             
-            // If both row_labels exist, they must match
-            // If one or both are missing, only check id_product (backward compatibility)
-            let rowLabelMatches = true; // Default to true if row_label comparison is not applicable
+            // 当前编辑行无 row_label（如 ALLBET95MS(KM)MYR）时，只要 id_product 一致就视为「本行」，用 $列号
+            let rowLabelMatches = true;
             if (currentRowLabel && clickedRowLabel) {
-                // Both exist, must match
                 rowLabelMatches = currentRowLabel === clickedRowLabel;
-            } else if (currentRowLabel || clickedRowLabel) {
-                // Only one exists, cannot match - treat as different row
+            } else if (currentRowLabel && !clickedRowLabel) {
                 rowLabelMatches = false;
             }
-            // If both are null/empty, rowLabelMatches stays true (backward compatibility)
+            // currentRowLabel 为空、clickedRowLabel 有值（如 B）：仍视为本行，用 $ 格式，方便在「本账号」选金额显示 $6 而非 [id,6]
             
-            // Only consider it current row if both id_product and row_label match
             const isCurrentRow = idProductMatches && rowLabelMatches;
             
             console.log('insertCellValueToFormula - Row comparison:', {
