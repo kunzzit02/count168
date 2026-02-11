@@ -1370,15 +1370,7 @@ function createChart(canvas, chartData) {
                         }
                     },
                     legend: {
-                        display: true,
-                        position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 15,
-                            font: {
-                                size: 12
-                            }
-                        }
+                        display: false
                     }
                 }
             }
