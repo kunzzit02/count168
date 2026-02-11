@@ -972,6 +972,22 @@ function normalizeIdProductForKey($text) {
     return trim($normalized);
 }
 
+/**
+ * Base part of id_product (before first "(") for grouping.
+ * 与前端 normalizeIdProductText 一致，便于 Summary 用 ALLBET95MS 取到 ALLBET95MS(SV)MYR 等模板。
+ */
+function baseIdProductForKey($text) {
+    if ($text === null || $text === '') {
+        return '';
+    }
+    $trimmed = trim((string)$text);
+    if ($trimmed === '') {
+        return '';
+    }
+    $pos = strpos($trimmed, '(');
+    return $pos > 0 ? trim(substr($trimmed, 0, $pos)) : $trimmed;
+}
+
 function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
     if (empty($ids) || $processId === null || $processId <= 0) {
         return [];
@@ -993,6 +1009,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
         }
     }
     
+    // 前端传的是 normalize 后的 id（如 ALLBET95MS），库里有完整 id（如 ALLBET95MS(SV)MYR），需同时按「前缀」匹配
     $stmt = $pdo->prepare("
         SELECT
             id,
@@ -1026,7 +1043,10 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
         WHERE company_id = ?
           AND (process_id = ? OR process_id IS NULL)
           AND (
-            (product_type = 'main' AND LOWER(id_product) IN ($placeholders))
+            (product_type = 'main' AND (
+                LOWER(id_product) IN ($placeholders)
+                OR LOWER(TRIM(SUBSTRING(id_product, 1, IF(LOCATE('(', id_product) > 0, LOCATE('(', id_product) - 1, LENGTH(id_product))))) IN ($placeholders)
+            ))
             OR (product_type = 'sub' AND (
                 LOWER(parent_id_product) IN ($placeholders)
                 OR LOWER(TRIM(SUBSTRING(parent_id_product, 1, IF(LOCATE('(', parent_id_product) > 0, LOCATE('(', parent_id_product) - 1, LENGTH(parent_id_product))))) IN ($placeholders)
@@ -1047,7 +1067,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                  id ASC
     ");
 
-    $params = array_merge([$companyId, $processId], $lowerIds, $lowerIds, $lowerIds);
+    $params = array_merge([$companyId, $processId], $lowerIds, $lowerIds, $lowerIds, $lowerIds);
     $stmt->execute($params);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -1123,8 +1143,11 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             }
         } else {
             $idProduct = $row['id_product'];
-            // Use normalized key so frontend uniqueIds like "ABC" match main rows with id_product "ABC (AAA)"
-            $mainKey = normalizeIdProductForKey($idProduct);
+            // 用「基名」（第一个括号前）作 key，与前端 normalizeIdProductText 一致，便于 Summary 用 ALLBET95MS 取到 ALLBET95MS(SV)MYR 等
+            $mainKey = baseIdProductForKey($idProduct);
+            if ($mainKey === '') {
+                $mainKey = normalizeIdProductForKey($idProduct);
+            }
             if ($mainKey === '') {
                 $mainKey = $idProduct;
             }
