@@ -17314,6 +17314,7 @@ function formatPercentValue(value) {
                     seenRows.add(rowKey);
                     
                     summaryRows.push({
+                        rowKey: rowKey, // 唯一标识本行，用来去重和断点续传
                         idProductMain: cleanIdProductMain || null,
                         descriptionMain: descriptionMain || null,
                         idProductSub: cleanIdProductSub || null,
@@ -17358,9 +17359,60 @@ function formatPercentValue(value) {
                     return;
                 }
                 
-                console.log('Summary rows to submit:', summaryRows);
+                console.log('Summary rows to submit (before resume filter):', summaryRows);
                 
-                // Prepare data to send
+                // ------- 断点续传：如果之前有部分批次已提交成功，则只提交剩余未提交的行 -------
+                let resumeState = null;
+                try {
+                    const stored = localStorage.getItem('datacapture_summary_submit_state');
+                    if (stored) {
+                        resumeState = JSON.parse(stored);
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse resume state, ignoring.', e);
+                    resumeState = null;
+                }
+
+                // 当前请求的基本标识，用于判断 resumeState 是否匹配
+                const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined'
+                    ? window.DATACAPTURESUMMARY_COMPANY_ID
+                    : null);
+                const resumeKey = {
+                    companyId: currentCompanyId,
+                    processId: parsedProcessData.process,
+                    captureDate: parsedProcessData.date
+                };
+
+                let submittedRowKeys = [];
+                let existingCaptureId = null;
+
+                if (resumeState &&
+                    resumeState.companyId === resumeKey.companyId &&
+                    resumeState.processId === resumeKey.processId &&
+                    resumeState.captureDate === resumeKey.captureDate &&
+                    Array.isArray(resumeState.submittedRowKeys)) {
+                    submittedRowKeys = resumeState.submittedRowKeys;
+                    existingCaptureId = resumeState.captureId || null;
+                    console.log('Resuming from previous partial submission. Already submitted rows:', submittedRowKeys.length);
+                }
+
+                // 过滤掉已经提交成功的行，只提交剩余未提交的
+                const pendingRows = summaryRows.filter(r => !submittedRowKeys.includes(r.rowKey));
+
+                if (pendingRows.length === 0) {
+                    // 所有行都已经提交过了，直接提示成功并返回
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Submit';
+                    }
+                    isSubmitting = false;
+                    showNotification('Success', 'All rows for this process/date/company have already been submitted.', 'success');
+                    return;
+                }
+
+                console.log('Pending rows to submit after resume filter:', pendingRows.length);
+                
+                // Prepare data to send（注意：后续分批逻辑只用 pendingRows）
                 const submitData = {
                     captureDate: parsedProcessData.date,
                     processId: parsedProcessData.process,
@@ -17368,12 +17420,12 @@ function formatPercentValue(value) {
                     currencyId: parsedProcessData.currency,
                     currencyName: parsedProcessData.currencyName,
                     remark: parsedProcessData.remark || '',
-                    summaryRows: summaryRows
+                    summaryRows: pendingRows
                 };
                 
-                console.log('Data to submit:', submitData);
-                console.log('Summary rows count:', summaryRows.length);
-                console.log('First row sample:', summaryRows[0]);
+                console.log('Data to submit (pending only):', submitData);
+                console.log('Summary rows total:', summaryRows.length, 'pending:', pendingRows.length);
+                console.log('First pending row sample:', pendingRows[0]);
                 
                 // Check data size before submitting
                 let jsonData;
@@ -17426,7 +17478,7 @@ function formatPercentValue(value) {
                 const actualSizeBytes = Math.max(blobSize, textEncoderSize, stringLength);
                 const dataSizeMB = actualSizeBytes / (1024 * 1024);
                 const dataSizeKB = actualSizeBytes / 1024;
-                console.log(`Data size: ${dataSizeMB.toFixed(2)} MB (${dataSizeKB.toFixed(2)} KB), Rows: ${summaryRows.length}, Bytes: ${actualSizeBytes}`);
+                console.log(`Data size: ${dataSizeMB.toFixed(2)} MB (${dataSizeKB.toFixed(2)} KB), Rows (pending): ${pendingRows.length}, Bytes: ${actualSizeBytes}`);
                 console.log(`Size breakdown - Blob: ${blobSize}, TextEncoder: ${textEncoderSize}, String: ${stringLength}`);
                 
                 // 自动分批提交函数
@@ -17516,12 +17568,12 @@ function formatPercentValue(value) {
                 let allSubmitted = false;
                 
                 // 统一改成：始终按“每批最多 MAX_ROWS_PER_BATCH 行”来分批提交
-                const batchSize = Math.max(1, Math.min(MAX_ROWS_PER_BATCH, summaryRows.length));
-                const totalBatches = Math.ceil(summaryRows.length / batchSize);
-                console.log(`Submitting in ${totalBatches} batches, up to ${batchSize} rows per batch (total rows: ${summaryRows.length}, data size: ${dataSizeMB.toFixed(2)} MB)`);
+                const batchSize = Math.max(1, Math.min(MAX_ROWS_PER_BATCH, pendingRows.length));
+                const totalBatches = Math.ceil(pendingRows.length / batchSize);
+                console.log(`Submitting in ${totalBatches} batches, up to ${batchSize} rows per batch (total rows: ${summaryRows.length}, pending rows: ${pendingRows.length}, data size: ${dataSizeMB.toFixed(2)} MB)`);
                 
-                for (let i = 0; i < summaryRows.length; i += batchSize) {
-                    const batchRows = summaryRows.slice(i, i + batchSize);
+                for (let i = 0; i < pendingRows.length; i += batchSize) {
+                    const batchRows = pendingRows.slice(i, i + batchSize);
                     const batchNumber = Math.floor(i / batchSize) + 1;
                     
                     const batchData = {
@@ -17538,9 +17590,24 @@ function formatPercentValue(value) {
                         if (batchNumber > 1) {
                             await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
                         }
-                        const result = await submitBatch(batchData, finalCaptureId, batchNumber, totalBatches);
-                        finalCaptureId = result.captureId;
-                        
+                        const result = await submitBatch(batchData, existingCaptureId || finalCaptureId, batchNumber, totalBatches);
+                        finalCaptureId = result.captureId || finalCaptureId || existingCaptureId;
+
+                        // 记录已成功提交的行，用于断点续传
+                        const batchRowKeys = batchRows.map(r => r.rowKey);
+                        submittedRowKeys = Array.from(new Set([...submittedRowKeys, ...batchRowKeys]));
+                        try {
+                            localStorage.setItem('datacapture_summary_submit_state', JSON.stringify({
+                                companyId: resumeKey.companyId,
+                                processId: resumeKey.processId,
+                                captureDate: resumeKey.captureDate,
+                                captureId: finalCaptureId,
+                                submittedRowKeys
+                            }));
+                        } catch (e) {
+                            console.warn('Failed to persist submit resume state:', e);
+                        }
+
                         if (batchNumber < totalBatches) {
                             // 等待一小段时间再提交下一批，避免服务器压力
                             await new Promise(resolve => setTimeout(resolve, 300));
@@ -17588,6 +17655,13 @@ function formatPercentValue(value) {
                 if (allSubmitted && finalCaptureId) {
                     const totalRowsSubmitted = summaryRows.length;
                     showNotification('Success', `All data submitted successfully! Capture ID: ${finalCaptureId}, total ${totalRowsSubmitted} rows`, 'success');
+
+                    // 清除断点续传状态
+                    try {
+                        localStorage.removeItem('datacapture_summary_submit_state');
+                    } catch (e) {
+                        console.warn('Failed to clear submit resume state:', e);
+                    }
 
                     // After successful final submission, record the submitted process in DB
                     try {
