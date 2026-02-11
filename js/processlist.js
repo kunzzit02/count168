@@ -576,9 +576,9 @@
                 const customerBtn = document.getElementById('bank_customer');
                 if (cardMerchantBtn && process.card_merchant_id) {
                     cardMerchantBtn.setAttribute('data-value', process.card_merchant_id);
-                    const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
                     const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
-                    cardMerchantBtn.textContent = cmName !== '' ? cmName : (cmCode || process.card_merchant_name || process.card_merchant_account_id || process.card_merchant_id || 'Select Account');
+                    const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
+                    cardMerchantBtn.textContent = cmCode !== '' ? cmCode : (cmName || process.card_merchant_account_id || process.card_merchant_id || 'Select Account');
                 } else if (cardMerchantBtn) {
                     cardMerchantBtn.removeAttribute('data-value');
                     cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
@@ -3158,7 +3158,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const firstCountry = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
                 if (firstCountry) await loadBanksByCountry(firstCountry);
                 await loadBankAccounts();
-                initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown', true);  // Supplier: show name only
+                initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');  // Supplier: show account_id like Customer/Company
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
                 initBankAccountSelect('bank_profit_account', 'bank_profit_account_dropdown');
                 updateBankAddButtonTitles();
