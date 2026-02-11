@@ -17506,6 +17506,7 @@ function formatPercentValue(value) {
                 // 分批提交主逻辑
                 const MAX_BATCH_SIZE_MB = 4; // 每批最大4MB（保守估计，留出余量）
                 const MAX_BATCH_SIZE_BYTES = MAX_BATCH_SIZE_MB * 1024 * 1024;
+                const MAX_ROWS_PER_BATCH = 20; // 每批最多行数（可以根据需要调整）
                 
                 let finalCaptureId = null;
                 let allSubmitted = false;
@@ -17514,9 +17515,10 @@ function formatPercentValue(value) {
                 if (actualSizeBytes > MAX_BATCH_SIZE_BYTES) {
                     console.log(`Data size (${dataSizeMB.toFixed(2)} MB) exceeds single batch limit (${MAX_BATCH_SIZE_MB} MB), will automatically submit in batches`);
                     
-                    // 计算每批应该包含多少行
+                    // 计算每批应该包含多少行，并限制到 MAX_ROWS_PER_BATCH
                     const rowsPerBatch = Math.floor((summaryRows.length * MAX_BATCH_SIZE_BYTES) / actualSizeBytes);
-                    const batchSize = Math.max(1, Math.min(rowsPerBatch, summaryRows.length / 2)); // 至少1行，最多一半
+                    const autoBatchSize = Math.max(1, Math.min(rowsPerBatch, summaryRows.length / 2)); // 至少1行，最多一半
+                    const batchSize = Math.max(1, Math.min(autoBatchSize, MAX_ROWS_PER_BATCH)); // 再限制为每批最多 MAX_ROWS_PER_BATCH 行
                     
                     const totalBatches = Math.ceil(summaryRows.length / batchSize);
                     console.log(`Splitting data into ${totalBatches} batches, approximately ${Math.ceil(batchSize)} rows per batch`);
@@ -17547,8 +17549,9 @@ function formatPercentValue(value) {
                             // 如果仍然失败（可能是单批仍然太大），减小批次大小重试
                             if (error.isSizeError && batchRows.length > 1) {
                                 console.log(`Batch is still too large, reducing batch size and retrying...`);
-                                // 递归提交更小的批次
-                                const smallerBatchSize = Math.max(1, Math.floor(batchRows.length / 2));
+                                // 递归提交更小的批次，并同样限制到 MAX_ROWS_PER_BATCH
+                                const halfSize = Math.floor(batchRows.length / 2);
+                                const smallerBatchSize = Math.max(1, Math.min(halfSize, MAX_ROWS_PER_BATCH));
                                 for (let j = 0; j < batchRows.length; j += smallerBatchSize) {
                                     const smallerBatch = batchRows.slice(j, j + smallerBatchSize);
                                     const smallerBatchData = {
@@ -17593,8 +17596,9 @@ function formatPercentValue(value) {
                         if (error.isSizeError) {
                             console.log('Single submission failed (server limit may be stricter), automatically retrying in batches...');
                             
-                            // 使用更小的批次大小
-                            const safeBatchSize = Math.max(1, Math.floor(summaryRows.length / 5)); // 分成5批
+                            // 使用更小的批次大小，并限制到 MAX_ROWS_PER_BATCH
+                            const autoSafeBatchSize = Math.max(1, Math.floor(summaryRows.length / 5)); // 理论上分成5批
+                            const safeBatchSize = Math.max(1, Math.min(autoSafeBatchSize, MAX_ROWS_PER_BATCH)); // 每批最多 MAX_ROWS_PER_BATCH 行
                             const totalBatches = Math.ceil(summaryRows.length / safeBatchSize);
                             
                             for (let i = 0; i < summaryRows.length; i += safeBatchSize) {
