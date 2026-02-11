@@ -148,16 +148,18 @@ try {
         throw new Exception('无效的交易类型');
     }
     
-    // RATE 类型有特殊的验证逻辑
-    $is_rate = ($transaction_type === 'RATE');
+    // RATE / CLEAR 类型有特殊的验证逻辑
+    $is_rate  = ($transaction_type === 'RATE');
+    $is_clear = ($transaction_type === 'CLEAR');
     
     if (!$is_rate) {
-    if ($account_id <= 0) {
-        throw new Exception('请选择 To Account');
-    }
-    
-    if ($amount <= 0) {
-        throw new Exception('金额必须大于 0');
+        if ($account_id <= 0) {
+            throw new Exception('请选择 To Account');
+        }
+        
+        // CLEAR 类型允许 amount 为 0 或留空
+        if ($amount <= 0 && !$is_clear) {
+            throw new Exception('金额必须大于 0');
         }
     }
     

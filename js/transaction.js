@@ -2566,9 +2566,11 @@ function handleTypeToggle() {
     const standardFields = document.getElementById('standard-transaction-fields');
     const rateFields = document.getElementById('rate-transaction-fields');
     const remarkGroup = document.getElementById('remark_form_group');
+    const amountGroup = document.getElementById('amount_form_group');
     if (!typeSel) return;
     
     const isRate = typeSel.value === RATE_TYPE_VALUE;
+    const isClear = typeSel.value === 'CLEAR';
     
     if (standardFields) {
         standardFields.style.display = isRate ? 'none' : 'block';
@@ -2578,6 +2580,9 @@ function handleTypeToggle() {
     }
     if (remarkGroup) {
         remarkGroup.style.display = isRate ? 'none' : '';
+    }
+    if (amountGroup) {
+        amountGroup.style.display = isClear ? 'none' : '';
     }
     
     // 保持日期同步
@@ -2592,7 +2597,6 @@ function handleTypeToggle() {
     }
     
     // 控制「From Account」与「Reverse」的显示（不隐藏 To Account，保证排版一致）
-    const accountInputs = document.querySelector('.transaction-account-inputs');
     const fromAccountWrapper = document.getElementById('action_account_id')?.closest('.custom-select-wrapper');
     const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'PROFIT'].includes(typeSel.value);
     const showFromAndReverse = !isRate && needsFrom;
