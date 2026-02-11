@@ -142,6 +142,26 @@ h1 {
     flex-wrap: wrap;
 }
 
+/* Formula 页：Process / Search / Date Range / Quick Select 统一宽度 */
+.formula-maintenance-filters-wrap .maintenance-filters .maintenance-form-group {
+    min-width: 200px;
+    width: 200px;
+    flex: 0 0 200px;
+    max-width: 200px;
+}
+
+.formula-maintenance-filters-wrap .maintenance-filters .date-range-picker,
+.formula-maintenance-filters-wrap .maintenance-filters .quick-select-dropdown {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.formula-maintenance-filters-wrap .maintenance-filters .quick-select-dropdown .dropdown-toggle {
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .maintenance-form-group {
     display: flex;
     flex-direction: column;
