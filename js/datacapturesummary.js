@@ -12578,11 +12578,24 @@ function getCurrentProcessId() {
                 return;
             }
 
-            // Strip any existing description in parentheses from idProduct to avoid duplicate "Q (AAA) (AAA)" when re-editing without refresh
-            const bareIdProduct = (data.idProduct || '').replace(/\s*\([^)]+\)\s*$/, '').trim();
-            let idProductText = bareIdProduct;
+            // Sub 的 id_product 与 Main 一致，显示完整（与 Main 相同的完整格式，如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）
+            let idProductText = (data.idProduct || '').trim();
+            if (idProductText.indexOf('::') >= 0) {
+                const afterColon = idProductText.split('::').pop().trim();
+                if (afterColon) idProductText = afterColon;
+            }
+            if (idProductText && /^\d+\s+/.test(idProductText)) idProductText = idProductText.replace(/^\d+\s+/, '').trim();
+            if (typeof resolveToFullIdProduct === 'function') {
+                const resolved = resolveToFullIdProduct(idProductText);
+                if (resolved && resolved !== idProductText && resolved.indexOf(' - ') >= 0) idProductText = resolved;
+            }
+            if (!idProductText || idProductText.indexOf(' - ') < 0) {
+                const parentFull = (processValue || row.getAttribute('data-parent-id-product') || '').trim();
+                if (parentFull && parentFull.indexOf(' - ') >= 0) idProductText = parentFull;
+            }
             if (data.description && data.description.trim() !== '') {
-                idProductText += ` (${data.description})`;
+                const bare = idProductText.replace(/\s*\([^)]+\)\s*$/, '').trim();
+                idProductText = bare ? `${bare} (${data.description})` : idProductText;
             }
             // Update sub product value
             const productValues = getProductValuesFromCell(idProductCell);
