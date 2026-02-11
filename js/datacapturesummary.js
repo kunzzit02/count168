@@ -17560,8 +17560,8 @@ function formatPercentValue(value) {
                             finalCaptureId = result.captureId;
                             
                             if (batchNumber < totalBatches) {
-                                // 等待一小段时间再提交下一批，避免服务器压力
-                                await new Promise(resolve => setTimeout(resolve, 300));
+                                // 拉长间隔，降低 CDN/WAF 限速触发概率
+                                await new Promise(resolve => setTimeout(resolve, 600));
                             }
                         } catch (error) {
                             // 如果仍然失败（可能是单批仍然太大），减小批次大小重试
@@ -17578,7 +17578,7 @@ function formatPercentValue(value) {
                                     const result = await submitBatch(smallerBatchData, finalCaptureId, batchNumber, totalBatches);
                                     finalCaptureId = result.captureId;
                                     if (j + smallerBatchSize < batchRows.length) {
-                                        await new Promise(resolve => setTimeout(resolve, 300));
+                                        await new Promise(resolve => setTimeout(resolve, 600));
                                     }
                                 }
                             } else {
@@ -17636,7 +17636,7 @@ function formatPercentValue(value) {
                                     finalCaptureId = result.captureId;
                                     
                                     if (batchNumber < totalBatches) {
-                                        await new Promise(resolve => setTimeout(resolve, 300));
+                                        await new Promise(resolve => setTimeout(resolve, 600));
                                     }
                                 } catch (batchError) {
                                     // Re-enable button on error
