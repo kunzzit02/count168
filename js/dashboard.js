@@ -991,6 +991,24 @@ function formatDateForDisplay(dateString) {
     return `${day}/${month}/${year}`;
 }
 
+/** 根据起止日期生成 Y-m-d 日期数组（含首尾） */
+function getDateRangeArray(fromStr, toStr) {
+    const from = new Date(fromStr);
+    const to = new Date(toStr);
+    if (isNaN(from.getTime()) || isNaN(to.getTime()) || from > to) return [];
+    const arr = [];
+    const d = new Date(from);
+    const toDate = to.getTime();
+    while (d.getTime() <= toDate) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        arr.push(`${y}-${m}-${day}`);
+        d.setDate(d.getDate() + 1);
+    }
+    return arr;
+}
+
 function updateChart(data) {
     const chartCanvas = document.getElementById('trend-chart');
     if (!chartCanvas) {
@@ -1047,41 +1065,16 @@ function updateChart(data) {
         Object.keys(dailyData.profit).forEach(date => allDates.add(date));
     }
     
+    let usedRangeFallback = false;
     if (allDates.size === 0) {
-        // 如果没有数据，显示空图表
-        console.warn('没有图表数据，显示空图表');
-        console.log('capital keys:', dailyData.capital ? Object.keys(dailyData.capital) : 'null');
-        console.log('expenses keys:', dailyData.expenses ? Object.keys(dailyData.expenses) : 'null');
-        
-        // 清空元数据
-        chartMetadata = {
-            sortedDates: [],
-            capitalData: [],
-            expensesData: [],
-            profitData: []
-        };
-        if (trendChart) {
-            trendChart.destroy();
-            trendChart = null;
+        // 没有按日数据时：若有 date_range 则按日期范围生成占位日期，最后一天显示周期汇总
+        const from = data.date_range && data.date_range.from;
+        const to = data.date_range && data.date_range.to;
+        if (from && to) {
+            const rangeDates = getDateRangeArray(from, to);
+            rangeDates.forEach(d => allDates.add(d));
+            usedRangeFallback = rangeDates.length > 0;
         }
-        // 创建空图表
-        const emptyChartData = {
-            labels: [],
-            datasets: []
-        };
-        createChart(chartCanvas, emptyChartData);
-        
-        // 更新日期范围显示
-        const chartDateRangeEl = document.getElementById('chart-date-range');
-        if (chartDateRangeEl && data.date_range) {
-            chartDateRangeEl.textContent = 
-                `${formatDateForDisplay(data.date_range.from)} to ${formatDateForDisplay(data.date_range.to)} (No data in this date range)`;
-            chartDateRangeEl.style.color = '#9ca3af';
-        } else if (chartDateRangeEl) {
-            chartDateRangeEl.textContent = 'No data in this date range';
-            chartDateRangeEl.style.color = '#9ca3af';
-        }
-        return;
     }
     
     const sortedDates = Array.from(allDates).sort();
@@ -1105,6 +1098,16 @@ function updateChart(data) {
             console.warn('Error processing date data:', date, e);
         }
     });
+    
+    // 无按日数据时，在最后一天显示周期汇总，使图表有可见数据
+    if (usedRangeFallback && sortedDates.length > 0 && capitalData.length === sortedDates.length) {
+        const last = capitalData.length - 1;
+        const totalProfit = parseFloat(data.profit) || 0;
+        const totalExpenses = parseFloat(data.expenses) || 0;
+        capitalData[last] = totalProfit;
+        expensesData[last] = totalExpenses;
+        profitData[last] = totalProfit + totalExpenses;
+    }
     
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
