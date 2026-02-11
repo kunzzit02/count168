@@ -162,12 +162,9 @@ h1 {
     box-sizing: border-box;
 }
 
-/* Search 输入框高度与 Process、Date Range 一致（强制覆盖） */
+/* Search 输入框高度与 Process、Date Range 一致 */
 .formula-maintenance-filters-wrap .maintenance-filters .maintenance-form-group input.maintenance-input#search_filter {
-    padding-top: 6px !important;
-    padding-bottom: 6px !important;
-    padding-left: 10px;
-    padding-right: 14px;
+    padding: clamp(4px, 0.36vw, 7px) clamp(10px, 1vw, 14px);
     min-height: unset;
     height: unset;
     line-height: 1.4;
