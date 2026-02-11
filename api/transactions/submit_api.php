@@ -144,7 +144,7 @@ try {
         throw new Exception('请选择交易类型');
     }
     
-    if (!in_array($transaction_type, ['WIN', 'LOSE', 'PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR'])) {
+    if (!in_array($transaction_type, ['WIN', 'LOSE', 'PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE'])) {
         throw new Exception('无效的交易类型');
     }
     
@@ -190,10 +190,10 @@ try {
     }
 
     // WIN/LOSE（PROFIT）：数据库触发器要求 from_account_id 必须为 NULL，插入前会强制置空；前端可选填 From Account 仅用于展示
-    // 验证 From Account（PAYMENT/RECEIVE/CONTRA/CLAIM/CLEAR 需要，RATE 有特殊处理）
-    if (in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR'])) {
+    // 验证 From Account（PAYMENT/RECEIVE/CONTRA/CLAIM 需要，RATE 有特殊处理）
+    if (in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'])) {
         if (!$from_account_id || $from_account_id <= 0) {
-            throw new Exception('PAYMENT/RECEIVE/CONTRA/CLAIM/CLEAR 交易必须选择 From Account');
+            throw new Exception('PAYMENT/RECEIVE/CONTRA/CLAIM 交易必须选择 From Account');
         }
         
         if ($from_account_id == $account_id) {
@@ -265,7 +265,7 @@ try {
     }
     
     // 自动生成 description（如果为空）
-    if (empty($description) && in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR'])) {
+    if (empty($description) && in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'])) {
         // 从 To Account 的视角生成描述
         $description = $transaction_type . ' FROM ' . $from_account['account_id'];
     }
