@@ -1141,8 +1141,16 @@
         }
 
 
+        // Date range picker + Quick Select (same as other maintenance pages; formula list API does not filter by date yet)
+        function initDateRangePicker() {
+            if (typeof window.MaintenanceDateRangePicker !== 'undefined') {
+                window.MaintenanceDateRangePicker.init({ onChange: loadDataCaptureList });
+            }
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            initDateRangePicker();
             initMaintenanceDropdownHover();
             initAutoSearchFilters();
 

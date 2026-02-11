@@ -39,7 +39,9 @@ $error = isset($_GET['error']) ? true : false;
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
     <title>Formula Maintenance</title>
     <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/formula_maintenance.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
@@ -65,6 +67,35 @@ $error = isset($_GET['error']) ? true : false;
                     </div>
                 </div>
                 
+                <div class="maintenance-form-group">
+                    <label class="maintenance-label">Date Range</label>
+                    <div class="date-range-picker" id="date-range-picker">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span id="date-range-display">Select date range</span>
+                    </div>
+                    <input type="hidden" id="date_from" value="<?php echo date('d/m/Y'); ?>">
+                    <input type="hidden" id="date_to" value="<?php echo date('d/m/Y'); ?>">
+                </div>
+                <div class="maintenance-form-group quick-select-wrap">
+                    <label class="form-label"><i class="fas fa-clock"></i> Quick Select</label>
+                    <div class="quick-select-dropdown quick-select-dropdown-toggle">
+                        <button type="button" class="dropdown-toggle" onclick="event.stopPropagation(); window.toggleQuickSelectDropdown();">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="quick-select-text">Period</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="dropdown-menu" id="quick-select-dropdown">
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
+                        </div>
+                    </div>
+                </div>
                 <div class="maintenance-form-group">
                     <label class="maintenance-label">Search</label>
                     <input type="text" id="search_filter" class="maintenance-input" placeholder="Search formula...">
@@ -141,12 +172,50 @@ $error = isset($_GET['error']) ? true : false;
         </div>
     </div>
 
+    <!-- Calendar popup (same as dashboard) -->
+    <div class="calendar-popup" id="calendar-popup" style="display: none;">
+        <div class="calendar-header">
+            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(-1)">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="calendar-month-year" onclick="event.stopPropagation();">
+                <select id="calendar-month-select">
+                    <option value="0">Jan</option>
+                    <option value="1">Feb</option>
+                    <option value="2">Mar</option>
+                    <option value="3">Apr</option>
+                    <option value="4">May</option>
+                    <option value="5">Jun</option>
+                    <option value="6">Jul</option>
+                    <option value="7">Aug</option>
+                    <option value="8">Sep</option>
+                    <option value="9">Oct</option>
+                    <option value="10">Nov</option>
+                    <option value="11">Dec</option>
+                </select>
+                <select id="calendar-year-select"></select>
+            </div>
+            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(1)">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <div class="calendar-weekdays">
+            <div class="calendar-weekday">Sun</div>
+            <div class="calendar-weekday">Mon</div>
+            <div class="calendar-weekday">Tue</div>
+            <div class="calendar-weekday">Wed</div>
+            <div class="calendar-weekday">Thu</div>
+            <div class="calendar-weekday">Fri</div>
+            <div class="calendar-weekday">Sat</div>
+        </div>
+        <div class="calendar-days" id="calendar-days"></div>
+    </div>
+
     <script>
         window.FORMULA_MAINTENANCE_COMPANY_ID = <?php echo json_encode($session_company_id); ?>;
     </script>
+    <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
     <script src="js/formula_maintenance.js?v=<?php echo time(); ?>"></script>
-
-
 </body>
 </html>
 
