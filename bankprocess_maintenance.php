@@ -26,15 +26,6 @@ if ($session_company_id) {
 // Get URL parameters for notifications
 $success = isset($_GET['success']) ? true : false;
 $error = isset($_GET['error']) ? true : false;
-
-// 与 dashboard 默认日期一致：本周一 ~ 今天
-$today = new DateTime('now');
-$dayOfWeek = (int)$today->format('w');
-$daysToMonday = ($dayOfWeek === 0) ? 6 : $dayOfWeek - 1;
-$monday = clone $today;
-$monday->modify("-$daysToMonday days");
-$date_from_default = $monday->format('d/m/Y');
-$date_to_default = $today->format('d/m/Y');
 ?>
 
 <!DOCTYPE html>
@@ -72,8 +63,8 @@ $date_to_default = $today->format('d/m/Y');
                 <div class="maintenance-form-group">
                     <label class="maintenance-label">Date</label>
                     <div class="maintenance-date-inputs">
-                        <input type="text" id="date_from" class="maintenance-input maintenance-date-input" value="<?php echo $date_from_default; ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
-                        <input type="text" id="date_to" class="maintenance-input maintenance-date-input" value="<?php echo $date_to_default; ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
+                        <input type="text" id="date_from" class="maintenance-input maintenance-date-input" value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
+                        <input type="text" id="date_to" class="maintenance-input maintenance-date-input" value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
                     </div>
                 </div>
             </div>

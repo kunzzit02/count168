@@ -485,17 +485,19 @@
                 return;
             }
             
-            // Date From（使用 PHP 输出的默认值，与 dashboard 一致：本周一）
+            // Date From
             flatpickr("#date_from", {
                 dateFormat: "d/m/Y",
                 allowInput: false,
+                defaultDate: new Date(),
                 onChange: handleDateFilterChange
             });
             
-            // Date To（使用 PHP 输出的默认值，与 dashboard 一致：今天）
+            // Date To
             flatpickr("#date_to", {
                 dateFormat: "d/m/Y",
                 allowInput: false,
+                defaultDate: new Date(),
                 onChange: handleDateFilterChange
             });
         }
