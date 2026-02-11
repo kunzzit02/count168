@@ -144,7 +144,7 @@ try {
         throw new Exception('请选择交易类型');
     }
     
-    if (!in_array($transaction_type, ['WIN', 'LOSE', 'PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE'])) {
+    if (!in_array($transaction_type, ['WIN', 'LOSE', 'PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR'])) {
         throw new Exception('无效的交易类型');
     }
     
