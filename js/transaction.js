@@ -2250,25 +2250,16 @@ function submitAction() {
         
         currency = rateCurrencyFrom;
     } else {
-        const isClear = effectiveType === 'CLEAR';
-        
-        if (!isClear) {
-            if (!amount || amount <= 0) {
-                showNotification('Please enter a valid amount', 'error');
-                return;
-            }
-            const currencySelect = document.getElementById('transaction_currency');
-            currency = currencySelect ? currencySelect.value : '';
-            if (!currency) {
-                showNotification('Please select Currency', 'error');
-                return;
-            }
-        } else {
-            // CLEAR 类型不需要 currency 和 amount
-            currency = '';
-            amount = 0;
+        if (!amount || amount <= 0) {
+            showNotification('Please enter a valid amount', 'error');
+            return;
         }
-        
+        const currencySelect = document.getElementById('transaction_currency');
+        currency = currencySelect ? currencySelect.value : '';
+        if (!currency) {
+            showNotification('Please select Currency', 'error');
+            return;
+        }
         if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'].includes(effectiveType) && !fromAccountId) {
             showNotification('This transaction type requires From Account', 'error');
             return;
@@ -2578,7 +2569,6 @@ function handleTypeToggle() {
     if (!typeSel) return;
     
     const isRate = typeSel.value === RATE_TYPE_VALUE;
-    const isClear = typeSel.value === 'CLEAR';
     
     if (standardFields) {
         standardFields.style.display = isRate ? 'none' : 'block';
@@ -2599,17 +2589,6 @@ function handleTypeToggle() {
         } else {
             standardDateInput.value = rateDateInput.value;
         }
-    }
-    
-    // 控制 Currency 和 Amount 字段的显示（CLEAR 类型不需要）
-    const currencyGroup = document.querySelector('#transaction_currency')?.closest('.transaction-form-group');
-    const amountGroup = document.querySelector('#action_amount')?.closest('.transaction-form-group');
-    if (isClear) {
-        if (currencyGroup) currencyGroup.style.display = 'none';
-        if (amountGroup) amountGroup.style.display = 'none';
-    } else {
-        if (currencyGroup) currencyGroup.style.display = '';
-        if (amountGroup) amountGroup.style.display = '';
     }
     
     // 控制「From Account」与「Reverse」的显示（不隐藏 To Account，保证排版一致）
