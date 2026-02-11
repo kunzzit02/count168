@@ -295,27 +295,12 @@
     window.closeNotificationPanel = closeNotificationPanel;
     window.updateExpirationCountdown = updateExpirationCountdown;
     window.updateSidebarDataCaptureVisibility = updateSidebarDataCaptureVisibility;
-    window.forceRefreshPageCache = forceRefreshPageCache;
-
-    function forceRefreshPageCache() {
-        var url = window.location.pathname + (window.location.search || '');
-        url += (url.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
-        window.location.href = url;
-    }
 
     function init() {
         sidebar = document.querySelector('.informationmenu');
         overlay = document.querySelector('.informationmenu-overlay');
         userAvatar = document.getElementById('user-avatar');
         sidebarToggle = document.getElementById('sidebarToggle');
-
-        var forceRefreshBtn = document.getElementById('sidebarForceRefreshBtn');
-        if (forceRefreshBtn) {
-            forceRefreshBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                forceRefreshPageCache();
-            });
-        }
 
         if (userAvatar) {
             userAvatar.addEventListener('click', function() {
