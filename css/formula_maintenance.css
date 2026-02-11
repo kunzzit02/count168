@@ -186,7 +186,7 @@ h1 {
 
 .maintenance-input,
 .maintenance-select {
-    padding: clamp(8px, 0.65vw, 12px) clamp(10px, 1vw, 14px);
+    padding: clamp(4px, 0.36vw, 7px) clamp(10px, 1vw, 14px);
     border: 0.125rem solid #e5e7eb;
     border-radius: 0.5rem;
     font-size: clamp(11px, 0.85vw, 14px);

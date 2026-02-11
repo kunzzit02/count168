@@ -40,7 +40,7 @@ $error = isset($_GET['error']) ? true : false;
     <title>Formula Maintenance</title>
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="css/formula_maintenance.css">
+    <link rel="stylesheet" href="css/formula_maintenance.css?v=<?php echo time(); ?>">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
