@@ -566,78 +566,37 @@
         let customerReportDateFrom = '';
         let customerReportDateTo = '';
 
-        function formatCustomerReportDateDisplay(date) {
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            return `${day}/${month}/${year}`;
+        // Convert dd/mm/yyyy (from date-range-picker) to Y-m-d for API
+        function parseDdMmYyyyToYmd(str) {
+            if (!str || typeof str !== 'string') return '';
+            const parts = str.trim().split(/[/\-.]/);
+            if (parts.length !== 3) return '';
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2];
+            if (day.length > 2 || month.length > 2 || year.length !== 4) return '';
+            return year + '-' + month + '-' + day;
+        }
+
+        function syncCustomerReportDatesFromPicker() {
+            const fromEl = document.getElementById('date_from');
+            const toEl = document.getElementById('date_to');
+            if (fromEl && toEl) {
+                customerReportDateFrom = parseDdMmYyyyToYmd(fromEl.value);
+                customerReportDateTo = parseDdMmYyyyToYmd(toEl.value);
+            }
         }
 
         function initCustomerReportDateRange() {
-            const input = document.getElementById('customerReportDateRange');
-            if (!input || typeof flatpickr === 'undefined') return;
-            const today = new Date();
-            const todayStr = today.toISOString().split('T')[0];
-            customerReportDateFrom = todayStr;
-            customerReportDateTo = todayStr;
-            const initialText = formatCustomerReportDateDisplay(todayStr) + ' - ' + formatCustomerReportDateDisplay(todayStr);
-            input.value = initialText;
-            const fp = flatpickr(input, {
-                mode: 'range',
-                dateFormat: 'Y-m-d',
-                defaultDate: [todayStr, todayStr],
-                onChange: function(selectedDates) {
-                    if (selectedDates.length === 2) {
-                        customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
-                        customerReportDateTo = selectedDates[1].toISOString().split('T')[0];
-                        input.value = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
+            syncCustomerReportDatesFromPicker();
+            if (typeof window.MaintenanceDateRangePicker !== 'undefined') {
+                window.MaintenanceDateRangePicker.init({
+                    onChange: function() {
+                        syncCustomerReportDatesFromPicker();
                         debouncedLoadReport();
-                    } else if (selectedDates.length === 1) {
-                        customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
-                        input.value = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - Select end date';
                     }
-                },
-                onReady: function(selectedDates) {
-                    if (selectedDates.length === 2) {
-                        customerReportDateFrom = selectedDates[0].toISOString().split('T')[0];
-                        customerReportDateTo = selectedDates[1].toISOString().split('T')[0];
-                        input.value = formatCustomerReportDateDisplay(customerReportDateFrom) + ' - ' + formatCustomerReportDateDisplay(customerReportDateTo);
-                    }
-                },
-                onOpen: function() {
-                    const wrap = input.closest('.report-date-range-picker');
-                    if (!wrap) return;
-                    const cal = fp.calendarContainer;
-                    if (!cal) return;
-                    var CALENDAR_NATURAL_WIDTH = 307;
-                    function alignToDateRange() {
-                        const rect = wrap.getBoundingClientRect();
-                        var scale = Math.max(0.5, Math.min(1, rect.width / CALENDAR_NATURAL_WIDTH));
-                        cal.style.position = 'fixed';
-                        cal.style.left = rect.left + 'px';
-                        cal.style.top = (rect.bottom + 8) + 'px';
-                        cal.style.width = CALENDAR_NATURAL_WIDTH + 'px';
-                        cal.style.transformOrigin = 'top left';
-                        cal.style.transform = 'scale(' + scale + ')';
-                    }
-                    alignToDateRange();
-                    requestAnimationFrame(function() {
-                        alignToDateRange();
-                        cal.classList.add('report-calendar-ready');
-                    });
-                },
-                onClose: function() {
-                    const cal = fp.calendarContainer;
-                    if (cal) cal.classList.remove('report-calendar-ready');
-                }
-            });
-            const wrap = input.closest('.report-date-range-picker');
-            if (wrap && fp) wrap.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (fp.isOpen) fp.close(); else fp.open();
-            });
+                });
+            }
         }
 
         // Load report data

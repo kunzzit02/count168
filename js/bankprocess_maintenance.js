@@ -484,29 +484,8 @@
         }
 
         function initDatePickers() {
-            if (typeof flatpickr === 'undefined') {
-                console.error('Flatpickr library not loaded');
-                return;
-            }
-            flatpickr("#date_from", {
-                dateFormat: "d/m/Y",
-                allowInput: false,
-                defaultDate: new Date(),
-                onChange: handleDateFilterChange
-            });
-            flatpickr("#date_to", {
-                dateFormat: "d/m/Y",
-                allowInput: false,
-                defaultDate: new Date(),
-                onChange: handleDateFilterChange
-            });
-        }
-
-        function handleDateFilterChange() {
-            const dateFrom = document.getElementById('date_from');
-            const dateTo = document.getElementById('date_to');
-            if (dateFrom && dateTo && dateFrom.value && dateTo.value) {
-                searchData();
+            if (typeof window.MaintenanceDateRangePicker !== 'undefined') {
+                window.MaintenanceDateRangePicker.init({ onChange: searchData });
             }
         }
 
