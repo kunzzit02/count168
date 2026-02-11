@@ -7442,6 +7442,20 @@ function getCurrentProcessId() {
             return t.length < 25 && t.indexOf(' - ') < 0;
         }
 
+        // 将 Excel 风格行标签转为 0-based 行索引：A=0, B=1, ..., Z=25, AA=26, ..., AF=31
+        function rowLabelToZeroBasedIndex(label) {
+            if (!label || typeof label !== 'string') return -1;
+            const s = label.trim().toUpperCase();
+            if (!s) return -1;
+            let index = 0;
+            for (let i = 0; i < s.length; i++) {
+                const code = s.charCodeAt(i);
+                if (code < 65 || code > 90) return -1;
+                index = index * 26 + (code - 64);
+            }
+            return index - 1;
+        }
+
         // 从 process 表数据中把截断的 id_product（如 "(T07)"）解析为完整 id_product
         // 若提供 rowLabel，优先返回该行标签对应行的完整 id
         // 支持 shortId 为 "id:rowLabel" 格式（如 "(T07):AF"），自动拆出 rowLabel 再解析
@@ -7471,14 +7485,27 @@ function getCurrentProcessId() {
             }
             if (parsedTableData && parsedTableData.rows) {
                 if (extractedRowLabel) {
+                    // 先按行首单元格的值匹配行标签（不要求 type==='header'，兼容不同表结构）
                     for (let i = 0; i < parsedTableData.rows.length; i++) {
                         const row = parsedTableData.rows[i];
-                        if (row && row.length > 1 && row[0].type === 'header' && row[1].type === 'data') {
-                            const headerVal = (row[0].value || '').trim();
+                        if (row && row.length > 1 && row[1].type === 'data') {
+                            const headerVal = (row[0] && (row[0].value != null)) ? String(row[0].value).trim() : '';
                             if (headerVal !== extractedRowLabel) continue;
                             const full = (row[1].value || '').trim();
                             if (full === shortTrim || full.endsWith(shortTrim) || normalizeIdProductText(full) === normalizeIdProductText(shortTrim)) {
                                 console.log('resolveToFullIdProduct: resolved', shortTrim, 'with rowLabel', extractedRowLabel, '->', full);
+                                return full;
+                            }
+                        }
+                    }
+                    // 行标签未匹配时：将行标签转为行索引（A=0, B=1, ..., Z=25, AA=26, ..., AF=31）再取该行 id_product
+                    const rowIndexFromLabel = rowLabelToZeroBasedIndex(extractedRowLabel);
+                    if (rowIndexFromLabel >= 0 && rowIndexFromLabel < parsedTableData.rows.length) {
+                        const row = parsedTableData.rows[rowIndexFromLabel];
+                        if (row && row.length > 1 && row[1].type === 'data') {
+                            const full = (row[1].value || '').trim();
+                            if (full && (full === shortTrim || full.endsWith(shortTrim) || full.indexOf(' - ') >= 0)) {
+                                console.log('resolveToFullIdProduct: resolved by row index', extractedRowLabel, '->', full);
                                 return full;
                             }
                         }
@@ -11221,23 +11248,27 @@ function getCurrentProcessId() {
             
             // Check if Main value has content (this is a main row)
             if (productValues.main) {
-                const mainText = productValues.main.trim();
+                let mainText = productValues.main.trim().replace(/[: ]+$/, '').trim();
                 if (mainText) {
-                    // CRITICAL FIX: Use the full value from data attribute, don't truncate
-                    // The data-main-product attribute contains the complete id product value
-                    // Only remove trailing colons and spaces, but preserve everything including parentheses
-                    return mainText.replace(/[: ]+$/, '').trim();
+                    // 若为短 id（如 "(T07):AF"），解析为完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）
+                    if (typeof resolveToFullIdProduct === 'function' && (mainText.indexOf(':') >= 0 || (mainText.length < 25 && mainText.indexOf(' - ') < 0))) {
+                        const resolved = resolveToFullIdProduct(mainText);
+                        if (resolved && resolved !== mainText && resolved.indexOf(' - ') >= 0) mainText = resolved;
+                    }
+                    return mainText;
                 }
             }
             
             // Check if Sub value has content (this is a sub row)
             if (productValues.sub) {
-                const subText = productValues.sub.trim();
+                let subText = productValues.sub.trim().replace(/[: ]+$/, '').trim();
                 if (subText) {
-                    // CRITICAL FIX: Use the full value from data attribute, don't truncate
-                    // The data-sub-product attribute contains the complete id product value
-                    // Only remove trailing colons and spaces, but preserve everything including parentheses
-                    return subText.replace(/[: ]+$/, '').trim();
+                    // 若为短 id（如 "(T07):AF"），解析为完整 id_product
+                    if (typeof resolveToFullIdProduct === 'function' && (subText.indexOf(':') >= 0 || (subText.length < 25 && subText.indexOf(' - ') < 0))) {
+                        const resolved = resolveToFullIdProduct(subText);
+                        if (resolved && resolved !== subText && resolved.indexOf(' - ') >= 0) subText = resolved;
+                    }
+                    return subText;
                 }
             }
             
