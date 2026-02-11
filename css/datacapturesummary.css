@@ -369,7 +369,7 @@ body {
         /* Set specific widths for Summary Table columns only */
         #summaryTable th:nth-child(1), /* Id Product (merged) - 加宽并允许换行，完整显示长 id_product 包括 SUB */
         #summaryTable td:nth-child(1) {
-            width: 32%;
+            width: 21%;
             min-width: 380px;
             white-space: normal !important;
             word-break: break-word;
