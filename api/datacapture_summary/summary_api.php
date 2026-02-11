@@ -1100,8 +1100,11 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
 
         if ($productType === 'sub') {
             $parentId = $row['parent_id_product'] ?? $row['id_product'];
-            // Use normalized key (strip " (description)") so frontend uniqueIds like "ABC" match sub rows with parent_id_product "ABC (TTT)"
-            $parentKey = normalizeIdProductForKey($parentId);
+            // 与 main 一致：用基名（第一个括号前）作 key，前端用 ALLBET95MS 才能取到 parent 为 ALLBET95MS(KM)MYR 的 sub
+            $parentKey = baseIdProductForKey($parentId);
+            if ($parentKey === '') {
+                $parentKey = normalizeIdProductForKey($parentId);
+            }
             if ($parentKey === '') {
                 $parentKey = $parentId;
             }
