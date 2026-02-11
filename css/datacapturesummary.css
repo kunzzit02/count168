@@ -326,9 +326,10 @@ body {
             overflow-y: auto;
         }
 
-        /* Summary Table fixed viewport (approx 10 rows) with vertical scroll */
+        /* Summary Table fixed viewport (approx 10 rows) with vertical scroll，允许横向滚动以完整显示 id_product */
         #summaryTableContainer .table-wrapper {
             /* height: clamp(230px, 16.67vw, 320px); */ /* ~10 rows incl. header - removed height restriction */
+            overflow-x: auto;
             overflow-y: auto;
         }
 
@@ -365,10 +366,10 @@ body {
         }
         
         /* Set specific widths for Summary Table columns only */
-        #summaryTable th:nth-child(1), /* Id Product (merged) - 加宽并允许换行，避免长 id_product 显示不完整 */
+        #summaryTable th:nth-child(1), /* Id Product (merged) - 加宽并允许换行，完整显示长 id_product */
         #summaryTable td:nth-child(1) {
-            width: 18%;
-            min-width: 160px;
+            width: 28%;
+            min-width: 280px;
             white-space: normal !important;
             word-break: break-word;
             overflow: visible;
@@ -533,14 +534,14 @@ body {
             word-break: break-word;
             overflow: visible !important;
             text-overflow: unset;
-            min-width: 260px;
+            min-width: 320px;
             max-width: none;
         }
         #summaryTable th:nth-child(1) {
             white-space: normal !important;
             overflow: visible;
             text-overflow: unset;
-            min-width: 260px;
+            min-width: 320px;
         }
         
         /* Id Product Main and Sub cell styling */
