@@ -16159,6 +16159,8 @@ function mergeProductValues(mainValue, subValue) {
     const main = (mainValue || '').trim();
     const sub = (subValue || '').trim();
     if (main && sub) {
+        const n = (s) => (s || '').trim().replace(/\s+/g, '');
+        if (n(main) === n(sub)) return main; // Sub row 的 id product 不重复显示
         return `${main} / ${sub}`;
     } else if (main) {
         return main;
