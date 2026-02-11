@@ -162,7 +162,13 @@ h1 {
     box-sizing: border-box;
 }
 
-/* 仅 Search 输入框使用较小 padding，与 Process/Date Range 视觉一致（规则放在后面以便覆盖） */
+/* Search 输入框高度与 Process、Date Range 一致 */
+.formula-maintenance-filters-wrap .maintenance-filters .maintenance-form-group input.maintenance-input#search_filter {
+    padding: clamp(4px, 0.36vw, 7px) clamp(10px, 1vw, 14px);
+    min-height: unset;
+    height: unset;
+    line-height: 1.4;
+}
 
 .maintenance-form-group {
     display: flex;
@@ -180,7 +186,7 @@ h1 {
 
 .maintenance-input,
 .maintenance-select {
-    padding: clamp(8px, 0.65vw, 12px) clamp(10px, 1vw, 14px);
+    padding: clamp(4px, 0.36vw, 7px) clamp(10px, 1vw, 14px);
     border: 0.125rem solid #e5e7eb;
     border-radius: 0.5rem;
     font-size: clamp(11px, 0.85vw, 14px);
@@ -197,11 +203,6 @@ h1 {
     outline: none;
     border-color: #007AFF;
     box-shadow: 0 0 0 0.1875rem rgba(0, 122, 255, 0.1);
-}
-
-/* 仅 Formula 页的 Search 输入框：小 padding，与 Process/Date Range 同高 */
-#search_filter.maintenance-input {
-    padding: clamp(4px, 0.36vw, 7px) clamp(10px, 1vw, 14px) !important;
 }
 
 /* Override for custom select button to match datacapture.php style */
