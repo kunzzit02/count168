@@ -17514,136 +17514,53 @@ function formatPercentValue(value) {
                 let finalCaptureId = null;
                 let allSubmitted = false;
                 
-                // 如果数据大小超过限制，或者遇到403错误，自动分批
-                if (actualSizeBytes > MAX_BATCH_SIZE_BYTES) {
-                    console.log(`Data size (${dataSizeMB.toFixed(2)} MB) exceeds single batch limit (${MAX_BATCH_SIZE_MB} MB), will automatically submit in batches`);
+                // 统一改成：始终按“每批最多 MAX_ROWS_PER_BATCH 行”来分批提交
+                const batchSize = Math.max(1, Math.min(MAX_ROWS_PER_BATCH, summaryRows.length));
+                const totalBatches = Math.ceil(summaryRows.length / batchSize);
+                console.log(`Submitting in ${totalBatches} batches, up to ${batchSize} rows per batch (total rows: ${summaryRows.length}, data size: ${dataSizeMB.toFixed(2)} MB)`);
+                
+                for (let i = 0; i < summaryRows.length; i += batchSize) {
+                    const batchRows = summaryRows.slice(i, i + batchSize);
+                    const batchNumber = Math.floor(i / batchSize) + 1;
                     
-                    // 计算每批应该包含多少行，并限制到 MAX_ROWS_PER_BATCH
-                    const rowsPerBatch = Math.floor((summaryRows.length * MAX_BATCH_SIZE_BYTES) / actualSizeBytes);
-                    const autoBatchSize = Math.max(1, Math.min(rowsPerBatch, summaryRows.length / 2)); // 至少1行，最多一半
-                    const batchSize = Math.max(1, Math.min(autoBatchSize, MAX_ROWS_PER_BATCH)); // 再限制为每批最多 MAX_ROWS_PER_BATCH 行
-                    
-                    const totalBatches = Math.ceil(summaryRows.length / batchSize);
-                    console.log(`Splitting data into ${totalBatches} batches, approximately ${Math.ceil(batchSize)} rows per batch`);
-                    
-                    // 分批提交
-                    for (let i = 0; i < summaryRows.length; i += batchSize) {
-                        const batchRows = summaryRows.slice(i, i + batchSize);
-                        const batchNumber = Math.floor(i / batchSize) + 1;
-                        
-                        const batchData = {
-                            captureDate: parsedProcessData.date,
-                            processId: parsedProcessData.process,
-                            processName: parsedProcessData.processName,
-                            currencyId: parsedProcessData.currency,
-                            currencyName: parsedProcessData.currencyName,
-                            summaryRows: batchRows
-                        };
-                        
-                        try {
-                            const result = await submitBatch(batchData, finalCaptureId, batchNumber, totalBatches);
-                            finalCaptureId = result.captureId;
-                            
-                            if (batchNumber < totalBatches) {
-                                // 等待一小段时间再提交下一批，避免服务器压力
-                                await new Promise(resolve => setTimeout(resolve, 300));
-                            }
-                        } catch (error) {
-                            // 如果仍然失败（可能是单批仍然太大），减小批次大小重试
-                            if (error.isSizeError && batchRows.length > 1) {
-                                console.log(`Batch is still too large, reducing batch size and retrying...`);
-                                // 递归提交更小的批次，并同样限制到 MAX_ROWS_PER_BATCH
-                                const halfSize = Math.floor(batchRows.length / 2);
-                                const smallerBatchSize = Math.max(1, Math.min(halfSize, MAX_ROWS_PER_BATCH));
-                                for (let j = 0; j < batchRows.length; j += smallerBatchSize) {
-                                    const smallerBatch = batchRows.slice(j, j + smallerBatchSize);
-                                    const smallerBatchData = {
-                                        ...batchData,
-                                        summaryRows: smallerBatch
-                                    };
-                                    const result = await submitBatch(smallerBatchData, finalCaptureId, batchNumber, totalBatches);
-                                    finalCaptureId = result.captureId;
-                                    if (j + smallerBatchSize < batchRows.length) {
-                                        await new Promise(resolve => setTimeout(resolve, 300));
-                                    }
-                                }
-                            } else {
-                                // Re-enable button on non-size error
-                                if (submitBtn) {
-                                    submitBtn.disabled = false;
-                                    submitBtn.textContent = 'Submit';
-                                }
-                                isSubmitting = false;
-                                
-                                let errorMessage = error.message || 'Unknown error';
-                                if (error.status) {
-                                    errorMessage = `Server error (${error.status}): ${errorMessage}`;
-                                }
-                                showNotification('Error', `Submission failed (batch ${batchNumber}/${totalBatches}): ${errorMessage}`, 'error');
-                                return;
-                            }
-                        }
-                    }
-                    
-                    allSubmitted = true;
-                } else {
-                    // 数据不大，尝试一次性提交
-                    console.log('Data size is within limit, attempting single submission');
+                    const batchData = {
+                        captureDate: parsedProcessData.date,
+                        processId: parsedProcessData.process,
+                        processName: parsedProcessData.processName,
+                        currencyId: parsedProcessData.currency,
+                        currencyName: parsedProcessData.currencyName,
+                        summaryRows: batchRows
+                    };
                     
                     try {
-                        const result = await submitBatch(submitData, null, 1, 1);
+                        const result = await submitBatch(batchData, finalCaptureId, batchNumber, totalBatches);
                         finalCaptureId = result.captureId;
-                        allSubmitted = true;
+                        
+                        if (batchNumber < totalBatches) {
+                            // 等待一小段时间再提交下一批，避免服务器压力
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                        }
                     } catch (error) {
-                        // 如果一次性提交失败且是大小相关错误，自动分批重试
-                        if (error.isSizeError) {
-                            console.log('Single submission failed (server limit may be stricter), automatically retrying in batches...');
+                        // 如果仍然失败（可能是单批仍然太大），并且被判定为 size error，则在这一批内部继续拆小
+                        if (error.isSizeError && batchRows.length > 1) {
+                            console.log(`Batch ${batchNumber}/${totalBatches} is still too large (size error), reducing batch size and retrying this range...`);
+                            const halfSize = Math.floor(batchRows.length / 2);
+                            const smallerBatchSize = Math.max(1, Math.min(halfSize, MAX_ROWS_PER_BATCH));
                             
-                            // 使用更小的批次大小，并限制到 MAX_ROWS_PER_BATCH
-                            const autoSafeBatchSize = Math.max(1, Math.floor(summaryRows.length / 5)); // 理论上分成5批
-                            const safeBatchSize = Math.max(1, Math.min(autoSafeBatchSize, MAX_ROWS_PER_BATCH)); // 每批最多 MAX_ROWS_PER_BATCH 行
-                            const totalBatches = Math.ceil(summaryRows.length / safeBatchSize);
-                            
-                            for (let i = 0; i < summaryRows.length; i += safeBatchSize) {
-                                const batchRows = summaryRows.slice(i, i + safeBatchSize);
-                                const batchNumber = Math.floor(i / safeBatchSize) + 1;
-                                
-                                const batchData = {
-                                    captureDate: parsedProcessData.date,
-                                    processId: parsedProcessData.process,
-                                    processName: parsedProcessData.processName,
-                                    currencyId: parsedProcessData.currency,
-                                    currencyName: parsedProcessData.currencyName,
-                                    summaryRows: batchRows
+                            for (let j = 0; j < batchRows.length; j += smallerBatchSize) {
+                                const smallerBatch = batchRows.slice(j, j + smallerBatchSize);
+                                const smallerBatchData = {
+                                    ...batchData,
+                                    summaryRows: smallerBatch
                                 };
-                                
-                                try {
-                                    const result = await submitBatch(batchData, finalCaptureId, batchNumber, totalBatches);
-                                    finalCaptureId = result.captureId;
-                                    
-                                    if (batchNumber < totalBatches) {
-                                        await new Promise(resolve => setTimeout(resolve, 300));
-                                    }
-                                } catch (batchError) {
-                                    // Re-enable button on error
-                                    if (submitBtn) {
-                                        submitBtn.disabled = false;
-                                        submitBtn.textContent = 'Submit';
-                                    }
-                                    isSubmitting = false;
-                                    
-                                    let errorMessage = batchError.message || 'Unknown error';
-                                    if (batchError.status) {
-                                        errorMessage = `Server error (${batchError.status}): ${errorMessage}`;
-                                    }
-                                    showNotification('Error', `Submission failed (batch ${batchNumber}/${totalBatches}): ${errorMessage}`, 'error');
-                                    return;
+                                const result = await submitBatch(smallerBatchData, finalCaptureId, batchNumber, totalBatches);
+                                finalCaptureId = result.captureId;
+                                if (j + smallerBatchSize < batchRows.length) {
+                                    await new Promise(resolve => setTimeout(resolve, 300));
                                 }
                             }
-                            
-                            allSubmitted = true;
                         } else {
-                            // Re-enable button on non-size error
+                            // 非 size error：直接报错并停止，避免无限重试
                             if (submitBtn) {
                                 submitBtn.disabled = false;
                                 submitBtn.textContent = 'Submit';
@@ -17654,11 +17571,13 @@ function formatPercentValue(value) {
                             if (error.status) {
                                 errorMessage = `Server error (${error.status}): ${errorMessage}`;
                             }
-                            showNotification('Error', `Submission failed: ${errorMessage}`, 'error');
+                            showNotification('Error', `Submission failed (batch ${batchNumber}/${totalBatches}): ${errorMessage}`, 'error');
                             return;
                         }
                     }
                 }
+                
+                allSubmitted = true;
                 
                 // 所有批次提交成功
                 if (allSubmitted && finalCaptureId) {
