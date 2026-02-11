@@ -5624,12 +5624,14 @@ function getCurrentProcessId() {
                 }
             }
             
-            // ALLBET95MS(SV)MYR / (KM)MYR / (SEXY)MYR 每个都是独立 main，不归一：用去空格比较；否则用 normalizeIdProductText
+            // 每个都是独立 main，不归一。表里可能是截断显示（如 KZAWCMS(SV)），编辑行为完整（如 KZAWCMS(SV)MYR），需视为同一行用 $列号
             const normalizeSpacesForRow = (s) => (s || '').trim().replace(/\s+/g, '');
+            const curNorm = normalizeSpacesForRow(currentIdProduct);
+            const clickNorm = normalizeSpacesForRow(idProduct);
             const bothFull = typeof isFullIdProduct === 'function' && isFullIdProduct(currentIdProduct) && isFullIdProduct(idProduct);
             const idProductMatches = currentIdProduct && idProduct && (
                 bothFull
-                    ? normalizeSpacesForRow(currentIdProduct) === normalizeSpacesForRow(idProduct)
+                    ? (curNorm === clickNorm || curNorm.indexOf(clickNorm) === 0 || clickNorm.indexOf(curNorm) === 0)
                     : normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct)
             );
             
