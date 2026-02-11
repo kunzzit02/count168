@@ -2094,7 +2094,8 @@ function submitAction() {
         accountId = getAccountId(standardFromAccountInput);
         fromAccountId = getAccountId(standardToAccountInput);
     } else if (isClear) {
-        accountId = getAccountId(standardFromAccountInput);
+        // CLEAR：和普通交易一样，以 To Account 作为唯一账户；不需要 From Account
+        accountId = getAccountId(standardToAccountInput);
         fromAccountId = null;
     } else {
         accountId = getAccountId(standardToAccountInput);
