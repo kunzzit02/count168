@@ -1284,6 +1284,8 @@ if (!$company_access_ok) {
         echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
         exit;
     }
+    // 通过校验后写入 session，后续批次请求可直接放行，避免 403
+    $_SESSION['company_id'] = (int)$company_id;
 }
 
 $action = isset($_GET['action']) ? $_GET['action'] : 'load';
