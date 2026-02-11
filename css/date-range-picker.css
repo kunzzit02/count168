@@ -33,7 +33,7 @@
     font-weight: 500;
 }
 
-/* Calendar popup */
+/* Calendar popup - width set by JS to match date-range bar */
 .calendar-popup {
     position: fixed;
     background: white;
@@ -42,7 +42,7 @@
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
     z-index: 99999;
     padding: clamp(8px, 0.83vw, 16px);
-    min-width: clamp(140px, 12.5vw, 240px);
+    box-sizing: border-box;
     max-height: 350px;
     overflow: visible;
 }
