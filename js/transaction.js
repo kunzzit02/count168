@@ -2075,15 +2075,31 @@ function submitAction() {
     const type = document.getElementById('transaction_type').value;
     const effectiveType = (type === 'PROFIT') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
     const isRate = type === RATE_TYPE_VALUE;
+    const isClear = type === 'CLEAR';
     
     const standardToAccountInput = document.getElementById('action_account_id');
     const standardFromAccountInput = document.getElementById('action_account_from');
     const rateToAccountInput = document.getElementById('rate_account_to');
     const rateFromAccountInput = document.getElementById('rate_account_from');
 
+    // 计算 To / From Account
     // PROFIT：第一个下拉为 To Account、第二个为 From Account，前后两个账户的 Payment History 都要显示
-    const accountId = isRate ? getAccountId(rateToAccountInput) : (type === 'PROFIT' ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput));
-    const fromAccountId = isRate ? getAccountId(rateFromAccountInput) : (type === 'PROFIT' ? getAccountId(standardToAccountInput) : getAccountId(standardFromAccountInput));
+    // CLEAR：只需要一个 Account（使用当前可见的 Account 下拉：standardFromAccountInput）
+    let accountId;
+    let fromAccountId;
+    if (isRate) {
+        accountId = getAccountId(rateToAccountInput);
+        fromAccountId = getAccountId(rateFromAccountInput);
+    } else if (type === 'PROFIT') {
+        accountId = getAccountId(standardFromAccountInput);
+        fromAccountId = getAccountId(standardToAccountInput);
+    } else if (isClear) {
+        accountId = getAccountId(standardFromAccountInput);
+        fromAccountId = null;
+    } else {
+        accountId = getAccountId(standardToAccountInput);
+        fromAccountId = getAccountId(standardFromAccountInput);
+    }
     
     const standardAmountInput = document.getElementById('action_amount');
     const rateCurrencyFromAmountInput = document.getElementById('rate_currency_from_amount');
