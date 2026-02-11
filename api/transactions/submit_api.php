@@ -350,8 +350,14 @@ try {
             $current_balance += (float)$stmt->fetchColumn();
         }
         
-        // 自动计算 amount = -余额（如果余额是正数，就生成负数；如果余额是负数，就生成正数）
-        $amount = -$current_balance;
+        // 如果当前余额已经是 0，就不允许再 CLEAR，避免插入 0 金额记录（会触发数据库校验）
+        if (abs($current_balance) <= 0.000001) {
+            throw new Exception('当前账户在该币别下余额已是 0，无需 CLEAR');
+        }
+        
+        // 为兼容数据库触发器（amount 必须大于 0），这里使用绝对值存储金额
+        // CLEAR 的正负方向在报表逻辑中单独处理
+        $amount = abs($current_balance);
         
         // 生成 description = "CLEAR TO {account_id}"
         $description = 'CLEAR TO ' . $to_account['account_id'];
