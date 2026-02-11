@@ -197,8 +197,10 @@
             const now = new Date();
             const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             function getContractStateClass(dayStart, dayEnd) {
-                if (!dayStart && !dayEnd) return '';
-                if (dayStart && todayStr < dayStart) return 'contract-pending';
+                // No day_start set → same as waiting for start date (yellow)
+                const hasDayStart = dayStart != null && String(dayStart).trim() !== '';
+                if (!hasDayStart) return 'contract-pending';
+                if (todayStr < dayStart) return 'contract-pending';
                 if (dayEnd && todayStr > dayEnd) return 'contract-expired';
                 if (dayStart && dayEnd && todayStr >= dayStart && todayStr <= dayEnd) return 'contract-active';
                 if (dayStart && todayStr >= dayStart) return 'contract-active';
