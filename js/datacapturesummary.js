@@ -17523,6 +17523,20 @@ function formatPercentValue(value) {
                     return result;
                 }
                 
+                // 403 时延迟 3 秒重试一次（应对 CDN 对同一 URL 第 N 次请求的限制）
+                async function submitBatchWith403Retry(batchData, captureId, batchNumber, totalBatches) {
+                    try {
+                        return await submitBatch(batchData, captureId, batchNumber, totalBatches);
+                    } catch (err) {
+                        if (err.status === 403) {
+                            console.log(`Batch ${batchNumber} got 403, retrying once after 3s...`);
+                            await new Promise(resolve => setTimeout(resolve, 3000));
+                            return await submitBatch(batchData, captureId, batchNumber, totalBatches);
+                        }
+                        throw err;
+                    }
+                }
+                
                 // 分批提交主逻辑
                 const MAX_BATCH_SIZE_MB = 4; // 每批最大4MB（保守估计，留出余量）
                 const MAX_BATCH_SIZE_BYTES = MAX_BATCH_SIZE_MB * 1024 * 1024;
@@ -17556,7 +17570,7 @@ function formatPercentValue(value) {
                         };
                         
                         try {
-                            const result = await submitBatch(batchData, finalCaptureId, batchNumber, totalBatches);
+                            const result = await submitBatchWith403Retry(batchData, finalCaptureId, batchNumber, totalBatches);
                             finalCaptureId = result.captureId;
                             
                             if (batchNumber < totalBatches) {
@@ -17575,7 +17589,7 @@ function formatPercentValue(value) {
                                         ...batchData,
                                         summaryRows: smallerBatch
                                     };
-                                    const result = await submitBatch(smallerBatchData, finalCaptureId, batchNumber, totalBatches);
+                                    const result = await submitBatchWith403Retry(smallerBatchData, finalCaptureId, batchNumber, totalBatches);
                                     finalCaptureId = result.captureId;
                                     if (j + smallerBatchSize < batchRows.length) {
                                         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -17632,7 +17646,7 @@ function formatPercentValue(value) {
                                 };
                                 
                                 try {
-                                    const result = await submitBatch(batchData, finalCaptureId, batchNumber, totalBatches);
+                                    const result = await submitBatchWith403Retry(batchData, finalCaptureId, batchNumber, totalBatches);
                                     finalCaptureId = result.captureId;
                                     
                                     if (batchNumber < totalBatches) {
