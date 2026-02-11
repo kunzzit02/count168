@@ -17375,6 +17375,26 @@ function formatPercentValue(value) {
                 console.log('Summary rows count:', summaryRows.length);
                 console.log('First row sample:', summaryRows[0]);
                 
+                // 提交前同步 session 的 company_id，避免分批时后端 403（与 update_company_session_api 一致后直接放行）
+                const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
+                if (currentCompanyId) {
+                    try {
+                        const syncRes = await fetch(`api/session/update_company_session_api.php?company_id=${currentCompanyId}`, { method: 'GET', credentials: 'include' });
+                        if (!syncRes.ok) {
+                            const errText = await syncRes.text();
+                            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
+                            isSubmitting = false;
+                            showNotification('Error', `无法切换公司 (${syncRes.status}): ${errText || 'Forbidden'}`, 'error');
+                            return;
+                        }
+                    } catch (e) {
+                        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
+                        isSubmitting = false;
+                        showNotification('Error', '同步公司会话失败: ' + (e.message || 'Network error'), 'error');
+                        return;
+                    }
+                }
+                
                 // Check data size before submitting
                 let jsonData;
                 try {
