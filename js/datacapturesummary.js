@@ -17502,7 +17502,10 @@ function formatPercentValue(value) {
                     const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
                     // 通过 bulk_submit.php 作为代理，绕开服务器对 summary_api.php?action=submit 的直接拦截
                     const url = 'api/datacapture_summary/bulk_submit.php';
-                    const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
+                    // 根据是否已包含 ? 决定拼接 & 或 ?
+                    const finalUrl = currentCompanyId
+                        ? (url.includes('?') ? `${url}&company_id=${currentCompanyId}` : `${url}?company_id=${currentCompanyId}`)
+                        : url;
                     
                     const response = await fetch(finalUrl, {
                         method: 'POST',
