@@ -5,7 +5,6 @@
 
 (function() {
     'use strict';
-    var LOG = function() { console.log.apply(console, ['[Sidebar]'].concat(Array.prototype.slice.call(arguments))); };
 
     var sidebar = null;
     var overlay = null;
@@ -136,78 +135,10 @@
         if (selectedOption) selectedOption.classList.add('selected');
     }
 
-    function handleLogoutClick(e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        LOG('handleLogoutClick');
-        try {
-            showLogoutModal();
-        } catch (err) {
-            console.error('[Sidebar] showLogoutModal error:', err);
-            if (confirm('Are you sure you want to logout?')) {
-                window.location.href = 'dashboard.php?logout=1';
-            }
-        }
-    }
-
     function handleLogout() {
-        showLogoutModal();
-    }
-
-    function showLogoutModal() {
-        LOG('showLogoutModal');
-        var overlay = document.getElementById('logoutConfirmOverlay');
-        var modal = document.getElementById('logoutConfirmModal');
-        if (!overlay || !modal) {
-            LOG('creating logout overlay/modal');
-            overlay = document.createElement('div');
-            overlay.id = 'logoutConfirmOverlay';
-            overlay.className = 'logout-modal-overlay';
-            overlay.onclick = function(e) { if (e.target === overlay) closeLogoutModal(); };
-            modal = document.createElement('div');
-            modal.id = 'logoutConfirmModal';
-            modal.className = 'logout-modal-content';
-            modal.onclick = function(e) { e.stopPropagation(); };
-            modal.innerHTML = '<div class="logout-modal-icon-container">' +
-                '<svg class="logout-modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">' +
-                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>' +
-                '</svg></div>' +
-                '<h2 class="logout-modal-title">Confirm Logout</h2>' +
-                '<p class="logout-modal-message">Are you sure you want to logout?</p>' +
-                '<div class="logout-modal-actions">' +
-                '<button type="button" class="logout-modal-btn logout-modal-btn-cancel">Cancel</button>' +
-                '<button type="button" class="logout-modal-btn logout-modal-btn-logout">Logout</button>' +
-                '</div>';
-            var cancelBtn = modal.querySelector('.logout-modal-btn-cancel');
-            var logoutBtn = modal.querySelector('.logout-modal-btn-logout');
-            if (cancelBtn) cancelBtn.onclick = closeLogoutModal;
-            if (logoutBtn) logoutBtn.onclick = confirmLogout;
-            overlay.appendChild(modal);
-            document.body.appendChild(overlay);
+        if (confirm('Are you sure you want to logout?')) {
+            window.location.href = 'dashboard.php?logout=1';
         }
-        var root = document.body;
-        if (overlay.parentNode !== root) root.appendChild(overlay);
-        overlay.style.display = 'flex';
-        overlay.style.visibility = 'visible';
-        overlay.style.opacity = '1';
-        overlay.style.zIndex = '2147483647';
-        modal.style.display = 'block';
-        modal.style.visibility = 'visible';
-        modal.style.zIndex = '2147483647';
-        document.body.style.overflow = 'hidden';
-        LOG('logout modal visible');
-    }
-
-    function closeLogoutModal() {
-        var overlay = document.getElementById('logoutConfirmOverlay');
-        var modal = document.getElementById('logoutConfirmModal');
-        if (overlay) { overlay.style.display = 'none'; overlay.style.visibility = ''; overlay.style.zIndex = ''; }
-        if (modal) { modal.style.display = 'none'; modal.style.visibility = ''; modal.style.zIndex = ''; }
-        document.body.style.overflow = '';
-    }
-
-    function confirmLogout() {
-        closeLogoutModal();
-        window.location.href = 'dashboard.php?logout=1';
     }
 
     function toggleLanguageDropdown() {
@@ -358,9 +289,6 @@
     window.selectGender = selectGender;
     window.selectAvatar = selectAvatar;
     window.handleLogout = handleLogout;
-    window.showLogoutModal = showLogoutModal;
-    window.closeLogoutModal = closeLogoutModal;
-    window.confirmLogout = confirmLogout;
     window.toggleLanguageDropdown = toggleLanguageDropdown;
     window.selectLanguage = selectLanguage;
     window.toggleNotificationPanel = toggleNotificationPanel;
@@ -369,20 +297,10 @@
     window.updateSidebarDataCaptureVisibility = updateSidebarDataCaptureVisibility;
 
     function init() {
-        LOG('init() running');
         sidebar = document.querySelector('.informationmenu');
         overlay = document.querySelector('.informationmenu-overlay');
         userAvatar = document.getElementById('user-avatar');
         sidebarToggle = document.getElementById('sidebarToggle');
-
-        var logoutBtn = document.getElementById('sidebarLogoutBtn') || document.querySelector('.logout-btn');
-        if (logoutBtn) {
-            logoutBtn.removeEventListener('click', handleLogoutClick);
-            logoutBtn.addEventListener('click', handleLogoutClick);
-            LOG('Logout button found, click listener attached');
-        } else {
-            LOG('Logout button NOT found');
-        }
 
         if (userAvatar) {
             userAvatar.addEventListener('click', function() {
@@ -629,7 +547,6 @@
         });
     }
 
-    LOG('script loaded');
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
