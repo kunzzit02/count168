@@ -184,11 +184,15 @@
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
         }
+        var root = document.body;
+        if (overlay.parentNode !== root) root.appendChild(overlay);
         overlay.style.display = 'flex';
         overlay.style.visibility = 'visible';
         overlay.style.opacity = '1';
+        overlay.style.zIndex = '2147483647';
         modal.style.display = 'block';
         modal.style.visibility = 'visible';
+        modal.style.zIndex = '2147483647';
         document.body.style.overflow = 'hidden';
         LOG('logout modal visible');
     }
@@ -196,8 +200,8 @@
     function closeLogoutModal() {
         var overlay = document.getElementById('logoutConfirmOverlay');
         var modal = document.getElementById('logoutConfirmModal');
-        if (overlay) { overlay.style.display = 'none'; overlay.style.visibility = ''; }
-        if (modal) { modal.style.display = 'none'; modal.style.visibility = ''; }
+        if (overlay) { overlay.style.display = 'none'; overlay.style.visibility = ''; overlay.style.zIndex = ''; }
+        if (modal) { modal.style.display = 'none'; modal.style.visibility = ''; modal.style.zIndex = ''; }
         document.body.style.overflow = '';
     }
 
