@@ -673,6 +673,28 @@
     transform: translateY(-1px);
 }
 
+/* 强制刷新网页缓存按钮 */
+.sidebar-cache-refresh-btn {
+    background: linear-gradient(180deg, #6b9bd1 0%, #4a7ab8 100%);
+    color: white;
+    padding: clamp(6px, 0.42vw, 8px) clamp(10px, 0.8vw, 14px);
+    font-size: clamp(9px, 0.7vw, 13px);
+    width: clamp(70px, 6.25vw, 120px);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(74, 122, 184, 0.3);
+    cursor: pointer;
+    margin-bottom: 8px;
+    white-space: normal;
+    line-height: 1.2;
+    text-align: center;
+}
+.sidebar-cache-refresh-btn:hover {
+    background: linear-gradient(180deg, #4a7ab8 0%, #6b9bd1 100%);
+    box-shadow: 0 4px 8px rgba(74, 122, 184, 0.4);
+    transform: translateY(-1px);
+}
+
 /* Logout 确认弹窗：网页正中间、深色背景、圆角、确定(浅蓝)/取消(深蓝) */
 .logout-confirm-overlay {
     display: none;

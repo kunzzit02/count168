@@ -180,6 +180,12 @@
         window.location.href = 'dashboard.php?logout=1';
     }
 
+    function forceRefreshPageCache() {
+        var sep = window.location.search ? '&' : '?';
+        var url = window.location.pathname + window.location.search + sep + '_=' + Date.now();
+        window.location.href = url;
+    }
+
     function toggleLanguageDropdown() {
         var dropdown = document.getElementById('languageDropdown');
         var button = document.querySelector('.language-btn');
@@ -331,6 +337,7 @@
     window.showLogoutModal = showLogoutModal;
     window.closeLogoutModal = closeLogoutModal;
     window.confirmLogout = confirmLogout;
+    window.forceRefreshPageCache = forceRefreshPageCache;
     window.toggleLanguageDropdown = toggleLanguageDropdown;
     window.selectLanguage = selectLanguage;
     window.toggleNotificationPanel = toggleNotificationPanel;
