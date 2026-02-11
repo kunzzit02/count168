@@ -157,6 +157,13 @@ h1 {
     box-sizing: border-box;
 }
 
+/* 日期范围文字单行显示，避免被 200px 挤成两行 */
+.formula-maintenance-filters-wrap .maintenance-filters .date-range-picker #date-range-display {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .formula-maintenance-filters-wrap .maintenance-filters .quick-select-dropdown .dropdown-toggle {
     width: 100%;
     box-sizing: border-box;
