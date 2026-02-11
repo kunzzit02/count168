@@ -550,10 +550,8 @@ body {
             text-align: left;
         }
         
-        /* Sub 要在 Main 底下，Id Product 列缩进显示 */
         .sub-id-product {
             text-align: left;
-            padding-left: 1.8em !important;
         }
 
         .summary-table th {
