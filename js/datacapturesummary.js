@@ -5855,15 +5855,26 @@ function getCurrentProcessId() {
                         
                         // 检查公式是否已经包含新格式 [id_product,数字]
                         const hasNewFormat = /\[[^,\]]+,\d+\]/.test(formulaValueToSet);
+                        const processValue = document.getElementById('process')?.value;
                         
-                        // 先设置公式值
+                        if (hasNewFormat && processValue) {
+                            // 将当前行的 [id_product,列号] 转为 $列号 显示，与第二张图一致
+                            const currentIdProduct = processValue.trim();
+                            const bracketPattern = /\[([^,\]]+),(\d+)\]/g;
+                            formulaValueToSet = formulaValueToSet.replace(bracketPattern, function(match, idProduct, colNum) {
+                                const refId = (idProduct || '').trim();
+                                const isCurrentRow = currentIdProduct && (
+                                    (typeof isFullIdProduct === 'function' && isFullIdProduct(refId))
+                                        ? (refId === currentIdProduct)
+                                        : (typeof normalizeIdProductText === 'function' && normalizeIdProductText(refId) === normalizeIdProductText(currentIdProduct))
+                                );
+                                return isCurrentRow ? '$' + colNum : match;
+                            });
+                        }
+                        
                         formulaInput.value = formulaValueToSet;
                         
-                        // 如果公式已经包含新格式，直接使用，不需要转换
-                        // 更新显示框
-                        const processValue = document.getElementById('process')?.value;
                         if (hasNewFormat) {
-                            // 公式已经是新格式，直接更新显示框
                             updateFormulaDisplay(formulaValueToSet || '', processValue);
                         }
                         
