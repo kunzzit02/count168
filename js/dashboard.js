@@ -948,10 +948,10 @@ function updateDashboard(data) {
                 // 左边「Profit」卡片 = Transaction Payment 里 Profit 的总额（Total Balance）
                 if (capitalEl) capitalEl.textContent = formatCurrency(data.profit);
                 if (expensesEl) expensesEl.textContent = formatCurrency(data.expenses);
-                // 右边「NET PROFIT」卡片 = Profit - Expenses（Expenses 按金额相减，取绝对值避免 API 返回负数时算错）
+                // 右边「NET PROFIT」：expenses 正数时 profit+expenses，负数时 profit-expenses
                 const profitNum = parseFloat(data.profit) || 0;
                 const expensesNum = parseFloat(data.expenses) || 0;
-                const netProfit = profitNum - Math.abs(expensesNum);
+                const netProfit = expensesNum >= 0 ? profitNum + expensesNum : profitNum - expensesNum;
                 if (profitEl) profitEl.textContent = formatCurrency(netProfit);
                 const chartDateRangeEl = document.getElementById('chart-date-range');
                 if (chartDateRangeEl && data.date_range) {
@@ -1091,12 +1091,12 @@ function updateChart(data) {
         dates.push(date);
             const capital = parseFloat(dailyData.capital[date] || 0) || 0;
             const expenses = parseFloat(dailyData.expenses[date] || 0) || 0;
-            // Profit: 优先使用API返回的profit daily_data，如果没有则按 Net Profit = Profit - Expenses 计算（Expenses 取绝对值）
+            // Profit: 优先使用API返回的profit daily_data，否则按 expenses 正数时 capital+expenses、负数时 capital-expenses
             let profit = 0;
             if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
                 profit = parseFloat(dailyData.profit[date] || 0) || 0;
             } else {
-                profit = capital - Math.abs(expenses);
+                profit = expenses >= 0 ? capital + expenses : capital - expenses;
             }
             capitalData.push(capital);
             expensesData.push(expenses);
