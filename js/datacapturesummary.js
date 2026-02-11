@@ -17375,26 +17375,6 @@ function formatPercentValue(value) {
                 console.log('Summary rows count:', summaryRows.length);
                 console.log('First row sample:', summaryRows[0]);
                 
-                // 提交前同步 session 的 company_id，避免分批时后端 403（与 update_company_session_api 一致后直接放行）
-                const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-                if (currentCompanyId) {
-                    try {
-                        const syncRes = await fetch(`api/session/update_company_session_api.php?company_id=${currentCompanyId}`, { method: 'GET', credentials: 'include' });
-                        if (!syncRes.ok) {
-                            const errText = await syncRes.text();
-                            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
-                            isSubmitting = false;
-                            showNotification('Error', `无法切换公司 (${syncRes.status}): ${errText || 'Forbidden'}`, 'error');
-                            return;
-                        }
-                    } catch (e) {
-                        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
-                        isSubmitting = false;
-                        showNotification('Error', '同步公司会话失败: ' + (e.message || 'Network error'), 'error');
-                        return;
-                    }
-                }
-                
                 // Check data size before submitting
                 let jsonData;
                 try {
@@ -17523,20 +17503,6 @@ function formatPercentValue(value) {
                     return result;
                 }
                 
-                // 403 时延迟 3 秒重试一次（应对 CDN 对同一 URL 第 N 次请求的限制）
-                async function submitBatchWith403Retry(batchData, captureId, batchNumber, totalBatches) {
-                    try {
-                        return await submitBatch(batchData, captureId, batchNumber, totalBatches);
-                    } catch (err) {
-                        if (err.status === 403) {
-                            console.log(`Batch ${batchNumber} got 403, retrying once after 3s...`);
-                            await new Promise(resolve => setTimeout(resolve, 3000));
-                            return await submitBatch(batchData, captureId, batchNumber, totalBatches);
-                        }
-                        throw err;
-                    }
-                }
-                
                 // 分批提交主逻辑
                 const MAX_BATCH_SIZE_MB = 4; // 每批最大4MB（保守估计，留出余量）
                 const MAX_BATCH_SIZE_BYTES = MAX_BATCH_SIZE_MB * 1024 * 1024;
@@ -17570,12 +17536,12 @@ function formatPercentValue(value) {
                         };
                         
                         try {
-                            const result = await submitBatchWith403Retry(batchData, finalCaptureId, batchNumber, totalBatches);
+                            const result = await submitBatch(batchData, finalCaptureId, batchNumber, totalBatches);
                             finalCaptureId = result.captureId;
                             
                             if (batchNumber < totalBatches) {
-                                // 拉长间隔，降低 CDN/WAF 限速触发概率
-                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                // 等待一小段时间再提交下一批，避免服务器压力
+                                await new Promise(resolve => setTimeout(resolve, 300));
                             }
                         } catch (error) {
                             // 如果仍然失败（可能是单批仍然太大），减小批次大小重试
@@ -17589,10 +17555,10 @@ function formatPercentValue(value) {
                                         ...batchData,
                                         summaryRows: smallerBatch
                                     };
-                                    const result = await submitBatchWith403Retry(smallerBatchData, finalCaptureId, batchNumber, totalBatches);
+                                    const result = await submitBatch(smallerBatchData, finalCaptureId, batchNumber, totalBatches);
                                     finalCaptureId = result.captureId;
                                     if (j + smallerBatchSize < batchRows.length) {
-                                        await new Promise(resolve => setTimeout(resolve, 1000));
+                                        await new Promise(resolve => setTimeout(resolve, 300));
                                     }
                                 }
                             } else {
@@ -17623,13 +17589,12 @@ function formatPercentValue(value) {
                         finalCaptureId = result.captureId;
                         allSubmitted = true;
                     } catch (error) {
-                        // 一次性提交失败（含 403）：CDN/WAF 可能限制单次 POST 大小，用更小批次重试
-                        if (error.isSizeError || error.status === 403) {
-                            console.log('Single submission failed (403 or size), retrying with smaller batches to avoid CDN/WAF limit...');
-                            // 每批约 20KB，降低被 CDN/WAF 拦截概率
-                            const targetBatchBytes = 20 * 1024;
-                            const bytesPerRow = actualSizeBytes / summaryRows.length;
-                            const safeBatchSize = Math.max(1, Math.min(summaryRows.length, Math.floor(targetBatchBytes / bytesPerRow)));
+                        // 如果一次性提交失败且是大小相关错误，自动分批重试
+                        if (error.isSizeError) {
+                            console.log('Single submission failed (server limit may be stricter), automatically retrying in batches...');
+                            
+                            // 使用更小的批次大小
+                            const safeBatchSize = Math.max(1, Math.floor(summaryRows.length / 5)); // 分成5批
                             const totalBatches = Math.ceil(summaryRows.length / safeBatchSize);
                             
                             for (let i = 0; i < summaryRows.length; i += safeBatchSize) {
@@ -17646,11 +17611,11 @@ function formatPercentValue(value) {
                                 };
                                 
                                 try {
-                                    const result = await submitBatchWith403Retry(batchData, finalCaptureId, batchNumber, totalBatches);
+                                    const result = await submitBatch(batchData, finalCaptureId, batchNumber, totalBatches);
                                     finalCaptureId = result.captureId;
                                     
                                     if (batchNumber < totalBatches) {
-                                        await new Promise(resolve => setTimeout(resolve, 1000));
+                                        await new Promise(resolve => setTimeout(resolve, 300));
                                     }
                                 } catch (batchError) {
                                     // Re-enable button on error
