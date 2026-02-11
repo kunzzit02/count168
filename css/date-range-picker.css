@@ -11,6 +11,8 @@
     transition: all 0.2s;
     position: relative;
     min-width: clamp(120px, 12vw, 240px);
+    width: 100%;
+    box-sizing: border-box;
     z-index: 1;
 }
 
