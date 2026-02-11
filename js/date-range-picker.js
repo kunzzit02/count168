@@ -44,6 +44,9 @@
             const rect = picker.getBoundingClientRect();
             popup.style.top = (rect.bottom + 8) + 'px';
             popup.style.left = rect.left + 'px';
+            popup.style.width = rect.width + 'px';
+            popup.style.minWidth = '';
+            popup.style.maxWidth = '';
             popup.style.display = 'block';
             initCalendar();
             renderCalendar();
