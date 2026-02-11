@@ -70,7 +70,7 @@ $error = isset($_GET['error']) ? true : false;
                     <label class="maintenance-label">Search</label>
                     <input type="text" id="search_filter" class="maintenance-input" placeholder="Search formula...">
                 </div>
-                <div class="maintenance-form-group">
+                <div class="maintenance-form-group formula-date-range-group">
                     <label class="maintenance-label">Date Range</label>
                     <div class="date-range-picker" id="date-range-picker">
                         <i class="fas fa-calendar-alt"></i>
