@@ -181,11 +181,14 @@
             var logoutBtn = modal.querySelector('.logout-modal-btn-logout');
             if (cancelBtn) cancelBtn.onclick = closeLogoutModal;
             if (logoutBtn) logoutBtn.onclick = confirmLogout;
+            overlay.appendChild(modal);
             document.body.appendChild(overlay);
-            document.body.appendChild(modal);
         }
         overlay.style.display = 'flex';
+        overlay.style.visibility = 'visible';
+        overlay.style.opacity = '1';
         modal.style.display = 'block';
+        modal.style.visibility = 'visible';
         document.body.style.overflow = 'hidden';
         LOG('logout modal visible');
     }
@@ -193,8 +196,8 @@
     function closeLogoutModal() {
         var overlay = document.getElementById('logoutConfirmOverlay');
         var modal = document.getElementById('logoutConfirmModal');
-        if (overlay) overlay.style.display = 'none';
-        if (modal) modal.style.display = 'none';
+        if (overlay) { overlay.style.display = 'none'; overlay.style.visibility = ''; }
+        if (modal) { modal.style.display = 'none'; modal.style.visibility = ''; }
         document.body.style.overflow = '';
     }
 

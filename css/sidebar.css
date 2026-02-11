@@ -676,6 +676,7 @@
 /* Logout 确认弹窗：与 DELETE 弹窗一致（白底、红色警告图标、Cancel / Logout 按钮） */
 .logout-modal-overlay {
     display: none;
+    visibility: hidden;
     position: fixed;
     z-index: 99998;
     left: 0;
@@ -687,6 +688,9 @@
     justify-content: center;
     animation: logoutModalFadeIn 0.2s ease-out;
 }
+.logout-modal-overlay[style*="display: flex"] {
+    visibility: visible;
+}
 @keyframes logoutModalFadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -694,6 +698,7 @@
 
 .logout-modal-content {
     display: none;
+    visibility: hidden;
     background: linear-gradient(to bottom, #ffffff 0%, #f8fafc 100%);
     border-radius: 16px;
     padding: 0;
@@ -703,6 +708,10 @@
     max-width: 90%;
     overflow: visible;
     position: relative;
+    z-index: 99999;
+}
+.logout-modal-content[style*="display: block"] {
+    visibility: visible;
 }
 @keyframes logoutModalSlideDown {
     from {
