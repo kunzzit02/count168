@@ -8,6 +8,15 @@ $error = isset($_GET['error']) ? true : false;
 
 // 获取 session 中的 company_id（用于跨页面同步）
 $session_company_id = $_SESSION['company_id'] ?? null;
+
+// 与 dashboard 默认日期一致：本周一 ~ 今天
+$today = new DateTime('now');
+$dayOfWeek = (int)$today->format('w');
+$daysToMonday = ($dayOfWeek === 0) ? 6 : $dayOfWeek - 1;
+$monday = clone $today;
+$monday->modify("-$daysToMonday days");
+$date_from_default = $monday->format('d/m/Y');
+$date_to_default = $today->format('d/m/Y');
 ?>
 
 <!DOCTYPE html>
@@ -51,8 +60,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 <div class="maintenance-form-group">
                     <label class="maintenance-label">Date</label>
                     <div class="maintenance-date-inputs">
-                        <input type="text" id="date_from" class="maintenance-input maintenance-date-input" value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
-                        <input type="text" id="date_to" class="maintenance-input maintenance-date-input" value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
+                        <input type="text" id="date_from" class="maintenance-input maintenance-date-input" value="<?php echo $date_from_default; ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
+                        <input type="text" id="date_to" class="maintenance-input maintenance-date-input" value="<?php echo $date_to_default; ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
                     </div>
                 </div>
             </div>
@@ -673,19 +682,16 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 return;
             }
             
-            // Date From
+            // 使用 PHP 输出的默认值，与 dashboard 一致：本周一 ~ 今天
             flatpickr("#date_from", {
                 dateFormat: "d/m/Y",
                 allowInput: false,
-                defaultDate: new Date(),
                 onChange: handleDateFilterChange
             });
             
-            // Date To
             flatpickr("#date_to", {
                 dateFormat: "d/m/Y",
                 allowInput: false,
-                defaultDate: new Date(),
                 onChange: handleDateFilterChange
             });
         }
