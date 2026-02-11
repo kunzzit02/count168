@@ -1143,13 +1143,13 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     $has_currency_id = $stmt->rowCount() > 0;
 
     if ($has_currency_id) {
-        // Cr/Dr = 仅 PAYMENT/RECEIVE/CONTRA/CLAIM；WIN/LOSE（含 PROFIT）计入 Win/Loss 列；排除 CLEAR
+        // Cr/Dr = PAYMENT/RECEIVE/CONTRA/CLAIM + CLEAR；WIN/LOSE（含 PROFIT）计入 Win/Loss 列
         $sql = "
             SELECT
                 COALESCE(SUM(
                     CASE
                         -- 作为 To Account（收到 / 支付）
-                        WHEN t.account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN t.amount
+                        WHEN t.account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR') THEN t.amount
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN t.amount
 
                         -- 作为 From Account（支付 / 收到）
@@ -1163,8 +1163,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
             FROM transactions t
             WHERE t.company_id = :company_id
               AND t.transaction_date BETWEEN :date_from AND :date_to
-              AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM')
-              AND t.transaction_type <> 'CLEAR'
+              AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR')
               AND t.currency_id = :currency_id
               AND (t.account_id = :acc_id OR t.from_account_id = :acc_id)
               " . (hasContraApprovalColumns($pdo) ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
@@ -1183,10 +1182,10 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         $cr_dr += (float)($row['cr_dr'] ?? 0);
         $transaction_count += (int)($row['txn_count'] ?? 0);
     } else {
-        // 旧环境（没有 currency_id 字段）：Cr/Dr 仅 PAYMENT/RECEIVE/CONTRA/CLAIM；WIN/LOSE 计入 Win/Loss；排除 CLEAR
+        // 旧环境（没有 currency_id 字段）：Cr/Dr = PAYMENT/RECEIVE/CONTRA/CLAIM + CLEAR；WIN/LOSE 计入 Win/Loss
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR') THEN t.amount
                         WHEN transaction_type = 'PAYMENT' THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr,
@@ -1195,8 +1194,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                 WHERE t.company_id = ?
                   AND t.account_id = ?
                   AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM')
-                  AND t.transaction_type <> 'CLEAR'
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR')
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd
