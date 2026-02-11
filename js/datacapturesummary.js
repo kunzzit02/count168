@@ -7526,15 +7526,32 @@ function getCurrentProcessId() {
             }
             if (parsedTableData && parsedTableData.rows) {
                 if (extractedRowLabel) {
-                    // 先按行首单元格的值匹配行标签（不要求 type==='header'，兼容不同表结构）
+                    const nSpLabel = (s) => (s || '').trim().replace(/\s+/g, '');
+                    const shortNormLabel = nSpLabel(shortTrim);
                     for (let i = 0; i < parsedTableData.rows.length; i++) {
                         const row = parsedTableData.rows[i];
                         if (row && row.length > 1 && row[1].type === 'data') {
                             const headerVal = (row[0] && (row[0].value != null)) ? String(row[0].value).trim() : '';
                             if (headerVal !== extractedRowLabel) continue;
                             const full = (row[1].value || '').trim();
-                            if (full === shortTrim || full.endsWith(shortTrim) || normalizeIdProductText(full) === normalizeIdProductText(shortTrim)) {
+                            if (full === shortTrim || full.endsWith(shortTrim)) {
                                 console.log('resolveToFullIdProduct: resolved', shortTrim, 'with rowLabel', extractedRowLabel, '->', full);
+                                return full;
+                            }
+                            if (shortNormLabel && nSpLabel(full).indexOf(shortNormLabel) === 0) {
+                                console.log('resolveToFullIdProduct: resolved (prefix) with rowLabel', extractedRowLabel, shortTrim, '->', full);
+                                return full;
+                            }
+                        }
+                    }
+                    for (let i = 0; i < parsedTableData.rows.length; i++) {
+                        const row = parsedTableData.rows[i];
+                        if (row && row.length > 1 && row[1].type === 'data') {
+                            const headerVal = (row[0] && (row[0].value != null)) ? String(row[0].value).trim() : '';
+                            if (headerVal !== extractedRowLabel) continue;
+                            const full = (row[1].value || '').trim();
+                            if (normalizeIdProductText(full) === normalizeIdProductText(shortTrim)) {
+                                console.log('resolveToFullIdProduct: resolved (base) with rowLabel', extractedRowLabel, shortTrim, '->', full);
                                 return full;
                             }
                         }
@@ -7552,12 +7569,28 @@ function getCurrentProcessId() {
                         }
                     }
                 }
+                const nSp = (s) => (s || '').trim().replace(/\s+/g, '');
+                const shortNorm = nSp(shortTrim);
                 for (let i = 0; i < parsedTableData.rows.length; i++) {
                     const row = parsedTableData.rows[i];
                     if (row && row.length > 1 && row[1].type === 'data') {
                         const full = (row[1].value || '').trim();
-                        if (full === shortTrim || full.endsWith(shortTrim) || normalizeIdProductText(full) === normalizeIdProductText(shortTrim)) {
+                        if (full === shortTrim || full.endsWith(shortTrim)) {
                             console.log('resolveToFullIdProduct: resolved', shortTrim, '->', full);
+                            return full;
+                        }
+                        if (shortNorm && nSp(full).indexOf(shortNorm) === 0) {
+                            console.log('resolveToFullIdProduct: resolved (prefix match)', shortTrim, '->', full);
+                            return full;
+                        }
+                    }
+                }
+                for (let i = 0; i < parsedTableData.rows.length; i++) {
+                    const row = parsedTableData.rows[i];
+                    if (row && row.length > 1 && row[1].type === 'data') {
+                        const full = (row[1].value || '').trim();
+                        if (normalizeIdProductText(full) === normalizeIdProductText(shortTrim)) {
+                            console.log('resolveToFullIdProduct: resolved (base match)', shortTrim, '->', full);
                             return full;
                         }
                     }
@@ -7593,8 +7626,9 @@ function getCurrentProcessId() {
         function findProcessRow(tableData, processValue, rowIndex = null) {
             if (!tableData.rows) return null;
 
-            // 若传入的是截断 id（如 "(T07)"），先解析为完整 id_product
-            const processValueResolved = typeof resolveToFullIdProduct === 'function' ? resolveToFullIdProduct(processValue) : processValue;
+            // 仅当传入的是截断 id（如 "(T07)"、"KZAWCMS(SV)"）时才解析为完整 id_product，完整 id（如 KZAWCMS (SV) MYR）直接使用，避免 (SV) 被错误解析成 (KM)
+            const processValueResolved = (typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(processValue))
+                ? resolveToFullIdProduct(processValue) : (processValue || '').trim();
 
             // Normalize the process value for comparison (only used when not full id)
             const normalizedProcessValue = normalizeIdProductText(processValueResolved);
