@@ -272,6 +272,94 @@ try {
         $description = $transaction_type . ' FROM ' . $from_account['account_id'];
     }
     
+    // CLEAR 类型：查询当前余额并自动计算 amount
+    if ($is_clear) {
+        if (empty($currency)) {
+            throw new Exception('CLEAR 交易必须选择 Currency');
+        }
+        
+        // 计算当前余额（到交易日期之前）
+        // Balance = B/F + Win/Loss + Cr/Dr（到交易日期之前）
+        $current_balance = 0;
+        
+        // 1. 计算 B/F（Opening Balance）
+        // 检查 transactions 表是否有 currency_id 字段
+        $has_transaction_currency = tableHasColumn($pdo, 'transactions', 'currency_id');
+        
+        // 计算起始日期之前所有 Data Capture 的累计金额
+        $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
+                FROM data_capture_details dcd
+                JOIN data_captures dc ON dcd.capture_id = dc.id
+                WHERE dcd.company_id = ?
+                  AND dc.company_id = ?
+                  AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+                  AND dcd.currency_id = ?
+                  AND dc.capture_date < ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $transaction_date_db]);
+        $current_balance += (float)$stmt->fetchColumn();
+        
+        // 2. 计算起始日期之前所有 transactions 的影响（作为 To Account）
+        if ($has_transaction_currency) {
+            $sql = "SELECT 
+                        COALESCE(SUM(CASE 
+                            WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN amount
+                            WHEN transaction_type = 'PAYMENT' THEN amount
+                            WHEN transaction_type = 'WIN' THEN amount
+                            WHEN transaction_type = 'LOSE' THEN -amount
+                            ELSE 0
+                        END), 0) as cr_dr
+                    FROM transactions
+                    WHERE company_id = ?
+                      AND account_id = ?
+                      AND currency_id = ?
+                      AND transaction_date < ?
+                      AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+                      AND (transaction_type != 'RATE' OR from_account_id IS NOT NULL)";
+            
+            // 添加 Contra 审批过滤
+            if (tableHasColumn($pdo, 'transactions', 'approval_status')) {
+                $sql .= " AND (transaction_type <> 'CONTRA' OR approval_status = 'APPROVED')";
+            }
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$company_id, $account_id, $currency_id, $transaction_date_db]);
+            $current_balance += (float)$stmt->fetchColumn();
+            
+            // 3. 计算起始日期之前所有 transactions 的影响（作为 From Account）
+            $sql = "SELECT 
+                        COALESCE(SUM(CASE 
+                            WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -amount
+                            WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
+                            ELSE 0
+                        END), 0) as cr_dr
+                    FROM transactions
+                    WHERE company_id = ?
+                      AND from_account_id = ?
+                      AND currency_id = ?
+                      AND transaction_date < ?
+                      AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')";
+            
+            // 添加 Contra 审批过滤
+            if (tableHasColumn($pdo, 'transactions', 'approval_status')) {
+                $sql .= " AND (transaction_type <> 'CONTRA' OR approval_status = 'APPROVED')";
+            }
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$company_id, $account_id, $currency_id, $transaction_date_db]);
+            $current_balance += (float)$stmt->fetchColumn();
+        }
+        
+        // 自动计算 amount = -余额（如果余额是正数，就生成负数；如果余额是负数，就生成正数）
+        $amount = -$current_balance;
+        
+        // 生成 description = "CLEAR TO {account_id}"
+        $description = 'CLEAR TO ' . $to_account['account_id'];
+        
+        // CLEAR 不需要 from_account_id
+        $from_account_id = null;
+    }
+    
     // 开始事务
     $pdo->beginTransaction();
     

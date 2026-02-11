@@ -2250,7 +2250,8 @@ function submitAction() {
         
         currency = rateCurrencyFrom;
     } else {
-        if (!amount || amount <= 0) {
+        // CLEAR 类型不需要验证 amount（后端会自动计算）
+        if (effectiveType !== 'CLEAR' && (!amount || amount <= 0)) {
             showNotification('Please enter a valid amount', 'error');
             return;
         }
