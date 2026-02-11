@@ -2075,15 +2075,31 @@ function submitAction() {
     const type = document.getElementById('transaction_type').value;
     const effectiveType = (type === 'PROFIT') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
     const isRate = type === RATE_TYPE_VALUE;
+    const isClear = type === 'CLEAR';
     
     const standardToAccountInput = document.getElementById('action_account_id');
     const standardFromAccountInput = document.getElementById('action_account_from');
     const rateToAccountInput = document.getElementById('rate_account_to');
     const rateFromAccountInput = document.getElementById('rate_account_from');
 
+    // 计算 To / From Account
     // PROFIT：第一个下拉为 To Account、第二个为 From Account，前后两个账户的 Payment History 都要显示
-    const accountId = isRate ? getAccountId(rateToAccountInput) : (type === 'PROFIT' ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput));
-    const fromAccountId = isRate ? getAccountId(rateFromAccountInput) : (type === 'PROFIT' ? getAccountId(standardToAccountInput) : getAccountId(standardFromAccountInput));
+    // CLEAR：只需要一个 Account（使用当前可见的 Account 下拉：standardFromAccountInput）
+    let accountId;
+    let fromAccountId;
+    if (isRate) {
+        accountId = getAccountId(rateToAccountInput);
+        fromAccountId = getAccountId(rateFromAccountInput);
+    } else if (type === 'PROFIT') {
+        accountId = getAccountId(standardFromAccountInput);
+        fromAccountId = getAccountId(standardToAccountInput);
+    } else if (isClear) {
+        accountId = getAccountId(standardFromAccountInput);
+        fromAccountId = null;
+    } else {
+        accountId = getAccountId(standardToAccountInput);
+        fromAccountId = getAccountId(standardFromAccountInput);
+    }
     
     const standardAmountInput = document.getElementById('action_amount');
     const rateCurrencyFromAmountInput = document.getElementById('rate_currency_from_amount');
@@ -2250,7 +2266,8 @@ function submitAction() {
         
         currency = rateCurrencyFrom;
     } else {
-        if (!amount || amount <= 0) {
+        // CLEAR 类型不需要验证 amount（后端会自动计算）
+        if (effectiveType !== 'CLEAR' && (!amount || amount <= 0)) {
             showNotification('Please enter a valid amount', 'error');
             return;
         }
@@ -2260,7 +2277,7 @@ function submitAction() {
             showNotification('Please select Currency', 'error');
             return;
         }
-        if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR'].includes(effectiveType) && !fromAccountId) {
+        if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'].includes(effectiveType) && !fromAccountId) {
             showNotification('This transaction type requires From Account', 'error');
             return;
         }
@@ -2566,9 +2583,11 @@ function handleTypeToggle() {
     const standardFields = document.getElementById('standard-transaction-fields');
     const rateFields = document.getElementById('rate-transaction-fields');
     const remarkGroup = document.getElementById('remark_form_group');
+    const amountGroup = document.getElementById('amount_form_group');
     if (!typeSel) return;
     
     const isRate = typeSel.value === RATE_TYPE_VALUE;
+    const isClear = typeSel.value === 'CLEAR';
     
     if (standardFields) {
         standardFields.style.display = isRate ? 'none' : 'block';
@@ -2578,6 +2597,9 @@ function handleTypeToggle() {
     }
     if (remarkGroup) {
         remarkGroup.style.display = isRate ? 'none' : '';
+    }
+    if (amountGroup) {
+        amountGroup.style.display = isClear ? 'none' : '';
     }
     
     // 保持日期同步
@@ -2592,9 +2614,8 @@ function handleTypeToggle() {
     }
     
     // 控制「From Account」与「Reverse」的显示（不隐藏 To Account，保证排版一致）
-    const accountInputs = document.querySelector('.transaction-account-inputs');
     const fromAccountWrapper = document.getElementById('action_account_id')?.closest('.custom-select-wrapper');
-    const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'PROFIT', 'CLEAR'].includes(typeSel.value);
+    const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'PROFIT'].includes(typeSel.value);
     const showFromAndReverse = !isRate && needsFrom;
     if (fromAccountWrapper) {
         fromAccountWrapper.style.display = showFromAndReverse ? '' : 'none';

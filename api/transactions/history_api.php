@@ -629,13 +629,11 @@ try {
                 break;
                 
             case 'CLEAR':
-                if ($is_internal_transfer) {
-                    $cr_dr = 0;
-                } elseif ($is_to_account) {
+                // CLEAR 类型：只影响 To Account，用于清零余额
+                if ($is_to_account) {
                     $cr_dr = $t['amount'];
-                } else {
-                    $cr_dr = -$t['amount'];
                 }
+                // CLEAR 没有 from_account_id，所以不需要处理 From Account
                 break;
                 
         }
@@ -687,7 +685,7 @@ try {
         }
         
         // 如果是 CONTRA/PAYMENT/RECEIVE/CLAIM/RATE，根据当前查看的账户调整 description
-        if (in_array($t['transaction_type'], ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'RATE', 'CLEAR'])) {
+        if (in_array($t['transaction_type'], ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'RATE'])) {
             if (empty($t['description'])) {
                 // 如果原始 description 为空，自动生成
                 if ($is_to_account) {
@@ -699,7 +697,7 @@ try {
                 }
             } else {
                 // 如果原始 description 是自动生成的格式，需要根据视角调整
-                if (preg_match('/^(CONTRA|PAYMENT|RECEIVE|CLAIM|RATE|CLEAR) (FROM|TO) (.+)$/', $t['description'], $matches)) {
+                if (preg_match('/^(CONTRA|PAYMENT|RECEIVE|CLAIM|RATE) (FROM|TO) (.+)$/', $t['description'], $matches)) {
                     $type = $matches[1];
                     $direction = $matches[2];
                     $other_account = $matches[3];
@@ -975,9 +973,10 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
     
     // 2. 计算日期之前所有 transactions 的影响
     // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM 影响 Cr/Dr（作为 To Account）- Win/Loss 只包含 Data Capture
+    // 排除 CLEAR 类型（CLEAR 不影响 B/F 计算，因为它只是清零操作）
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
-                    WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE') THEN amount
+                    WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN amount
                     WHEN transaction_type = 'PAYMENT' THEN amount
                     WHEN transaction_type = 'WIN' THEN amount
                     WHEN transaction_type = 'LOSE' THEN -amount
@@ -987,7 +986,8 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
             WHERE company_id = ?
               AND account_id = ?
               AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE', 'WIN', 'LOSE')
+              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+              AND transaction_type <> 'CLEAR'
               AND (transaction_type != 'RATE' OR from_account_id IS NOT NULL)"
               . historyContraApprovedWhere($pdo, '');
     
@@ -997,9 +997,10 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
     
     // PAYMENT/RECEIVE/CONTRA/CLAIM/RATE 影响 Cr/Dr（作为 From Account）
     // 注意：RATE 类型的 from_account_id 可能为 NULL（手续费记录），这些记录不会在这里被计算
+    // 排除 CLEAR 类型（CLEAR 没有 from_account_id）
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
-                    WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'CLEAR', 'RATE') THEN -amount
+                    WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -amount
                     WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
                     ELSE 0
                 END), 0) as cr_dr
@@ -1007,7 +1008,8 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
             WHERE company_id = ?
               AND from_account_id = ?
               AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE')"
+              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')
+              AND transaction_type <> 'CLEAR'"
               . historyContraApprovedWhere($pdo, '');
     
     $stmt = $pdo->prepare($sql);
@@ -1047,10 +1049,11 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     $bf += $stmt->fetchColumn();
     
     // 2. 计算起始日期之前所有 Cr/Dr（包括 WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM，作为 To Account，按 currency 过滤）
+    // 排除 CLEAR 类型（CLEAR 不影响 B/F 计算）
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE') THEN t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN t.amount
                         WHEN transaction_type = 'PAYMENT' THEN t.amount
                         WHEN transaction_type = 'WIN' THEN t.amount
                         WHEN transaction_type = 'LOSE' THEN -t.amount
@@ -1061,7 +1064,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.account_id = ?
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE', 'WIN', 'LOSE')
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+                  AND t.transaction_type <> 'CLEAR'
                   AND (t.transaction_type != 'RATE' OR t.from_account_id IS NOT NULL)"
                   . historyContraApprovedWhere($pdo, 't');
         
@@ -1070,7 +1074,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE') THEN t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN t.amount
                         WHEN transaction_type = 'PAYMENT' THEN t.amount
                         WHEN transaction_type = 'WIN' THEN t.amount
                         WHEN transaction_type = 'LOSE' THEN -t.amount
@@ -1080,7 +1084,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                 WHERE t.company_id = ?
                   AND t.account_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE', 'WIN', 'LOSE')
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+                  AND t.transaction_type <> 'CLEAR'
                   AND (t.transaction_type != 'RATE' OR t.from_account_id IS NOT NULL)
                   AND EXISTS (
                       SELECT 1
@@ -1101,7 +1106,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'CLEAR', 'RATE') THEN -t.amount
+                        WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -t.amount
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
                         ELSE 0
                     END), 0) as cr_dr
@@ -1110,7 +1115,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.from_account_id = ?
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE')"
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')
+                  AND t.transaction_type <> 'CLEAR'"
                   . historyContraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
@@ -1118,7 +1124,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'CLEAR', 'RATE') THEN -t.amount
+                        WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -t.amount
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
                         ELSE 0
                     END), 0) as cr_dr
@@ -1126,7 +1132,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                 WHERE t.company_id = ?
                   AND t.from_account_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE')
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')
+                  AND t.transaction_type <> 'CLEAR'
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd

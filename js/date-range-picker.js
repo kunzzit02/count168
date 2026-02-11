@@ -41,9 +41,19 @@
         const picker = document.getElementById('date-range-picker');
         if (!popup || !picker) return;
         if (popup.style.display === 'none' || !popup.style.display) {
-            const rect = picker.getBoundingClientRect();
+            var rect = picker.getBoundingClientRect();
+            var barWidth = rect.width;
+            var parent = picker.parentElement;
+            if (parent) {
+                var parentRect = parent.getBoundingClientRect();
+                if (parentRect.width > barWidth) barWidth = parentRect.width;
+            }
             popup.style.top = (rect.bottom + 8) + 'px';
             popup.style.left = rect.left + 'px';
+            popup.style.width = barWidth + 'px';
+            popup.style.minWidth = '';
+            popup.style.maxWidth = '';
+            popup.style.boxSizing = 'border-box';
             popup.style.display = 'block';
             initCalendar();
             renderCalendar();

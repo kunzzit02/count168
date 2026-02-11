@@ -254,11 +254,11 @@ try {
                 
                 // 2. 获取 Transactions 的每日 Cr/Dr（使用请求级缓存的列检测）
                 if ($hasTransactionCurrency) {
-                    // 作为 To Account 的每日 Cr/Dr
+                    // 作为 To Account 的每日 Cr/Dr（排除 CLEAR 类型）
                     $txn_daily_stmt = $pdo->prepare("
                         SELECT DATE(t.transaction_date) as date,
                                COALESCE(SUM(CASE 
-                                   WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE') THEN t.amount
+                                   WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN t.amount
                                    WHEN transaction_type = 'PAYMENT' THEN t.amount
                                    WHEN transaction_type = 'WIN' THEN t.amount
                                    WHEN transaction_type = 'LOSE' THEN -t.amount
@@ -269,7 +269,8 @@ try {
                           AND t.account_id = ?
                           AND t.currency_id = ?
                           AND t.transaction_date BETWEEN ? AND ?
-                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE', 'WIN', 'LOSE')
+                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+                          AND t.transaction_type <> 'CLEAR'
                           " . (dashboardHasContraApprovalColumns($pdo) ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
                         GROUP BY DATE(t.transaction_date)
                         ORDER BY DATE(t.transaction_date)
@@ -286,11 +287,11 @@ try {
                         $daily_data[$date] += (float)$txn_row['cr_dr'];
                     }
                     
-                    // 作为 From Account 的每日 Cr/Dr
+                    // 作为 From Account 的每日 Cr/Dr（排除 CLEAR 类型）
                     $txn_from_daily_stmt = $pdo->prepare("
                         SELECT DATE(t.transaction_date) as date,
                                COALESCE(SUM(CASE 
-                                   WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'CLEAR', 'RATE') THEN -t.amount
+                                   WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -t.amount
                                    WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
                                    ELSE 0
                                END), 0) as cr_dr
@@ -299,7 +300,8 @@ try {
                           AND t.from_account_id = ?
                           AND t.currency_id = ?
                           AND t.transaction_date BETWEEN ? AND ?
-                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE')
+                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')
+                          AND t.transaction_type <> 'CLEAR'
                           " . (dashboardHasContraApprovalColumns($pdo) ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
                         GROUP BY DATE(t.transaction_date)
                         ORDER BY DATE(t.transaction_date)
@@ -385,7 +387,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR') THEN amount
+                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN amount
                         WHEN transaction_type = 'WIN' THEN amount
                         WHEN transaction_type = 'LOSE' THEN -amount
@@ -396,7 +398,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND account_id = ?
                   AND currency_id = ?
                   AND transaction_date < ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'WIN', 'LOSE')"
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE')"
                   . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
@@ -406,7 +408,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         // 3. 计算起始日期之前所有 Cr/Dr（作为 From Account）
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'CLEAR') THEN -amount
+                        WHEN transaction_type IN ('PAYMENT', 'CONTRA') THEN -amount
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
                         ELSE 0
                     END), 0) as cr_dr
@@ -415,7 +417,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND from_account_id = ?
                   AND currency_id = ?
                   AND transaction_date < ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR')"
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM')"
                   . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
@@ -498,10 +500,10 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         $has_transaction_currency = $check && $check->rowCount() > 0;
     }
     if ($has_transaction_currency) {
-        // 作为 To Account（排除 description 以 Process: 开头的 Bank Process WIN/LOSE，其在 Win/Loss）
+        // 作为 To Account（排除 description 以 Process: 开头的 Bank Process WIN/LOSE，其在 Win/Loss，排除 CLEAR）
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR') THEN amount
+                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN amount
                         WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
                         WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
@@ -512,17 +514,18 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                   AND account_id = ?
                   AND currency_id = ?
                   AND transaction_date BETWEEN ? AND ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'WIN', 'LOSE')"
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE')
+                  AND transaction_type <> 'CLEAR'"
                   . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from, $date_to]);
         $cr_dr += $stmt->fetchColumn();
         
-        // 作为 From Account
+        // 作为 From Account（排除 CLEAR）
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'CLEAR') THEN -amount
+                        WHEN transaction_type IN ('PAYMENT', 'CONTRA') THEN -amount
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
                         ELSE 0
                     END), 0) as cr_dr
@@ -531,7 +534,8 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                   AND from_account_id = ?
                   AND currency_id = ?
                   AND transaction_date BETWEEN ? AND ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR')"
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM')
+                  AND transaction_type <> 'CLEAR'"
                   . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
@@ -560,11 +564,12 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
             // 忽略
         }
         
-        // 检查是否有交易
+        // 检查是否有交易（排除 CLEAR）
         $check_sql = "SELECT COUNT(*) FROM transactions 
                       WHERE company_id = ? 
                         AND ((account_id = ? AND currency_id = ?) OR (from_account_id = ? AND currency_id = ?))
-                        AND transaction_date BETWEEN ? AND ?";
+                        AND transaction_date BETWEEN ? AND ?
+                        AND transaction_type <> 'CLEAR'";
         $check_stmt = $pdo->prepare($check_sql);
         $check_stmt->execute([$company_id, $account_id, $currency_id, $account_id, $currency_id, $date_from, $date_to]);
         $has_transactions = $check_stmt->fetchColumn() > 0;
