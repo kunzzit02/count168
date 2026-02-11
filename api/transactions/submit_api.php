@@ -286,7 +286,7 @@ try {
         // 检查 transactions 表是否有 currency_id 字段
         $has_transaction_currency = tableHasColumn($pdo, 'transactions', 'currency_id');
         
-        // 计算起始日期之前所有 Data Capture 的累计金额
+        // 计算截止 CLEAR 当日（含当日）之前所有 Data Capture 的累计金额
         $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
                 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
@@ -294,12 +294,12 @@ try {
                   AND dc.company_id = ?
                   AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
                   AND dcd.currency_id = ?
-                  AND dc.capture_date < ?";
+                  AND dc.capture_date <= ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $transaction_date_db]);
         $current_balance += (float)$stmt->fetchColumn();
         
-        // 2. 计算起始日期之前所有 transactions 的影响（作为 To Account）
+        // 2. 计算截止 CLEAR 当日（含当日）之前所有 transactions 的影响（作为 To Account）
         if ($has_transaction_currency) {
             $sql = "SELECT 
                         COALESCE(SUM(CASE 
@@ -313,7 +313,7 @@ try {
                     WHERE company_id = ?
                       AND account_id = ?
                       AND currency_id = ?
-                      AND transaction_date < ?
+                      AND transaction_date <= ?
                       AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
                       AND (transaction_type != 'RATE' OR from_account_id IS NOT NULL)";
             
@@ -326,7 +326,7 @@ try {
             $stmt->execute([$company_id, $account_id, $currency_id, $transaction_date_db]);
             $current_balance += (float)$stmt->fetchColumn();
             
-            // 3. 计算起始日期之前所有 transactions 的影响（作为 From Account）
+            // 3. 计算截止 CLEAR 当日（含当日）之前所有 transactions 的影响（作为 From Account）
             $sql = "SELECT 
                         COALESCE(SUM(CASE 
                             WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -amount
@@ -337,7 +337,7 @@ try {
                     WHERE company_id = ?
                       AND from_account_id = ?
                       AND currency_id = ?
-                      AND transaction_date < ?
+                      AND transaction_date <= ?
                       AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')";
             
             // 添加 Contra 审批过滤
