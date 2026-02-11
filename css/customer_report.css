@@ -33,6 +33,19 @@ body {
     flex-wrap: wrap;
 }
 
+/* Quick Select 与 Show All 成组，间距缩小 */
+.customer-report-quick-and-showall {
+    display: flex;
+    align-items: flex-end;
+    gap: clamp(8px, 0.8vw, 16px);
+    flex: 0 0 auto;
+}
+
+.customer-report-quick-and-showall .customer-report-filter-group {
+    min-width: 0;
+    width: auto;
+}
+
 .customer-report-filter-group {
     display: flex;
     flex-direction: column;
