@@ -4,8 +4,17 @@
  * 所有需要登录的页面都应该在开头包含此文件
  */
 
-// 确保session已启动
+// 确保 session 已启动；设置 Cookie 为 SameSite=Lax，使同站 fetch POST 会带上 Cookie（避免无痕等环境下 403）
 if (session_status() == PHP_SESSION_NONE) {
+    if (PHP_VERSION_ID >= 70300) {
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https'),
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+    }
     session_start();
 }
 

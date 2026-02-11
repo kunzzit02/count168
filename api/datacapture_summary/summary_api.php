@@ -1,4 +1,14 @@
 <?php
+// 确保 Session Cookie 在同站 POST（如 fetch 提交）时会被发送，避免无痕/部分环境下 403
+if (PHP_VERSION_ID >= 70300) {
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https'),
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+}
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
