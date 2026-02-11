@@ -12923,8 +12923,10 @@ function getCurrentProcessId() {
                 
                 if (cells[0]) { // Id Product (merged)
                     const productValues = getProductValuesFromCell(cells[0]);
+                    // 完整 ID（如含 " - RSLOTS - "）整条都按 main：强制设 main、清空 sub
+                    const forceMain = data.productType === 'main' && data.idProduct && (data.idProduct + '').indexOf(' - RSLOTS - ') >= 0;
                     // 刷新后应用模板时保留行上已有的完整 Id Product 显示，不因模板中的短 id_product 覆盖导致「后面部分消失」
-                    const preserveIdProduct = data.preserveIdProductDisplay && (productValues.main || '').trim() !== '';
+                    const preserveIdProduct = !forceMain && data.preserveIdProductDisplay && (productValues.main || '').trim() !== '';
                     if (!preserveIdProduct) {
                         // 完整 id_product（含 " - "）整串显示，不截断；否则沿用旧逻辑（bareIdProduct + description）
                         const rawIdProduct = (data.idProduct || '').trim();
@@ -12939,16 +12941,24 @@ function getCurrentProcessId() {
                             }
                         }
                         
-                        // Determine if this is a main or sub row update
-                        const isSubRow = !productValues.main || !productValues.main.trim();
-                        if (isSubRow) {
-                            // Update sub product value
-                            productValues.sub = idProductText;
-                            cells[0].setAttribute('data-sub-product', idProductText);
-                        } else {
-                            // Update main product value
+                        // 完整 RSLOTS ID 一律按 main；否则按原逻辑 main/sub
+                        if (forceMain) {
                             productValues.main = idProductText;
+                            productValues.sub = '';
                             cells[0].setAttribute('data-main-product', idProductText);
+                            cells[0].setAttribute('data-sub-product', '');
+                        } else {
+                            // Determine if this is a main or sub row update
+                            const isSubRow = !productValues.main || !productValues.main.trim();
+                            if (isSubRow) {
+                                // Update sub product value
+                                productValues.sub = idProductText;
+                                cells[0].setAttribute('data-sub-product', idProductText);
+                            } else {
+                                // Update main product value
+                                productValues.main = idProductText;
+                                cells[0].setAttribute('data-main-product', idProductText);
+                            }
                         }
                     } else {
                         // 保留时显式写回 data-main-product，确保完整名称不丢失
@@ -16076,6 +16086,11 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 ? Number(template.row_index)
                 : null
         };
+        // 完整 ID（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）整条都按 main：加载时 sub 模板也显示为 main 行
+        if ((idProduct + '').indexOf(' - RSLOTS - ') >= 0) {
+            data.idProduct = idProduct;
+            data.productType = 'main';
+        }
 
         window.currentAddAccountButton = targetButton;
         updateSubIdProductRow(idProduct, data, targetRow);
@@ -17046,6 +17061,13 @@ function formatPercentValue(value) {
                         idProduct = cleanIdProductSub;
                     }
                     
+                    // 完整 ID（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）整条都按 main 存储，不拆成 main+sub
+                    // 1) 若 main 的 ID 含 " - RSLOTS - "，则不提交 sub，只提交 main
+                    if (cleanIdProductMain && (cleanIdProductMain + '').indexOf(' - RSLOTS - ') >= 0) {
+                        cleanIdProductSub = null;
+                        descriptionSub = '';
+                    }
+                    
                     const account = accountText;
                     // ⚠ 列索引说明（参考表头）：
                     // 0: Id Product, 1: Account, 2: 按钮列, 3: Currency, 4: Formula, 
@@ -17157,6 +17179,15 @@ function formatPercentValue(value) {
                     
                     if (productTypeAttr) {
                         productType = productTypeAttr;
+                    }
+                    
+                    // 2) 若当前为 sub 行，但父级 ID 是完整格式（含 " - RSLOTS - "），则整条 ID 都按 main 提交
+                    if (productType === 'sub' && parentIdProductAttr && (parentIdProductAttr + '').indexOf(' - RSLOTS - ') >= 0) {
+                        productType = 'main';
+                        cleanIdProductMain = (parentIdProductAttr + '').trim();
+                        cleanIdProductSub = null;
+                        idProduct = cleanIdProductMain;
+                        descriptionSub = '';
                     }
                     
                     // Get account ID and currency ID from data attributes (stored when saving formula)
