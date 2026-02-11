@@ -2947,11 +2947,19 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // Normalize both values for comparison (same as updateFormulaDataGrid)
+                const rowIdTrim = (rowIdProduct || '').trim();
                 const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct || '');
+                const idTrim = (idProduct || '').trim();
+                // 整组 Id_product 比较时忽略内部空格差异，如 ALLBET95MS (KM) MYR 与 ALLBET95MS(KM)MYR 视为同一条
+                const normalizeSpaces = function(s) { return (s || '').trim().replace(/\s+/g, ''); };
                 
-                // Check if id_product matches using normalized comparison
-                if (!normalizedRowIdProduct || normalizedRowIdProduct !== normalizedTargetIdProduct) {
+                // 整组 Id_product（如 ALLBET95MS(KM)MYR）只做精确匹配，避免 (KM) 选到 (SV)/(SEXY) 三行
+                const useExactMatch = typeof isTruncatedIdProduct === 'function' && !isTruncatedIdProduct(idProduct);
+                const idProductMatches = useExactMatch
+                    ? (normalizeSpaces(rowIdTrim) === normalizeSpaces(idTrim))
+                    : (normalizedRowIdProduct && normalizedRowIdProduct === normalizedTargetIdProduct);
+                
+                if (!idProductMatches) {
                     return;
                 }
                 
