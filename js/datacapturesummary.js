@@ -5624,11 +5624,14 @@ function getCurrentProcessId() {
                 }
             }
             
-            // Determine if clicked cell belongs to current row
-            // Must match both id_product AND row_label to be considered current row
-            // This ensures we can distinguish between multiple rows with same id_product
-            const idProductMatches = currentIdProduct && idProduct && 
-                                     normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct);
+            // ALLBET95MS(SV)MYR / (KM)MYR / (SEXY)MYR 每个都是独立 main，不归一：用去空格比较；否则用 normalizeIdProductText
+            const normalizeSpacesForRow = (s) => (s || '').trim().replace(/\s+/g, '');
+            const bothFull = typeof isFullIdProduct === 'function' && isFullIdProduct(currentIdProduct) && isFullIdProduct(idProduct);
+            const idProductMatches = currentIdProduct && idProduct && (
+                bothFull
+                    ? normalizeSpacesForRow(currentIdProduct) === normalizeSpacesForRow(idProduct)
+                    : normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct)
+            );
             
             // 当前编辑行无 row_label（如 ALLBET95MS(KM)MYR）时，只要 id_product 一致就视为「本行」，用 $列号
             let rowLabelMatches = true;
@@ -7458,11 +7461,14 @@ function getCurrentProcessId() {
             }
         }
 
-        // 判断是否为「完整」id_product（含 " - " 的整串），此类只做精确匹配，不做归一化匹配
+        // 判断是否为「完整」id_product：含 " - " 的整串，或 BASE(XX)YY 形式（如 ALLBET95MS(SV)MYR、ALLBET95MS(KM)MYR）
+        // 此类每个都是独立 main，只做精确/去空格匹配，不做归一化（不把 (SV)/(KM)/(SEXY) 归成同一 base）
         function isFullIdProduct(value) {
             if (!value || typeof value !== 'string') return false;
             const t = value.trim();
-            return t.indexOf(' - ') >= 0;
+            if (t.indexOf(' - ') >= 0) return true;
+            const openParen = t.indexOf('(');
+            return openParen > 0 && t.indexOf(')', openParen) > openParen;
         }
 
         // 判断是否为截断的 id_product（仅对明确短格式解析，如 "(T07)"、"(T07):AF"、极短缩写）
@@ -7615,8 +7621,8 @@ function getCurrentProcessId() {
                 }
             }
 
-            // Look for the row where column A (index 1) matches the process value
-            // 完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - AB4D55MYR (T38)）只做精确匹配，避免误取 4DDMYMYR (T07) 等同行数据
+            // 完整 id_product（ALLBET95MS(SV)MYR / (KM) / (SEXY) 等）只做精确或去空格匹配，不归一成同一 base
+            const normalizeSpaces = (s) => (s || '').trim().replace(/\s+/g, '');
             console.log('findProcessRow: Searching all rows for id_product:', processValueResolved);
             for (let i = 0; i < tableData.rows.length; i++) {
                 const row = tableData.rows[i];
@@ -7624,6 +7630,10 @@ function getCurrentProcessId() {
                     const rowValue = row[1].value;
                     if (rowValue === processValueResolved) {
                         console.log('findProcessRow: Found row at index:', i, 'by exact match');
+                        return row;
+                    }
+                    if (useExactOnly && normalizeSpaces(rowValue) === normalizeSpaces(processValueResolved)) {
+                        console.log('findProcessRow: Found row at index:', i, 'by normalize-spaces match');
                         return row;
                     }
                     if (!useExactOnly) {
