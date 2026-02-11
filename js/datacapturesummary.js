@@ -676,126 +676,117 @@ function getCurrentProcessId() {
             
             console.log('Column A data:', columnAData);
             
-            // Create rows for the original table
-            // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
+            // 按 base id 分组：同组第一项为 MAIN，其余为 SUB 紧接在 MAIN 下面（SUB 要在 MAIN 的账号下面）
+            const baseGroups = new Map();
             columnAData.forEach((value, index) => {
-                if (value && value.trim() !== '') { // Only add non-empty values
-                    const row = document.createElement('tr');
-                    
-                    // Set data-row-index to match Data Capture Table row position
-                    // For D row (index 3) with multiple entries, all split rows should use row index 3
-                    // This ensures Summary Table order matches Data Capture Table order
-                    // 设置 data-row-index 以匹配 Data Capture Table 行位置
-                    // 对于 D 行（索引 3）有多个条目的情况，所有拆分的行都应使用行索引 3
-                    // 这确保 Summary Table 顺序与 Data Capture Table 顺序匹配
-                    const originalRowIndex = rowIndexMap[index] !== undefined ? rowIndexMap[index] : index;
-                    row.setAttribute('data-row-index', String(originalRowIndex));
-                    row.setAttribute('data-product-type', 'main');
-                    
-                    // Id Product column (merged main and sub) - title 用于悬停显示完整 id_product
-                    const idProductCell = document.createElement('td');
-                    idProductCell.textContent = value;
-                    if (value) idProductCell.setAttribute('title', value);
-                    idProductCell.className = 'id-product';
-                    idProductCell.setAttribute('data-main-product', value);
-                    idProductCell.setAttribute('data-sub-product', '');
-                    row.appendChild(idProductCell);
-                    
-                    // Account column (text only)
-                    const accountCell = document.createElement('td');
-                    row.appendChild(accountCell);
-                    
-                    // Add column with + button
-                    const addCell = document.createElement('td');
-                    const addButton = document.createElement('button');
-                    addButton.className = 'add-account-btn';
-                    addButton.innerHTML = '+';
-                    addButton.onclick = function() {
-                        handleAddAccount(this, value); // Pass the product value
-                    };
-                    addCell.appendChild(addButton);
-                    row.appendChild(addCell);
-                    
-                    // Currency column
-                    const currencyCell = document.createElement('td');
-                    currencyCell.textContent = '';
-                    row.appendChild(currencyCell);
-                    
-                    // Other columns
-                    const otherColumns = ['Formula', 'Source'];
-                    otherColumns.forEach(() => {
-                        const cell = document.createElement('td');
-                        cell.textContent = ''; // Empty cells
-                        row.appendChild(cell);
-                    });
-                    
-                    // Rate column (with checkbox directly displayed)
-                    const rateCell = document.createElement('td');
-                    rateCell.style.textAlign = 'center';
-                    const rateCheckbox = document.createElement('input');
-                    rateCheckbox.type = 'checkbox';
-                    rateCheckbox.className = 'rate-checkbox';
-                    rateCell.appendChild(rateCheckbox);
-                    row.appendChild(rateCell);
-                    
-                    // Rate Value column (new column for individual rate input)
-                    const rateValueCell = document.createElement('td');
-                    rateValueCell.style.textAlign = 'center';
-                    rateValueCell.classList.add('editable-cell');
-                    rateValueCell.style.cursor = 'text';
-                    rateValueCell.textContent = '';
-                    // Make cell editable on click
-                    attachRateValueEditListener(rateValueCell, row);
-                    row.appendChild(rateValueCell);
-                    
-                    // Processed Amount column
-                    const processedAmountCell = document.createElement('td');
-                    processedAmountCell.textContent = '';
-                    row.appendChild(processedAmountCell);
-                    
-                    // Select column（新增勾选框，与删除勾选独立）
-                    const selectCell = document.createElement('td');
-                    selectCell.style.textAlign = 'center';
-                    const selectCheckbox = document.createElement('input');
-                    selectCheckbox.type = 'checkbox';
-                    selectCheckbox.className = 'summary-select-checkbox';
-                    // 勾选后给整行加删除线效果，并更新总计
-                    selectCheckbox.addEventListener('change', function() {
-                        const row = this.closest('tr');
-                        if (row) {
-                            if (this.checked) {
-                                row.classList.add('summary-row-selected');
-                            } else {
-                                row.classList.remove('summary-row-selected');
-                            }
-                        }
-                        // 选中/取消选中时，重新计算 Total（忽略被选中的行）
-                        if (typeof updateProcessedAmountTotal === 'function') {
-                            updateProcessedAmountTotal();
-                        }
-                    });
-                    selectCell.appendChild(selectCheckbox);
-                    row.appendChild(selectCell);
-                    
-                    // Delete checkbox column
-                    const checkboxCell = document.createElement('td');
-                    checkboxCell.style.textAlign = 'center';
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.className = 'summary-row-checkbox';
-                    checkbox.setAttribute('data-value', value);
-                    checkbox.addEventListener('change', updateDeleteButton);
-                    checkboxCell.appendChild(checkbox);
-                    row.appendChild(checkboxCell);
-                    
-                    originalTableBody.appendChild(row);
-                    
-                    // Attach double-click event listeners for formula and source percent cells
-                    // Note: These cells are empty initially, listeners will be attached when cells are populated
+                if (!value || value.trim() === '') return;
+                const baseId = typeof normalizeIdProductText === 'function' ? normalizeIdProductText(value) : value;
+                if (!baseGroups.has(baseId)) baseGroups.set(baseId, []);
+                const rowIndex = rowIndexMap[index] !== undefined ? rowIndexMap[index] : index;
+                baseGroups.get(baseId).push({ value: value.trim(), index, rowIndex });
+            });
+            const orderedEntries = [];
+            baseGroups.forEach((entries) => {
+                entries.sort((a, b) => a.index - b.index);
+                const mainRowIndex = entries[0].rowIndex;
+                orderedEntries.push({ value: entries[0].value, originalRowIndex: entries[0].rowIndex, isMain: true, mainRowIndex: mainRowIndex, subOrder: 0 });
+                for (let i = 1; i < entries.length; i++) {
+                    orderedEntries.push({ value: entries[i].value, originalRowIndex: entries[i].rowIndex, isMain: false, parentValue: entries[0].value, mainRowIndex: mainRowIndex, subOrder: i });
                 }
             });
+            orderedEntries.sort((a, b) => (a.mainRowIndex !== b.mainRowIndex ? a.mainRowIndex - b.mainRowIndex : (a.subOrder || 0) - (b.subOrder || 0)));
             
-            console.log(`Populated ${columnAData.filter(v => v && v.trim() !== '').length} rows in original table`);
+            // Create rows: MAIN first, then SUBs under same base
+            orderedEntries.forEach((entry) => {
+                const value = entry.value;
+                const originalRowIndex = entry.isMain ? entry.originalRowIndex : entry.mainRowIndex;
+                const row = document.createElement('tr');
+                row.setAttribute('data-row-index', String(originalRowIndex));
+                row.setAttribute('data-product-type', entry.isMain ? 'main' : 'sub');
+                if (!entry.isMain) {
+                    row.setAttribute('data-parent-id-product', entry.parentValue || '');
+                    row.setAttribute('data-sub-order', String(entry.subOrder || 1));
+                }
+                
+                const idProductCell = document.createElement('td');
+                idProductCell.textContent = value;
+                if (value) idProductCell.setAttribute('title', value);
+                idProductCell.className = 'id-product' + (entry.isMain ? '' : ' sub-id-product');
+                idProductCell.setAttribute('data-main-product', entry.isMain ? value : (entry.parentValue || ''));
+                idProductCell.setAttribute('data-sub-product', entry.isMain ? '' : value);
+                row.appendChild(idProductCell);
+                
+                const accountCell = document.createElement('td');
+                row.appendChild(accountCell);
+                
+                const addCell = document.createElement('td');
+                const addButton = document.createElement('button');
+                addButton.className = 'add-account-btn';
+                addButton.innerHTML = '+';
+                addButton.onclick = function() { handleAddAccount(this, value); };
+                addCell.appendChild(addButton);
+                row.appendChild(addCell);
+                
+                const currencyCell = document.createElement('td');
+                currencyCell.textContent = '';
+                row.appendChild(currencyCell);
+                
+                ['Formula', 'Source'].forEach(() => {
+                    const cell = document.createElement('td');
+                    cell.textContent = '';
+                    row.appendChild(cell);
+                });
+                
+                const rateCell = document.createElement('td');
+                rateCell.style.textAlign = 'center';
+                const rateCheckbox = document.createElement('input');
+                rateCheckbox.type = 'checkbox';
+                rateCheckbox.className = 'rate-checkbox';
+                rateCell.appendChild(rateCheckbox);
+                row.appendChild(rateCell);
+                
+                const rateValueCell = document.createElement('td');
+                rateValueCell.style.textAlign = 'center';
+                rateValueCell.classList.add('editable-cell');
+                rateValueCell.style.cursor = 'text';
+                rateValueCell.textContent = '';
+                attachRateValueEditListener(rateValueCell, row);
+                row.appendChild(rateValueCell);
+                
+                const processedAmountCell = document.createElement('td');
+                processedAmountCell.textContent = '';
+                row.appendChild(processedAmountCell);
+                
+                const selectCell = document.createElement('td');
+                selectCell.style.textAlign = 'center';
+                const selectCheckbox = document.createElement('input');
+                selectCheckbox.type = 'checkbox';
+                selectCheckbox.className = 'summary-select-checkbox';
+                selectCheckbox.addEventListener('change', function() {
+                    const row = this.closest('tr');
+                    if (row) {
+                        if (this.checked) row.classList.add('summary-row-selected');
+                        else row.classList.remove('summary-row-selected');
+                    }
+                    if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
+                });
+                selectCell.appendChild(selectCheckbox);
+                row.appendChild(selectCell);
+                
+                const checkboxCell = document.createElement('td');
+                checkboxCell.style.textAlign = 'center';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'summary-row-checkbox';
+                checkbox.setAttribute('data-value', value);
+                checkbox.addEventListener('change', updateDeleteButton);
+                checkboxCell.appendChild(checkbox);
+                row.appendChild(checkboxCell);
+                
+                originalTableBody.appendChild(row);
+            });
+            
+            console.log(`Populated ${orderedEntries.length} rows in original table (MAIN then SUB under same base)`);
 
             updateProcessedAmountTotal();
 
