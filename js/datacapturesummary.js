@@ -17509,7 +17509,8 @@ function formatPercentValue(value) {
                 // 分批提交主逻辑
                 const MAX_BATCH_SIZE_MB = 4; // 每批最大4MB（保守估计，留出余量）
                 const MAX_BATCH_SIZE_BYTES = MAX_BATCH_SIZE_MB * 1024 * 1024;
-                const MAX_ROWS_PER_BATCH = 20; // 每批最多行数（可以根据需要调整）
+                const MAX_ROWS_PER_BATCH = 10; // 每批最多行数（进一步减小，每次请求数据更少）
+                const BATCH_DELAY_MS = 1500;   // 批次之间等待时间，缓解服务器或防火墙限流
                 
                 let finalCaptureId = null;
                 let allSubmitted = false;
@@ -17533,6 +17534,10 @@ function formatPercentValue(value) {
                     };
                     
                     try {
+                        // 从第 2 批开始，先等待一段时间，避免短时间内过多请求触发 403 防火墙/限流
+                        if (batchNumber > 1) {
+                            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+                        }
                         const result = await submitBatch(batchData, finalCaptureId, batchNumber, totalBatches);
                         finalCaptureId = result.captureId;
                         
@@ -17556,7 +17561,7 @@ function formatPercentValue(value) {
                                 const result = await submitBatch(smallerBatchData, finalCaptureId, batchNumber, totalBatches);
                                 finalCaptureId = result.captureId;
                                 if (j + smallerBatchSize < batchRows.length) {
-                                    await new Promise(resolve => setTimeout(resolve, 300));
+                                    await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
                                 }
                             }
                         } else {
