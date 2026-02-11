@@ -676,6 +676,7 @@ function getCurrentProcessId() {
             
             console.log('Column A data:', columnAData);
             
+            // 每个 Id Product 均为独立的 Main（如 ALLBET95MS(SV)MYR、ALLBET95MS(KM)MYR、GAMS(SV)MYR 等），不按 base 分组为 MAIN+SUB
             // Create rows for the original table
             // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
             columnAData.forEach((value, index) => {
