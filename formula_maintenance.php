@@ -40,7 +40,7 @@ $error = isset($_GET['error']) ? true : false;
     <title>Formula Maintenance</title>
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="css/formula_maintenance.css">
+    <link rel="stylesheet" href="css/formula_maintenance.css?v=<?php echo time(); ?>">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
@@ -52,7 +52,7 @@ $error = isset($_GET['error']) ? true : false;
         </div>
         
         <!-- Search Section -->
-        <div class="maintenance-search-section">
+        <div class="maintenance-search-section formula-maintenance-filters-wrap">
             <div class="maintenance-filters">
                 <div class="maintenance-form-group">
                     <label class="maintenance-label">Process</label>
@@ -66,7 +66,10 @@ $error = isset($_GET['error']) ? true : false;
                         </div>
                     </div>
                 </div>
-                
+                <div class="maintenance-form-group">
+                    <label class="maintenance-label">Search</label>
+                    <input type="text" id="search_filter" class="maintenance-input" placeholder="Search formula...">
+                </div>
                 <div class="maintenance-form-group">
                     <label class="maintenance-label">Date Range</label>
                     <div class="date-range-picker" id="date-range-picker">
@@ -95,10 +98,6 @@ $error = isset($_GET['error']) ? true : false;
                             <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
                         </div>
                     </div>
-                </div>
-                <div class="maintenance-form-group">
-                    <label class="maintenance-label">Search</label>
-                    <input type="text" id="search_filter" class="maintenance-input" placeholder="Search formula...">
                 </div>
             </div>
             
