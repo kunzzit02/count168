@@ -59,6 +59,26 @@ $isOwner = ($userRole === 'owner');
                         <input type="hidden" id="date_from" value="<?php echo date('d/m/Y'); ?>">
                         <input type="hidden" id="date_to" value="<?php echo date('d/m/Y'); ?>">
                     </div>
+                    <div class="domain-report-filter-group quick-select-wrap">
+                        <label class="form-label"><i class="fas fa-clock"></i> Quick Select</label>
+                        <div class="quick-select-dropdown quick-select-dropdown-toggle">
+                            <button type="button" class="dropdown-toggle" onclick="event.stopPropagation(); window.toggleQuickSelectDropdown();">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span id="quick-select-text">Period</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-menu" id="quick-select-dropdown">
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="company-buttons-wrapper" class="transaction-company-filter" style="display: none;">

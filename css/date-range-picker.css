@@ -210,3 +210,102 @@
 .calendar-day.disabled:hover {
     background-color: transparent;
 }
+
+/* Quick Select (same as dashboard) */
+.quick-select-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.quick-select-wrap .form-label {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: clamp(10px, 0.75vw, 14px);
+    font-weight: bold;
+    color: #000;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.quick-select-wrap .form-label i.fa-clock {
+    color: #3b82f6;
+}
+
+.quick-select-dropdown {
+    position: relative;
+    display: inline-block;
+    width: clamp(100px, 8vw, 140px);
+}
+
+.quick-select-dropdown .dropdown-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(9px, 0.74vw, 14px);
+    gap: clamp(4px, 0.5vw, 6px);
+    width: 100%;
+    white-space: nowrap;
+    padding: clamp(6px, 0.5vw, 8px) clamp(10px, 0.83vw, 16px);
+    border-radius: clamp(4px, 0.42vw, 8px);
+    border: none;
+    cursor: pointer;
+    background-color: #3b82f6;
+    color: white;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.quick-select-dropdown .dropdown-toggle:hover {
+    background-color: #2563eb;
+}
+
+.quick-select-dropdown .dropdown-toggle #quick-select-text {
+    white-space: nowrap;
+}
+
+.quick-select-dropdown .dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 2px solid #3b82f6;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    z-index: 1000;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 4px;
+}
+
+.quick-select-dropdown .dropdown-menu.show {
+    display: block;
+}
+
+.quick-select-dropdown .dropdown-item {
+    display: block;
+    width: 100%;
+    padding: clamp(6px, 0.52vw, 10px) clamp(10px, 1.04vw, 20px);
+    border: none;
+    background: transparent;
+    color: #374151;
+    cursor: pointer;
+    font-size: clamp(9px, 0.74vw, 14px);
+    font-weight: 600;
+    text-align: left;
+    transition: background-color 0.2s;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.quick-select-dropdown .dropdown-item:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.quick-select-dropdown .dropdown-item:first-child {
+    border-radius: 6px 6px 0 0;
+}
+
+.quick-select-dropdown .dropdown-item:last-child {
+    border-radius: 0 0 6px 6px;
+}
