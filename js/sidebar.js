@@ -136,23 +136,36 @@
     }
 
     function handleLogout() {
-        var overlay = document.getElementById('logoutConfirmOverlay');
-        var modal = document.getElementById('logoutConfirmModal');
-        if (overlay && modal) {
-            overlay.classList.add('show');
-            modal.classList.add('show');
-        } else {
-            if (confirm('Are you sure you want to logout?')) {
-                window.location.href = 'dashboard.php?logout=1';
-            }
-        }
+        showLogoutModal();
     }
 
     function showLogoutModal() {
         var overlay = document.getElementById('logoutConfirmOverlay');
         var modal = document.getElementById('logoutConfirmModal');
-        if (overlay) overlay.classList.add('show');
-        if (modal) modal.classList.add('show');
+        if (!overlay || !modal) {
+            overlay = document.createElement('div');
+            overlay.id = 'logoutConfirmOverlay';
+            overlay.className = 'logout-confirm-overlay show';
+            overlay.onclick = closeLogoutModal;
+            modal = document.createElement('div');
+            modal.id = 'logoutConfirmModal';
+            modal.className = 'logout-confirm-modal show';
+            modal.innerHTML = '<div class="logout-confirm-title">count168.com 显示</div>' +
+                '<div class="logout-confirm-message">Are you sure you want to logout?</div>' +
+                '<div class="logout-confirm-actions">' +
+                '<button type="button" class="logout-confirm-btn logout-confirm-btn-ok">确定</button>' +
+                '<button type="button" class="logout-confirm-btn logout-confirm-btn-cancel">取消</button>' +
+                '</div>';
+            var okBtn = modal.querySelector('.logout-confirm-btn-ok');
+            var cancelBtn = modal.querySelector('.logout-confirm-btn-cancel');
+            if (okBtn) okBtn.onclick = confirmLogout;
+            if (cancelBtn) cancelBtn.onclick = closeLogoutModal;
+            document.body.appendChild(overlay);
+            document.body.appendChild(modal);
+        } else {
+            overlay.classList.add('show');
+            modal.classList.add('show');
+        }
     }
 
     function closeLogoutModal() {

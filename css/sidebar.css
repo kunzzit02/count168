@@ -673,13 +673,17 @@
     transform: translateY(-1px);
 }
 
-/* Logout 确认弹窗：深色背景、圆角、确定(浅蓝)/取消(深蓝) */
+/* Logout 确认弹窗：网页正中间、深色背景、圆角、确定(浅蓝)/取消(深蓝) */
 .logout-confirm-overlay {
     display: none;
     position: fixed;
     inset: 0;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
     background: rgba(0, 0, 0, 0.5);
-    z-index: 9998;
+    z-index: 99998;
     opacity: 0;
     transition: opacity 0.2s ease;
 }
@@ -700,7 +704,7 @@
     min-width: 320px;
     max-width: 90vw;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    z-index: 9999;
+    z-index: 99999;
     opacity: 0;
     transition: opacity 0.2s ease;
 }
