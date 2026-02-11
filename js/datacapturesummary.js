@@ -6840,32 +6840,29 @@ function getCurrentProcessId() {
                         // 查找匹配 dataColumnIndex 的引用
                         const matchingRefs = refMapByDataColumnIndex.get(dollarMatch.dataColumnIndex);
                         if (matchingRefs && matchingRefs.length > 0) {
-                            // 使用第一个匹配的引用（完整 id_product）
                             const matchedRef = matchingRefs[0];
-                            const refIdProduct = matchedRef.idProduct;
+                            let refIdProduct = matchedRef.idProduct;
                             const refRowLabel = matchedRef.rowLabel;
-                            
-                            // 构建保存格式：id_product:row_label:dataColumnIndex
-                            // IMPORTANT: 保存 dataColumnIndex 而不是 displayColumnIndex，以便读取时正确转换
+                            // 当前编辑行保存时一律用 processValue，保证 source_columns/columns_display 为当前账号（如 ALLBET95MS(KM)MYR）
+                            const normalizeSpaces = function(s) { return (s || '').trim().replace(/\s+/g, ''); };
+                            if (processValue && normalizeSpaces(refIdProduct) === normalizeSpaces(processValue)) {
+                                refIdProduct = processValue;
+                            }
                             let rowLabel = refRowLabel;
                             if (!rowLabel) {
-                                // 尝试从 id_product 获取 row_label
                                 rowLabel = getRowLabelFromProcessValue(refIdProduct);
                             }
-                            
                             if (rowLabel) {
                                 const columnRef = `${refIdProduct}:${rowLabel}:${dollarMatch.dataColumnIndex}`;
                                 if (!columnRefs.includes(columnRef)) {
                                     columnRefs.push(columnRef);
                                 }
                             } else {
-                                // 如果没有 row_label，使用简化格式：id_product:dataColumnIndex
                                 const columnRef = `${refIdProduct}:${dollarMatch.dataColumnIndex}`;
                                 if (!columnRefs.includes(columnRef)) {
                                     columnRefs.push(columnRef);
                                 }
                             }
-                            
                             matched = true;
                         }
                         
