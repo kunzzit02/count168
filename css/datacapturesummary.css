@@ -552,7 +552,6 @@ body {
         
         .sub-id-product {
             text-align: left;
-            padding-left: 1.8em !important; /* SUB 在 MAIN 账号下面，缩进显示 */
         }
 
         .summary-table th {
