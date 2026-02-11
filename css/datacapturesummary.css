@@ -414,7 +414,7 @@ body {
         
         #summaryTable th:nth-child(9), /* Source % - wider */
         #summaryTable td:nth-child(9) {
-            width: 4%;
+            width: 6%;
         }
         
         #summaryTable th:nth-child(10), /* Rate - new */
