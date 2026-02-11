@@ -258,7 +258,7 @@ try {
                     $txn_daily_stmt = $pdo->prepare("
                         SELECT DATE(t.transaction_date) as date,
                                COALESCE(SUM(CASE 
-                                   WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE') THEN t.amount
+                                   WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN t.amount
                                    WHEN transaction_type = 'PAYMENT' THEN t.amount
                                    WHEN transaction_type = 'WIN' THEN t.amount
                                    WHEN transaction_type = 'LOSE' THEN -t.amount
@@ -269,7 +269,7 @@ try {
                           AND t.account_id = ?
                           AND t.currency_id = ?
                           AND t.transaction_date BETWEEN ? AND ?
-                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE', 'WIN', 'LOSE')
+                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
                           " . (dashboardHasContraApprovalColumns($pdo) ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
                         GROUP BY DATE(t.transaction_date)
                         ORDER BY DATE(t.transaction_date)
@@ -290,7 +290,7 @@ try {
                     $txn_from_daily_stmt = $pdo->prepare("
                         SELECT DATE(t.transaction_date) as date,
                                COALESCE(SUM(CASE 
-                                   WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'CLEAR', 'RATE') THEN -t.amount
+                                   WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -t.amount
                                    WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
                                    ELSE 0
                                END), 0) as cr_dr
@@ -299,7 +299,7 @@ try {
                           AND t.from_account_id = ?
                           AND t.currency_id = ?
                           AND t.transaction_date BETWEEN ? AND ?
-                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'RATE')
+                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')
                           " . (dashboardHasContraApprovalColumns($pdo) ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
                         GROUP BY DATE(t.transaction_date)
                         ORDER BY DATE(t.transaction_date)
@@ -385,7 +385,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR') THEN amount
+                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN amount
                         WHEN transaction_type = 'WIN' THEN amount
                         WHEN transaction_type = 'LOSE' THEN -amount
@@ -396,7 +396,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND account_id = ?
                   AND currency_id = ?
                   AND transaction_date < ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'WIN', 'LOSE')"
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE')"
                   . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
@@ -415,7 +415,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND from_account_id = ?
                   AND currency_id = ?
                   AND transaction_date < ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR')"
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM')"
                   . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
@@ -501,7 +501,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         // 作为 To Account（排除 description 以 Process: 开头的 Bank Process WIN/LOSE，其在 Win/Loss）
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR') THEN amount
+                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN amount
                         WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
                         WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
@@ -512,7 +512,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                   AND account_id = ?
                   AND currency_id = ?
                   AND transaction_date BETWEEN ? AND ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR', 'WIN', 'LOSE')"
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE')"
                   . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
@@ -531,7 +531,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                   AND from_account_id = ?
                   AND currency_id = ?
                   AND transaction_date BETWEEN ? AND ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR')"
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM')"
                   . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
