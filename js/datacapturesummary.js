@@ -17513,6 +17513,54 @@ function formatPercentValue(value) {
                 
                 let finalCaptureId = null;
                 let allSubmitted = false;
+                const failedProblemRows = []; // 保存最终无法提交的行
+
+                // 针对非 size 类 403/错误：在该批内部做二分拆分，尽量把“正常行”都提交成功，只留下有问题的行
+                async function submitWithBinarySplit(rows, baseData, batchNumber, totalBatches) {
+                    async function helper(subRows) {
+                        if (!subRows || subRows.length === 0) return;
+
+                        // 只有一行时，单独尝试一次；失败就标记为 problem row
+                        if (subRows.length === 1) {
+                            const singleData = {
+                                ...baseData,
+                                summaryRows: subRows
+                            };
+                            try {
+                                const result = await submitBatch(singleData, finalCaptureId, batchNumber, totalBatches);
+                                finalCaptureId = result.captureId;
+                            } catch (err) {
+                                // 单行仍然 403 或其他错误，则放入失败列表，不再重试
+                                failedProblemRows.push(subRows[0]);
+                                console.warn('Single row still failed with 403/other error, marking as problematic row:', {
+                                    error: err,
+                                    row: subRows[0]
+                                });
+                            }
+                            return;
+                        }
+
+                        // 先尝试整体提交这一小段，如果成功就不用再拆
+                        const tryData = {
+                            ...baseData,
+                            summaryRows: subRows
+                        };
+                        try {
+                            const result = await submitBatch(tryData, finalCaptureId, batchNumber, totalBatches);
+                            finalCaptureId = result.captureId;
+                            return;
+                        } catch (err) {
+                            // 无论是不是 sizeError，这里统一继续拆分，直到定位到具体出问题的行
+                            const mid = Math.floor(subRows.length / 2);
+                            const left = subRows.slice(0, mid);
+                            const right = subRows.slice(mid);
+                            await helper(left);
+                            await helper(right);
+                        }
+                    }
+
+                    await helper(rows);
+                }
                 
                 // 统一改成：始终按“每批最多 MAX_ROWS_PER_BATCH 行”来分批提交
                 const batchSize = Math.max(1, Math.min(MAX_ROWS_PER_BATCH, summaryRows.length));
@@ -17559,8 +17607,16 @@ function formatPercentValue(value) {
                                     await new Promise(resolve => setTimeout(resolve, 300));
                                 }
                             }
+                        } else if (batchRows.length > 1) {
+                            // 非 size 错误，但这一批有多行：在这一个批次内部做二分拆分，
+                            // 尽量把“正常行”提交成功，只留下真正有问题的行
+                            console.warn(`Batch ${batchNumber}/${totalBatches} failed with non-size error (e.g. 403 Forbidden). Will split this batch to locate problematic rows.`, error);
+                            await submitWithBinarySplit(batchRows, batchData, batchNumber, totalBatches);
                         } else {
-                            // 非 size error：直接报错并停止，避免无限重试
+                            // 非 size 错误且只有 1 行：直接视为失败行
+                            if (batchRows.length === 1) {
+                                failedProblemRows.push(batchRows[0]);
+                            }
                             if (submitBtn) {
                                 submitBtn.disabled = false;
                                 submitBtn.textContent = 'Submit';
