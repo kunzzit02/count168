@@ -17609,12 +17609,13 @@ function formatPercentValue(value) {
                         finalCaptureId = result.captureId;
                         allSubmitted = true;
                     } catch (error) {
-                        // 如果一次性提交失败且是大小相关错误，自动分批重试
-                        if (error.isSizeError) {
-                            console.log('Single submission failed (server limit may be stricter), automatically retrying in batches...');
-                            
-                            // 使用更小的批次大小
-                            const safeBatchSize = Math.max(1, Math.floor(summaryRows.length / 5)); // 分成5批
+                        // 一次性提交失败（含 403）：CDN/WAF 可能限制单次 POST 大小，用更小批次重试
+                        if (error.isSizeError || error.status === 403) {
+                            console.log('Single submission failed (403 or size), retrying with smaller batches to avoid CDN/WAF limit...');
+                            // 每批约 20KB，降低被 CDN/WAF 拦截概率
+                            const targetBatchBytes = 20 * 1024;
+                            const bytesPerRow = actualSizeBytes / summaryRows.length;
+                            const safeBatchSize = Math.max(1, Math.min(summaryRows.length, Math.floor(targetBatchBytes / bytesPerRow)));
                             const totalBatches = Math.ceil(summaryRows.length / safeBatchSize);
                             
                             for (let i = 0; i < summaryRows.length; i += safeBatchSize) {
