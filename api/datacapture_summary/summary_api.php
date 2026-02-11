@@ -1245,8 +1245,21 @@ if ($session_company_id > 0 && $session_company_id === (int)$company_id) {
 }
 
 if (!$company_access_ok) {
-// owner：验证 company 是否属于该 owner（role 或 user_type 为 owner 均按 owner 处理）
-if ($current_user_role === 'owner' || $current_user_type === 'owner') {
+// member：通过 account_company 校验（与 update_company_session_api 一致）
+if ($current_user_type === 'member') {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM company c
+        INNER JOIN account_company ac ON c.id = ac.company_id
+        WHERE ac.account_id = ? AND c.id = ?
+    ");
+    $stmt->execute([$current_user_id, $company_id]);
+    if ($stmt->fetchColumn() == 0) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
+        exit;
+    }
+} elseif ($current_user_role === 'owner' || $current_user_type === 'owner') {
+    // owner：验证 company 是否属于该 owner（role 或 user_type 为 owner 均按 owner 处理）
     $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
     $stmt->execute([$company_id, $owner_id]);
