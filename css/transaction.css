@@ -200,7 +200,7 @@ body.transaction-page {
     display: flex;
     align-items: flex-end;
     gap: clamp(8px, 1vw, 16px);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 .transaction-page .transaction-quick-select-wrap {
     display: flex;
@@ -211,6 +211,15 @@ body.transaction-page {
     position: relative;
     display: inline-block;
     width: clamp(100px, 8vw, 140px);
+}
+
+/* 让 Capture Date 与 Quick Select 在同一行（左右排版），不要占满整行 */
+.transaction-page .transaction-capture-date-row .date-range-picker {
+    width: clamp(190px, 22vw, 280px);
+    min-width: auto;
+}
+.transaction-page .transaction-capture-date-row .quick-select-wrap {
+    flex: 0 0 auto;
 }
 .transaction-page .transaction-quick-select-btn.dropdown-toggle {
     display: flex;
