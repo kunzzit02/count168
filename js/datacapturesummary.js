@@ -2857,16 +2857,33 @@ function getCurrentProcessId() {
                 descriptionSelect1.appendChild(option);
             });
 
-            // Auto-select first option if available
+            // 优先选中当前编辑的 Id Product（#process），避免选 (KM) 却显示 (SV) 的数据
             if (idProductRows.length > 0) {
-                const firstItem = idProductRows[0];
-                const firstCount = idProductCount.get(firstItem.idProduct);
-                const firstValue = (firstCount > 1 && firstItem.rowLabel) 
-                    ? `${firstItem.idProduct}:${firstItem.rowLabel}` 
-                    : firstItem.idProduct;
-                descriptionSelect1.value = firstValue;
-                // Trigger update for second select box
-                updateIdProductRowData(firstValue);
+                const processInput = document.getElementById('process');
+                const currentProduct = processInput ? (processInput.value || '').trim() : '';
+                const normalizeSpaces = function(s) { return (s || '').trim().replace(/\s+/g, ''); };
+                let valueToSelect = null;
+                if (currentProduct) {
+                    for (let i = 0; i < descriptionSelect1.options.length; i++) {
+                        const opt = descriptionSelect1.options[i];
+                        const optVal = (opt.value || '').trim();
+                        if (!optVal) continue;
+                        const optId = optVal.indexOf(':') >= 0 ? optVal.substring(0, optVal.lastIndexOf(':')).trim() : optVal;
+                        if (normalizeSpaces(optId) === normalizeSpaces(currentProduct)) {
+                            valueToSelect = opt.value;
+                            break;
+                        }
+                    }
+                }
+                if (valueToSelect == null) {
+                    const firstItem = idProductRows[0];
+                    const firstCount = idProductCount.get(firstItem.idProduct);
+                    valueToSelect = (firstCount > 1 && firstItem.rowLabel)
+                        ? `${firstItem.idProduct}:${firstItem.rowLabel}`
+                        : firstItem.idProduct;
+                }
+                descriptionSelect1.value = valueToSelect;
+                updateIdProductRowData(valueToSelect);
             }
         }
 
