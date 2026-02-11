@@ -12588,7 +12588,9 @@ function getCurrentProcessId() {
             const productValues = getProductValuesFromCell(idProductCell);
             productValues.sub = idProductText;
             idProductCell.setAttribute('data-sub-product', idProductText);
-            idProductCell.textContent = mergeProductValues(productValues.main, productValues.sub);
+            const mergedDisplay = mergeProductValues(productValues.main, productValues.sub);
+            idProductCell.textContent = mergedDisplay;
+            if (mergedDisplay) idProductCell.setAttribute('title', mergedDisplay);
             idProductCell.setAttribute('data-processed-sub', 'true');
 
             // Account column (index 1)

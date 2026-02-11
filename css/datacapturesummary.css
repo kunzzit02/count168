@@ -379,6 +379,7 @@ body {
 
         .summary-table {
             width: 100%;
+            min-width: 1200px;
             border-collapse: collapse;
             font-size: clamp(12px, 0.94vw, 18px);
             font-family: Arial, sans-serif;
@@ -386,10 +387,10 @@ body {
         }
         
         /* Set specific widths for Summary Table columns only */
-        #summaryTable th:nth-child(1), /* Id Product (merged) - 加宽并允许换行，完整显示长 id_product */
+        #summaryTable th:nth-child(1), /* Id Product (merged) - 加宽并允许换行，完整显示长 id_product 包括 SUB */
         #summaryTable td:nth-child(1) {
-            width: 28%;
-            min-width: 280px;
+            width: 32%;
+            min-width: 380px;
             white-space: normal !important;
             word-break: break-word;
             overflow: visible;
@@ -547,21 +548,21 @@ body {
             box-shadow: inset 0 0 0 1px #2196f3;
         }
 
-        /* Id Product 列允许换行，完整显示长名称（覆盖全局 nowrap），刷新后也不被截断 */
+        /* Id Product 列允许换行，完整显示长名称（含 SUB Id_Product），不被截断 */
         #summaryTable td:nth-child(1),
         #summaryTable td.id-product {
             white-space: normal !important;
             word-break: break-word;
             overflow: visible !important;
             text-overflow: unset;
-            min-width: 320px;
+            min-width: 380px;
             max-width: none;
         }
         #summaryTable th:nth-child(1) {
             white-space: normal !important;
             overflow: visible;
             text-overflow: unset;
-            min-width: 320px;
+            min-width: 380px;
         }
         
         /* Id Product Main and Sub cell styling */
