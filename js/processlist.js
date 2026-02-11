@@ -576,7 +576,7 @@
                     cardMerchantBtn.setAttribute('data-value', process.card_merchant_id);
                     const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
                     const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
-                    cardMerchantBtn.textContent = (cmName !== '' && cmCode !== '') ? (cmName + ' (' + cmCode + ')') : (process.card_merchant_name || process.card_merchant_account_id || process.card_merchant_id || 'Select Account');
+                    cardMerchantBtn.textContent = cmName !== '' ? cmName : (cmCode || process.card_merchant_name || process.card_merchant_account_id || process.card_merchant_id || 'Select Account');
                 } else if (cardMerchantBtn) {
                     cardMerchantBtn.removeAttribute('data-value');
                     cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
@@ -3156,7 +3156,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const firstCountry = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
                 if (firstCountry) await loadBanksByCountry(firstCountry);
                 await loadBankAccounts();
-                initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown', true);  // Supplier: show account_id (name)
+                initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown', true);  // Supplier: show name only
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
                 initBankAccountSelect('bank_profit_account', 'bank_profit_account_dropdown');
                 updateBankAddButtonTitles();
@@ -3391,12 +3391,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
 
                 // Filter by the same text we display so search matches what user sees (exact match on displayed string)
-                // Supplier only: show "name (account_id)" so account name is primary; others: show account_id only
+                // Supplier only: show name only (no id); others: show account_id only
                 function getDisplayText(account) {
                     const code = String(account.account_id ?? account.name ?? '').trim();
                     const nameStr = (account.name != null && String(account.name).trim() !== '') ? String(account.name).trim() : '';
-                    if (showNameInParentheses && nameStr !== '') {
-                        return nameStr + ' (' + code + ')';
+                    if (showNameInParentheses) {
+                        return nameStr !== '' ? nameStr : code;
                     }
                     return code;
                 }
