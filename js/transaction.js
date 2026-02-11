@@ -2767,139 +2767,34 @@ function initDatePickers() {
         console.error('Flatpickr library not loaded');
         return;
     }
-    
-    // Capture Date：单格日期范围（与 Dashboard Date Range 一致）
-    const fromVal = document.getElementById("date_from") && document.getElementById("date_from").value;
-    const toVal = document.getElementById("date_to") && document.getElementById("date_to").value;
-    const parseDmy = (s) => {
-        if (!s || !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s.trim())) return null;
-        const [d, m, y] = s.trim().split('/').map(Number);
-        return new Date(y, m - 1, d);
-    };
-    const formatDmy = (date) => {
-        const d = date.getDate();
-        const m = date.getMonth() + 1;
-        const y = date.getFullYear();
-        return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
-    };
-    const defaultFrom = parseDmy(fromVal) || new Date();
-    const defaultTo = parseDmy(toVal) || new Date();
-    flatpickr("#capture_date_range", {
-        mode: "range",
-        dateFormat: "d/m/Y",
-        allowInput: false,
-        defaultDate: [defaultFrom, defaultTo],
-        onChange: function (selectedDates) {
-            if (selectedDates.length === 2) {
-                document.getElementById("date_from").value = formatDmy(selectedDates[0]);
-                document.getElementById("date_to").value = formatDmy(selectedDates[1]);
-                searchTransactions();
-            }
-        }
-    });
-    
-    // Transaction Date
+
+    // Transaction Date（单日）
     flatpickr("#transaction_date", {
         dateFormat: "d/m/Y",
         allowInput: false,
         defaultDate: new Date()
     });
-    
-    // Rate Transaction Date
+
+    // Rate Transaction Date（单日）
     flatpickr("#rate_transaction_date", {
         dateFormat: "d/m/Y",
         allowInput: false,
         defaultDate: new Date()
     });
 
-    // Quick Select（与 Dashboard 一致）：全局供 inline onclick 调用
-    window.toggleQuickSelectDropdown = function() {
-        const dropdown = document.getElementById('quick-select-dropdown');
-        if (!dropdown) return;
-        dropdown.classList.toggle('show');
-    };
-
-    window.selectQuickRange = function(range) {
-        const today = new Date();
-        let startDate, endDate;
-        switch (range) {
-            case 'today':
-                startDate = new Date(today);
-                endDate = new Date(today);
-                break;
-            case 'yesterday':
-                var yesterday = new Date(today);
-                yesterday.setDate(yesterday.getDate() - 1);
-                startDate = yesterday;
-                endDate = yesterday;
-                break;
-            case 'thisWeek':
-                var thisWeekStart = new Date(today);
-                var dayOfWeek = thisWeekStart.getDay();
-                var daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                thisWeekStart.setDate(thisWeekStart.getDate() - daysToMonday);
-                startDate = thisWeekStart;
-                endDate = new Date(today);
-                break;
-            case 'lastWeek':
-                var lastWeekEnd = new Date(today);
-                var lastWeekDayOfWeek = lastWeekEnd.getDay();
-                var daysToLastSunday = lastWeekDayOfWeek === 0 ? 0 : lastWeekDayOfWeek;
-                lastWeekEnd.setDate(lastWeekEnd.getDate() - daysToLastSunday - 1);
-                var lastWeekStart = new Date(lastWeekEnd);
-                lastWeekStart.setDate(lastWeekStart.getDate() - 6);
-                startDate = lastWeekStart;
-                endDate = lastWeekEnd;
-                break;
-            case 'thisMonth':
-                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-                endDate = new Date(today);
-                break;
-            case 'lastMonth':
-                var lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                var lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-                startDate = lastMonth;
-                endDate = lastMonthEnd;
-                break;
-            case 'thisYear':
-                startDate = new Date(today.getFullYear(), 0, 1);
-                endDate = new Date(today);
-                break;
-            case 'lastYear':
-                startDate = new Date(today.getFullYear() - 1, 0, 1);
-                endDate = new Date(today.getFullYear() - 1, 11, 31);
-                break;
-            default:
-                return;
-        }
-        var formatDmy = function(date) {
-            var d = date.getDate();
-            var m = date.getMonth() + 1;
-            var y = date.getFullYear();
-            return (String(d).padStart(2, '0') + '/' + String(m).padStart(2, '0') + '/' + y);
-        };
-        document.getElementById('date_from').value = formatDmy(startDate);
-        document.getElementById('date_to').value = formatDmy(endDate);
-        var captureInput = document.getElementById('capture_date_range');
-        if (captureInput) captureInput.value = formatDmy(startDate) + ' - ' + formatDmy(endDate);
-        var fp = captureInput && captureInput._flatpickr;
-        if (fp) fp.setDate([startDate, endDate]);
-        var quickSelectText = document.getElementById('quick-select-text');
-        var rangeTexts = { 'today': 'Today', 'yesterday': 'Yesterday', 'thisWeek': 'This Week', 'lastWeek': 'Last Week', 'thisMonth': 'This Month', 'lastMonth': 'Last Month', 'thisYear': 'This Year', 'lastYear': 'Last Year' };
-        if (quickSelectText) quickSelectText.textContent = rangeTexts[range] || 'Period';
-        var dropdown = document.getElementById('quick-select-dropdown');
-        if (dropdown) dropdown.classList.remove('show');
-        searchTransactions();
-    };
-
-    // 点击外部关闭 Quick Select 下拉
-    if (!document._transactionQuickSelectClickBound) {
-        document._transactionQuickSelectClickBound = true;
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.transaction-quick-select-dropdown')) return;
-            var quickDropdown = document.getElementById('quick-select-dropdown');
-            if (quickDropdown) quickDropdown.classList.remove('show');
+    // Capture Date：使用与 Dashboard / Maintenance 相同的共享日期范围组件
+    if (window.MaintenanceDateRangePicker) {
+        window.MaintenanceDateRangePicker.init({
+            dateFromId: 'date_from',
+            dateToId: 'date_to',
+            onChange: function () {
+                if (typeof searchTransactions === 'function') {
+                    searchTransactions();
+                }
+            }
         });
+    } else {
+        console.warn('MaintenanceDateRangePicker not found. Ensure js/date-range-picker.js is loaded before transaction.js.');
     }
 }
 

@@ -35,7 +35,9 @@ $default_date_to = $today_dt->format('d/m/Y');
     <title>Transaction Payment</title>
     <link rel="icon" type="image/png" href="images/count_logo.png">
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo file_exists('css/transaction.css') ? filemtime('css/transaction.css') : time(); ?>">
-    <!-- Flatpickr CSS -->
+    <!-- Shared Date Range Picker (same UI/UX as dashboard) -->
+    <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
+    <!-- Flatpickr CSS（用于单日日期选择） -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/sidebar.css?v=1">
@@ -111,13 +113,16 @@ $default_date_to = $today_dt->format('d/m/Y');
                 <div class="transaction-form-group transaction-capture-date-group">
                     <label class="transaction-label transaction-date-range-label">Capture Date</label>
                     <div class="transaction-capture-date-row">
-                        <div class="transaction-date-range-wrap" id="capture_date_range_wrap">
+                        <!-- Date Range Picker: same component as dashboard/maintenance -->
+                        <div class="date-range-picker" id="date-range-picker">
                             <i class="fas fa-calendar-alt" aria-hidden="true"></i>
-                            <input type="text" id="capture_date_range" class="transaction-input transaction-date-range-input" value="<?php echo $default_date_from . ' - ' . $default_date_to; ?>" placeholder="Select date range" readonly style="cursor: pointer;">
+                            <span id="date-range-display"><?php echo $default_date_from . ' - ' . $default_date_to; ?></span>
                         </div>
-                        <div class="transaction-quick-select-wrap">
-                            <div class="dropdown transaction-quick-select-dropdown">
-                                <button type="button" class="btn btn-secondary dropdown-toggle transaction-quick-select-btn" onclick="toggleQuickSelectDropdown()">
+                        <!-- Quick Select: reuse shared dropdown styles/behaviour -->
+                        <div class="quick-select-wrap">
+                            <label class="form-label"><i class="fas fa-clock"></i> Quick Select</label>
+                            <div class="quick-select-dropdown quick-select-dropdown-toggle">
+                                <button type="button" class="dropdown-toggle" onclick="event.stopPropagation(); window.toggleQuickSelectDropdown();">
                                     <i class="fas fa-calendar-alt"></i>
                                     <span id="quick-select-text">Period</span>
                                     <i class="fas fa-chevron-down"></i>
@@ -457,6 +462,45 @@ $default_date_to = $today_dt->format('d/m/Y');
         
     </div>
 
+    <!-- Calendar popup (same as dashboard) -->
+    <div class="calendar-popup" id="calendar-popup" style="display: none;">
+        <div class="calendar-header">
+            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(-1)">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="calendar-month-year" onclick="event.stopPropagation();">
+                <select id="calendar-month-select">
+                    <option value="0">Jan</option>
+                    <option value="1">Feb</option>
+                    <option value="2">Mar</option>
+                    <option value="3">Apr</option>
+                    <option value="4">May</option>
+                    <option value="5">Jun</option>
+                    <option value="6">Jul</option>
+                    <option value="7">Aug</option>
+                    <option value="8">Sep</option>
+                    <option value="9">Oct</option>
+                    <option value="10">Nov</option>
+                    <option value="11">Dec</option>
+                </select>
+                <select id="calendar-year-select"></select>
+            </div>
+            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(1)">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <div class="calendar-weekdays">
+            <div class="calendar-weekday">Sun</div>
+            <div class="calendar-weekday">Mon</div>
+            <div class="calendar-weekday">Tue</div>
+            <div class="calendar-weekday">Wed</div>
+            <div class="calendar-weekday">Thu</div>
+            <div class="calendar-weekday">Fri</div>
+            <div class="calendar-weekday">Sat</div>
+        </div>
+        <div class="calendar-days" id="calendar-days"></div>
+    </div>
+
     <!-- Notification Container -->
     <div id="notificationContainer" class="transaction-notification-container"></div>
 
@@ -503,6 +547,7 @@ $default_date_to = $today_dt->format('d/m/Y');
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
     <script src="js/transaction.js?v=<?php echo file_exists('js/transaction.js') ? filemtime('js/transaction.js') : time(); ?>"></script>
 </body>
 </html>

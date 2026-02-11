@@ -330,11 +330,33 @@
                 if (options.dateToId) config.dateToId = options.dateToId;
                 if (options.onChange) config.onChange = options.onChange;
             }
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            // 如果隐藏输入里已有默认值（dd/mm/yyyy），优先用它们作为初始范围
+            const fromEl = document.getElementById(config.dateFromId);
+            const toEl = document.getElementById(config.dateToId);
+            const parseDmy = function (val) {
+                if (!val || !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(val.trim())) return null;
+                const parts = val.trim().split('/').map(Number);
+                const d = parts[0], m = parts[1], y = parts[2];
+                const date = new Date(y, m - 1, d);
+                if (isNaN(date.getTime())) return null;
+                date.setHours(0, 0, 0, 0);
+                return date;
+            };
+            const fromDate = fromEl ? parseDmy(fromEl.value) : null;
+            const toDate = toEl ? parseDmy(toEl.value) : null;
+
             if (!calendarStartDate) {
-                calendarStartDate = new Date(today);
-                calendarEndDate = new Date(today);
+                if (fromDate) {
+                    calendarStartDate = new Date(fromDate);
+                    calendarEndDate = toDate ? new Date(toDate) : new Date(fromDate);
+                    calendarStartDate.setHours(0, 0, 0, 0);
+                    calendarEndDate.setHours(0, 0, 0, 0);
+                } else {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    calendarStartDate = new Date(today);
+                    calendarEndDate = new Date(today);
+                }
             }
             syncToHiddenInputs();
             updateDateRangeDisplay();
