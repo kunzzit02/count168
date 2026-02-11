@@ -6202,39 +6202,18 @@ function getCurrentProcessId() {
             let descriptionMain = '';
             let descriptionSub = '';
             
-            // Parse main product value
-            // 完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）整串作为 idProductMain，不截断
+            // Parse main product value：id_product 整串保留，不对其内符号做任何解析或逻辑
             const mainText = productValues.main || '';
             if (mainText) {
-                if (mainText.indexOf(' - ') >= 0) {
-                    idProductMain = mainText.replace(/[: ]+$/, '').trim();
-                    descriptionMain = '';
-                } else {
-                    const match = mainText.match(/^([^(]+)(?:\(([^)]+)\))?/);
-                    if (match) {
-                        idProductMain = match[1].replace(/[: ]+$/, '').trim();
-                        descriptionMain = match[2] ? match[2].trim() : '';
-                    } else {
-                        idProductMain = mainText.replace(/[: ]+$/, '').trim();
-                    }
-                }
+                idProductMain = mainText.replace(/[: ]+$/, '').trim();
+                descriptionMain = '';
             }
             
-            // Parse sub product value（同上：完整 id 整串作为 idProductSub）
+            // Parse sub product value：同上，整串保留
             const subText = productValues.sub || '';
             if (subText) {
-                if (subText.indexOf(' - ') >= 0) {
-                    idProductSub = subText.replace(/[: ]+$/, '').trim();
-                    descriptionSub = '';
-                } else {
-                    const match = subText.match(/^([^(]+)(?:\(([^)]+)\))?/);
-                    if (match) {
-                        idProductSub = match[1].replace(/[: ]+$/, '').trim();
-                        descriptionSub = match[2] ? match[2].trim() : '';
-                    } else {
-                        idProductSub = subText.replace(/[: ]+$/, '').trim();
-                    }
-                }
+                idProductSub = subText.replace(/[: ]+$/, '').trim();
+                descriptionSub = '';
             }
             
             // Calculate row_index based on Data Capture Table row order, not Summary Table position
@@ -12923,42 +12902,17 @@ function getCurrentProcessId() {
                 
                 if (cells[0]) { // Id Product (merged)
                     const productValues = getProductValuesFromCell(cells[0]);
-                    // 完整 ID（如含 " - RSLOTS - "）整条都按 main：强制设 main、清空 sub
-                    const forceMain = data.productType === 'main' && data.idProduct && (data.idProduct + '').indexOf(' - RSLOTS - ') >= 0;
-                    // 刷新后应用模板时保留行上已有的完整 Id Product 显示，不因模板中的短 id_product 覆盖导致「后面部分消失」
-                    const preserveIdProduct = !forceMain && data.preserveIdProductDisplay && (productValues.main || '').trim() !== '';
+                    // 刷新后应用模板时保留行上已有的完整 Id Product 显示
+                    const preserveIdProduct = data.preserveIdProductDisplay && (productValues.main || '').trim() !== '';
                     if (!preserveIdProduct) {
-                        // 完整 id_product（含 " - "）整串显示，不截断；否则沿用旧逻辑（bareIdProduct + description）
-                        const rawIdProduct = (data.idProduct || '').trim();
-                        let idProductText;
-                        if (rawIdProduct.indexOf(' - ') >= 0) {
-                            idProductText = rawIdProduct.replace(/[: ]+$/, '').trim();
+                        const idProductText = (data.idProduct || '').trim().replace(/[: ]+$/, '');
+                        const isSubRow = !productValues.main || !productValues.main.trim();
+                        if (isSubRow) {
+                            productValues.sub = idProductText;
+                            cells[0].setAttribute('data-sub-product', idProductText);
                         } else {
-                            const bareIdProduct = rawIdProduct.replace(/\s*\([^)]+\)\s*$/, '').trim();
-                            idProductText = bareIdProduct;
-                            if (data.description && data.description.trim() !== '') {
-                                idProductText += ` (${data.description})`;
-                            }
-                        }
-                        
-                        // 完整 RSLOTS ID 一律按 main；否则按原逻辑 main/sub
-                        if (forceMain) {
                             productValues.main = idProductText;
-                            productValues.sub = '';
                             cells[0].setAttribute('data-main-product', idProductText);
-                            cells[0].setAttribute('data-sub-product', '');
-                        } else {
-                            // Determine if this is a main or sub row update
-                            const isSubRow = !productValues.main || !productValues.main.trim();
-                            if (isSubRow) {
-                                // Update sub product value
-                                productValues.sub = idProductText;
-                                cells[0].setAttribute('data-sub-product', idProductText);
-                            } else {
-                                // Update main product value
-                                productValues.main = idProductText;
-                                cells[0].setAttribute('data-main-product', idProductText);
-                            }
                         }
                     } else {
                         // 保留时显式写回 data-main-product，确保完整名称不丢失
@@ -16086,12 +16040,6 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 ? Number(template.row_index)
                 : null
         };
-        // 完整 ID（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）整条都按 main：加载时 sub 模板也显示为 main 行
-        if ((idProduct + '').indexOf(' - RSLOTS - ') >= 0) {
-            data.idProduct = idProduct;
-            data.productType = 'main';
-        }
-
         window.currentAddAccountButton = targetButton;
         updateSubIdProductRow(idProduct, data, targetRow);
         
@@ -17019,37 +16967,16 @@ function formatPercentValue(value) {
                     const idProductMainRaw = productValues.main || '';
                     const idProductSubRaw = productValues.sub || '';
                     
-                    // Extract product ID and description from main
-                    // 完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）整串作为 cleanIdProductMain
+                    // Extract product ID：id_product 整串保留，不对其内符号做任何解析或逻辑
                     let cleanIdProductMain = '';
                     let descriptionMain = '';
                     if (idProductMainRaw) {
-                        if (idProductMainRaw.indexOf(' - ') >= 0) {
-                            cleanIdProductMain = idProductMainRaw.replace(/[: ]+$/, '').trim();
-                            descriptionMain = '';
-                        } else {
-                            const mainMatch = idProductMainRaw.match(/^([^(]+)(?:\(([^)]+)\))?/);
-                            if (mainMatch) {
-                                cleanIdProductMain = mainMatch[1].trim();
-                                descriptionMain = mainMatch[2] ? mainMatch[2].trim() : '';
-                            }
-                        }
+                        cleanIdProductMain = idProductMainRaw.replace(/[: ]+$/, '').trim();
                     }
-                    
-                    // Extract product ID and description from sub（同上：完整 id 整串）
                     let cleanIdProductSub = '';
                     let descriptionSub = '';
                     if (idProductSubRaw) {
-                        if (idProductSubRaw.indexOf(' - ') >= 0) {
-                            cleanIdProductSub = idProductSubRaw.replace(/[: ]+$/, '').trim();
-                            descriptionSub = '';
-                        } else {
-                            const subMatch = idProductSubRaw.match(/^([^(]+)(?:\(([^)]+)\))?/);
-                            if (subMatch) {
-                                cleanIdProductSub = subMatch[1].trim();
-                                descriptionSub = subMatch[2] ? subMatch[2].trim() : '';
-                            }
-                        }
+                        cleanIdProductSub = idProductSubRaw.replace(/[: ]+$/, '').trim();
                     }
                     
                     // Determine product type: 'main' if Main value has value, 'sub' if only Sub value has value
@@ -17059,13 +16986,6 @@ function formatPercentValue(value) {
                     if (!cleanIdProductMain && cleanIdProductSub) {
                         productType = 'sub';
                         idProduct = cleanIdProductSub;
-                    }
-                    
-                    // 完整 ID（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）整条都按 main 存储，不拆成 main+sub
-                    // 1) 若 main 的 ID 含 " - RSLOTS - "，则不提交 sub，只提交 main
-                    if (cleanIdProductMain && (cleanIdProductMain + '').indexOf(' - RSLOTS - ') >= 0) {
-                        cleanIdProductSub = null;
-                        descriptionSub = '';
                     }
                     
                     const account = accountText;
@@ -17179,15 +17099,6 @@ function formatPercentValue(value) {
                     
                     if (productTypeAttr) {
                         productType = productTypeAttr;
-                    }
-                    
-                    // 2) 若当前为 sub 行，但父级 ID 是完整格式（含 " - RSLOTS - "），则整条 ID 都按 main 提交
-                    if (productType === 'sub' && parentIdProductAttr && (parentIdProductAttr + '').indexOf(' - RSLOTS - ') >= 0) {
-                        productType = 'main';
-                        cleanIdProductMain = (parentIdProductAttr + '').trim();
-                        cleanIdProductSub = null;
-                        idProduct = cleanIdProductMain;
-                        descriptionSub = '';
                     }
                     
                     // Get account ID and currency ID from data attributes (stored when saving formula)
