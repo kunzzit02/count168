@@ -2260,7 +2260,7 @@ function submitAction() {
             showNotification('Please select Currency', 'error');
             return;
         }
-        if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'].includes(effectiveType) && !fromAccountId) {
+    if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR'].includes(effectiveType) && !fromAccountId) {
             showNotification('This transaction type requires From Account', 'error');
             return;
         }
@@ -2594,7 +2594,7 @@ function handleTypeToggle() {
     // 控制「From Account」与「Reverse」的显示（不隐藏 To Account，保证排版一致）
     const accountInputs = document.querySelector('.transaction-account-inputs');
     const fromAccountWrapper = document.getElementById('action_account_id')?.closest('.custom-select-wrapper');
-    const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'PROFIT'].includes(typeSel.value);
+    const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'PROFIT', 'CLEAR'].includes(typeSel.value);
     const showFromAndReverse = !isRate && needsFrom;
     if (fromAccountWrapper) {
         fromAccountWrapper.style.display = showFromAndReverse ? '' : 'none';
