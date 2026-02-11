@@ -1055,14 +1055,14 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                 OR LOWER(TRIM(SUBSTRING(parent_id_product, 1, IF(LOCATE('(', parent_id_product) > 0, LOCATE('(', parent_id_product) - 1, LENGTH(parent_id_product))))) IN ($placeholders)
             ))
           )
-        ORDER BY process_id DESC,
+        ORDER BY CASE WHEN row_index IS NULL THEN 1 ELSE 0 END,
+                 row_index ASC,
+                 process_id DESC,
                  CASE 
                      WHEN product_type = 'main' THEN COALESCE(id_product, '')
                      WHEN product_type = 'sub' THEN COALESCE(parent_id_product, '')
                      ELSE COALESCE(id_product, '')
                  END ASC,
-                 CASE WHEN row_index IS NULL THEN 1 ELSE 0 END,
-                 row_index ASC,
                  product_type ASC,
                  CASE WHEN sub_order IS NULL THEN 1 ELSE 0 END,
                  sub_order ASC,
