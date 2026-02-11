@@ -2094,8 +2094,9 @@ function submitAction() {
         accountId = getAccountId(standardFromAccountInput);
         fromAccountId = getAccountId(standardToAccountInput);
     } else if (isClear) {
-        // CLEAR：和普通交易一样，以 To Account 作为唯一账户；不需要 From Account
-        accountId = getAccountId(standardToAccountInput);
+        // CLEAR：界面只显示一个 Account 下拉（To Account 按钮：action_account_from）
+        // 使用该下拉作为唯一账户；不需要 From Account
+        accountId = getAccountId(standardFromAccountInput);
         fromAccountId = null;
     } else {
         accountId = getAccountId(standardToAccountInput);
