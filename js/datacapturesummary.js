@@ -12293,14 +12293,16 @@ function getCurrentProcessId() {
                 }
             }
             
-            // Create new row
+            // Create new row（Sub 要在 Main 底下，并缩进显示）
             const row = document.createElement('tr');
+            row.setAttribute('data-product-type', 'sub');
+            row.setAttribute('data-parent-id-product', (parentProcessValue || '').trim());
             
             // Id Product column (merged main and sub)
             const idProductCell = document.createElement('td');
             idProductCell.textContent = '';
-            idProductCell.className = 'id-product';
-            idProductCell.setAttribute('data-main-product', '');
+            idProductCell.className = 'id-product sub-id-product';
+            idProductCell.setAttribute('data-main-product', (parentProcessValue || '').trim());
             idProductCell.setAttribute('data-sub-product', '');
             row.appendChild(idProductCell);
             
@@ -12937,6 +12939,10 @@ function getCurrentProcessId() {
 
             row.setAttribute('data-product-type', data.productType || 'sub');
             row.setAttribute('data-parent-id-product', processValue);
+            const idProductCellForSub = row.querySelector('td:first-child');
+            if (idProductCellForSub && !idProductCellForSub.classList.contains('sub-id-product')) {
+                idProductCellForSub.classList.add('sub-id-product');
+            }
             
             // Preserve sub_order if provided, otherwise keep existing value
             if (data.subOrder !== undefined && data.subOrder !== null && !Number.isNaN(Number(data.subOrder))) {
@@ -14978,49 +14984,45 @@ function reorderSummaryRowsByRowIndex() {
             return;
         }
 
-        // Build Data Capture Table order mapping: id_product -> array of positions (in case same id_product appears multiple times)
+        // 用「去空格」完整 id 做顺序与分组，ALLBET95MS(SV)/(KM)/(SEXY)MYR 各为独立 main，Sub 只跟自己的 Main
+        const normalizeSpacesForReorder = (s) => (s || '').trim().replace(/\s+/g, '');
         const capturedTableBody = document.getElementById('capturedTableBody');
-        const dataCaptureTableOrder = []; // Array of {idProduct, position} to preserve exact order
-        const idProductPositions = new Map(); // id_product -> array of positions
+        const dataCaptureTableOrder = []; // Array of {idProduct, position}，idProduct 为去空格完整 id
+        const idProductPositions = new Map();
         
         if (capturedTableBody) {
             const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
             capturedRows.forEach((capturedRow, capturedIndex) => {
                 const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                 if (capturedIdProductCell) {
-                    const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                    const raw = (capturedIdProductCell.textContent || '').trim();
+                    const capturedIdProduct = normalizeSpacesForReorder(raw);
                     if (capturedIdProduct) {
                         dataCaptureTableOrder.push({ idProduct: capturedIdProduct, position: capturedIndex });
-                        if (!idProductPositions.has(capturedIdProduct)) {
-                            idProductPositions.set(capturedIdProduct, []);
-                        }
+                        if (!idProductPositions.has(capturedIdProduct)) idProductPositions.set(capturedIdProduct, []);
                         idProductPositions.get(capturedIdProduct).push(capturedIndex);
                     }
                 }
             });
         }
 
-        // Collect all rows with their metadata
+        // Collect all rows with their metadata（Sub 按 parent 完整 id 分组，不归一）
         const rowData = rows.map((row, originalIndex) => {
             const idProductCell = row.querySelector('td:first-child');
             const productValues = getProductValuesFromCell(idProductCell);
             const mainTextRaw = (productValues.main || '').trim();
             const productType = row.getAttribute('data-product-type') || 'main';
             
-            // For sub rows, get parent id_product from data attribute or from cell
             let normalizedMain = '';
             if (productType === 'sub') {
-                // Try to get parent id_product from data attribute first
                 const parentIdProduct = row.getAttribute('data-parent-id-product');
                 if (parentIdProduct) {
-                    normalizedMain = normalizeIdProductText(parentIdProduct);
+                    normalizedMain = normalizeSpacesForReorder(parentIdProduct);
                 } else if (mainTextRaw) {
-                    // Fallback to main text from cell (which should be parent id_product for sub rows)
-                    normalizedMain = normalizeIdProductText(mainTextRaw);
+                    normalizedMain = normalizeSpacesForReorder(mainTextRaw);
                 }
             } else {
-                // For main rows, use their own id_product
-                normalizedMain = normalizeIdProductText(mainTextRaw);
+                normalizedMain = normalizeSpacesForReorder(mainTextRaw);
             }
             
             const attr = row.getAttribute('data-row-index');
@@ -15028,25 +15030,17 @@ function reorderSummaryRowsByRowIndex() {
                 ? Number(attr)
                 : null;
 
-            // Get account ID for sorting sub rows with same account
-            const accountCell = row.querySelector('td:nth-child(2)'); // Account column
+            const accountCell = row.querySelector('td:nth-child(2)');
             const accountId = accountCell ? accountCell.getAttribute('data-account-id') : null;
-            
-            // Get creation order for stable sorting
             const creationOrderAttr = row.getAttribute('data-creation-order');
-            const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : originalIndex * 1000000; // Use large multiplier to ensure originalIndex doesn't interfere
-            
-            // Get sub_order for sub rows (determines position relative to parent main row)
+            const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : originalIndex * 1000000;
             const subOrderAttr = row.getAttribute('data-sub-order');
             const subOrder = (subOrderAttr && subOrderAttr !== '' && !Number.isNaN(Number(subOrderAttr))) ? Number(subOrderAttr) : null;
 
-            // Find the position of this id_product in Data Capture Table order
-            let dataCapturePosition = 999999; // Default to end if not found
+            let dataCapturePosition = 999999;
             if (normalizedMain && dataCaptureTableOrder.length > 0) {
                 const index = dataCaptureTableOrder.findIndex(item => item.idProduct === normalizedMain);
-                if (index !== -1) {
-                    dataCapturePosition = index;
-                }
+                if (index !== -1) dataCapturePosition = index;
             }
 
             return {
