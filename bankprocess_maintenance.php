@@ -36,11 +36,11 @@ $error = isset($_GET['error']) ? true : false;
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
-    <!-- Flatpickr CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <title>Process Maintenance</title>
     <link rel="stylesheet" href="css/bankprocess_maintenance.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/sidebar.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
@@ -61,11 +61,13 @@ $error = isset($_GET['error']) ? true : false;
         <div class="maintenance-search-section">
             <div class="maintenance-filters">
                 <div class="maintenance-form-group">
-                    <label class="maintenance-label">Date</label>
-                    <div class="maintenance-date-inputs">
-                        <input type="text" id="date_from" class="maintenance-input maintenance-date-input" value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
-                        <input type="text" id="date_to" class="maintenance-input maintenance-date-input" value="<?php echo date('d/m/Y'); ?>" placeholder="dd/mm/yyyy" readonly style="cursor: pointer;">
+                    <label class="maintenance-label">Date Range</label>
+                    <div class="date-range-picker" id="date-range-picker">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span id="date-range-display">Select date range</span>
                     </div>
+                    <input type="hidden" id="date_from" value="<?php echo date('d/m/Y'); ?>">
+                    <input type="hidden" id="date_to" value="<?php echo date('d/m/Y'); ?>">
                 </div>
             </div>
             
@@ -148,10 +150,47 @@ $error = isset($_GET['error']) ? true : false;
             </div>
         </div>
     </div>
-    <script>window.currentCompanyId = <?php echo json_encode($session_company_id); ?>;</script>
-    <script src="js/bankprocess_maintenance.js?v=<?php echo time(); ?>"></script>
+    <!-- Calendar popup (same as dashboard) -->
+    <div class="calendar-popup" id="calendar-popup" style="display: none;">
+        <div class="calendar-header">
+            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(-1)">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="calendar-month-year" onclick="event.stopPropagation();">
+                <select id="calendar-month-select">
+                    <option value="0">Jan</option>
+                    <option value="1">Feb</option>
+                    <option value="2">Mar</option>
+                    <option value="3">Apr</option>
+                    <option value="4">May</option>
+                    <option value="5">Jun</option>
+                    <option value="6">Jul</option>
+                    <option value="7">Aug</option>
+                    <option value="8">Sep</option>
+                    <option value="9">Oct</option>
+                    <option value="10">Nov</option>
+                    <option value="11">Dec</option>
+                </select>
+                <select id="calendar-year-select"></select>
+            </div>
+            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(1)">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <div class="calendar-weekdays">
+            <div class="calendar-weekday">Sun</div>
+            <div class="calendar-weekday">Mon</div>
+            <div class="calendar-weekday">Tue</div>
+            <div class="calendar-weekday">Wed</div>
+            <div class="calendar-weekday">Thu</div>
+            <div class="calendar-weekday">Fri</div>
+            <div class="calendar-weekday">Sat</div>
+        </div>
+        <div class="calendar-days" id="calendar-days"></div>
+    </div>
 
-    <!-- Flatpickr JS -->
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>window.currentCompanyId = <?php echo json_encode($session_company_id); ?>;</script>
+    <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
+    <script src="js/bankprocess_maintenance.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

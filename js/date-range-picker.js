@@ -1,0 +1,269 @@
+/**
+ * Shared date range picker for maintenance pages - same UI/UX as dashboard.
+ * Expects in DOM: #date-range-picker, #date-range-display, #calendar-popup (with #calendar-month-select, #calendar-year-select, #calendar-days).
+ * Syncs selection to hidden inputs #date_from and #date_to (dd/mm/yyyy). Call init() with onChange to trigger search.
+ */
+(function() {
+    let calendarStartDate = null;
+    let calendarEndDate = null;
+    let isSelectingRange = false;
+    let calendarCurrentDate = new Date();
+    let config = { dateFromId: 'date_from', dateToId: 'date_to', onChange: null };
+
+    function formatDateDisplay(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${day}/${month}/${year}`;
+    }
+
+    function updateDateRangeDisplay() {
+        const display = document.getElementById('date-range-display');
+        if (!display) return;
+        if (calendarStartDate && calendarEndDate) {
+            display.textContent = formatDateDisplay(calendarStartDate) + ' - ' + formatDateDisplay(calendarEndDate);
+        } else if (calendarStartDate) {
+            display.textContent = formatDateDisplay(calendarStartDate) + ' - Select end date';
+        } else {
+            display.textContent = 'Select date range';
+        }
+    }
+
+    function syncToHiddenInputs() {
+        const fromEl = document.getElementById(config.dateFromId);
+        const toEl = document.getElementById(config.dateToId);
+        if (fromEl && calendarStartDate) fromEl.value = formatDateDisplay(calendarStartDate);
+        if (toEl && calendarEndDate) toEl.value = formatDateDisplay(calendarEndDate);
+    }
+
+    function toggleCalendar() {
+        const popup = document.getElementById('calendar-popup');
+        const picker = document.getElementById('date-range-picker');
+        if (!popup || !picker) return;
+        if (popup.style.display === 'none' || !popup.style.display) {
+            const rect = picker.getBoundingClientRect();
+            popup.style.top = (rect.bottom + 8) + 'px';
+            popup.style.left = rect.left + 'px';
+            popup.style.display = 'block';
+            initCalendar();
+            renderCalendar();
+        } else {
+            popup.style.display = 'none';
+        }
+    }
+
+    function initCalendar() {
+        const today = new Date();
+        if (!calendarStartDate) {
+            calendarStartDate = new Date(today);
+            calendarStartDate.setHours(0, 0, 0, 0);
+            calendarEndDate = new Date(today);
+            calendarEndDate.setHours(0, 0, 0, 0);
+        }
+        if (calendarStartDate && !calendarEndDate) {
+            isSelectingRange = true;
+        } else if (calendarStartDate && calendarEndDate) {
+            isSelectingRange = false;
+        }
+        if (calendarStartDate) {
+            calendarCurrentDate = new Date(calendarStartDate.getFullYear(), calendarStartDate.getMonth(), 1);
+        } else {
+            calendarCurrentDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        }
+        const yearSelect = document.getElementById('calendar-year-select');
+        if (yearSelect) {
+            yearSelect.innerHTML = '';
+            const currentYear = today.getFullYear();
+            for (let year = 2022; year <= currentYear + 1; year++) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                if (year === calendarCurrentDate.getFullYear()) option.selected = true;
+                yearSelect.appendChild(option);
+            }
+        }
+        const monthSelect = document.getElementById('calendar-month-select');
+        if (monthSelect) monthSelect.value = calendarCurrentDate.getMonth();
+        updateDateRangeDisplay();
+    }
+
+    function changeMonth(delta) {
+        calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() + delta);
+        const monthSelect = document.getElementById('calendar-month-select');
+        const yearSelect = document.getElementById('calendar-year-select');
+        if (monthSelect) monthSelect.value = calendarCurrentDate.getMonth();
+        if (yearSelect) yearSelect.value = calendarCurrentDate.getFullYear();
+        renderCalendar();
+    }
+
+    function createDayElement(day, year, month, isOtherMonth) {
+        const dayElement = document.createElement('div');
+        dayElement.className = 'calendar-day';
+        dayElement.textContent = day;
+        const date = new Date(year, month, day);
+        date.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (isOtherMonth) dayElement.classList.add('other-month');
+        if (date.getTime() === today.getTime() && !isOtherMonth) dayElement.classList.add('today');
+        if (calendarStartDate) {
+            const startTime = calendarStartDate.getTime();
+            const currentTime = date.getTime();
+            if (calendarEndDate) {
+                const endTime = calendarEndDate.getTime();
+                if (currentTime === startTime && currentTime === endTime) {
+                    dayElement.classList.add('selected', 'start-date', 'end-date');
+                } else if (currentTime === startTime) {
+                    dayElement.classList.add('start-date');
+                } else if (currentTime === endTime) {
+                    dayElement.classList.add('end-date');
+                } else if (currentTime > startTime && currentTime < endTime) {
+                    dayElement.classList.add('in-range');
+                }
+            } else {
+                if (currentTime === startTime) dayElement.classList.add('start-date', 'selecting');
+            }
+        }
+        dayElement.addEventListener('click', function(e) {
+            e.stopPropagation();
+            selectDate(date);
+        });
+        dayElement.addEventListener('mouseenter', function() {
+            if (isSelectingRange && calendarStartDate && !calendarEndDate) highlightPreviewRange(date);
+        });
+        return dayElement;
+    }
+
+    function highlightPreviewRange(hoverDate) {
+        const days = document.querySelectorAll('#calendar-popup .calendar-day');
+        const startTime = calendarStartDate.getTime();
+        const hoverTime = hoverDate.getTime();
+        const yearSelect = document.getElementById('calendar-year-select');
+        const monthSelect = document.getElementById('calendar-month-select');
+        if (!yearSelect || !monthSelect) return;
+        const year = parseInt(yearSelect.value, 10);
+        const month = parseInt(monthSelect.value, 10);
+        days.forEach(function(day) {
+            day.classList.remove('preview-range', 'preview-end');
+            const dayText = parseInt(day.textContent, 10);
+            if (!dayText) return;
+            let dayDate;
+            if (day.classList.contains('other-month')) {
+                if (dayText > 20) {
+                    dayDate = new Date(year, month - 1, dayText);
+                } else {
+                    dayDate = new Date(year, month + 1, dayText);
+                }
+            } else {
+                dayDate = new Date(year, month, dayText);
+            }
+            dayDate.setHours(0, 0, 0, 0);
+            const dayTime = dayDate.getTime();
+            const minTime = Math.min(startTime, hoverTime);
+            const maxTime = Math.max(startTime, hoverTime);
+            if (dayTime > minTime && dayTime < maxTime) day.classList.add('preview-range');
+            else if (dayTime === hoverTime && dayTime !== startTime) day.classList.add('preview-end');
+        });
+    }
+
+    function selectDate(date) {
+        if (!calendarStartDate || (calendarStartDate && calendarEndDate)) {
+            calendarStartDate = new Date(date);
+            calendarEndDate = null;
+            isSelectingRange = true;
+        } else {
+            if (date.getTime() < calendarStartDate.getTime()) {
+                calendarEndDate = new Date(calendarStartDate);
+                calendarStartDate = new Date(date);
+            } else {
+                calendarEndDate = new Date(date);
+            }
+            isSelectingRange = false;
+            syncToHiddenInputs();
+            updateDateRangeDisplay();
+            if (typeof config.onChange === 'function') config.onChange();
+            const popup = document.getElementById('calendar-popup');
+            if (popup) popup.style.display = 'none';
+        }
+        renderCalendar();
+        updateDateRangeDisplay();
+    }
+
+    function renderCalendar() {
+        const yearSelect = document.getElementById('calendar-year-select');
+        const monthSelect = document.getElementById('calendar-month-select');
+        if (!yearSelect || !monthSelect) return;
+        const year = parseInt(yearSelect.value, 10);
+        const month = parseInt(monthSelect.value, 10);
+        calendarCurrentDate = new Date(year, month, 1);
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const prevLastDay = new Date(year, month, 0);
+        const firstDayWeek = firstDay.getDay();
+        const lastDate = lastDay.getDate();
+        const prevLastDate = prevLastDay.getDate();
+        const daysContainer = document.getElementById('calendar-days');
+        if (!daysContainer) return;
+        daysContainer.innerHTML = '';
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        for (let i = firstDayWeek - 1; i >= 0; i--) {
+            const day = prevLastDate - i;
+            daysContainer.appendChild(createDayElement(day, year, month - 1, true));
+        }
+        for (let day = 1; day <= lastDate; day++) {
+            daysContainer.appendChild(createDayElement(day, year, month, false));
+        }
+        const totalCells = daysContainer.children.length;
+        const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+        for (let day = 1; day <= remainingCells; day++) {
+            daysContainer.appendChild(createDayElement(day, year, month + 1, true));
+        }
+    }
+
+    window.changeMonth = function(delta) {
+        changeMonth(delta);
+    };
+
+    window.MaintenanceDateRangePicker = {
+        init: function(options) {
+            if (options) {
+                if (options.dateFromId) config.dateFromId = options.dateFromId;
+                if (options.dateToId) config.dateToId = options.dateToId;
+                if (options.onChange) config.onChange = options.onChange;
+            }
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (!calendarStartDate) {
+                calendarStartDate = new Date(today);
+                calendarEndDate = new Date(today);
+            }
+            syncToHiddenInputs();
+            updateDateRangeDisplay();
+            const picker = document.getElementById('date-range-picker');
+            if (picker) {
+                picker.onclick = function(e) {
+                    e.stopPropagation();
+                    toggleCalendar();
+                };
+            }
+            document.getElementById('calendar-month-select').addEventListener('change', renderCalendar);
+            document.getElementById('calendar-year-select').addEventListener('change', renderCalendar);
+            document.addEventListener('click', function(e) {
+                const calendar = document.getElementById('date-range-picker');
+                const popup = document.getElementById('calendar-popup');
+                if (calendar && popup && !calendar.contains(e.target) && !popup.contains(e.target)) {
+                    popup.style.display = 'none';
+                }
+            });
+        },
+        getDateFrom: function() {
+            const fromEl = document.getElementById(config.dateFromId);
+            return fromEl ? fromEl.value : '';
+        },
+        getDateTo: function() {
+            const toEl = document.getElementById(config.dateToId);
+            return toEl ? toEl.value : '';
+        }
+    };
+})();
