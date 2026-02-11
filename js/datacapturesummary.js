@@ -2940,8 +2940,11 @@ function getCurrentProcessId() {
             const capturedTableBody = document.getElementById('capturedTableBody');
             if (!capturedTableBody) return;
 
-            // Normalize the target id_product for comparison
-            const normalizedTargetIdProduct = normalizeIdProductText(idProduct);
+            // 整组 Id_product 比较时忽略内部空格差异，如 ALLBET95MS (KM) MYR -> ALLBET95MS(KM)MYR
+            const normalizeSpaces = function(s) { return (s || '').trim().replace(/\s+/g, ''); };
+            const isFullId = typeof isTruncatedIdProduct === 'function' && !isTruncatedIdProduct(idProduct);
+            // 整组 Id 时保留完整形式 ALLBET95MS(KM)MYR；截断 Id 时用 normalizeIdProductText 得到基名如 ALLBET95MS
+            const normalizedTargetIdProduct = isFullId ? normalizeSpaces(idProduct) : normalizeIdProductText(idProduct);
 
             const rows = capturedTableBody.querySelectorAll('tr');
             let firstOptionValue = null;
@@ -2965,14 +2968,11 @@ function getCurrentProcessId() {
                 }
                 
                 const rowIdTrim = (rowIdProduct || '').trim();
-                const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct || '');
                 const idTrim = (idProduct || '').trim();
-                // 整组 Id_product 比较时忽略内部空格差异，如 ALLBET95MS (KM) MYR 与 ALLBET95MS(KM)MYR 视为同一条
-                const normalizeSpaces = function(s) { return (s || '').trim().replace(/\s+/g, ''); };
+                const normalizedRowIdProduct = isFullId ? normalizeSpaces(rowIdProduct || '') : normalizeIdProductText(rowIdProduct || '');
                 
                 // 整组 Id_product（如 ALLBET95MS(KM)MYR）只做精确匹配，避免 (KM) 选到 (SV)/(SEXY) 三行
-                const useExactMatch = typeof isTruncatedIdProduct === 'function' && !isTruncatedIdProduct(idProduct);
-                const idProductMatches = useExactMatch
+                const idProductMatches = isFullId
                     ? (normalizeSpaces(rowIdTrim) === normalizeSpaces(idTrim))
                     : (normalizedRowIdProduct && normalizedRowIdProduct === normalizedTargetIdProduct);
                 
