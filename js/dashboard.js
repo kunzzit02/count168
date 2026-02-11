@@ -1016,7 +1016,7 @@ function updateChart(data) {
     const dailyData = data.daily_data;
     console.log('dailyData:', dailyData);
     
-    // 确保 capital 和 expenses 存在
+    // 确保 capital、expenses 和 profit 存在
     if (!dailyData.capital) {
         console.warn('缺少 capital 数据，使用空对象');
         dailyData.capital = {};
@@ -1025,6 +1025,10 @@ function updateChart(data) {
         console.warn('缺少 expenses 数据，使用空对象');
         dailyData.expenses = {};
     }
+    if (!dailyData.profit) {
+        console.warn('缺少 profit 数据，使用空对象');
+        dailyData.profit = {};
+    }
     
     // 准备图表数据
     const dates = [];
@@ -1032,20 +1036,39 @@ function updateChart(data) {
     const expensesData = [];
     const profitData = [];
     
-    // 合并所有日期（只包括 profit 和 expenses，不包括 capital）
-    const allDates = new Set();
-    if (dailyData.expenses && typeof dailyData.expenses === 'object') {
-        Object.keys(dailyData.expenses).forEach(date => allDates.add(date));
-    }
-    if (dailyData.profit && typeof dailyData.profit === 'object') {
-        Object.keys(dailyData.profit).forEach(date => allDates.add(date));
+    // 生成日期范围内的所有日期（从 startDate 到 endDate，包括每一天）
+    const allDatesInRange = [];
+    if (dateRange.startDate && dateRange.endDate) {
+        const startDate = new Date(dateRange.startDate);
+        const endDate = new Date(dateRange.endDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
+        
+        const currentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+            const dateStr = formatDateToYYYYMMDD(currentDate);
+            allDatesInRange.push(dateStr);
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
     }
     
-    if (allDates.size === 0) {
+    // 如果没有日期范围，使用API返回的日期（向后兼容）
+    const sortedDates = allDatesInRange.length > 0 ? allDatesInRange : [];
+    if (sortedDates.length === 0) {
+        // 如果没有日期范围，尝试从API数据中获取日期
+        const allDates = new Set();
+        if (dailyData.expenses && typeof dailyData.expenses === 'object') {
+            Object.keys(dailyData.expenses).forEach(date => allDates.add(date));
+        }
+        if (dailyData.profit && typeof dailyData.profit === 'object') {
+            Object.keys(dailyData.profit).forEach(date => allDates.add(date));
+        }
+        sortedDates.push(...Array.from(allDates).sort());
+    }
+    
+    if (sortedDates.length === 0) {
         // 如果没有数据，显示空图表
         console.warn('没有图表数据，显示空图表');
-        console.log('capital keys:', dailyData.capital ? Object.keys(dailyData.capital) : 'null');
-        console.log('expenses keys:', dailyData.expenses ? Object.keys(dailyData.expenses) : 'null');
         
         // 清空元数据
         chartMetadata = {
@@ -1078,13 +1101,12 @@ function updateChart(data) {
         return;
     }
     
-    const sortedDates = Array.from(allDates).sort();
-    
+    // 为范围内的每一天准备数据，没有数据的日期默认为0
     sortedDates.forEach(date => {
         try {
-        dates.push(date);
-            const capital = parseFloat(dailyData.capital[date] || 0) || 0;
-            const expenses = parseFloat(dailyData.expenses[date] || 0) || 0;
+            dates.push(date);
+            const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
+            const expenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
             // Profit: 优先使用API返回的profit daily_data，否则 net = capital + expenses（expenses 带符号，正加负减）
             let profit = 0;
             if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
@@ -1097,6 +1119,10 @@ function updateChart(data) {
             profitData.push(profit);
         } catch (e) {
             console.warn('Error processing date data:', date, e);
+            // 如果出错，也添加0值
+            capitalData.push(0);
+            expensesData.push(0);
+            profitData.push(0);
         }
     });
     
@@ -1268,7 +1294,11 @@ function createChart(canvas, chartData) {
                         ticks: {
                             font: {
                                 size: 11
-                            }
+                            },
+                            maxRotation: 45,
+                            minRotation: 0,
+                            autoSkip: false,
+                            maxTicksLimit: undefined
                         }
                     }
                 },
