@@ -972,7 +972,8 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
     $bf += $stmt->fetchColumn();
     
     // 2. 计算日期之前所有 transactions 的影响
-    // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM/CLEAR 影响 Cr/Dr（作为 To Account）- Win/Loss 只包含 Data Capture
+    // WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM 影响 Cr/Dr（作为 To Account）- Win/Loss 只包含 Data Capture
+    // 排除 CLEAR 类型（CLEAR 不影响 B/F 计算，因为它只是清零操作）
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
                     WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN amount
@@ -985,7 +986,8 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
             WHERE company_id = ?
               AND account_id = ?
               AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE', 'CLEAR')
+              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+              AND transaction_type <> 'CLEAR'
               AND (transaction_type != 'RATE' OR from_account_id IS NOT NULL)"
               . historyContraApprovedWhere($pdo, '');
     
@@ -995,6 +997,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
     
     // PAYMENT/RECEIVE/CONTRA/CLAIM/RATE 影响 Cr/Dr（作为 From Account）
     // 注意：RATE 类型的 from_account_id 可能为 NULL（手续费记录），这些记录不会在这里被计算
+    // 排除 CLEAR 类型（CLEAR 没有 from_account_id）
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
                     WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -amount
@@ -1005,7 +1008,8 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
             WHERE company_id = ?
               AND from_account_id = ?
               AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')"
+              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')
+              AND transaction_type <> 'CLEAR'"
               . historyContraApprovedWhere($pdo, '');
     
     $stmt = $pdo->prepare($sql);
