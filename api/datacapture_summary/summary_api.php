@@ -185,23 +185,26 @@ function computeTemplateKey(array $row): string {
         $subId = trim((string)($row['id_product_sub'] ?? $row['id_product'] ?? ''));
         $description = trim((string)($row['description_sub'] ?? $row['description'] ?? ''));
         $accountId = trim((string)($row['account_id'] ?? ''));
-        // Include sub_order in template_key to distinguish multiple sub rows with same account
         $subOrder = isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (string)$row['sub_order'] : '';
 
         if ($subId === '' && $parent === '') {
             $parent = 'sub';
         }
 
-        // Include sub_order in key parts to make each sub row unique
+        // 与 main 一致：sub 的 template_key 使用 parent_id_product（如 ALLBET95MS(KM)MYR）
+        $baseKey = $parent !== '' ? $parent : ($subId !== '' ? $subId : '');
+        if ($baseKey !== '') {
+            return substr($baseKey, 0, 250);
+        }
+
+        // 无 parent/sub 时用长格式保证唯一
         $keyParts = [$parent, $subId !== '' ? $subId : $parent, $description, $accountId, $subOrder];
         $key = implode('::', array_map(static function ($part) {
             return trim((string)$part);
         }, $keyParts));
-
         if ($key === '::::' || $key === ':::::') {
             $key = 'sub-' . md5(json_encode($row));
         }
-
         return substr($key, 0, 250);
     }
 
