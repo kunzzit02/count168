@@ -1222,12 +1222,13 @@ if (!$company_id) {
     exit;
 }
 
-// 验证 company_id 是否属于当前用户
+// 验证 company_id 是否属于当前用户（与 submit_api / update_company_session_api 等逻辑一致）
 $current_user_id = $_SESSION['user_id'];
-$current_user_role = $_SESSION['role'] ?? '';
+$current_user_role = isset($_SESSION['role']) ? strtolower(trim($_SESSION['role'])) : '';
+$current_user_type = isset($_SESSION['user_type']) ? strtolower(trim($_SESSION['user_type'])) : '';
 
-// 如果是 owner，验证 company 是否属于该 owner
-if ($current_user_role === 'owner') {
+// owner：验证 company 是否属于该 owner（role 或 user_type 为 owner 均按 owner 处理）
+if ($current_user_role === 'owner' || $current_user_type === 'owner') {
     $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
     $stmt->execute([$company_id, $owner_id]);
@@ -1237,17 +1238,23 @@ if ($current_user_role === 'owner') {
         exit;
     }
 } else {
-    // 普通用户，验证是否通过 user_company_map 关联到该 company
+    // 普通用户：先查 user_company_map；若无则再允许“该公司 owner 为当前用户”（兜底，避免 session role 未正确设置）
     $stmt = $pdo->prepare("
         SELECT COUNT(*) 
         FROM user_company_map 
         WHERE user_id = ? AND company_id = ?
     ");
     $stmt->execute([$current_user_id, $company_id]);
-    if ($stmt->fetchColumn() == 0) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
-        exit;
+    if ($stmt->fetchColumn() > 0) {
+        // 已通过 user_company_map 授权
+    } else {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
+        $stmt->execute([$company_id, $current_user_id]);
+        if ($stmt->fetchColumn() == 0) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
+            exit;
+        }
     }
 }
 

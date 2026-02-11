@@ -17453,6 +17453,7 @@ function formatPercentValue(value) {
                     
                     const response = await fetch(finalUrl, {
                         method: 'POST',
+                        credentials: 'same-origin',
                         headers: {
                             'Content-Type': 'application/json',
                         },
