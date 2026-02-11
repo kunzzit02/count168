@@ -458,6 +458,18 @@
             }
         }
         
+        // dd/mm/yyyy -> YYYY-MM-DD for API
+        function formulaDateToYmd(str) {
+            if (!str || typeof str !== 'string') return '';
+            const parts = str.trim().split(/[/\-.]/);
+            if (parts.length !== 3) return '';
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2];
+            if (day.length > 2 || month.length > 2 || year.length !== 4) return '';
+            return year + '-' + month + '-' + day;
+        }
+
         // ==================== 加载模板列表 ====================
         function loadDataCaptureList() {
             const processButton = document.getElementById('filter_process');
@@ -468,7 +480,11 @@
                 ? selectedProcessDisplay.toUpperCase()
                 : '';
             const searchFilter = document.getElementById('search_filter').value.trim();
-            
+            const dateFromEl = document.getElementById('date_from');
+            const dateToEl = document.getElementById('date_to');
+            const dateFrom = dateFromEl && dateFromEl.value ? formulaDateToYmd(dateFromEl.value) : '';
+            const dateTo = dateToEl && dateToEl.value ? formulaDateToYmd(dateToEl.value) : '';
+
             // 显示加载状态
             const tbody = document.getElementById('dataCaptureTableBody');
             if (tbody) {
@@ -479,28 +495,33 @@
             if (container) {
                 container.style.display = 'block';
             }
-            
+
             // 构建 URL
             let url = `/api/formula_maintenance/list_api.php`;
             const params = [];
             if (currentCompanyId) {
                 params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
             }
-            
+
             if (process) {
                 params.push(`process=${encodeURIComponent(process)}`);
             }
-            
+
             if (searchFilter) {
                 params.push(`search=${encodeURIComponent(searchFilter)}`);
             }
-            
+
+            if (dateFrom && dateTo) {
+                params.push(`date_from=${encodeURIComponent(dateFrom)}`);
+                params.push(`date_to=${encodeURIComponent(dateTo)}`);
+            }
+
             if (params.length > 0) {
                 url += '?' + params.join('&');
             } else {
                 url += '?';
             }
-            
+
             // 添加时间戳防止缓存
             url += (params.length > 0 ? '&' : '') + `_t=${Date.now()}`;
             
