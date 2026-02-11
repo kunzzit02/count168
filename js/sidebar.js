@@ -136,9 +136,26 @@
     }
 
     function handleLogout() {
-        if (confirm('Are you sure you want to logout?')) {
-            window.location.href = 'dashboard.php?logout=1';
-        }
+        showLogoutModal();
+    }
+
+    function showLogoutModal() {
+        var overlay = document.getElementById('logoutConfirmOverlay');
+        var modal = document.getElementById('logoutConfirmModal');
+        if (overlay) overlay.classList.add('show');
+        if (modal) modal.classList.add('show');
+    }
+
+    function closeLogoutModal() {
+        var overlay = document.getElementById('logoutConfirmOverlay');
+        var modal = document.getElementById('logoutConfirmModal');
+        if (overlay) overlay.classList.remove('show');
+        if (modal) modal.classList.remove('show');
+    }
+
+    function confirmLogout() {
+        closeLogoutModal();
+        window.location.href = 'dashboard.php?logout=1';
     }
 
     function toggleLanguageDropdown() {

@@ -511,6 +511,17 @@ if ($companyId) {
     </div>
 </div>
 
+<!-- Logout 确认弹窗 -->
+<div class="logout-confirm-overlay" id="logoutConfirmOverlay" onclick="closeLogoutModal()"></div>
+<div class="logout-confirm-modal" id="logoutConfirmModal">
+    <div class="logout-confirm-title">count168.com 显示</div>
+    <div class="logout-confirm-message">Are you sure you want to logout?</div>
+    <div class="logout-confirm-actions">
+        <button type="button" class="logout-confirm-btn logout-confirm-btn-ok" onclick="confirmLogout()">确定</button>
+        <button type="button" class="logout-confirm-btn logout-confirm-btn-cancel" onclick="closeLogoutModal()">取消</button>
+    </div>
+</div>
+
 <!-- Sidebar JavaScript: PHP 变量注入，调用外部 js/sidebar.js 中的 updateExpirationCountdown / updateSidebarDataCaptureVisibility -->
 <script>
 window.SIDEBAR_IS_MEMBER = <?php echo $isMember ? 'true' : 'false'; ?>;

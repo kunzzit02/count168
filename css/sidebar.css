@@ -673,6 +673,92 @@
     transform: translateY(-1px);
 }
 
+/* Logout 确认弹窗：深色背景、圆角、确定(浅蓝)/取消(深蓝) */
+.logout-confirm-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9998;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.logout-confirm-overlay.show {
+    display: block;
+    opacity: 1;
+}
+
+.logout-confirm-modal {
+    display: none;
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: #2C2C2C;
+    border-radius: 12px;
+    padding: 24px 28px;
+    min-width: 320px;
+    max-width: 90vw;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.logout-confirm-modal.show {
+    display: block;
+    opacity: 1;
+}
+
+.logout-confirm-title {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 14px;
+}
+
+.logout-confirm-message {
+    color: #fff;
+    font-size: 15px;
+    margin-bottom: 24px;
+    line-height: 1.4;
+}
+
+.logout-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.logout-confirm-btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #fff;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.2s, box-shadow 0.2s;
+}
+.logout-confirm-btn:hover {
+    opacity: 0.95;
+}
+
+.logout-confirm-btn-ok {
+    background: #A7C9F9;
+    border: 1px solid #7BB3F7;
+    color: #1a1a1a;
+}
+.logout-confirm-btn-ok:hover {
+    box-shadow: 0 0 0 2px rgba(167, 201, 249, 0.5);
+}
+
+.logout-confirm-btn-cancel {
+    background: #0A609E;
+    color: #fff;
+}
+.logout-confirm-btn-cancel:hover {
+    background: #0B6BAF;
+}
+
 .informationmenu-footer {
     display: flex;
     flex-direction: column;
