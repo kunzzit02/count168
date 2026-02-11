@@ -614,6 +614,7 @@ try {
                 }
                 break;
                 
+            case 'CLEAR':
             case 'CONTRA':
                 if ($approvalStatus && strtoupper((string)$approvalStatus) === 'PENDING') {
                     $cr_dr = 0;
@@ -676,8 +677,8 @@ try {
             }
         }
         
-        // 如果是 CONTRA/PAYMENT/RECEIVE/CLAIM/RATE，根据当前查看的账户调整 description
-        if (in_array($t['transaction_type'], ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'RATE'])) {
+        // 如果是 CONTRA/CLEAR/PAYMENT/RECEIVE/CLAIM/RATE，根据当前查看的账户调整 description
+        if (in_array($t['transaction_type'], ['CONTRA', 'CLEAR', 'PAYMENT', 'RECEIVE', 'CLAIM', 'RATE'])) {
             if (empty($t['description'])) {
                 // 如果原始 description 为空，自动生成
                 if ($is_to_account) {
@@ -689,7 +690,7 @@ try {
                 }
             } else {
                 // 如果原始 description 是自动生成的格式，需要根据视角调整
-                if (preg_match('/^(CONTRA|PAYMENT|RECEIVE|CLAIM|RATE) (FROM|TO) (.+)$/', $t['description'], $matches)) {
+                if (preg_match('/^(CONTRA|CLEAR|PAYMENT|RECEIVE|CLAIM|RATE) (FROM|TO) (.+)$/', $t['description'], $matches)) {
                     $type = $matches[1];
                     $direction = $matches[2];
                     $other_account = $matches[3];
@@ -703,7 +704,7 @@ try {
             }
         }
 
-        // 追加审批标记（只对未批准 CONTRA）
+        // 追加审批标记（只对未批准 CONTRA；CLEAR 没有审批流程，只沿用金额逻辑）
         if ($t['transaction_type'] === 'CONTRA' && $approvalStatus && strtoupper((string)$approvalStatus) === 'PENDING') {
             $description = '[PENDING APPROVAL] ' . $description;
         }
