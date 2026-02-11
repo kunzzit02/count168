@@ -148,10 +148,11 @@ try {
         throw new Exception('无效的交易类型');
     }
     
-    // RATE 类型有特殊的验证逻辑
+    // RATE 和 CLEAR 类型有特殊的验证逻辑
     $is_rate = ($transaction_type === 'RATE');
+    $is_clear = ($transaction_type === 'CLEAR');
     
-    if (!$is_rate) {
+    if (!$is_rate && !$is_clear) {
     if ($account_id <= 0) {
         throw new Exception('请选择 To Account');
     }
@@ -780,8 +781,12 @@ try {
             
         } else {
             // 非 RATE 类型的原有逻辑
-            // 确保金额是正数（对于所有交易类型）
-            $amount = abs($amount);
+            // CLEAR 类型不需要金额，其他类型确保金额是正数
+            if (!$is_clear) {
+                $amount = abs($amount);
+            } else {
+                $amount = 0; // CLEAR 类型金额设为 0
+            }
             
             // WIN/LOSE（含前端 PROFIT）：保存表单的 From 账户用于双记录；数据库触发器要求 from_account_id 必须为 NULL
             $win_lose_from_account_id = null;
