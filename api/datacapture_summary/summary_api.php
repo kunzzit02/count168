@@ -1237,6 +1237,14 @@ $current_user_id = $_SESSION['user_id'];
 $current_user_role = isset($_SESSION['role']) ? strtolower(trim($_SESSION['role'])) : '';
 $current_user_type = isset($_SESSION['user_type']) ? strtolower(trim($_SESSION['user_type'])) : '';
 
+// 若本次请求的 company_id 与 session 中一致，说明用户已在选公司时通过校验（如 update_company_session_api），直接放行
+$session_company_id = isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 0;
+$company_access_ok = false;
+if ($session_company_id > 0 && $session_company_id === (int)$company_id) {
+    $company_access_ok = true;
+}
+
+if (!$company_access_ok) {
 // owner：验证 company 是否属于该 owner（role 或 user_type 为 owner 均按 owner 处理）
 if ($current_user_role === 'owner' || $current_user_type === 'owner') {
     $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
@@ -1267,6 +1275,7 @@ if ($current_user_role === 'owner' || $current_user_type === 'owner') {
         }
     }
 }
+} // end !$company_access_ok
 
 $action = isset($_GET['action']) ? $_GET['action'] : 'load';
 
