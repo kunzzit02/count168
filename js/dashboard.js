@@ -1032,11 +1032,8 @@ function updateChart(data) {
     const expensesData = [];
     const profitData = [];
     
-    // 合并所有日期（包括profit）
+    // 合并所有日期（只包括 profit 和 expenses，不包括 capital）
     const allDates = new Set();
-    if (dailyData.capital && typeof dailyData.capital === 'object') {
-        Object.keys(dailyData.capital).forEach(date => allDates.add(date));
-    }
     if (dailyData.expenses && typeof dailyData.expenses === 'object') {
         Object.keys(dailyData.expenses).forEach(date => allDates.add(date));
     }
@@ -1111,11 +1108,11 @@ function updateChart(data) {
         profitData: profitData
     };
     
-    // 根据选择的数据类型过滤数据集
+    // 只显示 Profit 和 Expenses 数据集
     const allDatasets = [
             {
-                label: 'Capital',
-                data: capitalData,
+                label: 'Profit',
+                data: profitData,
                 borderColor: '#3b82f6',
             backgroundColor: function(context) {
                 const chart = context.chart;
@@ -1135,7 +1132,7 @@ function updateChart(data) {
             borderWidth: 2,
             pointRadius: 0,
             pointHoverRadius: 8,
-            dataType: 'capital'
+            dataType: 'profit'
             },
             {
                 label: 'Expenses',
@@ -1160,40 +1157,11 @@ function updateChart(data) {
             pointRadius: 0,
             pointHoverRadius: 8,
             dataType: 'expenses'
-            },
-            {
-                label: 'Profit',
-                data: profitData,
-                borderColor: '#10b981',
-            backgroundColor: function(context) {
-                const chart = context.chart;
-                const {ctx, chartArea} = chart;
-                if (!chartArea) {
-                    return null;
-                }
-                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
-                gradient.addColorStop(0.3, 'rgba(16, 185, 129, 0.2)');
-                gradient.addColorStop(0.7, 'rgba(16, 185, 129, 0.1)');
-                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
-                return gradient;
-            },
-                fill: true,
-            tension: 0.4,
-            borderWidth: 2,
-            pointRadius: 0,
-            pointHoverRadius: 8,
-            dataType: 'profit'
         }
     ];
     
-    // 根据选择的数据类型过滤数据集
-    let filteredDatasets = [];
-    if (selectedChartDataType === 'all') {
-        filteredDatasets = allDatasets;
-    } else {
-        filteredDatasets = allDatasets.filter(ds => ds.dataType === selectedChartDataType);
-    }
+    // 默认显示所有数据集（Profit 和 Expenses）
+    let filteredDatasets = allDatasets;
     
     const chartData = {
         labels: dates.map(d => {
@@ -1346,15 +1314,13 @@ function createChart(canvas, chartData) {
                                         try {
                                             const dateObj = new Date(date);
                                             if (!isNaN(dateObj.getTime())) {
-                                                const capital = capitalData[dataIndex] || 0;
                                                 const expenses = expensesData[dataIndex] || 0;
                                                 const profit = profitData[dataIndex] || 0;
                                                 return [
                                                     '',
                                                     '--- Daily Summary ---',
-                                                    `Capital: RM ${formatCurrency(capital)}`,
-                                                    `Expenses: RM ${formatCurrency(expenses)}`,
-                                                    `Profit: RM ${formatCurrency(profit)}`
+                                                    `Profit: RM ${formatCurrency(profit)}`,
+                                                    `Expenses: RM ${formatCurrency(expenses)}`
                                                 ];
                                             }
                                         } catch (e) {
@@ -1646,8 +1612,8 @@ function initChartDataButtons() {
                     
                     const allDatasets = [
                         {
-                            label: 'Capital',
-                            data: chartMetadata.capitalData,
+                            label: 'Profit',
+                            data: chartMetadata.profitData,
                             borderColor: '#3b82f6',
                             backgroundColor: function(context) {
                                 const chart = context.chart;
@@ -1665,7 +1631,7 @@ function initChartDataButtons() {
                             borderWidth: 2,
                             pointRadius: 0,
                             pointHoverRadius: 8,
-                            dataType: 'capital'
+                            dataType: 'profit'
                         },
                         {
                             label: 'Expenses',
@@ -1688,37 +1654,11 @@ function initChartDataButtons() {
                             pointRadius: 0,
                             pointHoverRadius: 8,
                             dataType: 'expenses'
-                        },
-                        {
-                            label: 'Profit',
-                            data: chartMetadata.profitData,
-                            borderColor: '#10b981',
-                            backgroundColor: function(context) {
-                                const chart = context.chart;
-                                const {ctx, chartArea} = chart;
-                                if (!chartArea) return null;
-                                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
-                                gradient.addColorStop(0.3, 'rgba(16, 185, 129, 0.2)');
-                                gradient.addColorStop(0.7, 'rgba(16, 185, 129, 0.1)');
-                                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
-                                return gradient;
-                            },
-                            fill: true,
-                            tension: 0.4,
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            pointHoverRadius: 8,
-                            dataType: 'profit'
                         }
                     ];
                     
-                    let filteredDatasets = [];
-                    if (selectedChartDataType === 'all') {
-                        filteredDatasets = allDatasets;
-                    } else {
-                        filteredDatasets = allDatasets.filter(ds => ds.dataType === selectedChartDataType);
-                    }
+                    // 默认显示所有数据集（Profit 和 Expenses）
+                    let filteredDatasets = allDatasets;
                     
                     const chartData = {
                         labels: dates,
