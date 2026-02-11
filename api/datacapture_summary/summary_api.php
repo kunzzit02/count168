@@ -1232,63 +1232,59 @@ if (!$company_id) {
     exit;
 }
 
-// 验证 company_id 是否属于当前用户（与 submit_api / update_company_session_api 等逻辑一致）
+// 验证 company_id 是否属于当前用户：与 update_company_session_api 完全一致（按“可访问公司列表”统一校验）
 $current_user_id = $_SESSION['user_id'];
-$current_user_role = isset($_SESSION['role']) ? strtolower(trim($_SESSION['role'])) : '';
-$current_user_type = isset($_SESSION['user_type']) ? strtolower(trim($_SESSION['user_type'])) : '';
+$current_user_role = strtolower(trim($_SESSION['role'] ?? ''));
+$current_user_type = strtolower(trim($_SESSION['user_type'] ?? ''));
 
-// 若本次请求的 company_id 与 session 中一致，说明用户已在选公司时通过校验（如 update_company_session_api），直接放行
 $session_company_id = isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 0;
-$company_access_ok = false;
-if ($session_company_id > 0 && $session_company_id === (int)$company_id) {
-    $company_access_ok = true;
-}
+$company_access_ok = ($session_company_id > 0 && $session_company_id === (int)$company_id);
 
 if (!$company_access_ok) {
-// member：通过 account_company 校验（与 update_company_session_api 一致）
-if ($current_user_type === 'member') {
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) FROM company c
-        INNER JOIN account_company ac ON c.id = ac.company_id
-        WHERE ac.account_id = ? AND c.id = ?
-    ");
-    $stmt->execute([$current_user_id, $company_id]);
-    if ($stmt->fetchColumn() == 0) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
-        exit;
-    }
-} elseif ($current_user_role === 'owner' || $current_user_type === 'owner') {
-    // owner：验证 company 是否属于该 owner（role 或 user_type 为 owner 均按 owner 处理）
-    $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
-    $stmt->execute([$company_id, $owner_id]);
-    if ($stmt->fetchColumn() == 0) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
-        exit;
-    }
-} else {
-    // 普通用户：先查 user_company_map；若无则再允许“该公司 owner 为当前用户”（兜底，避免 session role 未正确设置）
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) 
-        FROM user_company_map 
-        WHERE user_id = ? AND company_id = ?
-    ");
-    $stmt->execute([$current_user_id, $company_id]);
-    if ($stmt->fetchColumn() > 0) {
-        // 已通过 user_company_map 授权
+    // 与 update_company_session_api 相同的 getUserCompanies 逻辑，得到可访问公司列表再判断
+    $user_company_ids = [];
+    if ($current_user_type === 'member') {
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT c.id FROM company c
+            INNER JOIN account_company ac ON c.id = ac.company_id
+            WHERE ac.account_id = ?
+        ");
+        $stmt->execute([$current_user_id]);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $user_company_ids[] = (int)$row['id'];
+        }
+    } elseif ($current_user_role === 'owner' || $current_user_type === 'owner') {
+        $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
+        $stmt = $pdo->prepare("SELECT id FROM company WHERE owner_id = ?");
+        $stmt->execute([$owner_id]);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $user_company_ids[] = (int)$row['id'];
+        }
     } else {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
-        $stmt->execute([$company_id, $current_user_id]);
-        if ($stmt->fetchColumn() == 0) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
-            exit;
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT c.id FROM company c
+            INNER JOIN user_company_map ucm ON c.id = ucm.company_id
+            WHERE ucm.user_id = ?
+        ");
+        $stmt->execute([$current_user_id]);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $user_company_ids[] = (int)$row['id'];
+        }
+        // 兜底：若 user_company_map 无数据，允许该公司 owner 为当前用户
+        if (empty($user_company_ids)) {
+            $stmt = $pdo->prepare("SELECT id FROM company WHERE owner_id = ?");
+            $stmt->execute([$current_user_id]);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $user_company_ids[] = (int)$row['id'];
+            }
         }
     }
+    if (!in_array((int)$company_id, $user_company_ids, true)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
+        exit;
+    }
 }
-} // end !$company_access_ok
 
 $action = isset($_GET['action']) ? $_GET['action'] : 'load';
 
