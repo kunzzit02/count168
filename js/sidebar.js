@@ -135,6 +135,18 @@
         if (selectedOption) selectedOption.classList.add('selected');
     }
 
+    function handleLogoutClick(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        try {
+            showLogoutModal();
+        } catch (err) {
+            console.error('showLogoutModal error:', err);
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = 'dashboard.php?logout=1';
+            }
+        }
+    }
+
     function handleLogout() {
         showLogoutModal();
     }
@@ -349,6 +361,12 @@
         overlay = document.querySelector('.informationmenu-overlay');
         userAvatar = document.getElementById('user-avatar');
         sidebarToggle = document.getElementById('sidebarToggle');
+
+        var logoutBtn = document.getElementById('sidebarLogoutBtn') || document.querySelector('.logout-btn');
+        if (logoutBtn) {
+            logoutBtn.removeEventListener('click', handleLogoutClick);
+            logoutBtn.addEventListener('click', handleLogoutClick);
+        }
 
         if (userAvatar) {
             userAvatar.addEventListener('click', function() {

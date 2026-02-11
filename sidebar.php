@@ -486,7 +486,7 @@ if ($companyId) {
             </div>
         </div>
         <?php endif; ?>
-        <button class="btn logout-btn" onclick="handleLogout()">
+        <button type="button" class="btn logout-btn" id="sidebarLogoutBtn">
             Logout
         </button>
     </div>
