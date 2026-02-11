@@ -136,7 +136,16 @@
     }
 
     function handleLogout() {
-        showLogoutModal();
+        var overlay = document.getElementById('logoutConfirmOverlay');
+        var modal = document.getElementById('logoutConfirmModal');
+        if (overlay && modal) {
+            overlay.classList.add('show');
+            modal.classList.add('show');
+        } else {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = 'dashboard.php?logout=1';
+            }
+        }
     }
 
     function showLogoutModal() {
@@ -306,6 +315,9 @@
     window.selectGender = selectGender;
     window.selectAvatar = selectAvatar;
     window.handleLogout = handleLogout;
+    window.showLogoutModal = showLogoutModal;
+    window.closeLogoutModal = closeLogoutModal;
+    window.confirmLogout = confirmLogout;
     window.toggleLanguageDropdown = toggleLanguageDropdown;
     window.selectLanguage = selectLanguage;
     window.toggleNotificationPanel = toggleNotificationPanel;
