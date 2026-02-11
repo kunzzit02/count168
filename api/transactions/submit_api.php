@@ -278,15 +278,15 @@ try {
             throw new Exception('CLEAR 交易必须选择 Currency');
         }
         
-        // 计算当前余额（到交易日期之前）
-        // Balance = B/F + Win/Loss + Cr/Dr（到交易日期之前）
+        // 计算当前余额（到交易日期“当日含在内”）
+        // Balance = B/F + Win/Loss + Cr/Dr（到 transaction_date 当日为止，含当天）
         $current_balance = 0;
         
-        // 1. 计算 B/F（Opening Balance）
+        // 1. 计算 B/F（Opening Balance，使用 < 号，只算交易日期之前）
         // 检查 transactions 表是否有 currency_id 字段
         $has_transaction_currency = tableHasColumn($pdo, 'transactions', 'currency_id');
         
-        // 计算起始日期之前所有 Data Capture 的累计金额
+        // 计算起始日期之前所有 Data Capture 的累计金额（不含当天）
         $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
                 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
@@ -299,7 +299,7 @@ try {
         $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $transaction_date_db]);
         $current_balance += (float)$stmt->fetchColumn();
         
-        // 2. 计算起始日期之前所有 transactions 的影响（作为 To Account）
+        // 2. 计算“到当天”为止所有 transactions 的影响（作为 To Account）
         if ($has_transaction_currency) {
             $sql = "SELECT 
                         COALESCE(SUM(CASE 
@@ -313,7 +313,7 @@ try {
                     WHERE company_id = ?
                       AND account_id = ?
                       AND currency_id = ?
-                      AND transaction_date < ?
+                      AND transaction_date <= ?
                       AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
                       AND (transaction_type != 'RATE' OR from_account_id IS NOT NULL)";
             
@@ -337,7 +337,7 @@ try {
                     WHERE company_id = ?
                       AND from_account_id = ?
                       AND currency_id = ?
-                      AND transaction_date < ?
+                      AND transaction_date <= ?
                       AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')";
             
             // 添加 Contra 审批过滤
