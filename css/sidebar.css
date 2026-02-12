@@ -353,24 +353,16 @@
 @media (max-width: 1024px) {
     .informationmenu {
         width: 150px;
-        min-height: 100vh;
-        height: 100vh;
+        height: auto;
+    }
+    /* 内容区不撑满，footer 紧贴菜单，消除底部空洞 */
+    .informationmenu-content {
+        flex: 0 1 auto;
     }
     .informationmenu-footer {
         background: #002d49;
         padding: 12px 10px;
-    }
-    /* 避免底部露出 body 浅色背景的缝隙 */
-    .informationmenu::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 80px;
-        background: #002d49;
-        z-index: -1;
-        pointer-events: none;
+        margin-top: 0;
     }
 }
 
