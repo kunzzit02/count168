@@ -1302,7 +1302,7 @@ body.transaction-page .expiration-countdown-text {
 }
 .transaction-add-section .transaction-form-group .transaction-label {
     width: clamp(80px, 6vw, 110px);
-    flex: 0 0 clamp(80px, 6vw, 105px);
+    flex: 0 0 clamp(60px, 6vw, 105px);
 }
 .transaction-add-section .transaction-form-group > *:not(.transaction-label) {
     flex: 1 1 auto;
