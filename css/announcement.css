@@ -498,7 +498,10 @@ h1 {
     .announcement-content{
         font-size: clamp(10px, 0.85vw, 14px);
     }
-
+    .announcement-meta{
+        font-size: clamp(9px, 0.85vw, 12px);
+    }
+    
     .announcement-list-section{
         min-height: 200px;
     }
