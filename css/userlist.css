@@ -1426,4 +1426,8 @@ h1 {
     .permission-label{
         font-size: clamp(9px, 0.85vw, 14px);
     }
+
+    .permission-icon{
+        height: 16px;
+    }
 }
