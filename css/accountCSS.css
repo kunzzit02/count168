@@ -1547,3 +1547,9 @@ body {
         transform: translateY(0);
     }
 }
+
+@media (max-width: 1024px) {
+    .account-card-item{
+        font-size: clamp(9px, 0.85vw, 14px);
+    }
+}
