@@ -429,8 +429,8 @@ if ($companyId) {
             </div>
             <?php endif; ?>
 
-            <!-- Maintenance Section -->
-            <?php if (empty($permissions) || in_array('maintenance', $permissions)): ?>
+            <!-- Maintenance Section：主项始终显示；子项按用户是否勾选 maintenance + 公司 category 控制 -->
+            <?php $hasMaintenance = (empty($permissions) || in_array('maintenance', $permissions)); ?>
             <div class="informationmenu-section">
                 <div class="menu-item-wrapper">
                     <div class="informationmenu-section-title" data-section="maintenance">
@@ -442,23 +442,29 @@ if ($companyId) {
                     </div>
                     <div class="submenu" id="maintenance-submenu">
                         <div class="submenu-content">
+                            <?php if ($companyHasGambling && $hasMaintenance): ?>
                             <a href="capture_maintenance.php"
                                class="submenu-item"
-                               id="maintenance-capture-link"<?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
+                               id="maintenance-capture-link">
                                 <span>Data Capture</span>
                             </a>
+                            <?php endif; ?>
                             <a href="transaction_maintenance.php" class="submenu-item">
                                 <span>Transaction</span>
                             </a>
+                            <?php if ($hasMaintenance): ?>
                             <a href="payment_maintenance.php" class="submenu-item">
                                 <span>Payment</span>
                             </a>
+                            <?php endif; ?>
+                            <?php if ($companyHasGambling): ?>
                             <a href="formula_maintenance.php"
                                class="submenu-item"
-                               id="maintenance-formula-link"<?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
+                               id="maintenance-formula-link">
                                 <span>Formula</span>
                             </a>
-                            <?php if (!empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
+                            <?php endif; ?>
+                            <?php if ($hasMaintenance && !empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
                             <a href="bankprocess_maintenance.php" class="submenu-item">
                                 <span>Process</span>
                             </a>
@@ -467,7 +473,6 @@ if ($companyId) {
                     </div>
                 </div>
             </div>
-            <?php endif; ?>
         <?php endif; ?>
     </div>
 
