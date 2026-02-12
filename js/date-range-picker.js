@@ -46,7 +46,11 @@
             var parent = picker.parentElement;
             if (parent) {
                 var parentRect = parent.getBoundingClientRect();
-                if (parentRect.width > barWidth) barWidth = parentRect.width;
+                if (parent.classList && parent.classList.contains('transaction-capture-date-row')) {
+                    barWidth = parentRect.width;
+                } else if (parentRect.width > barWidth) {
+                    barWidth = parentRect.width;
+                }
             }
             popup.style.top = (rect.bottom + 8) + 'px';
             popup.style.left = rect.left + 'px';
