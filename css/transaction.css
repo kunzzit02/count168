@@ -58,52 +58,6 @@ body.transaction-page {
     gap: clamp(6px, 0.52vw, 12px);
 }
 
-/* 第一行筛选：与 maintenance 一致，Category | Date Range | Quick Select 横向排列 */
-.transaction-page .transaction-filters {
-    display: flex;
-    gap: clamp(12px, 1.25vw, 24px);
-    align-items: flex-end;
-    flex-wrap: wrap;
-}
-.transaction-page .transaction-filters .transaction-form-group {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(6px, 0.52vw, 10px);
-    margin-bottom: 0;
-}
-.transaction-page .transaction-filters .transaction-label {
-    width: auto;
-}
-.transaction-page .transaction-filters .transaction-filter-item {
-    min-width: clamp(150px, 12.5vw, 240px);
-}
-.transaction-page .transaction-filters .transaction-date-range-group {
-    min-width: clamp(200px, 18vw, 280px);
-    width: clamp(200px, 18vw, 280px);
-}
-.transaction-page .transaction-filters .date-range-picker {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-}
-.transaction-page .transaction-filters .quick-select-wrap {
-    min-width: clamp(100px, 8vw, 140px);
-    width: auto;
-}
-.transaction-page .transaction-filters .quick-select-wrap .form-label {
-    margin: 0;
-    font-size: clamp(11px, 0.85vw, 13px);
-    font-weight: 600;
-    color: #374151;
-}
-.transaction-page .transaction-filters .quick-select-dropdown {
-    width: clamp(100px, 8vw, 140px);
-}
-.transaction-page .transaction-filters .quick-select-dropdown .dropdown-toggle {
-    width: 100%;
-    box-sizing: border-box;
-}
-
 .transaction-page .transaction-bottom-filters {
     margin-top: auto;
     display: flex;
@@ -241,6 +195,13 @@ body.transaction-page {
     color: #000000;
 }
 
+/* Capture Date 行：日期范围 + Quick Select 并排 */
+.transaction-page .transaction-capture-date-row {
+    display: flex;
+    align-items: flex-end;
+    gap: clamp(8px, 1vw, 16px);
+    flex-wrap: nowrap;
+}
 .transaction-page .transaction-quick-select-wrap {
     display: flex;
     flex-direction: column;
@@ -250,6 +211,15 @@ body.transaction-page {
     position: relative;
     display: inline-block;
     width: clamp(100px, 8vw, 140px);
+}
+
+/* 让 Capture Date 与 Quick Select 在同一行（左右排版），不要占满整行 */
+.transaction-page .transaction-capture-date-row .date-range-picker {
+    width: clamp(190px, 22vw, 280px);
+    min-width: auto;
+}
+.transaction-page .transaction-capture-date-row .quick-select-wrap {
+    flex: 0 0 auto;
 }
 .transaction-page .transaction-quick-select-btn.dropdown-toggle {
     display: flex;
