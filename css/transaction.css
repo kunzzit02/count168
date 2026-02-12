@@ -671,11 +671,13 @@ body.transaction-page {
 
 .transaction-modal-content {
     background-color: #ffffff;
-    margin: 4% auto;
+    /* 调整上下间距，让弹窗不要贴太满 */
+    margin: 6% auto;
     padding: 0;
     border: none;
     border-radius: 16px;
-    width: clamp(1050px, 82vw, 1600px);
+    /* 调整最小宽度，让小一点的屏幕也不会被撑满 */
+    width: clamp(860px, 80vw, 1400px);
     max-width: 100%;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     overflow: hidden;
@@ -735,7 +737,8 @@ body.transaction-page {
 
 .transaction-modal-body {
     padding: clamp(10px, 1.04vw, 20px) 32px;
-    max-height: 500px;
+    /* 调整内容区最大高度，超出时内部滚动 */
+    max-height: 420px;
     overflow-y: auto;
 }
 
@@ -1301,7 +1304,7 @@ body.transaction-page .expiration-countdown-text {
 }
 .transaction-add-section .transaction-form-group .transaction-label {
     width: clamp(80px, 6vw, 110px);
-    flex: 0 0 clamp(80px, 6vw, 105px);
+    flex: 0 0 clamp(60px, 6vw, 105px);
 }
 .transaction-add-section .transaction-form-group > *:not(.transaction-label) {
     flex: 1 1 auto;
