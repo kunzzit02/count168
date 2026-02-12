@@ -353,16 +353,11 @@
 @media (max-width: 1024px) {
     .informationmenu {
         width: 150px;
-        height: auto;
-    }
-    /* 内容区不撑满，footer 紧贴菜单，消除底部空洞 */
-    .informationmenu-content {
-        flex: 0 1 auto;
+        height: 100vh;
     }
     .informationmenu-footer {
         background: #002d49;
         padding: 12px 10px;
-        margin-top: 0;
     }
 }
 
