@@ -1414,3 +1414,9 @@ h1 {
     color: #1a237e;
     font-weight: bold;
 }
+
+@media (max-width: 1024px) {
+    .modal-content.edit-mode .user-info-panel .form-group label{
+        font-size: clamp(10px, 0.85vw, 15px);
+    }
+}
