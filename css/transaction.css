@@ -145,29 +145,24 @@ body.transaction-page {
     min-width: 0;
 }
 
-/* Date Range + Quick Select 行：与 maintenance 页面一致（两列并排，共用 date-range-picker.css） */
+/* Capture Date：标签在左，select bar + Period 在右，不显示 Quick Select 字眼 */
 .transaction-page .transaction-date-quick-row {
     display: flex;
-    align-items: flex-end;
-    gap: clamp(12px, 1.25vw, 24px);
+    align-items: center;
+    gap: clamp(8px, 1vw, 16px);
     flex-wrap: wrap;
+}
+.transaction-page .transaction-date-quick-row .transaction-capture-date-label {
+    flex-shrink: 0;
+    width: clamp(90px, 8vw, 120px);
+    margin: 0;
 }
 .transaction-page .transaction-date-range-group {
     min-width: clamp(150px, 12.5vw, 240px);
     flex: 0 0 auto;
 }
-.transaction-page .transaction-date-quick-row .quick-select-wrap {
+.transaction-page .transaction-date-quick-row .quick-select-dropdown {
     flex: 0 0 auto;
-}
-.transaction-page .transaction-date-quick-row .form-label {
-    margin: 0;
-    font-size: clamp(11px, 0.85vw, 13px);
-    font-weight: 600;
-    color: #374151;
-    font-family: 'Amaranth', sans-serif;
-}
-.transaction-page .transaction-date-quick-row .form-label i.fa-clock {
-    color: #3b82f6;
 }
 
 .transaction-page .transaction-account-inputs {
