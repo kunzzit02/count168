@@ -50,7 +50,7 @@ body.dashboard-page {
 .transaction-company-label {
     font-weight: bold;
     color: #374151;
-    font-size: clamp(10px, 0.78vw, 15px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-family: 'Amaranth', sans-serif;
     white-space: nowrap;
 }
@@ -66,7 +66,7 @@ body.dashboard-page {
     border: 1px solid #d0d7de;
     border-radius: 999px;
     cursor: pointer;
-    font-size: clamp(8px, 0.82vw, 15px);
+    font-size: clamp(9px, 0.82vw, 15px);
     transition: all 0.2s ease;
     color: #1f2937;
     font-weight: 600;
@@ -143,7 +143,7 @@ body.dashboard-page {
 }
 
 .dashboard-kpi-card .kpi-label {
-    font-size: clamp(10px, 0.75vw, 14px);
+    font-size: clamp(9px, 0.82vw, 15px);
     color: #6b7280;
     font-weight: 600;
     margin-bottom: clamp(2px, 0.2vw, 4px);
@@ -201,7 +201,7 @@ body.dashboard-page {
     border: 1px solid #d0d7de;
     border-radius: 6px;
     cursor: pointer;
-    font-size: clamp(10px, 0.7vw, 12px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-weight: 500;
     color: #374151;
     transition: all 0.2s ease;
@@ -434,13 +434,13 @@ body.dashboard-page {
 
 .date-range-picker i {
     color: #3b82f6;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.82vw, 15px);
     margin: 0 clamp(2px, 0.32vw, 6px);
 }
 
 .date-range-picker span {
     color: #374151;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-weight: 500;
 }
 
@@ -482,7 +482,7 @@ body.dashboard-page {
     user-select: none;
     background: transparent;
     border: 1px solid transparent;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.82vw, 15px);
     color: #374151;
     font-family: 'Amaranth', sans-serif;
 }
@@ -500,7 +500,7 @@ body.dashboard-page {
 
 .date-separator {
     color: #9ca3af;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-weight: 500;
     user-select: none;
     margin: 0 2px;
@@ -584,7 +584,7 @@ body.dashboard-page {
     cursor: pointer;
     border-radius: clamp(4px, 0.31vw, 6px);
     transition: all 0.2s;
-    font-size: clamp(8px, 0.63vw, 12px);
+    font-size: clamp(9px, 0.82vw, 15px);
     color: #374151;
     background: transparent;
     border: 1px solid transparent;
@@ -611,7 +611,7 @@ body.dashboard-page {
 .day-header {
     padding: clamp(2px, 0.21vw, 4px);
     text-align: center;
-    font-size: clamp(8px, 0.63vw, 12px);
+    font-size: clamp(9px, 0.82vw, 15px);
     color: #6b7280;
     font-weight: 600;
     font-family: 'Amaranth', sans-serif;
@@ -635,7 +635,7 @@ body.dashboard-page {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.82vw, 15px);
     gap: clamp(4px, 0.5vw, 6px);
     width: 100%;
     white-space: nowrap;
@@ -670,7 +670,7 @@ body.dashboard-page {
     background: transparent;
     color: #374151;
     cursor: pointer;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-weight: 600;
     text-align: left;
     transition: background-color 0.2s;
@@ -694,7 +694,7 @@ body.dashboard-page {
     border-radius: clamp(4px, 0.42vw, 8px);
     border: none;
     cursor: pointer;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: clamp(9px, 0.82vw, 15px);
     display: inline-flex;
     align-items: center;
     gap: clamp(4px, 0.6vw, 8px);
@@ -725,7 +725,7 @@ body.dashboard-page {
 
 .form-label {
     display: block;
-    font-size: clamp(10px, 0.75vw, 14px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-weight: bold;
     color: #000000ff;
     margin-bottom: clamp(4px, 0.5vw, 8px);
@@ -733,7 +733,7 @@ body.dashboard-page {
 }
 
 .date-info {
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-weight: bold;
     color: #6b7280;
     padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
@@ -796,7 +796,7 @@ body.dashboard-page {
     border: 1px solid #d1d5db;
     border-radius: 4px;
     padding: clamp(4px, 0.3vw, 6px) clamp(6px, 0.4vw, 8px);
-    font-size: clamp(9px, 0.63vw, 12px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-weight: 600;
     color: #000000ff;
     background: white;
@@ -923,7 +923,7 @@ body.dashboard-page {
 }
 
 .dashboard-date-info {
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-weight: bold;
     color: #6b7280;
     padding: clamp(4px, 0.4vw, 6px) clamp(6px, 0.63vw, 12px);
