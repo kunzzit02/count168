@@ -1067,6 +1067,7 @@ body.transaction-page .expiration-countdown-text {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    font-size: clamp(11px, 0.94vw, 18px); /* 与其他标题保持一致比例 */
 }
 .contra-inbox-popover-body {
     max-height: 360px;
