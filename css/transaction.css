@@ -58,6 +58,13 @@ body.transaction-page {
     gap: clamp(6px, 0.52vw, 12px);
 }
 
+/* 让右侧表单内部按列布局，底部按钮区域贴着卡片底边 */
+.transaction-page .transaction-add-section {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 0.52vw, 12px);
+}
+
 .transaction-page .transaction-bottom-filters {
     margin-top: auto;
     display: flex;
@@ -375,6 +382,7 @@ body.transaction-page {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    margin-top: auto; /* 将整个确认区域推到底部 */
 }
 
 .transaction-page .transaction-confirm-label {
