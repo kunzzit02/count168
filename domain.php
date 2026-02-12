@@ -76,15 +76,21 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>Domain List</title>
-    <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <?php
+    $assetVer = function ($file) {
+        $path = __DIR__ . '/' . $file;
+        return file_exists($path) ? filemtime($path) : time();
+    };
+    ?>
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
+    <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
-    <link rel="stylesheet" href="css/domain.css?v=<?php echo file_exists('css/domain.css') ? filemtime('css/domain.css') : time(); ?>">
+    <link rel="stylesheet" href="css/domain.css?v=<?php echo $assetVer('css/domain.css'); ?>">
     <script>
         window.DOMAIN_HAS_C168_CONTEXT = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
         window.DOMAIN_IS_OWNER_OR_ADMIN = <?php echo $isOwnerOrAdmin ? 'true' : 'false'; ?>;
     </script>
-    <script src="js/domain.js?v=<?php echo file_exists('js/domain.js') ? filemtime('js/domain.js') : time(); ?>"></script>
+    <script src="js/domain.js?v=<?php echo $assetVer('js/domain.js'); ?>"></script>
 </head>
 <body>
     <div class="container">
