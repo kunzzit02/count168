@@ -15384,6 +15384,12 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 const rowTemplateId = row.getAttribute('data-template-id');
                 const rowTemplateKey = row.getAttribute('data-template-key');
                 const rowFormulaVariant = row.getAttribute('data-formula-variant');
+                // sub_order must match when matching by template_key/formula_variant so that multiple sub rows
+                // (e.g. first sub 001, second sub 002) are not collapsed into one after refresh
+                const templateSubOrder = (template.sub_order !== undefined && template.sub_order !== null) ? Number(template.sub_order) : null;
+                const rowSubOrderRaw = row.getAttribute('data-sub-order');
+                const rowSubOrder = (rowSubOrderRaw !== null && rowSubOrderRaw !== '') ? Number(rowSubOrderRaw) : null;
+                const subOrderMatch = (templateSubOrder === null && rowSubOrder === null) || (templateSubOrder !== null && rowSubOrder !== null && templateSubOrder === rowSubOrder);
                 
                 // Match by template_id (most precise)
                 if (templateId && rowTemplateId && rowTemplateId === String(templateId)) {
@@ -15393,10 +15399,11 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 }
                 
                 // Match by template_key + formula_variant (if template_id not available)
-                // IMPORTANT: Always match by formula_variant to allow multiple rows with same account but different formulas
+                // IMPORTANT: Also require sub_order to match so that first sub row is not overwritten by second sub template on refresh
                 if (!targetRow && templateKey && formulaVariant && 
                     rowTemplateKey === templateKey && 
-                    rowFormulaVariant === String(formulaVariant)) {
+                    rowFormulaVariant === String(formulaVariant) &&
+                    subOrderMatch) {
                     targetRow = row;
                     console.log('Found existing sub row by template_key + formula_variant:', templateKey, formulaVariant);
                     break;
@@ -15404,16 +15411,16 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 
                 // Match by template_key only (fallback, less precise)
                 // Only use this if formula_variant is not available (for backward compatibility)
-                // But prefer to match by formula_variant to avoid conflicts
-                if (!targetRow && templateKey && !formulaVariant && rowTemplateKey === templateKey) {
+                // Also require sub_order match to avoid collapsing multiple sub rows
+                if (!targetRow && templateKey && !formulaVariant && rowTemplateKey === templateKey && subOrderMatch) {
                     targetRow = row;
                     console.log('Found existing sub row by template_key (no formula_variant):', templateKey);
                     break;
                 }
                 
-                // If row is being updated from batch input, check if it matches by account_id
+                // If row is being updated from batch input, check if it matches by account_id (and sub_order when present)
                 // This helps prevent creating duplicate rows when batch selection is toggled
-                if (isUpdatingFromBatch && !targetRow) {
+                if (isUpdatingFromBatch && !targetRow && subOrderMatch) {
                     const accountCell = row.querySelector('td:nth-child(2)');
                     const rowAccountDbId = accountCell?.getAttribute('data-account-id');
                     const templateAccountId = template.account_id || null;
