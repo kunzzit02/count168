@@ -137,7 +137,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="form-column">
                     <div class="form-container">
                         <?php if (count($user_companies) > 1): ?>
-                        <div id="data-capture-company-filter" class="data-capture-company-filter" style="display: flex; margin-bottom: 20px;">
+                        <div id="data-capture-company-filter" class="data-capture-company-filter" style="display: flex; margin-bottom: clamp(10px, 1.04vw, 20px);">
                             <span class="data-capture-company-label">Company:</span>
                             <div id="data-capture-company-buttons" class="data-capture-company-buttons">
                                 <?php foreach($user_companies as $comp): ?>
