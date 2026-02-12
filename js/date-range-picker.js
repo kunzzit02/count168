@@ -48,8 +48,18 @@
                 var parentRect = parent.getBoundingClientRect();
                 if (parentRect.width > barWidth) barWidth = parentRect.width;
             }
+            var popupLeft = rect.left;
+            // Transaction 页：用整条 select 区域（.transaction-capture-date-group）的宽度并与之间宽、左对齐
+            var group = picker.closest && picker.closest('.transaction-capture-date-group');
+            if (group) {
+                var groupRect = group.getBoundingClientRect();
+                if (groupRect.width > barWidth) {
+                    barWidth = groupRect.width;
+                    popupLeft = groupRect.left;
+                }
+            }
             popup.style.top = (rect.bottom + 8) + 'px';
-            popup.style.left = rect.left + 'px';
+            popup.style.left = popupLeft + 'px';
             popup.style.width = barWidth + 'px';
             popup.style.minWidth = '';
             popup.style.maxWidth = '';
