@@ -1,7 +1,7 @@
 /**
  * Shared date range picker for maintenance pages - same UI/UX as dashboard.
  * Expects in DOM: #date-range-picker, #date-range-display, #calendar-popup (with #calendar-month-select, #calendar-year-select, #calendar-days).
- * Syncs selection to hidden inputs #date_from and #date_to (dd/mm/yyyy). Call init() with onChange to trigger search.
+ * Syncs seleden inputs #date_from and #date_to (dd/mm/yyyy). Call init() with onChange to trigger search.
  */
 (function() {
     let calendarStartDate = null;
@@ -334,7 +334,7 @@
                 if (options.dateToId) config.dateToId = options.dateToId;
                 if (options.onChange) config.onChange = options.onChange;
             }
-            // 如果隐藏输入里已有默认值（dd/mm/yyyy），优先用它们作为初始范围
+            
             const fromEl = document.getElementById(config.dateFromId);
             const toEl = document.getElementById(config.dateToId);
             const parseDmy = function (val) {
