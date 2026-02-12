@@ -2314,5 +2314,14 @@ body.process-page {
         flex-wrap: wrap !important;
         gap: 0.5rem !important;
     }
+    /* DTS Modified / DTS Created 在 1024px 下字体 */
+    .process-page #editModal label[for="edit_dts_modified"],
+    .process-page #editModal label[for="edit_dts_created"],
+    .process-page #editModal #edit_dts_modified,
+    .process-page #editModal #edit_dts_created,
+    .process-page #editModal #edit_dts_modified span,
+    .process-page #editModal #edit_dts_created span {
+        font-size: clamp(9px, 0.85vw, 14px) !important;
+    }
 }
     
