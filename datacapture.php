@@ -2,6 +2,10 @@
 // Use unified session check
 require_once 'session_check.php';
 
+// 强制浏览器不要使用旧缓存（页面与静态资源一起刷新）
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
 // 仅当公司具有 Games category 权限时才可访问此页（与侧边栏 Data Capture 可见性一致）
 $session_company_id = $_SESSION['company_id'] ?? null;
 if ($session_company_id) {
@@ -113,7 +117,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>Data Capture</title>
-    <link rel="stylesheet" href="css/datacapture.css">
+    <link rel="stylesheet" href="css/datacapture.css?v=<?php echo file_exists('css/datacapture.css') ? filemtime('css/datacapture.css') : time(); ?>">
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
