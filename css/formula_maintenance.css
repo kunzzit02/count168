@@ -308,13 +308,13 @@ h1 {
 .maintenance-list-header {
     display: grid;
     grid-template-columns: 0.2fr 1.2fr 0.7fr 0.3fr 0.5fr 1fr 1.7fr 1.2fr 0.5fr 0.5fr;
-    gap: 15px;
-    padding: clamp(0px, 0.78vw, 15px) 20px 12px;
+    gap: 12px;
+    padding: clamp(4px, 0.6vw, 10px) 12px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
     font-weight: bold;
     color: white;
-    font-size: medium;
+    font-size: clamp(10px, 0.89vw, 17px); /* 与其它 maintenance 表头保持一致 */
     text-align: center;
     min-width: 0;
     align-items: center;
@@ -337,8 +337,8 @@ h1 {
 .maintenance-list-card {
     display: grid;
     grid-template-columns: 0.2fr 1.2fr 0.7fr 0.5fr 0.5fr 1fr 1.7fr 1.2fr 0.5fr 0.5fr;
-    gap: 15px;
-    padding: 1px 22px;
+    gap: 12px;
+    padding: clamp(4px, 0.6vw, 10px) 12px;
     background: #ffffff;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
@@ -364,7 +364,7 @@ h1 {
 }
 
 .maintenance-list-card-item {
-    font-size: small;
+    font-size: clamp(9px, 0.82vw, 15px); /* 与 payment/capture maintenance-table-cell 一致 */
     font-weight: bold;
     color: #374151;
     display: flex;
