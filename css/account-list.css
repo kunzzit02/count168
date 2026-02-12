@@ -11,6 +11,14 @@
 #currencyCodeInput {
     text-transform: uppercase;
 }
+
+#addCurrencyInput,
+#editCurrencyInput {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
 /* 注意：searchInput 不使用 CSS text-transform，保持实际值的显示 */
 
 /* Account item compact hover styles (for linked accounts modal) */

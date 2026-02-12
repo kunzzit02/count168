@@ -391,7 +391,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                                 
                                 <!-- Add New Currency Section -->
                                 <div style="display: flex; gap: 8px;">
-                                    <input type="text" id="editCurrencyInput" placeholder="Enter new currency code (e.g., EUR, JPY, GBP)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <input type="text" id="editCurrencyInput" placeholder="Enter new currency code (e.g., EUR, JPY, GBP)">
                                     <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInput('edit'); return false;">Create Currency</button>
                                 </div>
                                 
@@ -518,7 +518,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                                 
                                 <!-- Add New Currency Section -->
                                 <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                                    <input type="text" id="addCurrencyInput" placeholder="Enter new currency code (e.g., EUR, JPY, GBP)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <input type="text" id="addCurrencyInput" placeholder="Enter new currency code (e.g., EUR, JPY, GBP)">
                                     <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInput('add'); return false;">Create Currency</button>
                                 </div>
                                 
