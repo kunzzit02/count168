@@ -95,7 +95,7 @@ body.transaction-page {
     margin-bottom: 0;
     font-weight: bold;
     color: #374151;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     font-family: 'Amaranth', sans-serif;
     width: clamp(60px, 5.5vw, 105px);
     flex-shrink: 0;
@@ -109,7 +109,7 @@ body.transaction-page {
     padding: clamp(3px, 0.31vw, 6px) clamp(6px, 0.52vw, 10px);
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     box-sizing: border-box;
     transition: all 0.2s;
     background-color: #f3f3f3;
@@ -200,7 +200,7 @@ body.transaction-page {
     background: #f3f3f3;
     cursor: pointer;
     text-align: left;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -256,7 +256,7 @@ body.transaction-page {
     padding: 6px 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     box-sizing: border-box;
 }
 
@@ -268,7 +268,7 @@ body.transaction-page {
 .transaction-page .custom-select-option {
     padding: 8px 12px;
     cursor: pointer;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     border-bottom: 1px solid #f5f5f5;
 }
 
@@ -289,7 +289,7 @@ body.transaction-page {
     padding: 12px;
     text-align: center;
     color: #999;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
 }
 
 
@@ -301,7 +301,7 @@ body.transaction-page {
     align-self: stretch;
     min-width: fit-content;
     padding: 2px clamp(8px, 0.83vw, 12px);
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
@@ -325,7 +325,7 @@ body.transaction-page {
 .transaction-page .transaction-checkbox-label {
     display: flex;
     align-items: center;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     cursor: pointer;
     white-space: nowrap;
 }
@@ -356,7 +356,7 @@ body.transaction-page {
     left: 50%;
     transform: translate(-50%, -50%);
     color: white;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     font-weight: bold;
     line-height: 1;
 }
@@ -378,7 +378,7 @@ body.transaction-page {
     font-family: 'Amaranth';
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
@@ -397,7 +397,7 @@ body.transaction-page {
     font-family: 'Amaranth';
     width: clamp(80px, 6.25vw, 120px);
     padding: clamp(6px, 0.42vw, 8px) 20px;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     border: none;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
@@ -468,7 +468,7 @@ body.transaction-page {
     min-height: 120px;
     width: 100%;
     color: #6b7280;
-    font-size: 15px;
+    font-size: clamp(9px, 0.73vw, 14px);
 }
 .transaction-page .transaction-tables-loading::before {
     content: '';
@@ -505,14 +505,14 @@ body.transaction-page {
     text-align: left;
     border: 1px solid #d0d7de;
     font-weight: bold;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
 }
 
 .transaction-page .transaction-table-row td {
     border: 1px solid #d0d7de;
     min-height: 28px;
     background-color: transparent;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
 }
 
 .transaction-page .transaction-table-row:hover td {
@@ -525,7 +525,7 @@ body.transaction-page {
     padding: clamp(4px, 0.42vw, 5px) clamp(6px, 0.52vw, 10px);
     border: 1px solid #d0d7de;
     font-weight: 800;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
 }
 
 /* B/F, Win/Loss, Cr/Dr, Balance 列右对齐（主表头 + 主表行 + 主表合计行） */
@@ -567,14 +567,14 @@ body.transaction-page {
     text-align: center;
     border: 1px solid #d0d7de;
     font-weight: bold;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
 }
 
 .transaction-page .transaction-summary-table .transaction-table-row td {
     padding: clamp(3px, 0.31vw, 6px) clamp(6px, 0.52vw, 10px);
     border: 1px solid #d0d7de;
     background-color: transparent;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
 }
 
 /* Summary 表中数值列右对齐 */
@@ -610,7 +610,7 @@ body.transaction-page {
     word-wrap: break-word;
     border-left: 4px solid;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
+    font-size: clamp(9px, 0.73vw, 14px);
     line-height: 1.5;
 }
 
@@ -1000,7 +1000,7 @@ body.transaction-page .expiration-countdown-text {
     border-radius: 999px;
     background: #ef4444;
     color: #fff;
-    font-size: 12px;
+    font-size: clamp(9px, 0.73vw, 14px);
     font-weight: 800;
 }
 .contra-inbox-btn {
@@ -1009,7 +1009,7 @@ body.transaction-page .expiration-countdown-text {
     border-radius: 10px;
     background: #f8fafc;
     cursor: pointer;
-    font-size: 12px;
+    font-size: clamp(9px, 0.73vw, 14px);
     font-weight: 700;
     color: #111827;
     transition: all 0.15s ease;
@@ -1075,7 +1075,7 @@ body.transaction-page .expiration-countdown-text {
 .contra-inbox-table td {
     padding: 6px 8px;
     border-top: 1px solid #e5e7eb;
-    font-size: 12px;
+    font-size: clamp(9px, 0.73vw, 14px);
     font-weight: 700;
     text-align: left;
     vertical-align: top;
@@ -1125,7 +1125,7 @@ body.transaction-page .expiration-countdown-text {
     padding: clamp(2px, 0.21vw, 4px) 8px;
     line-height: 1.1;
     font-weight: 600;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
 }
 .transaction-table td {
     font-weight: 800;
@@ -1190,7 +1190,7 @@ body.transaction-page .expiration-countdown-text {
 }
 .transaction-date-inputs span {
     color: #666;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     flex-shrink: 0;
 }
 
@@ -1249,7 +1249,7 @@ body.transaction-page .expiration-countdown-text {
 .transaction-company-label {
     font-weight: bold;
     color: #374151;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     font-family: 'Amaranth', sans-serif;
     white-space: nowrap;
 }
@@ -1265,7 +1265,7 @@ body.transaction-page .expiration-countdown-text {
     border: 1px solid #d0d7de;
     border-radius: 999px;
     cursor: pointer;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
     transition: all 0.2s ease;
     color: #1f2937;
     font-weight: 600;
