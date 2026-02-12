@@ -2249,6 +2249,7 @@ body.process-page {
 @media (max-width: 1024px){
     .process-page .card-item{
         font-size: clamp(9px,0.85vw,14px);
+        min-height: calc(100vh - 250px);
     }
 }
     
