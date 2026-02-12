@@ -418,7 +418,9 @@
                 const result = await response.json();
                 let permissions = result.success && result.data && result.data.permissions
                     ? result.data.permissions
-                    : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                    : ['Gambling', 'Loan', 'Rate', 'Money'];
+                // Formula 页不显示 Bank category
+                permissions = permissions.filter(p => p !== 'Bank');
                 containerEl.innerHTML = '';
                 if (permissions.length > 0) {
                     filterEl.style.display = 'flex';
