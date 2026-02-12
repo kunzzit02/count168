@@ -123,15 +123,21 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/sidebar.css">
-    <link rel="stylesheet" href="css/dashboard.css">
+    <?php
+    $assetVer = function ($file) {
+        $path = __DIR__ . '/' . $file;
+        return file_exists($path) ? filemtime($path) : time();
+    };
+    ?>
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
+    <link rel="stylesheet" href="css/dashboard.css?v=<?php echo $assetVer('css/dashboard.css'); ?>">
     <script>
         // 用户数据供JavaScript使用（外部 js/dashboard.js 依赖此变量）
         window.userData = <?php echo json_encode($userData); ?>;
         window.companyId = <?php echo isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 'null'; ?>;
     </script>
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
-    <script src="js/dashboard.js?v=<?php echo time(); ?>"></script>
+    <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
+    <script src="js/dashboard.js?v=<?php echo $assetVer('js/dashboard.js'); ?>"></script>
 </head>
 <body class="dashboard-page">
     <?php include 'sidebar.php'; ?>
