@@ -176,9 +176,9 @@ body.transaction-page {
 }
 
 .transaction-page .transaction-account-select {
-    flex: 1 1 calc(50% - 8px);
-    min-width: 120px;
-    max-width: 230px; /* 略缩短，避免与 Reverse 冲突溢出 */
+    /* 默认在大屏上尽量占满可用空间 */
+    flex: 1 1 0;
+    min-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -187,9 +187,18 @@ body.transaction-page {
 /* 自定义下拉选单样式 */
 .transaction-page .custom-select-wrapper {
     position: relative;
-    flex: 1 1 calc(50% - 8px);
-    min-width: 120px;
-    max-width: 230px;
+    flex: 1 1 0;
+    min-width: 140px;
+}
+
+/* 在较窄屏幕下限制 Account 两个下拉的最大宽度，避免与 Reverse 按钮冲突 */
+@media (max-width: 1280px) {
+    .transaction-page .transaction-account-select,
+    .transaction-page .custom-select-wrapper {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 120px;
+        max-width: 230px;
+    }
 }
 
 .transaction-page .custom-select-button {
