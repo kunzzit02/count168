@@ -255,6 +255,10 @@ body.dashboard-page {
     .dashboard-date-controls > * {
         flex-shrink: 0;
     }
+    .dashboard-chart-container {
+        height:235px;
+        min-height: 150px;
+    }
     .transaction-company-filter {
         flex-wrap: wrap;
         margin-top: 6px;
