@@ -214,9 +214,22 @@ body.dashboard-page {
 
 /* 1024px：保持与宽屏完全一致的布局（不换行、不堆叠） */
 @media (max-width: 1024px) {
+    body.dashboard-page {
+        overflow-x: auto;
+        min-width: 1024px;
+    }
     .dashboard-container {
         padding-left: 200px;
         padding-right: 12px;
+        min-width: 824px;
+        box-sizing: border-box;
+    }
+    .dashboard-card:first-of-type {
+        overflow-x: auto;
+        min-width: 0;
+    }
+    .dashboard-card-body {
+        min-width: 780px;
     }
     .dashboard-date-controls {
         flex-wrap: nowrap;
@@ -226,7 +239,18 @@ body.dashboard-page {
         padding-bottom: 4px;
         -webkit-overflow-scrolling: touch;
     }
+    .dashboard-date-controls > * {
+        flex-shrink: 0;
+    }
     .dashboard-date-controls .divider {
+        flex-shrink: 0;
+    }
+    .transaction-company-filter {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        min-width: 0;
+    }
+    .transaction-company-filter .transaction-company-label {
         flex-shrink: 0;
     }
     .transaction-company-buttons {
@@ -235,17 +259,27 @@ body.dashboard-page {
         padding-bottom: 4px;
         -webkit-overflow-scrolling: touch;
         min-height: 32px;
+        flex-shrink: 0;
     }
     .dashboard-kpi-grid {
         grid-template-columns: repeat(3, 1fr);
         gap: 12px;
     }
+    .dashboard-kpi-card {
+        min-width: 0;
+    }
     .dashboard-chart-container {
         height: 320px;
         min-height: 320px;
     }
+    .dashboard-chart-section {
+        min-width: 0;
+    }
     .date-range-picker {
         min-width: 140px;
+    }
+    .enhanced-date-picker.month-only {
+        min-width: 80px;
     }
     .dropdown {
         width: 120px;
