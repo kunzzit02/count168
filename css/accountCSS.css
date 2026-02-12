@@ -1573,4 +1573,8 @@ body {
     #addCompanyList .account-currency-item, #editCompanyList .account-currency-item{
         font-size: clamp(10px,0.85vw,14px);
     }
+
+    .account-cards {
+        min-height: calc(100vh - 250px) ;
+    }
 }
