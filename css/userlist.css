@@ -1483,7 +1483,7 @@ h1 {
         font-size: clamp(8px, 0.73vw, 12px)!important;
        }
 
-       .permissions-action{
-        margin-top: -4px;
+       .permissions-actions{
+        padding-top: 12px;
        }
 }
