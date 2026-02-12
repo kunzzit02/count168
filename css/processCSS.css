@@ -2255,24 +2255,25 @@ body.process-page {
         min-height: calc(100vh - 250px);
     }
 
-    /* Edit Process 弹窗在 1024px 下尺寸调整 */
+    /* Edit Process 弹窗在 1024px 下：保持左右双列，与第二张图一致 */
     .process-page #editModal .modal-content {
-        width: 94% !important;
-        max-width: min(52rem, calc(100vw - 2rem)) !important;
+        width: 92% !important;
+        max-width: min(64rem, calc(100vw - 2rem)) !important;
         margin: 1rem auto !important;
         max-height: 90vh !important;
         overflow-y: auto !important;
     }
     .process-page #editModal .modal-body {
-        padding: clamp(0.75rem, 1.5vw, 1rem) clamp(1rem, 2vw, 1.5rem) !important;
+        padding: clamp(0.75rem, 1.2vw, 1.25rem) clamp(1rem, 1.5vw, 1.5rem) !important;
     }
     .process-page #editModal .process-form.add-grid {
-        grid-template-columns: 1fr !important;
-        padding: 0 clamp(1rem, 2vw, 1.5rem) 1rem !important;
-        gap: 0.5rem !important;
+        grid-template-columns: 1fr 1fr !important;
+        padding: 0 clamp(1rem, 1.5vw, 1.5rem) 1rem !important;
+        gap: clamp(0.5rem, 1vw, 1rem) !important;
     }
     .process-page #editModal .process-form.add-grid .add-col {
-        padding: 0.5rem 0 !important;
+        padding: 0.5rem 0.6rem !important;
+        min-width: 0;
     }
     .process-page #editModal .process-form .form-group label {
         font-size: clamp(0.75rem, 0.9vw, 0.875rem) !important;
@@ -2285,7 +2286,7 @@ body.process-page {
     }
     .process-page #editModal .process-form .form-row {
         gap: 0.5rem !important;
-        margin-bottom: 0.2rem !important;
+        margin-bottom: 0.25rem !important;
     }
     .process-page #editModal #edit_day_checkboxes.day-checkboxes {
         flex-wrap: wrap !important;
