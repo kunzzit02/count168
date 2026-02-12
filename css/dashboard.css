@@ -168,7 +168,7 @@ body.dashboard-page {
     border: 1px solid #e5e7eb;
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    padding: clamp(10px, 0.9vw, 16px);
+    padding: clamp(8px, 0.8vw, 14px);
 }
 
 .dashboard-chart-header {
@@ -176,7 +176,7 @@ body.dashboard-page {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    margin-bottom: clamp(16px, 1.35vw, 26px);
+    margin-bottom: clamp(8px, 0.9vw, 18px);
     gap: clamp(12px, 1.04vw, 20px);
 }
 

@@ -1801,6 +1801,23 @@ document.addEventListener('visibilitychange', function() {
     }
 });
 
+// 图表容器尺寸变化时重绘图表，保证一屏内完整显示
+(function setupChartResizeObserver() {
+    function observeChartContainer() {
+        const container = document.querySelector('.dashboard-chart-container');
+        if (!container || typeof ResizeObserver === 'undefined') return;
+        const ro = new ResizeObserver(function() {
+            if (trendChart) trendChart.resize();
+        });
+        ro.observe(container);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', observeChartContainer);
+    } else {
+        observeChartContainer();
+    }
+})();
+
 // 初始化 - 使用防抖避免多次调用
 let isInitializing = false;
 document.addEventListener('DOMContentLoaded', async function() {
