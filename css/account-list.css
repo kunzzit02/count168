@@ -10,6 +10,7 @@
 #editCurrencyInput,
 #currencyCodeInput {
     text-transform: uppercase;
+    font-size: clamp(9px,0.85vw,14px);
 }
 
 #addCurrencyInput,
