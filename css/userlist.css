@@ -761,6 +761,13 @@ h1 {
     padding: clamp(4px, 0.42vw, 8px) 0px;
 }
 
+/* 左侧 Permissions 下方的 Select All/Clear All（原内联 style 移入此处，便于 1024px 覆盖） */
+.modal-content.edit-mode .edit-mode-permissions-container .permissions-actions {
+    margin-top: 10px;
+    padding-top: clamp(12px, 1.04vw, 20px);
+    border-top: 1px solid #eee;
+}
+
  /* 编辑模式下左侧容器（包含 permissions-container 和 permissions-actions）- 与 user-info-panel 同宽 */
  .modal-content.edit-mode .permissions-container-wrapper {
      flex: 0 0 clamp(300px, 20vw, 450px);
