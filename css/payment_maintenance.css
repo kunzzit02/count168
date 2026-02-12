@@ -528,7 +528,7 @@ h1 {
 }
 
 .maintenance-table-cell {
-    font-size: clamp(12px, 0.82vw, 15px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-weight: bold;
     color: #374151;
     padding: 4px 12px;
