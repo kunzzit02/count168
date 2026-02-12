@@ -485,3 +485,14 @@ h1 {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
 }
+
+@media (max-width: 1024px) {
+    
+    .announcement-list-section{
+        min-height: 200px;
+    }
+
+    .maintenance-list-section {
+        min-height: 200px;
+    }
+}
