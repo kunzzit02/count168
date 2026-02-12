@@ -55,9 +55,9 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
     <title>Announcement Management</title>
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
-    <?php include 'sidebar.php'; ?>
 </head>
 <body>
+    <?php include 'sidebar.php'; ?>
     <div class="container">
         <h1>Announcement and Maintenance Management</h1>
         
