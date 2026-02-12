@@ -183,6 +183,17 @@ h1 {
     width: 100%;
 }
 
+/* 让 payment 页面的原生 select 在视觉和尺寸上贴近
+   transaction_maintenance.php 中的自定义下拉（custom-select-button） */
+.maintenance-form-group .maintenance-select {
+    padding: 8px 30px 6px 12px;   /* 与 custom-select-button 相同的内边距 */
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: normal;
+    background-color: #ffffff;
+}
+
 .maintenance-input:focus,
 .maintenance-select:focus {
     outline: none;
