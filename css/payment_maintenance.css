@@ -152,7 +152,9 @@ h1 {
     display: flex;
     gap: clamp(12px, 1.25vw, 24px);
     align-items: flex-end;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;      /* 和 formula_maintenance 一样保持一行 */
+    overflow-x: auto;       /* 不够宽时允许横向滚动 */
+    overflow-y: hidden;
 }
 
 .maintenance-form-group {
