@@ -591,7 +591,7 @@ try {
                                 </label>
                             </div>
                         </div>
-                        <div class="permissions-actions" style="margin-top: 10px; padding-top: clamp(12px, 1.04vw, 20px); border-top: 1px solid #eee;">
+                        <div class="permissions-actions" style="margin-top: 10px; padding-bottom: clamp(12px, 1.04vw, 20px); border-bottom: 1px solid #eee;">
                             <button type="button" class="btn btn-secondary" onclick="selectAllPermissions()">Select All</button>
                             <button type="button" class="btn btn-clearall" onclick="clearAllPermissions()">Clear All</button>
                         </div>
