@@ -420,6 +420,8 @@ function resetCompanyExpiration(companyId) {
 
 // 当前正在编辑的公司ID（用于弹窗）
 let currentEditingCompanyId = null;
+// 打开弹窗时该公司状态的快照，Cancel 时用于还原
+let companySnapshotWhenModalOpened = null;
 
 // 打开到期日期设置弹窗
 function openCompanyExpDateModal(companyId) {
@@ -427,6 +429,8 @@ function openCompanyExpDateModal(companyId) {
     if (!company) return;
     
     currentEditingCompanyId = companyId;
+    // 保存打开时的完整状态，Cancel 时还原为此状态
+    companySnapshotWhenModalOpened = JSON.parse(JSON.stringify(company));
     
     // 设置公司名称
     document.getElementById('expDateCompanyName').textContent = `Company: ${company.company_id}`;
@@ -487,10 +491,18 @@ function openCompanyExpDateModal(companyId) {
     document.getElementById('companyExpDateModal').style.display = 'block';
 }
 
-// 关闭到期日期设置弹窗
-function closeCompanyExpDateModal() {
-    document.getElementById('companyExpDateModal').style.display = 'none';
+// 关闭到期日期设置弹窗。restore === true 时还原为打开弹窗时的状态（Cancel/X/点击遮罩）
+function closeCompanyExpDateModal(restore = false) {
+    if (restore && companySnapshotWhenModalOpened) {
+        const idx = tempCompanies.findIndex(c => c.company_id === companySnapshotWhenModalOpened.company_id);
+        if (idx >= 0) {
+            Object.assign(tempCompanies[idx], companySnapshotWhenModalOpened);
+            updateCompanyDisplay();
+        }
+    }
+    companySnapshotWhenModalOpened = null;
     currentEditingCompanyId = null;
+    document.getElementById('companyExpDateModal').style.display = 'none';
 }
 
 // 更新到期日期显示（在弹窗中）；同时同步到 company，避免勾选/取消 permission 时丢失到期日
@@ -677,7 +689,7 @@ function saveCompanyExpDate() {
     
     // 更新显示
     updateCompanyDisplay();
-    closeCompanyExpDateModal();
+    closeCompanyExpDateModal(false); // Save 不还原，保留当前修改
     showAlert('Expiration date and permissions updated successfully!');
 }
 
@@ -1467,7 +1479,7 @@ window.onclick = function(event) {
 
     const companyExpDateModal = document.getElementById('companyExpDateModal');
     if (event.target === companyExpDateModal) {
-        closeCompanyExpDateModal();
+        closeCompanyExpDateModal(true); // 点击遮罩视为 Cancel，还原状态
     }
 }
 

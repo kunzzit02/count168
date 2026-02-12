@@ -234,7 +234,7 @@ try {
     <!-- Company Expiration Date Setting Modal -->
     <div id="companyExpDateModal" class="modal" style="z-index: 10003;">
         <div class="modal-content" style="max-width: 500px;">
-            <span class="close" onclick="closeCompanyExpDateModal()">&times;</span>
+            <span class="close" onclick="closeCompanyExpDateModal(true)">&times;</span>
             <h2>Company Settings</h2>
             <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
                 <div class="form-group">
@@ -293,7 +293,7 @@ try {
                 <div class="form-actions" style="margin-top: 20px;">
                     <button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button>
                     <button type="button" class="btn btn-cancel" onclick="resetCompanyExpDateInModal()" style="background: linear-gradient(180deg, #ffa2b6 0%, #c91212 100%); color: white; margin-right: 8px;">Reset</button>
-                    <button type="button" class="btn btn-cancel" onclick="closeCompanyExpDateModal()">Cancel</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeCompanyExpDateModal(true)">Cancel</button>
                 </div>
             </div>
         </div>
