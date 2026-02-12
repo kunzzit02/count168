@@ -546,17 +546,17 @@ body.dashboard-page {
 /* Select Year & Month：下拉保证年份四位数完整显示 */
 #month-date-picker .date-dropdown {
     width: max-content;
-    min-width: 200px;
+    min-width: 100px;
     max-width: 100%;
     overflow-x: auto;
     box-sizing: border-box;
 }
 #month-date-picker .year-grid {
-    grid-template-columns: repeat(4, minmax(48px, 1fr));
-    padding: 10px 12px;
+    grid-template-columns: repeat(4, minmax(40px, 1fr));
+    padding: 5px 7px;
 }
 #month-date-picker .year-grid .date-option {
-    font-size: 12px;
+    font-size: clamp(9px,0.82vw,15px);
     padding: 8px 6px;
     min-width: 0;
     text-align: center;
