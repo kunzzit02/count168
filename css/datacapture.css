@@ -252,7 +252,7 @@ body {
         .custom-select-option {
             padding: 8px 12px;
             cursor: pointer;
-            font-size: clamp(9px, 0.73vw, 14px);
+            font-size: clamp(9px, 0.73vw, 14px) !important;
             border-bottom: 1px solid #f5f5f5;
         }
 
