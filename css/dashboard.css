@@ -300,7 +300,11 @@ body.dashboard-page {
     }
     .transaction-company-btn {
         padding: 5px 10px;
-        
+        font-size: 11px;
+    }
+    /* 年份选择：1024 下每行 2 个 */
+    #month-date-picker .year-grid {
+        grid-template-columns: repeat(2, minmax(48px, 1fr));
     }
 }
 
