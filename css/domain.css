@@ -1053,5 +1053,7 @@ h1 {
         font-size: clamp(8px, 0.73vw, 14px);
     }
 
-    
+    .company-item{
+        font-size: clamp(8px, 0.73vw, 14px);
+    }
 }
