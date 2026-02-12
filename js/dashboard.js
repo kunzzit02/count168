@@ -1355,9 +1355,7 @@ function createChart(canvas, chartData) {
                             callback: function(value) {
                                 return 'RM ' + formatCurrency(value);
                             },
-                            font: {
-                                size: 11
-                            }
+                            font: { size: 5 }  // 左侧金额字体大小
                         },
                         grid: {
                             color: 'rgba(0, 0, 0, 0.05)'
@@ -1368,9 +1366,7 @@ function createChart(canvas, chartData) {
                             display: false
                         },
                         ticks: {
-                            font: {
-                                size: 11
-                            },
+                            font: { size: 12 },  // 下方日期字体大小
                             maxRotation: 45,
                             minRotation: 0,
                             autoSkip: false,
