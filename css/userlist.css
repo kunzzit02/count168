@@ -766,6 +766,7 @@ h1 {
     margin-top: 10px;
     padding-top: clamp(12px, 1.04vw, 20px);
     border-top: 1px solid #eee;
+    background-color: #fff;
 }
 
  /* 编辑模式下左侧容器（包含 permissions-container 和 permissions-actions）- 与 user-info-panel 同宽 */
@@ -883,6 +884,16 @@ h1 {
 .permission-item:hover {
     background-color: #f8fafc;
     border-color: #e2e8f0;
+}
+
+/* 整行 hover 时背景色一起盖住 icon 和字 */
+.permission-item .permission-label {
+    width: 100%;
+}
+.permission-item .permission-label,
+.permission-item .permission-name,
+.permission-item .permission-icon {
+    background: transparent;
 }
 
 .permission-label {
@@ -1424,7 +1435,7 @@ h1 {
 
 @media (max-width: 1024px) {
     .modal-content.edit-mode .user-info-panel .form-group label{
-        font-size: clamp(10px, 0.85vw, 15px);
+        font-size: clamp(9px, 0.85vw, 15px);
     }
     .form-group input, .form-group select{
         font-size: clamp(9px, 0.85vw, 14px);
