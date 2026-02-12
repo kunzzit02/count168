@@ -1271,9 +1271,9 @@ function updateChart(data) {
                 const date = new Date(d);
                 if (isNaN(date.getTime())) return d;
                 // 只显示日期，不显示年份（如果日期范围在同一年）
-                return `${date.getMonth() + 1}/${date.getDate()}`;
-            } catch (e) {
-                return d;
+return `${date.getDate()}/${date.getMonth() + 1}`;
+                        } catch (e) {
+                            return d;
             }
         }),
         datasets: filteredDatasets
@@ -1401,10 +1401,10 @@ function createChart(canvas, chartData) {
                                                 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
                                                 return `${monthNames[parseInt(month) - 1]} ${year}`;
                                             }
-                                            // 否则是日期格式
+                                            // 否则是日期格式（日/月/年）
                                             const dateObj = new Date(date);
                                             if (!isNaN(dateObj.getTime())) {
-                                                return `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
+                                                return `${dateObj.getDate()}/${dateObj.getMonth() + 1}/${dateObj.getFullYear()}`;
                                             }
                                         } catch (e) {
                                             return date;
@@ -1716,11 +1716,11 @@ function initChartDataButtons() {
                         try {
                             const date = new Date(d);
                             if (isNaN(date.getTime())) return d;
-                            return `${date.getMonth() + 1}/${date.getDate()}`;
-                        } catch (e) {
-                            return d;
-                        }
-                    });
+return `${date.getDate()}/${date.getMonth() + 1}`;
+            } catch (e) {
+                return d;
+            }
+        });
                     
                     const allDatasets = [
                         {
