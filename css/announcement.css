@@ -487,7 +487,10 @@ h1 {
 }
 
 @media (max-width: 1024px) {
-    
+    .form-group label{
+        font-size: clamp(8px, 0.73vw, 14px);
+    }
+
     .announcement-list-section{
         min-height: 200px;
     }
