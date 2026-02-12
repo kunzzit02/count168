@@ -219,8 +219,8 @@ body.dashboard-page {
         min-width: 1024px;
     }
     .dashboard-container {
-        padding-left: 200px;
-        padding-right: 12px;
+        padding-left: 220px;
+        padding-right: 20px;
         min-width: 824px;
         box-sizing: border-box;
     }
