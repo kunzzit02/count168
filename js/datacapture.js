@@ -24532,8 +24532,8 @@ let isSelecting = false;
                 });
                 
                 const result = await response.json();
-                const rawPermissions = result.success && result.data && result.data.permissions ? result.data.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
-                // Data Capture 页面不显示 Bank 选项，仅显示 Gambling/Loan/Rate/Money
+                const rawPermissions = result.success && result.data && result.data.permissions ? result.data.permissions : ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
+                // Data Capture 页面不显示 Bank 选项，仅显示 Games/Loan/Rate/Money
                 const permissions = rawPermissions.filter(p => p !== 'Bank');
                 
                 const permissionContainer = document.getElementById('data-capture-permission-buttons');

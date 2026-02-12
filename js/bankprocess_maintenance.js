@@ -243,8 +243,8 @@
                 let permissions = result.success && result.data && result.data.permissions
                     ? result.data.permissions
                     : ['Bank', 'Loan', 'Rate', 'Money'];
-                // 本页不显示 Gambling（Process 维护页只显示 Bank/Loan/Rate/Money 等）
-                permissions = permissions.filter(p => p !== 'Gambling');
+                // 本页不显示 Games（Process 维护页只显示 Bank/Loan/Rate/Money 等）
+                permissions = permissions.filter(p => p !== 'Games');
                 containerEl.innerHTML = '';
                 if (permissions.length > 0) {
                     filterEl.style.display = 'flex';

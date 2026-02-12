@@ -268,8 +268,8 @@ try {
                     <label style="margin-bottom: 2px;">Permissions (for Process List & Data Capture)</label>
                     <div class="permission-toggle-row">
                         <label class="permission-toggle-btn" id="permissionLabelGambling">
-                            <input type="checkbox" value="Gambling" id="permissionGambling" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                            <span>Gambling</span>
+                            <input type="checkbox" value="Games" id="permissionGambling" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <span>Games</span>
                         </label>
                         <label class="permission-toggle-btn" id="permissionLabelBank">
                             <input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="updatePermissionDisplay()">

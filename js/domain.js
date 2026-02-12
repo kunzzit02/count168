@@ -438,7 +438,7 @@ function openCompanyExpDateModal(companyId) {
     // 若本会话内已保存过权限，优先用 tempCompanies 中的显示，避免“再点回去全部点完”
     if (company.permissions && Array.isArray(company.permissions)) {
         const perms = company.permissions;
-        document.getElementById('permissionGambling').checked = perms.includes('Gambling');
+        document.getElementById('permissionGambling').checked = perms.includes('Games');
         document.getElementById('permissionBank').checked = perms.includes('Bank');
         document.getElementById('permissionLoan').checked = perms.includes('Loan');
         document.getElementById('permissionRate').checked = perms.includes('Rate');
@@ -555,7 +555,7 @@ function loadCompanyPermissions(companyId) {
     .then(response => response.json())
     .then(data => {
         const permissions = (data.success && data.data && Array.isArray(data.data.permissions)) ? data.data.permissions : [];
-        document.getElementById('permissionGambling').checked = permissions.includes('Gambling');
+        document.getElementById('permissionGambling').checked = permissions.includes('Games');
         document.getElementById('permissionBank').checked = permissions.includes('Bank');
         document.getElementById('permissionLoan').checked = permissions.includes('Loan');
         document.getElementById('permissionRate').checked = permissions.includes('Rate');
@@ -657,7 +657,7 @@ function saveCompanyExpDate() {
     
     // 获取选中的权限
     const permissions = [];
-    if (document.getElementById('permissionGambling').checked) permissions.push('Gambling');
+    if (document.getElementById('permissionGambling').checked) permissions.push('Games');
     if (document.getElementById('permissionBank').checked) permissions.push('Bank');
     if (document.getElementById('permissionLoan').checked) permissions.push('Loan');
     if (document.getElementById('permissionRate').checked) permissions.push('Rate');
