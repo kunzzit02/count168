@@ -46,7 +46,7 @@
             var parent = picker.parentElement;
             if (parent) {
                 var parentRect = parent.getBoundingClientRect();
-                if (parent.classList && parent.classList.contains('transaction-capture-date-row')) {
+                if (parent.classList && (parent.classList.contains('transaction-capture-date-row') || parent.classList.contains('transaction-date-range-group'))) {
                     barWidth = parentRect.width;
                 } else if (parentRect.width > barWidth) {
                     barWidth = parentRect.width;
