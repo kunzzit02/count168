@@ -10,7 +10,7 @@ if ($session_company_id) {
         $stmt->execute([$session_company_id]);
         $permsJson = $stmt->fetchColumn();
         $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
-        if (!is_array($companyPerms) || !in_array('Games', $companyPerms)) {
+        if (!is_array($companyPerms) || (!in_array('Games', $companyPerms) && !in_array('Gambling', $companyPerms))) {
             header('Location: processlist.php?error=no_gambling_permission');
             exit;
         }

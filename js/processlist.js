@@ -4922,7 +4922,9 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 });
 
                 const result = await response.json();
-                const permissions = result.success && result.data && result.data.permissions ? result.data.permissions : ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
+                let permissions = result.success && result.data && result.data.permissions ? result.data.permissions : ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
+                // 兼容旧数据：数据库可能仍是 "Gambling"，统一为 "Games" 显示与逻辑
+                permissions = [...new Set(permissions.map(p => p === 'Gambling' ? 'Games' : p))];
 
                 const permissionContainer = document.getElementById('process-list-permission-buttons');
                 permissionContainer.innerHTML = '';
@@ -4940,8 +4942,9 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                         permissionContainer.appendChild(btn);
                     });
 
-                    // 尝试从 localStorage 恢复之前选择的权限
-                    const savedPermission = localStorage.getItem(`selectedPermission_${currentCompanyCode}`);
+                    // 尝试从 localStorage 恢复之前选择的权限（兼容旧值 Gambling）
+                    let savedPermission = localStorage.getItem(`selectedPermission_${currentCompanyCode}`);
+                    if (savedPermission === 'Gambling') savedPermission = 'Games';
                     if (savedPermission && permissions.includes(savedPermission)) {
                         switchPermission(savedPermission);
                     } else if (permissions.length > 0 && !selectedPermission) {

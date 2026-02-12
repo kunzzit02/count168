@@ -137,7 +137,7 @@ if ($companyId) {
         if ($permsJson) {
             $companyPerms = json_decode($permsJson, true);
             $companyCategories = is_array($companyPerms) ? $companyPerms : [];
-            $companyHasGambling = in_array('Games', $companyCategories);
+            $companyHasGambling = in_array('Games', $companyCategories) || in_array('Gambling', $companyCategories);
         }
     } catch (PDOException $e) {
         error_log("获取公司权限失败: " . $e->getMessage());

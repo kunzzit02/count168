@@ -99,7 +99,7 @@ try {
         $permsJson = $stmt->fetchColumn();
         if ($permsJson) {
             $perms = json_decode($permsJson, true);
-            $has_gambling = is_array($perms) && in_array('Games', $perms);
+            $has_gambling = is_array($perms) && (in_array('Games', $perms) || in_array('Gambling', $perms));
         }
     } catch (PDOException $e) {
         error_log("获取公司权限失败: " . $e->getMessage());
