@@ -300,6 +300,7 @@ body.dashboard-page {
     }
     .transaction-company-btn {
         padding: 5px 10px;
+        
     }
 }
 
@@ -542,22 +543,24 @@ body.dashboard-page {
     padding: clamp(2px, 0.36vw, 8px);
 }
 
-/* Select Year & Month：下拉与上方输入框同宽，无水平滚动条 */
+/* Select Year & Month：下拉保证年份四位数完整显示 */
 #month-date-picker .date-dropdown {
-    width: 100%;
-    min-width: 0;
-    overflow-x: hidden;
+    width: max-content;
+    min-width: 200px;
+    max-width: 100%;
+    overflow-x: auto;
     box-sizing: border-box;
 }
 #month-date-picker .year-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(48px, 1fr));
     padding: 10px 12px;
 }
 #month-date-picker .year-grid .date-option {
-    font-size: 11px;
-    padding: 8px 4px;
+    font-size: 12px;
+    padding: 8px 6px;
     min-width: 0;
     text-align: center;
+    white-space: nowrap;
 }
 
 .month-grid {
