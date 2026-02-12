@@ -671,8 +671,7 @@ body.transaction-page {
 
 .transaction-modal-content {
     background-color: #ffffff;
-    /* 调整上下间距，让弹窗不要贴太满 */
-    margin: 6% auto;
+    margin: 4% auto;
     padding: 0;
     border: none;
     border-radius: 16px;
@@ -737,8 +736,7 @@ body.transaction-page {
 
 .transaction-modal-body {
     padding: clamp(10px, 1.04vw, 20px) 32px;
-    /* 调整内容区最大高度，超出时内部滚动 */
-    max-height: 420px;
+    max-height: 500px;
     overflow-y: auto;
 }
 
