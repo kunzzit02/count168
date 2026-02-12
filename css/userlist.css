@@ -1461,9 +1461,10 @@ h1 {
         flex-shrink: 0;
     }
     .modal-content.edit-mode .edit-mode-permissions-container .permissions-actions {
-        margin-top: -4px;
+        margin-top: -20px;
         margin-bottom: 0;
         flex-shrink: 0;
+        background-color: white;
     }
 
     .account-label{
