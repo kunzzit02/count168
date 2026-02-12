@@ -212,21 +212,40 @@ body.dashboard-page {
     min-height: clamp(280px, 35vw, 420px);
 }
 
-/* 1024px：整块内容完整显示在视口内，不出现横向滚动 */
+/* 1024px：整页适应视口高度，不出现横/纵滚动，图表完整可见 */
 @media (max-width: 1024px) {
     body.dashboard-page {
-        overflow-x: hidden;
+        overflow: hidden;
+        height: 100vh;
     }
     .dashboard-container {
         padding-left: 216px;
         padding-right: 20px;
-        padding-bottom: 20px;
+        padding-top: 10px;
+        padding-bottom: 16px;
         width: 100%;
         max-width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
         box-sizing: border-box;
     }
     .dashboard-title {
         font-size: 22px;
+        margin-bottom: 6px;
+        flex-shrink: 0;
+    }
+    .dashboard-content {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .dashboard-card:first-of-type {
+        flex-shrink: 0;
     }
     .dashboard-card:first-of-type .dashboard-card-body {
         padding: 10px 12px;
@@ -250,6 +269,7 @@ body.dashboard-page {
     .dashboard-kpi-grid {
         grid-template-columns: repeat(3, 1fr);
         gap: 10px;
+        flex-shrink: 0;
     }
     .dashboard-kpi-card {
         min-width: 0;
@@ -261,12 +281,21 @@ body.dashboard-page {
     .dashboard-kpi-card .kpi-label {
         font-size: 12px;
     }
-    .dashboard-chart-container {
-        height: 280px;
-        min-height: 280px;
-    }
     .dashboard-chart-section {
-        padding: 10px 12px;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        padding: 10px 12px 12px;
+    }
+    .dashboard-chart-header {
+        flex-shrink: 0;
+    }
+    .dashboard-chart-container {
+        flex: 1;
+        min-height: 0;
+        height: auto;
     }
     .dashboard-chart-title {
         font-size: 18px;
