@@ -1057,7 +1057,7 @@ body.transaction-page .expiration-countdown-text {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 10px 12px;
+    padding: clamp(6px, 0.52vw, 10px) 12px;
     border-bottom: 1px solid #e5e7eb;
     background: #f8fafc;
 }
