@@ -38,13 +38,19 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php
+    $assetVer = function ($file) {
+        $path = __DIR__ . '/' . $file;
+        return file_exists($path) ? filemtime($path) : time();
+    };
+    ?>
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
-    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
-    <link rel="stylesheet" href="css/announcement.css">
+    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo $assetVer('css/accountCSS.css'); ?>">
+    <link rel="stylesheet" href="css/announcement.css?v=<?php echo $assetVer('css/announcement.css'); ?>">
     <title>Announcement Management</title>
-    <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
+    <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
@@ -161,7 +167,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
         </div>
     </div>
 
-    <script src="js/announcement.js?v=<?php echo time(); ?>"></script>
+    <script src="js/announcement.js?v=<?php echo $assetVer('js/announcement.js'); ?>"></script>
 </body>
 </html>
 
