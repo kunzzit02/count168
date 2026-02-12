@@ -2,6 +2,10 @@
 // 使用统一的session检查
 require_once 'session_check.php';
 
+// 不缓存 HTML，部署后刷新即可拿到带最新 ?v= 的页面
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
 // 获取 company_id（session_check.php已确保用户已登录）
 $current_user_role = $_SESSION['role'] ?? '';
 $current_user_id = $_SESSION['user_id'] ?? null;
@@ -165,12 +169,18 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php
+    $assetVer = function ($file) {
+        $path = __DIR__ . '/' . $file;
+        return file_exists($path) ? filemtime($path) : time();
+    };
+    ?>
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>User List</title>
-    <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
+    <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
-    <link rel="stylesheet" href="css/userlist.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="css/userlist.css?v=<?php echo $assetVer('css/userlist.css'); ?>">
 </head>
 <body>
     <div id="notificationContainer" class="notification-container"></div>
@@ -683,6 +693,6 @@ try {
         window.USERLIST_CURRENT_USER_ROLE = '<?php echo strtolower($current_user_role); ?>';
         window.USERLIST_CURRENT_COMPANY_ID = <?php echo json_encode($_SESSION['company_id'] ?? null); ?>;
     </script>
-    <script src="js/userlist.js?v=<?php echo time(); ?>"></script>
+    <script src="js/userlist.js?v=<?php echo $assetVer('js/userlist.js'); ?>"></script>
 </body>
 </html>
