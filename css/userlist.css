@@ -1419,4 +1419,7 @@ h1 {
     .modal-content.edit-mode .user-info-panel .form-group label{
         font-size: clamp(10px, 0.85vw, 15px);
     }
+    .form-group input, .form-group select{
+        font-size: clamp(9px, 0.85vw, 14px);
+    }
 }
