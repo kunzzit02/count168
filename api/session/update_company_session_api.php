@@ -91,7 +91,7 @@ try {
 
     $_SESSION['company_id'] = $requested_company_id;
 
-    // 返回当前公司是否有 GAMES 权限，供侧边栏即时显示/隐藏 Data Capture
+    // 返回当前公司是否有 Games 权限，供侧边栏即时显示/隐藏 Data Capture
     $has_gambling = false;
     try {
         $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
@@ -99,7 +99,7 @@ try {
         $permsJson = $stmt->fetchColumn();
         if ($permsJson) {
             $perms = json_decode($permsJson, true);
-            $has_gambling = is_array($perms) && in_array('GAMES', $perms);
+            $has_gambling = is_array($perms) && in_array('Games', $perms);
         }
     } catch (PDOException $e) {
         error_log("获取公司权限失败: " . $e->getMessage());

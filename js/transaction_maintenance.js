@@ -183,7 +183,7 @@
             const result = await response.json();
             let permissions = result.success && result.data && result.data.permissions
                 ? result.data.permissions
-                : ['GAMES', 'Bank', 'Loan', 'Rate', 'Money'];
+                : ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
             containerEl.innerHTML = '';
             if (permissions.length > 0) {
                 filterEl.style.display = 'flex';

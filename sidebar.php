@@ -126,7 +126,7 @@ if ($companyId) {
     }
 }
 
-// 获取当前公司的 category 权限（GAMES/Bank/Loan/Rate/Money），用于 Data Capture 与 Maintenance > Process 等可见性
+// 获取当前公司的 category 权限（Games/Bank/Loan/Rate/Money），用于 Data Capture 与 Maintenance > Process 等可见性
 $companyHasGambling = false;
 $companyCategories = [];
 if ($companyId) {
@@ -137,7 +137,7 @@ if ($companyId) {
         if ($permsJson) {
             $companyPerms = json_decode($permsJson, true);
             $companyCategories = is_array($companyPerms) ? $companyPerms : [];
-            $companyHasGambling = in_array('GAMES', $companyCategories);
+            $companyHasGambling = in_array('Games', $companyCategories);
         }
     } catch (PDOException $e) {
         error_log("获取公司权限失败: " . $e->getMessage());
@@ -380,7 +380,7 @@ if ($companyId) {
             </div>
             <?php endif; ?>
 
-            <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 GAMES 权限控制（含切换公司时即时更新） -->
+            <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 权限控制（含切换公司时即时更新） -->
             <?php if (empty($permissions) || in_array('datacapture', $permissions)): ?>
             <div class="informationmenu-section" id="sidebar-datacapture-section"<?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                 <div class="informationmenu-section-title" data-page="datacapture.php" onclick="window.location.href='datacapture.php'">
@@ -404,7 +404,7 @@ if ($companyId) {
             </div>
             <?php endif; ?>
 
-            <!-- Report Section（仅当前公司有 GAMES 权限时显示） -->
+            <!-- Report Section（仅当前公司有 Games 权限时显示） -->
             <?php if (empty($permissions) || in_array('report', $permissions)): ?>
             <div class="informationmenu-section" id="sidebar-report-section"<?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                 <div class="menu-item-wrapper">

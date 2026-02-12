@@ -165,7 +165,7 @@ function getProcesses() {
     global $pdo;
     
     try {
-        // Bank 类别：从 bank_process 表获取数据，不影响 GAMES 的 process 表
+        // Bank 类别：从 bank_process 表获取数据，不影响 Games 的 process 表
         if (isset($_GET['permission']) && $_GET['permission'] === 'Bank') {
             getBankProcesses();
             return;
@@ -554,7 +554,7 @@ function updateProcess() {
 }
 
 /**
- * Bank 类别：从 bank_process 表获取列表，不影响 GAMES 的 process 表
+ * Bank 类别：从 bank_process 表获取列表，不影响 Games 的 process 表
  */
 function getBankProcesses() {
     global $pdo;

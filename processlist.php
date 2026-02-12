@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 exit;
             }
 
-            // GAMES：原有 process 表删除逻辑
+            // Games：原有 process 表删除逻辑
             $placeholders = str_repeat('?,', count($ids) - 1) . '?';
             $stmt = $pdo->prepare("SELECT id, process_id, company_id FROM process WHERE id IN ($placeholders) AND status = 'inactive'");
             $stmt->execute($ids);
@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 exit;
             }
 
-            // GAMES：若该流程在 transactions 表中有记录，则不允许删除
+            // Games：若该流程在 transactions 表中有记录，则不允许删除
             $hasProcessIdCol = false;
             try {
                 $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'process_id'");
@@ -291,7 +291,7 @@ if ($current_user_id && count($user_companies) > 0) {
             <div class="process-table-wrapper" id="processTableWrapper">
                 <!-- Table Header -->
                 <div class="table-header" id="tableHeader">
-                    <!-- GAMES table headers (default) -->
+                    <!-- Games table headers (default) -->
                     <div class="header-item gambling-header">No</div>
                     <div class="header-item gambling-header">Process ID</div>
                     <div class="header-item gambling-header">Description</div>

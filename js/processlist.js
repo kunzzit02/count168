@@ -76,7 +76,7 @@
                             return 0;
                         });
                     } else {
-                        // GAMES 类别的排序逻辑（原有逻辑）
+                        // Games 类别的排序逻辑（原有逻辑）
                         processes.sort((a, b) => {
                             const aKey = String(a.process_name || '').toLowerCase();
                             const bKey = String(b.process_name || '').toLowerCase();
@@ -135,14 +135,14 @@
                 pageItems = processes.slice(startIndex, endIndex);
             }
 
-            // GAMES 类别的表格
+            // Games 类别的表格
             {
-                // GAMES 类别的表格（原有逻辑）
+                // Games 类别的表格（原有逻辑）
                 pageItems.forEach((process, idx) => {
                     const card = document.createElement('div');
                     card.className = 'process-card';
                     card.setAttribute('data-id', process.id);
-                    // 恢复 GAMES 表格的列数（7列）
+                    // 恢复 Games 表格的列数（7列）
                     card.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1.1fr 0.19fr';
 
                     const statusClass = process.status === 'active' ? 'status-active' : 'status-inactive';
@@ -4922,7 +4922,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 });
 
                 const result = await response.json();
-                const permissions = result.success && result.data && result.data.permissions ? result.data.permissions : ['GAMES', 'Bank', 'Loan', 'Rate', 'Money'];
+                const permissions = result.success && result.data && result.data.permissions ? result.data.permissions : ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
 
                 const permissionContainer = document.getElementById('process-list-permission-buttons');
                 permissionContainer.innerHTML = '';
@@ -5003,13 +5003,13 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'none';
                 if (processTableBodyEl) processTableBodyEl.classList.remove('bank-mode');
                 if (processTableBodyEl) processTableBodyEl.style.removeProperty('--table-header-width');
-                // 显示 GAMES 表格头部，隐藏 Bank 表格头部
+                // 显示 Games 表格头部，隐藏 Bank 表格头部
                 gamblingHeaders.forEach(header => header.style.display = 'flex');
                 bankHeaders.forEach(header => header.style.display = 'none');
                 if (selectAllGambling) selectAllGambling.style.display = 'inline-block';
                 if (selectAllBank) selectAllBank.style.display = 'none';
 
-                // 恢复 GAMES 表格的列数（7列）
+                // 恢复 Games 表格的列数（7列）
                 if (tableHeader) {
                     tableHeader.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1fr 0.3fr';
                 }
@@ -5018,7 +5018,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 });
             }
 
-            // Post to Transaction 仅 Bank 显示，GAMES 隐藏
+            // Post to Transaction 仅 Bank 显示，Games 隐藏
             updatePostToTransactionButton();
             // Accounting Due Inbox: show only on Bank
             updateAccountingInboxVisibility();

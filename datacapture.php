@@ -2,7 +2,7 @@
 // Use unified session check
 require_once 'session_check.php';
 
-// 仅当公司具有 GAMES category 权限时才可访问此页（与侧边栏 Data Capture 可见性一致）
+// 仅当公司具有 Games category 权限时才可访问此页（与侧边栏 Data Capture 可见性一致）
 $session_company_id = $_SESSION['company_id'] ?? null;
 if ($session_company_id) {
     try {
@@ -10,7 +10,7 @@ if ($session_company_id) {
         $stmt->execute([$session_company_id]);
         $permsJson = $stmt->fetchColumn();
         $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
-        if (!is_array($companyPerms) || !in_array('GAMES', $companyPerms)) {
+        if (!is_array($companyPerms) || !in_array('Games', $companyPerms)) {
             header('Location: processlist.php?error=no_gambling_permission');
             exit;
         }
