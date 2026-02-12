@@ -145,17 +145,20 @@ body.transaction-page {
     min-width: 0;
 }
 
-/* Capture Date：标签在左，select bar + Period 在右，不显示 Quick Select 字眼 */
+/* Capture Date：标签在左，select bar 与上方 Category 下拉左对齐 */
 .transaction-page .transaction-date-quick-row {
     display: flex;
     align-items: center;
-    gap: clamp(8px, 1vw, 16px);
+    gap: 0;
     flex-wrap: wrap;
 }
 .transaction-page .transaction-date-quick-row .transaction-capture-date-label {
     flex-shrink: 0;
-    width: clamp(90px, 8vw, 120px);
+    width: clamp(60px, 5.5vw, 105px);
     margin: 0;
+}
+.transaction-page .transaction-date-quick-row .transaction-date-range-group {
+    margin-right: clamp(8px, 1vw, 16px);
 }
 .transaction-page .transaction-date-range-group {
     min-width: clamp(150px, 12.5vw, 240px);
