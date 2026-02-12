@@ -2257,8 +2257,11 @@ body.process-page {
 
     /* Edit Process 弹窗在 1024px：与红框同尺寸，仅占侧栏右侧整块 */
     .process-page #editModal {
-        left: 150px !important; /* 遮罩从侧栏右侧开始 */
-        width: calc(100vw - 150px) !important;
+        left: 180px !important; /* 遮罩从侧栏右侧开始 */
+        width: calc(100vw - 210px) !important;
+        top: 80px;
+        border-radius: 16px;
+        height: 500px;
     }
     .process-page #editModal .modal-content {
         margin: 0 !important;
