@@ -671,12 +671,14 @@ body.transaction-page {
 
 .transaction-modal-content {
     background-color: #ffffff;
-    margin: 4% auto;
+    /* 稍微往上移，并限制整体高度 */
+    margin: 2% auto;
     padding: 0;
     border: none;
     border-radius: 16px;
     /* 调整最小宽度，让小一点的屏幕也不会被撑满 */
     width: clamp(860px, 80vw, 1400px);
+    max-height: 92vh;
     max-width: 100%;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     overflow: hidden;
