@@ -212,7 +212,47 @@ body.dashboard-page {
     min-height: clamp(280px, 35vw, 420px);
 }
 
-@media (max-width: 1200px) {
+/* 1024px：保持与宽屏完全一致的布局（不换行、不堆叠） */
+@media (max-width: 1024px) {
+    .dashboard-container {
+        padding-left: 200px;
+        padding-right: 12px;
+    }
+    .dashboard-date-controls {
+        flex-wrap: nowrap;
+        gap: 12px;
+        margin-bottom: 8px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .dashboard-date-controls .divider {
+        flex-shrink: 0;
+    }
+    .transaction-company-buttons {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+        min-height: 32px;
+    }
+    .dashboard-kpi-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+    .dashboard-chart-container {
+        height: 320px;
+        min-height: 320px;
+    }
+    .date-range-picker {
+        min-width: 140px;
+    }
+    .dropdown {
+        width: 120px;
+    }
+}
+
+@media (max-width: 1200px) and (min-width: 1025px) {
     .dashboard-kpi-grid {
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     }

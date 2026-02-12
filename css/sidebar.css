@@ -350,6 +350,12 @@
     transform: translateX(-100%);
 }
 
+@media (max-width: 1024px) {
+    .informationmenu {
+        width: 200px;
+    }
+}
+
 .informationmenu-header {
     padding: clamp(6px, 0.73vw, 14px) 10px clamp(6px, 0.52vw, 10px);
     border-bottom: 0px solid rgba(255, 255, 255, 0.1);
