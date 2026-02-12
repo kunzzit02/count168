@@ -748,7 +748,7 @@ try {
             
             try {
                 // 验证权限值
-                $valid_permissions = ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                $valid_permissions = ['GAMES', 'Bank', 'Loan', 'Rate', 'Money'];
                 $filtered_permissions = array_intersect($permissions, $valid_permissions);
                 
                 // 转换为 JSON

@@ -1,6 +1,6 @@
 <?php
 /**
- * 批量删除 Process API（Gambling / Bank，仅允许删除 inactive）
+ * 批量删除 Process API（GAMES / Bank，仅允许删除 inactive）
  * 路径: api/processes/delete_processes_api.php
  */
 header('Content-Type: application/json; charset=utf-8');
