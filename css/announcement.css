@@ -491,6 +491,10 @@ h1 {
         font-size: clamp(8px, 0.85vw, 14px);
     }
 
+    .form-group input, .form-group textarea{
+        font-size: clamp(8px, 0.85vw, 14px);
+    }
+
     .announcement-list-section{
         min-height: 200px;
     }
