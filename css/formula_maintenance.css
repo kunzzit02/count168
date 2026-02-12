@@ -123,7 +123,7 @@ h1 {
     color: white;
 }
 
-/* Search Section Styles - 与 payment_maintenance.php 保持一致 */
+/* Search Section Styles - 与 payment_maintenance / capture_maintenance 保持一致 */
 .maintenance-search-section {
     padding: 10px 20px;
     border: 1px solid #e5e7eb;
@@ -140,41 +140,6 @@ h1 {
     gap: clamp(12px, 1.25vw, 24px);
     align-items: flex-end;
     flex-wrap: wrap;
-}
-
-/* Formula 页：Process / Search / Quick Select 统一 200px；Date Range 加宽以完整显示日期（与其它 maintenance 页一致） */
-.formula-maintenance-filters-wrap .maintenance-filters .maintenance-form-group {
-    min-width: 200px;
-    width: 200px;
-    flex: 0 0 200px;
-    max-width: 200px;
-}
-
-.formula-maintenance-filters-wrap .maintenance-filters .maintenance-form-group.formula-date-range-group {
-    min-width: 260px;
-    width: 260px;
-    flex: 0 0 260px;
-    max-width: 260px;
-}
-
-.formula-maintenance-filters-wrap .maintenance-filters .date-range-picker,
-.formula-maintenance-filters-wrap .maintenance-filters .quick-select-dropdown {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-}
-
-.formula-maintenance-filters-wrap .maintenance-filters .quick-select-dropdown .dropdown-toggle {
-    width: 100%;
-    box-sizing: border-box;
-}
-
-/* Search 输入框高度与 Process、Date Range 一致 */
-.formula-maintenance-filters-wrap .maintenance-filters .maintenance-form-group input.maintenance-input#search_filter {
-    padding: clamp(4px, 0.36vw, 7px) clamp(10px, 1vw, 14px);
-    min-height: unset;
-    height: unset;
-    line-height: 1.4;
 }
 
 .maintenance-form-group {
