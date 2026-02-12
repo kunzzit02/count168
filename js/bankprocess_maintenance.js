@@ -242,8 +242,8 @@
                 const result = await response.json();
                 let permissions = result.success && result.data && result.data.permissions
                     ? result.data.permissions
-                    : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
-                // 本页不显示 Gambling，与 domain 权限无关
+                    : ['Bank', 'Loan', 'Rate', 'Money'];
+                // 本页不显示 Gambling（Process 维护页只显示 Bank/Loan/Rate/Money 等）
                 permissions = permissions.filter(p => p !== 'Gambling');
                 containerEl.innerHTML = '';
                 if (permissions.length > 0) {
