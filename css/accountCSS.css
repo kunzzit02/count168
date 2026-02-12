@@ -1550,7 +1550,7 @@ body {
 
 @media (max-width: 1024px) {
     .account-card-item{
-        font-size: clamp(9px, 0.85vw, 14px);
+        font-size: clamp(10px, 0.85vw, 14px);
     }
 
     .account-form-group label{
