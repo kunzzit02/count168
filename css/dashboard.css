@@ -212,77 +212,83 @@ body.dashboard-page {
     min-height: clamp(280px, 35vw, 420px);
 }
 
-/* 1024px：保持与宽屏完全一致的布局（不换行、不堆叠） */
+/* 1024px：整块内容完整显示在视口内，不出现横向滚动 */
 @media (max-width: 1024px) {
     body.dashboard-page {
-        overflow-x: auto;
-        min-width: 1024px;
+        overflow-x: hidden;
     }
     .dashboard-container {
-        padding-left: 220px;
-        padding-right: 20px;
-        min-width: 824px;
+        padding-left: 200px;
+        padding-right: 12px;
+        width: 100%;
+        max-width: 100vw;
         box-sizing: border-box;
     }
-    .dashboard-card:first-of-type {
-        overflow-x: auto;
-        min-width: 0;
+    .dashboard-title {
+        font-size: 22px;
     }
-    .dashboard-card-body {
-        min-width: 780px;
+    .dashboard-card:first-of-type .dashboard-card-body {
+        padding: 10px 12px;
     }
     .dashboard-date-controls {
-        flex-wrap: nowrap;
-        gap: 12px;
-        margin-bottom: 8px;
-        overflow-x: auto;
-        padding-bottom: 4px;
-        -webkit-overflow-scrolling: touch;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 6px;
     }
     .dashboard-date-controls > * {
         flex-shrink: 0;
     }
-    .dashboard-date-controls .divider {
-        flex-shrink: 0;
-    }
     .transaction-company-filter {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        min-width: 0;
-    }
-    .transaction-company-filter .transaction-company-label {
-        flex-shrink: 0;
+        flex-wrap: wrap;
+        margin-top: 6px;
     }
     .transaction-company-buttons {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        padding-bottom: 4px;
-        -webkit-overflow-scrolling: touch;
-        min-height: 32px;
-        flex-shrink: 0;
+        flex-wrap: wrap;
+        gap: 6px;
     }
     .dashboard-kpi-grid {
         grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
+        gap: 10px;
     }
     .dashboard-kpi-card {
         min-width: 0;
+        padding: 10px 12px;
+    }
+    .dashboard-kpi-card .kpi-value {
+        font-size: 18px;
+    }
+    .dashboard-kpi-card .kpi-label {
+        font-size: 12px;
     }
     .dashboard-chart-container {
-        height: 320px;
-        min-height: 320px;
+        height: 280px;
+        min-height: 280px;
     }
     .dashboard-chart-section {
-        min-width: 0;
+        padding: 10px 12px;
+    }
+    .dashboard-chart-title {
+        font-size: 18px;
     }
     .date-range-picker {
-        min-width: 140px;
+        min-width: 130px;
+    }
+    .date-range-picker span,
+    .date-range-picker i {
+        font-size: 12px;
     }
     .enhanced-date-picker.month-only {
-        min-width: 80px;
+        min-width: 72px;
+    }
+    .form-label {
+        font-size: 12px;
     }
     .dropdown {
-        width: 120px;
+        width: 110px;
+    }
+    .transaction-company-btn {
+        padding: 5px 10px;
+        font-size: 11px;
     }
 }
 
