@@ -126,31 +126,50 @@
             const newCompanyId = parseInt(companyId, 10);
             if (currentCompanyId === newCompanyId) return;
             
-            // 先更新 session
+            // 立即更新本地状态并清空表格，避免显示上一家公司的数据
+            currentCompanyId = newCompanyId;
+            activateCompanyButton(currentCompanyId);
+            clearTableAndShowLoading();
+            
+            // 再更新 session
             try {
                 const response = await fetch(`api/session/update_company_session_api.php?company_id=${newCompanyId}`);
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
-                    // 即使 API 失败，也继续更新前端状态
                 } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
                     window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);
-                // 即使 API 失败，也继续更新前端状态
             }
             
-            currentCompanyId = newCompanyId;
-            activateCompanyButton(currentCompanyId);
             loadCompanyCurrencies()
                 .then(() => {
                     const dateFrom = document.getElementById('date_from').value.trim();
                     const dateTo = document.getElementById('date_to').value.trim();
-                    if (dateFrom && dateTo && selectedCurrency) {
+                    // 只要有日期范围就重新请求当前公司的数据（不依赖 selectedCurrency，避免新公司无货币时不刷新）
+                    if (dateFrom && dateTo) {
                         searchData();
+                    } else {
+                        showEmptyState();
                     }
                 });
+        }
+        
+        function clearTableAndShowLoading() {
+            const tbody = document.getElementById('dataTableBody');
+            const emptyState = document.getElementById('emptyState');
+            const tableContainer = document.getElementById('tableContainer');
+            tbody.innerHTML = '<tr class="maintenance-row-empty"><td class="maintenance-table-cell" colspan="11" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+            emptyState.style.display = 'none';
+            tableContainer.style.display = 'block';
+        }
+        
+        function showEmptyState() {
+            document.getElementById('tableContainer').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'block';
+            document.getElementById('dataTableBody').innerHTML = '';
         }
 
         function loadCompanyCurrencies() {
