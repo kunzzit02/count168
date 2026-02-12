@@ -938,22 +938,6 @@ body.dashboard-page {
     font-family: 'Amaranth', sans-serif;
 }
 
-.dashboard-content {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(8px, 0.9vw, 14px);
-}
-
-body.dashboard-page {
-    overflow-y: auto;
-    min-height: 100vh;
-}
-
-html {
-    overflow-y: auto;
-    height: auto;
-}
-
 .text-green { color: #10b981; }
 .text-red { color: #ef4444; }
 .text-blue { color: #3b82f6; }
