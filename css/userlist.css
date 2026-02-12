@@ -1454,4 +1454,8 @@ h1 {
     .account-label{
         font-size: clamp(8px, 0.73vw, 12px)!important;
        }
+
+       .permissions-action{
+        margin-top: -4px;
+       }
 }
