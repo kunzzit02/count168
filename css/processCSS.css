@@ -2245,3 +2245,10 @@ body.process-page {
     color: #991b1b;
     border-left-color: #ef4444;
 }
+
+@media (max-width: 1024px){
+    .process-page .card-item{
+        font-size: clamp(9px,0.85vw,14px);
+    }
+}
+    
