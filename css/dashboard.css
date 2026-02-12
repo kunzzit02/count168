@@ -824,7 +824,7 @@ body.dashboard-page {
 
 .calendar-weekday {
     text-align: center;
-    font-size: clamp(9px, 0.63vw, 12px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-weight: 600;
     color: #898989;
     padding: clamp(2px, 0.21vw, 4px) 0;
@@ -843,7 +843,7 @@ body.dashboard-page {
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    font-size: clamp(9px, 0.63vw, 12px);
+    font-size: clamp(9px, 0.82vw, 15px);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
