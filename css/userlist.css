@@ -1467,13 +1467,13 @@ h1 {
         margin-top: -4px;
     }
     .modal-content.edit-mode .edit-mode-permissions-container .permissions-container {
-        max-height: min(200px, 24vh);
+        max-height: min(200px, 22vh);
         overflow-y: auto;
         flex-shrink: 0;
         padding-bottom: 8px; /* 底部留空，最后一行不被裁切/遮挡 */
     }
     .modal-content.edit-mode .edit-mode-permissions-container .permissions-actions {
-        margin-top: clamp(8px, 0.7vw, 12px);
+        margin-top: clamp(2px, -2vw, 12px);
         margin-bottom: 0;
         flex-shrink: 0;
         background-color: #fff;
