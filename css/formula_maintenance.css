@@ -142,18 +142,25 @@ h1 {
     flex-wrap: wrap;
 }
 
+/* Formula 页：在此页上方筛选区强制保持一行显示，必要时允许横向滚动 */
+.formula-maintenance-filters-wrap .maintenance-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
 /* Formula 页：Process / Search / Quick Select 统一 200px；Date Range 加宽以完整显示日期（与其它 maintenance 页一致） */
 .formula-maintenance-filters-wrap .maintenance-filters .maintenance-form-group {
     min-width: 200px;
     width: 200px;
-    flex: 0 0 200px;
+    flex: 0 0 auto;
     max-width: 200px;
 }
 
 .formula-maintenance-filters-wrap .maintenance-filters .maintenance-form-group.formula-date-range-group {
     min-width: 260px;
     width: 260px;
-    flex: 0 0 260px;
+    flex: 0 0 auto;
     max-width: 260px;
 }
 
