@@ -1422,4 +1422,8 @@ h1 {
     .form-group input, .form-group select{
         font-size: clamp(9px, 0.85vw, 14px);
     }
+
+    .permission-label{
+        font-size: clamp(9px, 0.85vw, 14px);
+    }
 }
