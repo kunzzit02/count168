@@ -755,13 +755,13 @@ body.transaction-page {
     border: 1px solid #d0d7de;
     font-weight: 600;
     z-index: 1;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
 }
 
 .transaction-modal-body .transaction-table td {
     padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.52vw, 10px);
     border: 1px solid #e2e8f0;
-    font-size: small;
+    font-size: clamp(9px, 0.73vw, 14px);
 }
 
 .transaction-modal-body .transaction-table .transaction-history-col-date {
