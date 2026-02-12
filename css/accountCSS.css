@@ -1565,4 +1565,8 @@ body {
         font-size: clamp(9px, 0.85vw, 14px);
         min-width: 1.5rem;
     }
+
+    .account-currency-item{
+        font-size: clamp(9px,0.85vw,14px);
+    }
 }
