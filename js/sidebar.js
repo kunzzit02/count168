@@ -141,19 +141,6 @@
         }
     }
 
-    // 强制刷新当前页面并绕过缓存：给 URL 加一个时间戳参数
-    function forceHardReload() {
-        try {
-            var url = new URL(window.location.href);
-            url.searchParams.set('_hard_refresh', Date.now().toString());
-            window.location.replace(url.toString());
-        } catch (e) {
-            // 旧浏览器兜底
-            var sep = window.location.href.indexOf('?') === -1 ? '?' : '&';
-            window.location.replace(window.location.href + sep + '_hard_refresh=' + Date.now());
-        }
-    }
-
     function toggleLanguageDropdown() {
         var dropdown = document.getElementById('languageDropdown');
         var button = document.querySelector('.language-btn');
@@ -302,7 +289,6 @@
     window.selectGender = selectGender;
     window.selectAvatar = selectAvatar;
     window.handleLogout = handleLogout;
-    window.forceHardReload = forceHardReload;
     window.toggleLanguageDropdown = toggleLanguageDropdown;
     window.selectLanguage = selectLanguage;
     window.toggleNotificationPanel = toggleNotificationPanel;

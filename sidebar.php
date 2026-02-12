@@ -491,10 +491,6 @@ if ($companyId) {
             </div>
         </div>
         <?php endif; ?>
-        <!-- 强制刷新缓存按钮：为了解决静态资源缓存问题，附带时间戳参数重新加载当前页 -->
-        <button class="btn logout-btn" style="margin-bottom: 8px;" onclick="forceHardReload()">
-            Hard Refresh
-        </button>
         <button class="btn logout-btn" onclick="handleLogout()">
             Logout
         </button>
