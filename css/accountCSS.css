@@ -1571,6 +1571,6 @@ body {
     }
 
     #addCompanyList .account-currency-item, #editCompanyList .account-currency-item{
-        font-size: clamp(9px,0.85vw,14px);
+        font-size: clamp(10px,0.85vw,14px);
     }
 }
