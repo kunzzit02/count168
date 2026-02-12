@@ -2,6 +2,10 @@
 session_start();
 require_once 'config.php'; // 使用统一的数据库配置
 
+// 不缓存 HTML，commit 后刷新即可拿到带最新 ?v= 的页面
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
 // 超时时间（秒）
 define('SESSION_TIMEOUT', 3600); // 1小时
 

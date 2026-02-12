@@ -2,6 +2,10 @@
 // 使用统一的session检查
 require_once 'session_check.php';
 
+// 不缓存 HTML，部署后刷新即可拿到带最新 ?v= 的页面
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
 // 检查当前登录用户是否为 owner/admin 且与 c168 相关
 $user_id      = $_SESSION['user_id']  ?? null;
 $user_role    = strtolower($_SESSION['role'] ?? '');
