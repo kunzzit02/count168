@@ -1552,4 +1552,12 @@ body {
     .account-card-item{
         font-size: clamp(9px, 0.85vw, 14px);
     }
+
+    .account-form-group label{
+        font-size: clamp(10px, 0.85vw, 15px);
+    }
+
+    .account-form-group input, .account-form-group select, .account-form-group textarea{
+        font-size: clamp(9px, 0.85vw, 14px);
+    }
 }
