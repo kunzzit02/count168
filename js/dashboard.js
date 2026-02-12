@@ -1325,6 +1325,9 @@ function createChart(canvas, chartData) {
         
         console.log('创建图表，数据点数量:', chartData.labels.length, '数据集数量:', chartData.datasets.length);
         
+        // 等价于 CSS clamp(9px, 0.82vw, 15px)
+        const axisFontSize = Math.round(Math.min(15, Math.max(9, (0.82 / 100) * window.innerWidth)));
+        
         // 如果图表已存在，先销毁
         if (trendChart) {
             try {
@@ -1355,7 +1358,7 @@ function createChart(canvas, chartData) {
                             callback: function(value) {
                                 return 'RM ' + formatCurrency(value);
                             },
-                            font: { size: 12 }  // 左侧金额字体大小
+                            font: { size: axisFontSize }
                         },
                         grid: {
                             color: 'rgba(0, 0, 0, 0.05)'
@@ -1366,7 +1369,7 @@ function createChart(canvas, chartData) {
                             display: false
                         },
                         ticks: {
-                            font: { size: 12 },  // 下方日期字体大小
+                            font: { size: axisFontSize },
                             maxRotation: 45,
                             minRotation: 0,
                             autoSkip: false,
