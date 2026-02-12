@@ -488,11 +488,11 @@ h1 {
 
 @media (max-width: 1024px) {
     .form-group label{
-        font-size: clamp(8px, 0.85vw, 14px);
+        font-size: clamp(9px, 0.85vw, 14px);
     }
 
     .form-group input, .form-group textarea{
-        font-size: clamp(8px, 0.85vw, 14px);
+        font-size: clamp(9px, 0.85vw, 14px);
     }
 
     .announcement-content{
@@ -501,7 +501,7 @@ h1 {
     .announcement-meta{
         font-size: clamp(9px, 0.85vw, 12px);
     }
-    
+
     .announcement-list-section{
         min-height: 200px;
     }
