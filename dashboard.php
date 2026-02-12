@@ -201,14 +201,14 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                     </div>
                     
                     <!-- Company Buttons -->
-                    <div id="company-buttons-wrapper" class="transaction-company-filter" style="margin-top: 8px;">
+                    <div id="company-buttons-wrapper" class="transaction-company-filter">
                         <span class="transaction-company-label">Company:</span>
                         <div id="company-buttons-container" class="transaction-company-buttons">
                             <!-- Company buttons will be dynamically added here -->
                         </div>
                     </div>
                     <!-- Currency Buttons (below Company) -->
-                    <div id="currency-buttons-wrapper" class="transaction-company-filter" style="margin-top: 8px;">
+                    <div id="currency-buttons-wrapper" class="transaction-company-filter">
                         <span class="transaction-company-label">Currency:</span>
                         <div id="currency-buttons-container" class="transaction-company-buttons">
                             <!-- Currency buttons will be dynamically added here -->
