@@ -1160,7 +1160,7 @@ h1 {
 }
 
 .card-item {
-    font-size: clamp(12px, 0.82vw, 15px);
+    font-size: clamp(8px, 0.82vw, 15px);
     font-weight: bold;
     color: #374151;
     display: flex;
