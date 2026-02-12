@@ -1461,7 +1461,7 @@ h1 {
         flex-shrink: 0;
     }
     .modal-content.edit-mode .edit-mode-permissions-container .permissions-actions {
-        margin-top: clamp(8px, 0.7vw, 12px);
+        margin-top: -4px;
         margin-bottom: 0;
         flex-shrink: 0;
     }
