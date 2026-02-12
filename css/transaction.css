@@ -1040,7 +1040,8 @@ body.transaction-page .expiration-countdown-text {
     position: absolute;
     left: 0;
     top: calc(100% + 8px);
-    width: min(860px, calc(100vw - 60px));
+    /* 减小 Contra Inbox 下拉的最小宽度，避免在较小屏幕溢出 */
+    width: min(760px, calc(100vw - 40px));
     max-height: 420px;
     overflow: hidden;
     border: 1px solid #d0d7de;
