@@ -176,9 +176,9 @@ body.transaction-page {
 }
 
 .transaction-page .transaction-account-select {
-    flex: 1 1 calc(50% - 10px);
-    min-width: 140px;
-    max-width: 285px; /* 固定最大宽度，防止因 account 名字太长而变长 */
+    flex: 1 1 calc(50% - 8px);
+    min-width: 120px;
+    max-width: 230px; /* 略缩短，避免与 Reverse 冲突溢出 */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -187,9 +187,9 @@ body.transaction-page {
 /* 自定义下拉选单样式 */
 .transaction-page .custom-select-wrapper {
     position: relative;
-    flex: 1 1 calc(50% - 10px);
-    min-width: 140px;
-    max-width: 285px;
+    flex: 1 1 calc(50% - 8px);
+    min-width: 120px;
+    max-width: 230px;
 }
 
 .transaction-page .custom-select-button {
