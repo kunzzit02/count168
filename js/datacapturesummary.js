@@ -17577,6 +17577,7 @@ function formatPercentValue(value) {
                         processName: parsedProcessData.processName,
                         currencyId: parsedProcessData.currency,
                         currencyName: parsedProcessData.currencyName,
+                        remark: parsedProcessData.remark || '',
                         summaryRows: batchRows
                     };
                     
