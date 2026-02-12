@@ -230,6 +230,16 @@ h1 {
     flex-wrap: wrap;
 }
 
+/* Category 权限区域（右上角，与 bankprocess_maintenance 一致） */
+.maintenance-permission-filter-header {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 0.83vw, 16px);
+    flex-wrap: wrap;
+    padding: 0;
+    margin-top: clamp(12px, 1.04vw, 20px);
+}
+
 .maintenance-company-label {
     font-weight: bold;
     color: #374151;

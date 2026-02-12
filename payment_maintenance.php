@@ -8,6 +8,19 @@ $error = isset($_GET['error']) ? true : false;
 
 // 获取 session 中的 company_id（用于跨页面同步）
 $session_company_id = $_SESSION['company_id'] ?? null;
+
+// 当前 session 公司的 company_code（用于 Category 权限按钮）
+$session_company_code = '';
+if (!empty($session_company_id)) {
+    try {
+        $stmt = $pdo->prepare("SELECT company_id FROM company WHERE id = ?");
+        $stmt->execute([$session_company_id]);
+        $row = $stmt->fetchColumn();
+        $session_company_code = $row ? (string) $row : '';
+    } catch (PDOException $e) {
+        $session_company_code = '';
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -29,7 +42,14 @@ $session_company_id = $_SESSION['company_id'] ?? null;
 <body>
     <div class="container">
         <div class="maintenance-header">
-            <h1>Maintenance - Payment</h1>
+            <h1 id="maintenance-page-title">Maintenance - Payment</h1>
+            <!-- Category 选项（与 bankprocess_maintenance 一致） -->
+            <div id="maintenance-permission-filter" class="maintenance-permission-filter-header" style="display: none;">
+                <span class="maintenance-company-label">Category:</span>
+                <div id="maintenance-permission-buttons" class="maintenance-company-buttons">
+                    <!-- Permission buttons will be loaded dynamically -->
+                </div>
+            </div>
         </div>
         
         <!-- Search Section -->
@@ -197,7 +217,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         <div class="calendar-days" id="calendar-days"></div>
     </div>
 
-    <script>window.currentCompanyId = <?php echo json_encode($session_company_id); ?>;</script>
+    <script>window.currentCompanyId = <?php echo json_encode($session_company_id); ?>; window.currentCompanyCode = <?php echo json_encode($session_company_code); ?>;</script>
     <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
     <script src="js/payment_maintenance.js?v=<?php echo time(); ?>"></script>
 </body>

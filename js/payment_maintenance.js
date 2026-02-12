@@ -62,8 +62,10 @@
 
         // 从 PHP session 中获取 company_id（用于跨页面同步）
         let currentCompanyId = typeof window.currentCompanyId !== 'undefined' ? window.currentCompanyId : null;
+        let currentCompanyCode = typeof window.currentCompanyCode !== 'undefined' ? (window.currentCompanyCode || '') : '';
         let ownerCompanies = [];
         let selectedCurrency = null; // 单选，只保存一个货币代码
+        let selectedPermission = null;
 
         function loadOwnerCompanies() {
             const container = document.getElementById('company-buttons-container');
@@ -99,16 +101,82 @@
                             currentCompanyId = data.data[0].id;
                             wrapper.style.display = 'none';
                         }
+                        const cur = ownerCompanies.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
+                        currentCompanyCode = cur ? (cur.company_id || '') : (currentCompanyCode || '');
+                        loadPermissionButtons();
                     } else {
                         ownerCompanies = [];
                         wrapper.style.display = 'none';
+                        loadPermissionButtons();
                     }
                 })
                 .catch(error => {
                     console.warn('加载公司列表失败或非 Owner 用户:', error);
                     ownerCompanies = [];
                     wrapper.style.display = 'none';
+                    loadPermissionButtons();
                 });
+        }
+
+        async function loadPermissionButtons() {
+            const filterEl = document.getElementById('maintenance-permission-filter');
+            const containerEl = document.getElementById('maintenance-permission-buttons');
+            if (!filterEl || !containerEl) return;
+            const code = currentCompanyCode || (typeof window.currentCompanyCode !== 'undefined' ? window.currentCompanyCode : '');
+            if (!code) {
+                filterEl.style.display = 'none';
+                return;
+            }
+            try {
+                const response = await fetch('api/domain/domain_api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'get_company_permissions', company_id: code })
+                });
+                const result = await response.json();
+                let permissions = result.success && result.data && result.data.permissions
+                    ? result.data.permissions
+                    : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                containerEl.innerHTML = '';
+                if (permissions.length > 0) {
+                    filterEl.style.display = 'flex';
+                    permissions.forEach(permission => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'maintenance-company-btn';
+                        btn.textContent = permission;
+                        btn.dataset.permission = permission;
+                        btn.onclick = () => switchPermission(permission);
+                        containerEl.appendChild(btn);
+                    });
+                    const savedPermission = localStorage.getItem(`selectedPermission_${code}`);
+                    if (savedPermission && permissions.includes(savedPermission)) {
+                        switchPermission(savedPermission);
+                    } else if (permissions.length > 0) {
+                        switchPermission(permissions[0]);
+                    }
+                } else {
+                    filterEl.style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Error loading permissions:', err);
+                filterEl.style.display = 'none';
+            }
+        }
+
+        function switchPermission(permission) {
+            selectedPermission = permission;
+            if (currentCompanyCode) {
+                localStorage.setItem(`selectedPermission_${currentCompanyCode}`, permission);
+            }
+            const buttons = document.querySelectorAll('#maintenance-permission-buttons .maintenance-company-btn');
+            buttons.forEach(btn => {
+                if (btn.dataset.permission === permission) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
         }
 
         function activateCompanyButton(companyId) {
@@ -128,7 +196,10 @@
             
             // 立即更新本地状态并清空表格，避免显示上一家公司的数据
             currentCompanyId = newCompanyId;
+            const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === newCompanyId);
+            currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
             activateCompanyButton(currentCompanyId);
+            loadPermissionButtons();
             clearTableAndShowLoading();
             
             // 再更新 session

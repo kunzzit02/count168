@@ -9,6 +9,10 @@
     let currentCompanyId = (typeof window.TRANSACTION_MAINTENANCE !== 'undefined' && window.TRANSACTION_MAINTENANCE.currentCompanyId !== undefined)
         ? window.TRANSACTION_MAINTENANCE.currentCompanyId
         : null;
+    let currentCompanyCode = (typeof window.TRANSACTION_MAINTENANCE !== 'undefined' && window.TRANSACTION_MAINTENANCE.currentCompanyCode)
+        ? window.TRANSACTION_MAINTENANCE.currentCompanyCode
+        : '';
+    let selectedPermission = null;
     let hasSearched = false;
 
     // Notification functions
@@ -139,10 +143,14 @@
 
                     updateCompanyButtonsState();
                     wrapper.style.display = data.data.length > 1 ? 'flex' : 'none';
+                    const cur = data.data.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
+                    currentCompanyCode = cur ? (cur.company_id || '') : (currentCompanyCode || '');
+                    loadPermissionButtons();
                 } else if (wrapper) {
                     wrapper.style.display = 'none';
                     ownerCompanies = [];
                     currentCompanyId = null;
+                    loadPermissionButtons();
                 }
             })
             .catch(error => {
@@ -153,7 +161,69 @@
                 }
                 ownerCompanies = [];
                 currentCompanyId = null;
+                loadPermissionButtons();
             });
+    }
+
+    async function loadPermissionButtons() {
+        const filterEl = document.getElementById('maintenance-permission-filter');
+        const containerEl = document.getElementById('maintenance-permission-buttons');
+        if (!filterEl || !containerEl) return;
+        const code = currentCompanyCode || (window.TRANSACTION_MAINTENANCE && window.TRANSACTION_MAINTENANCE.currentCompanyCode) || '';
+        if (!code) {
+            filterEl.style.display = 'none';
+            return;
+        }
+        try {
+            const response = await fetch('api/domain/domain_api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_company_permissions', company_id: code })
+            });
+            const result = await response.json();
+            let permissions = result.success && result.data && result.data.permissions
+                ? result.data.permissions
+                : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+            containerEl.innerHTML = '';
+            if (permissions.length > 0) {
+                filterEl.style.display = 'flex';
+                permissions.forEach(permission => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'maintenance-company-btn';
+                    btn.textContent = permission;
+                    btn.dataset.permission = permission;
+                    btn.onclick = () => switchPermission(permission);
+                    containerEl.appendChild(btn);
+                });
+                const savedPermission = localStorage.getItem(`selectedPermission_${code}`);
+                if (savedPermission && permissions.includes(savedPermission)) {
+                    switchPermission(savedPermission);
+                } else if (permissions.length > 0) {
+                    switchPermission(permissions[0]);
+                }
+            } else {
+                filterEl.style.display = 'none';
+            }
+        } catch (err) {
+            console.error('Error loading permissions:', err);
+            filterEl.style.display = 'none';
+        }
+    }
+
+    function switchPermission(permission) {
+        selectedPermission = permission;
+        if (currentCompanyCode) {
+            localStorage.setItem(`selectedPermission_${currentCompanyCode}`, permission);
+        }
+        const buttons = document.querySelectorAll('#maintenance-permission-buttons .maintenance-company-btn');
+        buttons.forEach(btn => {
+            if (btn.dataset.permission === permission) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
     }
 
     async function switchCompany(companyId) {
@@ -172,10 +242,13 @@
         }
 
         currentCompanyId = companyId;
+        const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === parseInt(companyId, 10));
+        currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
         if (window.TRANSACTION_MAINTENANCE) {
             window.TRANSACTION_MAINTENANCE.currentCompanyId = currentCompanyId;
         }
         updateCompanyButtonsState();
+        loadPermissionButtons();
         loadProcesses();
         if (hasSearched) {
             searchData();
@@ -183,7 +256,7 @@
     }
 
     function updateCompanyButtonsState() {
-        const buttons = document.querySelectorAll('.maintenance-company-btn');
+        const buttons = document.querySelectorAll('#companyButtonsContainer .maintenance-company-btn');
         buttons.forEach(btn => {
             if (parseInt(btn.dataset.companyId, 10) === parseInt(currentCompanyId, 10)) {
                 btn.classList.add('active');
