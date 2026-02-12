@@ -1560,4 +1560,8 @@ body {
     .account-form-group input, .account-form-group select, .account-form-group textarea{
         font-size: clamp(9px, 0.85vw, 14px);
     }
+
+    .account-other-currency label {
+        font-size: clamp(9px, 0.85vw, 14px);
+    }
 }
