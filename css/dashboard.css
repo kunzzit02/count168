@@ -390,23 +390,6 @@ body.dashboard-page {
     }
 }
 
-@media (max-width: 768px) {
-    .dashboard-chart-header {
-        grid-template-columns: 1fr;
-        justify-items: center;
-        text-align: center;
-    }
-    
-    .dashboard-chart-header > div:first-child {
-        width: 100%;
-        text-align: center;
-    }
-    
-    .dashboard-chart-buttons {
-        grid-column: 1;
-    }
-}
-
 .dashboard-date-controls {
     display: flex;
     flex-wrap: wrap;
