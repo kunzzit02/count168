@@ -300,7 +300,7 @@ body.transaction-page {
     flex: 0 0 auto;
     align-self: stretch;
     min-width: fit-content;
-    padding: 2px clamp(8px, 0.83vw, 12px);
+    padding: 2px clamp(6px, 0.62vw, 10px);
     font-size: clamp(9px, 0.73vw, 14px);
     border: none;
     border-radius: 6px;
@@ -1382,4 +1382,16 @@ body.transaction-page .expiration-countdown-text {
 .rate-reverse-btn {
     flex: 0 0 auto;
     align-self: stretch;
+}
+
+/* 避免 Reverse 按钮在窄屏时溢出：允许换行到下一行 */
+@media (max-width: 1280px) {
+    .transaction-add-section .transaction-account-inputs {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+
+    .transaction-add-section .transaction-account-reverse-btn {
+        align-self: flex-start;
+    }
 }
