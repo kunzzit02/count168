@@ -675,7 +675,8 @@ body.transaction-page {
     padding: 0;
     border: none;
     border-radius: 16px;
-    width: clamp(1050px, 82vw, 1600px);
+    /* 调整最小宽度，让小一点的屏幕也不会被撑满 */
+    width: clamp(860px, 80vw, 1400px);
     max-width: 100%;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     overflow: hidden;
