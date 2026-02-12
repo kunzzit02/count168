@@ -628,7 +628,7 @@ try {
                                         data-account-id="<?php echo htmlspecialchars($account['account_id']); ?>"
                                         onchange="updateAccountSelection()"
                                         style="margin: 1px 3px 1px 4px; width: clamp(8px, 0.73vw, 14px); height: clamp(8px, 0.73vw, 14px); flex-shrink: 0;">
-                                    <label for="account_<?php echo $account['id']; ?>" class="account-label" style="font-size: small !important; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;">
+                                    <label for="account_<?php echo $account['id']; ?>" class="account-label" style="font-size: small; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;">
                                         <?php echo htmlspecialchars($account['account_id']); ?>
                                     </label>
                                 </div>
