@@ -1569,4 +1569,8 @@ body {
     .account-currency-item{
         font-size: clamp(9px,0.85vw,14px);
     }
+
+    #addCompanyList .account-currency-item, #editCompanyList .account-currency-item{
+        font-size: clamp(9px,0.85vw,14px);
+    }
 }
