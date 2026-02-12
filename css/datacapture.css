@@ -163,7 +163,7 @@ body {
         .process-form .form-group label {
             display: block;
             margin-bottom: 0;
-            font-size: clamp(11px, 0.94vw, 18px);
+            font-size: clamp(9px, 0.94vw, 18px);
             font-weight: bold;
             color: #333;
             width: clamp(80px, 6.25vw, 120px);
@@ -252,7 +252,7 @@ body {
         .custom-select-option {
             padding: 8px 12px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: clamp(9px, 0.73vw, 14px);
             border-bottom: 1px solid #f5f5f5;
         }
 
