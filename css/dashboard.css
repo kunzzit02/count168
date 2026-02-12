@@ -231,7 +231,7 @@ body.dashboard-page {
 /* 1024px：仅微调间距与字号，布局与大屏一致 */
 @media (max-width: 1024px) {
     .dashboard-container {
-        padding-left: 216px;
+        padding-left: 170px;
         padding-right: 20px;
         padding-top: 10px;
         padding-bottom: 16px;
