@@ -460,9 +460,8 @@ function openCompanyExpDateModal(companyId) {
         document.getElementById('expDateStartDateHelp').style.color = '#64748b';
     }
     
-    // 设置Period选择
-    const selectedPeriod = company.selectedPeriod || '';
-    document.getElementById('expDatePeriod').value = selectedPeriod;
+    // Period 默认显示 "Select Period"；只有用户手动选择具体期限时才在保存时更新到期日，避免仅改权限时误加 period
+    document.getElementById('expDatePeriod').value = '';
     
     // 如果已经有到期日期，直接显示；否则根据选择的period计算
     const displayElement = document.getElementById('expDateDisplay');
