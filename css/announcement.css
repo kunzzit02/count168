@@ -109,7 +109,7 @@ h1 {
 }
 
 .announcement-form-section {
-    flex: 0 0 400px;
+    flex: 0 0 clamp(260px, 20.83vw, 400px);
     background: white;
     border-radius: 12px;
     padding: clamp(16px, 1.25vw, 24px);
