@@ -514,4 +514,8 @@ body {
     .customer-report-card-item{
         font-size: clamp(9px, 0.85vw, 14px);
     }
+
+    .customer-report-filter-group .custom-select-button{
+        font-size: clamp(9px, 0.85vw, 14px);
+    }
 }
