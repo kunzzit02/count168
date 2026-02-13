@@ -2339,4 +2339,10 @@ body.process-page {
     .process-page .form-group select {
         padding: 8px 16px;
     }
+
+    .process-page #addModal .day-checkboxes .checkbox-item label{
+        font-size: clamp(9px, 0.85vw, 14px)!important;
+    }
 }
+    
+    
