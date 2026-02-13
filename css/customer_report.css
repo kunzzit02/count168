@@ -517,7 +517,7 @@ body {
 
     .customer-report-filter-group .custom-select-button{
         font-size: clamp(9px, 0.85vw, 14px);
-        padding: 5px 30px 8px 12px;
+        padding: 5px 30px 6px 12px;
     }
 
     .custom-select-option{
