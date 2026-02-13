@@ -56,9 +56,9 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
 </head>
-<body>
+<body class="announcement-page">
     <?php include 'sidebar.php'; ?>
-    <div class="container">
+    <div class="container announcement-page-container">
         <div class="page-header">
             <h1>Announcement and Maintenance Management</h1>
             <!-- 頁面切換按鈕 -->
