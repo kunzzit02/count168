@@ -56,13 +56,22 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
 </head>
-<body>
+<body class="announcement-page">
     <?php include 'sidebar.php'; ?>
-    <div class="container">
-        <h1>Announcement and Maintenance Management</h1>
+    <div class="container announcement-page-container">
+        <div class="page-header">
+            <h1>Announcement and Maintenance Management</h1>
+            <!-- 頁面切換按鈕 -->
+            <div class="page-tabs">
+                <button type="button" class="page-tab active" data-page="announcement">Announcement</button>
+                <button type="button" class="page-tab" data-page="maintenance">Maintenance</button>
+            </div>
+        </div>
         
         <div class="separator-line"></div>
         
+        <!-- Announcement 頁面 -->
+        <div id="panel-announcement" class="page-panel">
         <div class="announcement-layout">
             <!-- Left: Create Announcement Form -->
             <div class="announcement-form-section">
@@ -90,10 +99,10 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
                 </div>
             </div>
         </div>
+        </div><!-- /#panel-announcement -->
 
-        <!-- Maintenance Content Management Section -->
-        <div class="separator-line" style="margin-top: 40px;"></div>
-        
+        <!-- Maintenance 頁面 -->
+        <div id="panel-maintenance" class="page-panel hidden">
         <div class="maintenance-layout">
             <!-- Left: Create Maintenance Content Form -->
             <div class="maintenance-form-section">
@@ -120,6 +129,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
                 </div>
             </div>
         </div>
+        </div><!-- /#panel-maintenance -->
     </div>
 
     <!-- 通知容器 -->
