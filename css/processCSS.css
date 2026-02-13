@@ -842,7 +842,7 @@ body.process-page {
 .process-page .modal {
     display: none;
     position: fixed;
-    z-index: 999;
+    z-index: 1000;
     left: 0;
     top: 0;
     width: 100%;
@@ -994,7 +994,6 @@ body.process-page {
     max-width: 66rem !important;
     margin-left: auto !important;
     margin-right: auto !important;
-    z-index: 1000;
 }
 
 .process-page #addModal .modal-body {
