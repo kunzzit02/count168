@@ -437,6 +437,11 @@ h1 {
 
 .maintenance-table thead th:last-child {
     border-top-right-radius: 8px;
+    right: 0;           /* 固定在右侧边缘 */
+    background-color: #3b82f6; /* 必须设置背景色，否则滚动时后面文字会穿透 */
+    z-index: 3;         /* 确保层级高于普通单元格 */
+    width: 60px;        /* 建议给固定列一个具体的宽度 */
+    min-width: 60px;
 }
 
 .maintenance-table tbody tr {
