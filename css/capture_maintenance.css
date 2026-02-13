@@ -873,6 +873,10 @@ h1 {
         width: 8%;
     }
 
+    .maintenance-table th:nth-child(8), .maintenance-table td:nth-child(8){
+        width: 15%;
+    }
+
     .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
         width: 70%;
     }
