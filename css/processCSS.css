@@ -2334,6 +2334,9 @@ body.process-page {
     .process-page .form-group textarea {
         font-size: clamp(9px, 0.85vw, 14px);
     }
-}
 
-    
+    .process-page .form-group input, 
+    .process-page .form-group select {
+        padding: 8px 16px;
+    }
+}
