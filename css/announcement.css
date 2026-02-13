@@ -40,6 +40,51 @@ h1 {
     letter-spacing: -0.025em;
 }
 
+/* 頁面切換按鈕 */
+.page-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: clamp(12px, 1.04vw, 20px);
+}
+
+.page-tab {
+    padding: clamp(8px, 0.73vw, 14px) clamp(20px, 1.56vw, 28px);
+    font-size: clamp(14px, 1.04vw, 18px);
+    font-weight: 700;
+    font-family: 'Amaranth', sans-serif;
+    color: #002C49;
+    background: white;
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.page-tab:hover {
+    border-color: #0D60FF;
+    color: #0D60FF;
+    box-shadow: 0 2px 8px rgba(13, 96, 255, 0.2);
+}
+
+.page-tab.active {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: white;
+    border-color: #0D60FF;
+    box-shadow: 0 2px 8px rgba(13, 96, 255, 0.35);
+}
+
+.page-tab.active:hover {
+    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(13, 96, 255, 0.4);
+}
+
+.page-panel.hidden {
+    display: none !important;
+}
+
 .announcement-layout {
     display: flex;
     gap: 24px;

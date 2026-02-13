@@ -1,5 +1,38 @@
 /* announcement.js - 从 announcement.php 提取，供公告与维护内容管理使用 */
 
+// 頁面切換：Announcement / Maintenance
+(function initPageTabs() {
+    document.addEventListener('DOMContentLoaded', function () {
+        var tabs = document.querySelectorAll('.page-tab');
+        var panels = document.querySelectorAll('.page-panel');
+        if (!tabs.length || !panels.length) return;
+
+        function showPage(pageId) {
+            tabs.forEach(function (tab) {
+                if (tab.getAttribute('data-page') === pageId) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+            panels.forEach(function (panel) {
+                if (panel.id === 'panel-' + pageId) {
+                    panel.classList.remove('hidden');
+                } else {
+                    panel.classList.add('hidden');
+                }
+            });
+        }
+
+        tabs.forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                var page = this.getAttribute('data-page');
+                if (page) showPage(page);
+            });
+        });
+    });
+})();
+
 // 加载公告列表
 async function loadAnnouncements() {
     try {
