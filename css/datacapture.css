@@ -1276,4 +1276,9 @@ body {
                 font-size: clamp(9px, 0.85vw, 14px);
             }
 
+            .process-form .form-group input, 
+            .process-form .form-group select{
+                font-size: clamp(9px, 0.85vw, 14px);
+            }
+
         }
