@@ -869,6 +869,14 @@ h1 {
     }
 }
 
+@media (max-width: 1400px) {
+    
+    .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
+        width: clamp(60%, 40vw, 70%);
+    }
+
+}
+
 
 
 
