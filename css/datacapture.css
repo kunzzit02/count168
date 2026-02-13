@@ -1272,7 +1272,7 @@ body {
 
         @media (max-width: 1200px) {
 
-            process-form .form-group label{
+            .process-form .form-group label{
                 font-size: clamp(9px, 0.85vw, 14px);
             }
 
