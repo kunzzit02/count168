@@ -896,7 +896,7 @@ body.process-page {
 .process-page .modal-body {
     padding: 1.5rem 1.75rem 1.5rem 1.75rem; /* symmetric padding */
     max-height: none;
-    overflow: visible; /* show all content without scroll */
+    overflow: auto; /* show all content without scroll */
 }
 
 /* Form adjustments for modal */
