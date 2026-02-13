@@ -869,7 +869,7 @@ h1 {
     }
 }
 
-@media (max-width: 1400px) {
+@media (max-width: 2000px) {
     
     .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
         width: clamp(60%, 40vw, 70%);
