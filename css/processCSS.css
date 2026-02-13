@@ -861,7 +861,7 @@ body.process-page {
     width: 88%;
     max-width: 68rem; /* slightly narrower to center better */
     box-shadow: 0 1.25rem 1.5625rem -0.3125rem rgba(0, 0, 0, 0.1), 0 0.625rem 0.625rem -0.3125rem rgba(0, 0, 0, 0.04);
-    overflow: hidden;
+    overflow: auto;
     max-height: 92vh; /* keep inside viewport */
 }
 
@@ -2265,7 +2265,7 @@ body.process-page {
     }
 
     .process-page .modal-content{
-        overflow-y: auto;
+        overflow-y: hidden;
     }
 
     .process-page #editModal .modal-content {
