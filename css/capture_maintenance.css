@@ -852,7 +852,7 @@ h1 {
     }
 
     .maintenance-table th:nth-child(3), .maintenance-table td:nth-child(3){
-        width: clamp(8%, 10vw, 10%);
+        width: clamp(8%, 0.52vw, 10%);
     }
 
     .maintenance-table th:nth-child(4), .maintenance-table td:nth-child(4){
@@ -860,7 +860,7 @@ h1 {
     }
 
     .maintenance-table th:nth-child(8), .maintenance-table td:nth-child(8) {
-        width: clamp(15%, 10vw, 20%);
+        width: clamp(15%, 1.04vw, 20%);
     }
 
 
@@ -874,22 +874,5 @@ h1 {
 }
 
 
-@media (max-width: 1200px) {
-   
-    .maintenance-table th:nth-child(3), .maintenance-table td:nth-child(3){
-        width: 8%;
-    }
 
-    .maintenance-table th:nth-child(8), .maintenance-table td:nth-child(8){
-        width: 15%;
-    }
 
-    .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
-        width: 70%;
-    }
-
-    .maintenance-table-cell{
-        white-space: normal;
-    }
-
-}
