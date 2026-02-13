@@ -103,6 +103,7 @@ h1 {
 
 .announcement-layout {
     display: flex;
+    align-items: stretch;
     gap: 24px;
     margin-top: 20px;
     overflow: hidden;
@@ -114,8 +115,7 @@ h1 {
     border-radius: 12px;
     padding: clamp(16px, 1.25vw, 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    height: fit-content;
-    max-height: 100%;
+    min-height: 0;
     overflow-y: auto;
 }
 
@@ -125,8 +125,8 @@ h1 {
     border-radius: 12px;
     padding: clamp(16px, 1.25vw, 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    min-height: 300px;
-    max-height: 600px;
+    min-height: 0;
+    max-height: none;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -369,19 +369,19 @@ h1 {
 /* 维护内容管理样式 */
 .maintenance-layout {
     display: flex;
+    align-items: stretch;
     gap: 24px;
     margin-top: 20px;
     overflow: hidden;
 }
 
 .maintenance-form-section {
-    flex: 0 0 400px;
+    flex: 0 0 clamp(260px, 20.83vw, 400px);
     background: white;
     border-radius: 12px;
     padding: clamp(16px, 1.25vw, 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    height: fit-content;
-    max-height: 100%;
+    min-height: 0;
     overflow-y: auto;
 }
 
@@ -391,8 +391,8 @@ h1 {
     border-radius: 12px;
     padding: clamp(16px, 1.25vw, 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    min-height: 300px;
-    max-height: 600px;
+    min-height: 0;
+    max-height: none;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -561,13 +561,5 @@ h1 {
     }
     .announcement-meta{
         font-size: clamp(9px, 0.85vw, 12px);
-    }
-
-    .announcement-list-section{
-        min-height: 200px;
-    }
-
-    .maintenance-list-section {
-        min-height: 200px;
     }
 }
