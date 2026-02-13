@@ -859,7 +859,7 @@ h1 {
     }
 
     .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
-        width: 84%;
+        width: 60%;
     }
 
     .maintenance-table-cell{
