@@ -26,8 +26,7 @@ body {
     min-height: 100vh;
     height: auto !important;
     box-sizing: border-box;
-    overflow-x: auto;
-    overflow-y: visible;
+    overflow: visible !important;
 }
 
 h1 {
@@ -107,12 +106,10 @@ h1 {
     gap: 24px;
     margin-top: 20px;
     overflow: hidden;
-    min-width: 1200px;
 }
 
 .announcement-form-section {
     flex: 0 0 400px;
-    min-width: 400px;
     background: white;
     border-radius: 12px;
     padding: clamp(16px, 1.25vw, 24px);
@@ -124,7 +121,6 @@ h1 {
 
 .announcement-list-section {
     flex: 1;
-    min-width: 0;
     background: white;
     border-radius: 12px;
     padding: clamp(16px, 1.25vw, 24px);
@@ -376,12 +372,10 @@ h1 {
     gap: 24px;
     margin-top: 20px;
     overflow: hidden;
-    min-width: 1200px;
 }
 
 .maintenance-form-section {
     flex: 0 0 400px;
-    min-width: 400px;
     background: white;
     border-radius: 12px;
     padding: clamp(16px, 1.25vw, 24px);
@@ -393,7 +387,6 @@ h1 {
 
 .maintenance-list-section {
     flex: 1;
-    min-width: 0;
     background: white;
     border-radius: 12px;
     padding: clamp(16px, 1.25vw, 24px);
