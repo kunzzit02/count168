@@ -2264,9 +2264,6 @@ body.process-page {
         height: 500px;
     }
 
-    .process-page .modal-content{
-        overflow-y: auto;
-    }
 
     .process-page #editModal .modal-content {
         margin: 0 !important;
