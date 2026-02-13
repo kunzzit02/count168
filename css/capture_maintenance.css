@@ -848,7 +848,18 @@ h1 {
 
     .maintenance-table th:nth-child(1), .maintenance-table td:nth-child(1){
         width: 2px;
-        font-size: clamp(9px, 0.85vw, 14px);
+    }
+
+    .maintenance-table th:nth-child(3), .maintenance-table td:nth-child(3){
+        width: 10px;
+    }
+
+    .maintenance-table th:nth-child(4), .maintenance-table td:nth-child(4){
+        width: 10px;
+    }
+
+    .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
+        width: 84%;
     }
 
     .maintenance-table-cell{
