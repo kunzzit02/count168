@@ -859,7 +859,7 @@ h1 {
     }
 
     .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
-        width: 60%;
+        width: clamp(60%, 50vw, 70%);
     }
 
     .maintenance-table-cell{
@@ -867,11 +867,6 @@ h1 {
     }
 }
 
-@media (min-width: 1201px) and (max-width: 1400px){
-    .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
-        width: 65%;
-    }
-}
 
 @media (max-width: 1200px) {
    
