@@ -1010,7 +1010,7 @@ body.process-page {
 
 .process-page #addModal .process-form .form-group label {
     font-weight: 700 !important;
-    font-size: 0.875rem !important;
+    font-size: clamp(10px, 0.85vw, 15px) !important;
 }
 
 .process-page #addModal .process-form .form-row {
@@ -2335,4 +2335,5 @@ body.process-page {
         font-size: clamp(9px, 0.85vw, 14px);
     }
 }
+
     
