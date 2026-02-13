@@ -59,22 +59,22 @@ h1 {
 /* 頁面切換按鈕（在標題右邊） */
 .page-tabs {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     flex-shrink: 0;
 }
 
 .page-tab {
-    padding: clamp(8px, 0.73vw, 14px) clamp(20px, 1.56vw, 28px);
-    font-size: clamp(14px, 1.04vw, 18px);
+    padding: clamp(4px, 0.4vw, 6px) clamp(12px, 1vw, 16px);
+    font-size: clamp(12px, 0.85vw, 14px);
     font-weight: 700;
     font-family: 'Amaranth', sans-serif;
     color: #002C49;
     background: white;
-    border: 2px solid #cbd5e1;
-    border-radius: 8px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .page-tab:hover {
@@ -87,14 +87,14 @@ h1 {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: white;
     border-color: #0D60FF;
-    box-shadow: 0 2px 8px rgba(13, 96, 255, 0.35);
+    box-shadow: 0 1px 6px rgba(13, 96, 255, 0.35);
 }
 
 .page-tab.active:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
     color: white;
     transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(13, 96, 255, 0.4);
+    box-shadow: 0 2px 8px rgba(13, 96, 255, 0.4);
 }
 
 .page-panel.hidden {
