@@ -840,12 +840,14 @@ h1 {
     font-size: 14px;
 }
 
+.empty-state-container{
+    position:relative;
+    top: 10px;
+}
+
 @media (max-width: 1400px) {
 
-    .empty-state-container{
-        position:relative;
-        top: 10px;
-    }
+
 
     .maintenance-table th:nth-child(1), .maintenance-table td:nth-child(1){
         width: 2%;
