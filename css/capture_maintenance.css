@@ -878,7 +878,7 @@ h1 {
     }
     
     .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
-        width: clamp(60%, 40vw, 88%)!important;
+        width: clamp(60%, 5.09vw - 13.8%, 88%)!important;
     }
 
 }
