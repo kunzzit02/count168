@@ -59,12 +59,13 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
 <body>
     <?php include 'sidebar.php'; ?>
     <div class="container">
-        <h1>Announcement and Maintenance Management</h1>
-
-        <!-- 頁面切換按鈕 -->
-        <div class="page-tabs">
-            <button type="button" class="page-tab active" data-page="announcement">Announcement</button>
-            <button type="button" class="page-tab" data-page="maintenance">Maintenance</button>
+        <div class="page-header">
+            <h1>Announcement and Maintenance Management</h1>
+            <!-- 頁面切換按鈕 -->
+            <div class="page-tabs">
+                <button type="button" class="page-tab active" data-page="announcement">Announcement</button>
+                <button type="button" class="page-tab" data-page="maintenance">Maintenance</button>
+            </div>
         </div>
         
         <div class="separator-line"></div>
