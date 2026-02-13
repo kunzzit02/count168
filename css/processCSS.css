@@ -984,7 +984,7 @@ body.process-page {
         grid-template-columns: 1fr;
     }
     .process-page .process-form.add-grid .add-actions {
-        margin-top: 0.5rem;
+        margin-top: -0.9rem;
     }
 }
 
