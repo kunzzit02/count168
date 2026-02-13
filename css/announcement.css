@@ -370,7 +370,7 @@ h1 {
 .maintenance-layout {
     display: flex;
     gap: 24px;
-    margin-top: 40px;
+    margin-top: 20px;
     overflow: hidden;
 }
 
