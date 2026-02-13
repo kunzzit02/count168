@@ -766,15 +766,11 @@ h1 {
 
 @media (max-width: 1400px) {
 
-
+    .maintenance-table th:nth-child(11), .maintenance-table td:nth-child(11){
+        width: 3%;
+    }
 
     .maintenance-table-cell{
         white-space: normal;
     }
-}
-
-@media (max-width: 2000px) {
-    
-
-
 }
