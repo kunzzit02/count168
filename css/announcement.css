@@ -114,9 +114,11 @@ h1 {
     border-radius: 12px;
     padding: clamp(16px, 1.25vw, 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    height: fit-content;
-    max-height: 100%;
+    min-height: 300px;
+    max-height: 600px;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .announcement-list-section {
@@ -375,14 +377,16 @@ h1 {
 }
 
 .maintenance-form-section {
-    flex: 0 0 400px;
+    flex: 0 0 clamp(260px, 20.83vw, 400px);
     background: white;
     border-radius: 12px;
     padding: clamp(16px, 1.25vw, 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    height: fit-content;
-    max-height: 100%;
+    min-height: 300px;
+    max-height: 600px;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .maintenance-list-section {
