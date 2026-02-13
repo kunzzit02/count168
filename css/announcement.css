@@ -330,7 +330,7 @@ h1 {
 
 .empty-state p {
     margin: 0;
-    font-size: 16px;
+    font-size: clamp(12px, 0.83vw, 16px);
 }
 
 .notification {
