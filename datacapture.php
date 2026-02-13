@@ -115,11 +115,17 @@ if ($current_user_id && count($user_companies) > 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php
+    $assetVer = function ($file) {
+        $path = __DIR__ . '/' . $file;
+        return file_exists($path) ? filemtime($path) : time();
+    };
+    ?>
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <title>Data Capture</title>
-    <link rel="stylesheet" href="css/datacapture.css?v=<?php echo file_exists('css/datacapture.css') ? filemtime('css/datacapture.css') : time(); ?>">
-    <link rel="stylesheet" href="css/sidebar.css">
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <link rel="stylesheet" href="css/datacapture.css?v=<?php echo $assetVer('css/datacapture.css'); ?>">
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
+    <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
 </head>
 <body>
@@ -423,7 +429,7 @@ if ($current_user_id && count($user_companies) > 0) {
         window.DATACAPTURE_COMPANY_ID = <?php echo json_encode($company_id); ?>;
         window.DATACAPTURE_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
     </script>
-    <script src="js/datacapture.js?v=<?php echo time(); ?>"></script>
+    <script src="js/datacapture.js?v=<?php echo $assetVer('js/datacapture.js'); ?>"></script>
 
 </body>
 </html>
