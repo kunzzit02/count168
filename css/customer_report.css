@@ -522,4 +522,9 @@ body {
     .custom-select-option{
         font-size: clamp(9px, 0.85vw, 14px);
     }
+
+    .customer-report-filter-group select, 
+    .customer-report-filter-group input:not([type="checkbox"]):not(.report-date-range-input){
+        font-size: clamp(9px, 0.85vw, 14px);
+    }
 }
