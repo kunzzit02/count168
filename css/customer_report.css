@@ -518,4 +518,8 @@ body {
     .customer-report-filter-group .custom-select-button{
         font-size: clamp(9px, 0.85vw, 14px);
     }
+
+    .custom-select-option{
+        font-size: clamp(9px, 0.85vw, 14px);
+    }
 }
