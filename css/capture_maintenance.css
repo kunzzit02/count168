@@ -859,13 +859,9 @@ h1 {
         width: 10%;
     }
 
-    .maintenance-table th:nth-child(8), .maintenance-table td:nth-child(8) {
-        width: clamp(15%, 1.04vw, 20%);
-    }
-
 
     .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
-        width: clamp(80%, 50vw, 70%);
+        width: clamp(60%, 40vw, 70%);
     }
 
     .maintenance-table-cell{
