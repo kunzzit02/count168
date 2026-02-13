@@ -874,11 +874,11 @@ h1 {
 @media (max-width: 2000px) {
     
     .maintenance-table th:nth-child(8), .maintenance-table td:nth-child(8){
-        width: 17%;
+        width: 14%;
     }
     
     .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
-        width: clamp(60%, 5.09vw - 13.8%, 88%)!important;
+        width: 84%
     }
 
 }
