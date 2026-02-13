@@ -466,4 +466,8 @@ body {
     .custom-select-option{
         font-size: clamp(9px, 0.85vw, 14px);
     }
+
+    .domain-report-card-item{
+        font-size: clamp(9px, 0.85vw, 14px);
+    }
 }
