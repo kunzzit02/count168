@@ -319,7 +319,7 @@ body.dashboard-page {
         height: 100vh;
     }
     .dashboard-container {
-        height: 100vh;
+        height: 100%;
         overflow: hidden;
         display: flex;
         flex-direction: column;
