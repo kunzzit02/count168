@@ -316,7 +316,7 @@
 
 .informationmenu {
     width: clamp(160px, 11.98vw, 230px);
-    height: 100vh;
+    height: 100%;
     background: #002d49;
     backdrop-filter: blur(20px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.8);
