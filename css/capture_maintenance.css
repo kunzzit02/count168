@@ -874,4 +874,22 @@ h1 {
 }
 
 
+@media (max-width: 1200px) {
+   
+    .maintenance-table th:nth-child(3), .maintenance-table td:nth-child(3){
+        width: 8%;
+    }
 
+    .maintenance-table th:nth-child(8), .maintenance-table td:nth-child(8){
+        width: 15%;
+    }
+
+    .maintenance-table th:nth-child(9), .maintenance-table td:nth-child(9){
+        width: 70%;
+    }
+
+    .maintenance-table-cell{
+        white-space: normal;
+    }
+
+}
