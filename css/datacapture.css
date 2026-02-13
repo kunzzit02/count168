@@ -1281,9 +1281,7 @@ body {
                 font-size: clamp(9px, 0.85vw, 14px);
             }
 
-            .process-form .form-group{
-                margin-bottom: clamp(5px, 0.47vw, 7px);
-            }
+
             
         }
 
