@@ -89,24 +89,37 @@ try {
         exit;
     }
 
+    // 更新当前会话的公司 ID
     $_SESSION['company_id'] = $requested_company_id;
 
     // 返回当前公司是否有 Games 权限，供侧边栏即时显示/隐藏 Data Capture
+    // 同时更新 session 中的 company_code，避免使用 C168 登录后切到其他公司时仍被视为 C168
     $has_gambling = false;
+    $company_code = null;
     try {
-        $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT company_id, permissions FROM company WHERE id = ?");
         $stmt->execute([$requested_company_id]);
-        $permsJson = $stmt->fetchColumn();
-        if ($permsJson) {
-            $perms = json_decode($permsJson, true);
-            $has_gambling = is_array($perms) && (in_array('Games', $perms) || in_array('Gambling', $perms));
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $company_code = isset($row['company_id']) ? (string) $row['company_id'] : null;
+            $permsJson = $row['permissions'] ?? null;
+            if ($permsJson) {
+                $perms = json_decode($permsJson, true);
+                $has_gambling = is_array($perms) && (in_array('Games', $perms) || in_array('Gambling', $perms));
+            }
         }
     } catch (PDOException $e) {
         error_log("获取公司权限失败: " . $e->getMessage());
     }
 
+    // 如果成功获取到公司代码，则同步更新到 session 中
+    if ($company_code !== null) {
+        $_SESSION['company_code'] = $company_code;
+    }
+
     jsonResponse(true, 'Company 已更新', [
-        'company_id' => $requested_company_id,
+        'company_id'   => $requested_company_id,
+        'company_code' => $company_code,
         'has_gambling' => $has_gambling
     ]);
 } catch (Exception $e) {
