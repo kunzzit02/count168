@@ -612,3 +612,8 @@ h1 {
     background: #e6f2ff;
     border-color: #4a90e2;
 }
+
+.empty-state-container{
+    position:relative;
+    top: 10px;
+}
