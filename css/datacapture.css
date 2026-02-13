@@ -1282,7 +1282,7 @@ body {
             }
 
             .process-form .form-group{
-                margin-bottom: clamp(5px, 0.37vw, 7px);
+                margin-bottom: clamp(5px, 0.47vw, 7px);
             }
             
         }
