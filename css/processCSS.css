@@ -994,6 +994,7 @@ body.process-page {
     max-width: 66rem !important;
     margin-left: auto !important;
     margin-right: auto !important;
+    z-index: 1000;
 }
 
 .process-page #addModal .modal-body {
