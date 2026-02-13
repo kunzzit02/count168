@@ -2267,6 +2267,7 @@ body.process-page {
     .process-page .modal-content{
         overflow-y: auto;
     }
+
     .process-page #editModal .modal-content {
         margin: 0 !important;
         width: 100% !important;
@@ -2326,6 +2327,12 @@ body.process-page {
     .process-page #editModal #edit_dts_modified span,
     .process-page #editModal #edit_dts_created span {
         font-size: clamp(9px, 0.85vw, 14px) !important;
+    }
+
+    .process-page .form-group input, 
+    .process-page .form-group select, 
+    .process-page .form-group textarea {
+        font-size: clamp(9px, 0.85vw, 14px);
     }
 }
     
