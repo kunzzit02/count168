@@ -1,3 +1,12 @@
+// 多语言：使用 PHP 注入的 window.__LANG
+function __(key) {
+  return (window.__LANG && window.__LANG[key]) || key
+}
+function getRoleLabel(value) {
+  const keys = { 'admin': 'admin.role_admin', 'manager': 'admin.role_manager', 'supervisor': 'admin.role_supervisor', 'accountant': 'admin.role_accountant', 'audit': 'admin.role_audit', 'customer service': 'admin.role_customer_service' }
+  return __(keys[value] || value)
+}
+
 // 构造 API 绝对 URL（与 processlist 一致，避免子目录部署时相对路径解析错误）
 function buildApiUrl(pathAndQuery) {
     const pathname = window.location.pathname || '/';
@@ -99,13 +108,13 @@ function updateRoleOptions(availableRoles, currentRoleValue = null) {
     if (!roleSelect) return;
     
     // 清空现有选项（保留第一个空选项）
-    roleSelect.innerHTML = '<option value="">Select Role</option>';
+    roleSelect.innerHTML = '<option value="">' + __('admin.select_role') + '</option>';
     
     // 添加可用的角色选项
     availableRoles.forEach(role => {
         const option = document.createElement('option');
         option.value = role.value;
-        option.textContent = role.label;
+        option.textContent = getRoleLabel(role.value);
         // 如果是编辑模式且是当前角色，设置为选中
         if (currentRoleValue && role.value === currentRoleValue) {
             option.selected = true;
@@ -119,7 +128,7 @@ function updateRoleOptions(availableRoles, currentRoleValue = null) {
         if (currentRole) {
             const option = document.createElement('option');
             option.value = currentRole.value;
-            option.textContent = currentRole.label;
+            option.textContent = getRoleLabel(currentRole.value);
             option.selected = true;
             roleSelect.insertBefore(option, roleSelect.firstChild.nextSibling);
         }
@@ -330,7 +339,8 @@ function updatePagination() {
     const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
     
     // 更新分页控件信息
-    document.getElementById('paginationInfo').textContent = `${currentPage} of ${totalPages}`;
+    const paginationFmt = __('admin.pagination_of');
+    document.getElementById('paginationInfo').textContent = paginationFmt.replace(/%d/, String(currentPage)).replace(/%d/, String(totalPages));
 
     // 更新按钮状态
     const isPrevDisabled = currentPage <= 1;
@@ -409,7 +419,7 @@ function changePage(direction) {
          container.className = 'edit-mode-permissions-container';
 
          const title = document.createElement('h3');
-         title.textContent = 'Permissions';
+         title.textContent = __('admin.permissions');
          container.appendChild(title);
      }
 
@@ -562,7 +572,7 @@ function showAlert(message, type = 'success') {
 
 function openAddModal() {
     isEditMode = false;
-    document.getElementById('modalTitle').textContent = 'Add User';
+    document.getElementById('modalTitle').textContent = __('admin.add_user');
     document.getElementById('userForm').reset();
     document.getElementById('userId').value = '';
     document.getElementById('status').value = 'active';
@@ -682,14 +692,14 @@ function loadCompaniesForModal() {
             } else {
                 // 没有 company 数据
                 const container = document.getElementById('user-company-buttons-container');
-                container.innerHTML = '<span style="color: #999; font-size: 12px;">No companies available</span>';
+                container.innerHTML = '<span style="color: #999; font-size: 12px;">' + __('admin.no_companies') + '</span>';
                 selectedCompanyIds = [];
             }
         })
         .catch(error => {
             console.error('Failed to load Company list:', error);
             const container = document.getElementById('user-company-buttons-container');
-            container.innerHTML = '<span style="color: #f00; font-size: 12px;">Failed to load companies</span>';
+            container.innerHTML = '<span style="color: #f00; font-size: 12px;">' + __('admin.load_companies_failed') + '</span>';
         });
 }
 
@@ -728,7 +738,7 @@ function editUser(id, isOwnerShadow = false) {
     // 但只能编辑 Account 和 Process Permissions，其他字段保持锁定
     
     isEditMode = true;
-    document.getElementById('modalTitle').textContent = isOwnerShadow ? 'Edit Owner' : 'Edit User';
+    document.getElementById('modalTitle').textContent = isOwnerShadow ? __('admin.edit_owner') : __('admin.edit_user');
     document.getElementById('password').required = false;
     // 显示密码字段（根据是否是c168公司显示不同的布局）
     const passwordRowContainer = document.getElementById('passwordRowContainer');
@@ -1162,7 +1172,7 @@ function toggleDeleteMode() {
     if (!isDeleteMode) {
         // 进入删除模式
         isDeleteMode = true;
-        deleteBtn.textContent = 'Confirm Delete';
+        deleteBtn.textContent = __('admin.confirm_delete');
         deleteBtn.onclick = deleteSelected;
         deleteBtn.classList.add('active');
         
@@ -1178,7 +1188,7 @@ function toggleDeleteMode() {
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'btn btn-cancel';
         cancelBtn.id = 'cancelDeleteBtn';
-        cancelBtn.textContent = 'Cancel';
+        cancelBtn.textContent = __('admin.cancel');
         cancelBtn.style.marginLeft = '10px';
         cancelBtn.style.minWidth = '';
         cancelBtn.style.height = '';
@@ -1199,7 +1209,7 @@ function exitDeleteMode() {
     const tableContainer = document.querySelector('.table-container');
     
     isDeleteMode = false;
-    deleteBtn.textContent = 'Delete';
+    deleteBtn.textContent = __('admin.delete');
     deleteBtn.onclick = toggleDeleteMode;
     deleteBtn.classList.remove('active');
     deleteBtn.disabled = false;
@@ -1266,10 +1276,10 @@ function updateDeleteButton() {
     }
     
     if (selectedCheckboxes.length > 0) {
-        deleteBtn.textContent = `Delete (${selectedCheckboxes.length})`;
+        deleteBtn.textContent = __('admin.delete') + ' (' + selectedCheckboxes.length + ')';
         deleteBtn.disabled = false;
     } else {
-        deleteBtn.textContent = 'Delete';
+        deleteBtn.textContent = __('admin.delete');
         deleteBtn.disabled = true;
     }
     
@@ -1570,7 +1580,7 @@ function deleteSelected() {
         return card.querySelectorAll('.card-item')[2].textContent; // Name列
     });
     
-    const confirmMessage = `Are you sure you want to delete the following ${selectedIds.length} user(s)?\n\n${selectedNames.join(', ')}`;
+    const confirmMessage = __('admin.confirm_delete_message').replace(/%d/, selectedIds.length) + '\n\n' + selectedNames.join(', ');
 
     showConfirmModal(confirmMessage, function() {
         // 批量删除
@@ -1636,7 +1646,7 @@ function deleteSelected() {
 
             // 重置按钮状态
             const deleteBtn = document.getElementById('deleteSelectedBtn');
-            deleteBtn.textContent = 'Delete';
+            deleteBtn.textContent = __('admin.delete');
             deleteBtn.disabled = false;
             
             // 取消所有复选框的选中状态
@@ -1682,7 +1692,7 @@ function addUserCard(userData) {
             </span>
         </div>
         <div class="card-item uppercase-text">
-            <span class="role-badge ${statusClass} status-clickable" onclick="toggleUserStatus(${userData.id}, '${userData.status}', false)" title="Click to toggle status" style="cursor: pointer;">
+            <span class="role-badge ${statusClass} status-clickable" onclick="toggleUserStatus(${userData.id}, '${userData.status}', false)" title="${(__('admin.click_toggle_status')).replace(/"/g, '&quot;')}" style="cursor: pointer;">
                 ${userData.status.toUpperCase()}
             </span>
         </div>
@@ -1729,7 +1739,7 @@ function updateUserCard(userData) {
     items[2].textContent = userData.name;
     items[3].textContent = userData.email || '-';
     items[4].innerHTML = `<span class="role-badge role-${roleClass}">${userData.role.toUpperCase()}</span>`;
-    items[5].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleUserStatus(${userData.id}, '${userData.status}', ${isOwnerShadow})" title="Click to toggle status" style="cursor: pointer;">${userData.status.toUpperCase()}</span>`;
+    items[5].innerHTML = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleUserStatus(' + userData.id + ', \'' + userData.status + '\', ' + isOwnerShadow + ')" title="' + (__('admin.click_toggle_status')).replace(/"/g, '&quot;') + '" style="cursor: pointer;">' + userData.status.toUpperCase() + '</span>';
     items[6].textContent = lastLogin;
     items[7].textContent = (userData.created_by || '-').toUpperCase();
     
@@ -1757,20 +1767,20 @@ function getUserDeletePermissionFromCard(card) {
     const isOwnerUser = targetRole === 'owner';
     
     if (isSelf) {
-        return { canDelete: false, reason: 'You cannot delete your own account' };
+        return { canDelete: false, reason: __('admin.cannot_delete_own') };
     }
     if (isOwnerShadow) {
         if (currentUserRole === 'owner') return { canDelete: true };
-        return { canDelete: false, reason: 'No permission to delete' };
+        return { canDelete: false, reason: __('admin.no_permission_delete') };
     }
     if (isLowPrivilegeUser && (isAdminUser || isOwnerUser)) {
-        return { canDelete: false, reason: 'No permission to delete' };
+        return { canDelete: false, reason: __('admin.no_permission_delete') };
     }
     if (isSameLevel) {
-        return { canDelete: false, reason: 'You cannot delete accounts with the same role level' };
+        return { canDelete: false, reason: __('admin.cannot_delete_same_level') };
     }
     if (isHigherLevel) {
-        return { canDelete: false, reason: 'You cannot delete accounts with higher role level' };
+        return { canDelete: false, reason: __('admin.cannot_delete_higher') };
     }
     return { canDelete: true };
 }
@@ -1828,14 +1838,14 @@ async function toggleUserStatus(userId, currentStatus, isOwnerShadow = false) {
             if (currentUserRole === 'admin' && userRole === 'admin') {
                 const targetUserId = parseInt(userId);
                 if (currentUserId !== targetUserId) {
-                    showAlert('Admin accounts cannot toggle status of other admin accounts', 'danger');
+                    showAlert(__('admin.alert_admin_cannot_toggle'), 'danger');
                     return;
                 }
             }
             
             // 检查低权限角色不能切换admin和owner的状态
             if (isLowPrivilegeUser && (userRole === 'admin' || userRole === 'owner')) {
-                showAlert('You do not have permission to toggle status of admin or owner accounts', 'danger');
+                showAlert(__('admin.alert_no_permission_toggle'), 'danger');
                 return;
             }
         }
@@ -1864,7 +1874,7 @@ async function toggleUserStatus(userId, currentStatus, isOwnerShadow = false) {
                 const items = card.querySelectorAll('.card-item');
                 if (items.length > 5) {
                     const statusClass = newStatus === 'active' ? 'status-active' : 'status-inactive';
-                    items[5].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleUserStatus(${userId}, '${newStatus}', ${isOwnerShadow})" title="Click to toggle status" style="cursor: pointer;">${(newStatus || '').toUpperCase()}</span>`;
+                    items[5].innerHTML = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleUserStatus(' + userId + ', \'' + newStatus + '\', ' + isOwnerShadow + ')" title="' + __('admin.click_toggle_status').replace(/"/g, '&quot;') + '" style="cursor: pointer;">' + (newStatus || '').toUpperCase() + '</span>';
                 }
 
                 // 更新 delete checkbox 显示：ACTIVE 不显示，INACTIVE 才显示
