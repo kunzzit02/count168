@@ -191,7 +191,9 @@
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = 'maintenance-company-btn';
-                    btn.textContent = permission;
+                    const L = typeof window.__LANG !== 'undefined' ? window.__LANG : {};
+                    const labelKey = 'cm.category_' + permission.toLowerCase();
+                    btn.textContent = L[labelKey] || permission;
                     btn.dataset.permission = permission;
                     btn.onclick = () => switchPermission(permission);
                     containerEl.appendChild(btn);
