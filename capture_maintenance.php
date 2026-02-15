@@ -50,7 +50,7 @@ if (!empty($session_company_id)) {
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
-    <title><?php echo htmlspecialchars(__('cm.title_page')); ?></title>
+    <title>Data Capture Maintenance</title>
     <link rel="stylesheet" href="css/capture_maintenance.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/sidebar.css">
@@ -61,10 +61,10 @@ if (!empty($session_company_id)) {
 <body>
     <div class="container">
         <div class="maintenance-header">
-            <h1 id="maintenance-page-title"><?php echo htmlspecialchars(__('cm.title')); ?></h1>
+            <h1 id="maintenance-page-title">Maintenance - Data Capture</h1>
             <!-- Category 选项（与 bankprocess_maintenance 一致） -->
             <div id="maintenance-permission-filter" class="maintenance-permission-filter-header" style="display: none;">
-                <span class="maintenance-company-label"><?php echo htmlspecialchars(__('cm.category')); ?></span>
+                <span class="maintenance-company-label">Category:</span>
                 <div id="maintenance-permission-buttons" class="maintenance-company-buttons">
                     <!-- Permission buttons will be loaded dynamically -->
                 </div>
@@ -75,12 +75,12 @@ if (!empty($session_company_id)) {
         <div class="maintenance-search-section">
             <div class="maintenance-filters">
                 <div class="maintenance-form-group">
-                    <label class="maintenance-label"><?php echo htmlspecialchars(__('cm.process')); ?></label>
+                    <label class="maintenance-label">Process</label>
                     <div class="custom-select-wrapper">
-                        <button type="button" class="custom-select-button" id="filter_process" data-placeholder="<?php echo htmlspecialchars(__('cm.select_all')); ?>"><?php echo htmlspecialchars(__('cm.select_all')); ?></button>
+                        <button type="button" class="custom-select-button" id="filter_process" data-placeholder="--Select All--">--Select All--</button>
                         <div class="custom-select-dropdown" id="filter_process_dropdown">
                             <div class="custom-select-search">
-                                <input type="text" placeholder="<?php echo htmlspecialchars(__('cm.search_process')); ?>" autocomplete="off">
+                                <input type="text" placeholder="Search process..." autocomplete="off">
                             </div>
                             <div class="custom-select-options"></div>
                         </div>
@@ -88,20 +88,20 @@ if (!empty($session_company_id)) {
                 </div>
                 
                 <div class="maintenance-form-group">
-                    <label class="maintenance-label"><?php echo htmlspecialchars(__('cm.date_range')); ?></label>
+                    <label class="maintenance-label">Date Range</label>
                     <div class="date-range-picker" id="date-range-picker">
                         <i class="fas fa-calendar-alt"></i>
-                        <span id="date-range-display"><?php echo htmlspecialchars(__('dashboard.select_date_range')); ?></span>
+                        <span id="date-range-display">Select date range</span>
                     </div>
                     <input type="hidden" id="date_from" value="<?php echo date('d/m/Y'); ?>">
                     <input type="hidden" id="date_to" value="<?php echo date('d/m/Y'); ?>">
                 </div>
                 <div class="maintenance-form-group quick-select-wrap">
-                    <label class="form-label"><i class="fas fa-clock"></i> <?php echo htmlspecialchars(__('cm.quick_select')); ?></label>
+                    <label class="form-label"><i class="fas fa-clock"></i> Quick Select</label>
                     <div class="quick-select-dropdown quick-select-dropdown-toggle">
                         <button type="button" class="dropdown-toggle" onclick="event.stopPropagation(); window.toggleQuickSelectDropdown();">
                             <i class="fas fa-calendar-alt"></i>
-                            <span id="quick-select-text"><?php echo htmlspecialchars(__('cm.period')); ?></span>
+                            <span id="quick-select-text">Period</span>
                             <i class="fas fa-chevron-down"></i>
                         </button>
                         <div class="dropdown-menu" id="quick-select-dropdown">
@@ -121,7 +121,7 @@ if (!empty($session_company_id)) {
             <div class="maintenance-filter-row">
                 <div class="maintenance-filter-left">
                     <div class="maintenance-company-filter" id="companyButtonsWrapper" style="display: none;">
-                        <span class="maintenance-company-label"><?php echo htmlspecialchars(__('cm.company')); ?></span>
+                        <span class="maintenance-company-label">Company:</span>
                         <div class="maintenance-company-buttons" id="companyButtonsContainer">
                             <!-- Company buttons injected here -->
                         </div>
@@ -129,10 +129,10 @@ if (!empty($session_company_id)) {
                 </div>
                 
                 <div class="maintenance-actions">
-                    <button type="button" class="maintenance-delete-btn" id="deleteBtn" onclick="deleteData()" disabled><?php echo htmlspecialchars(__('cm.delete')); ?></button>
+                    <button type="button" class="maintenance-delete-btn" id="deleteBtn" onclick="deleteData()" disabled>Delete</button>
                     <label class="maintenance-confirm-delete-label">
                         <input type="checkbox" id="confirmDelete" class="maintenance-checkbox" onchange="toggleDeleteButton()">
-                        <span><?php echo htmlspecialchars(__('cm.confirm_delete')); ?></span>
+                        <span>Confirm Delete</span>
                     </label>
                 </div>
             </div>
@@ -165,7 +165,7 @@ if (!empty($session_company_id)) {
         <!-- Empty State -->
         <div class="empty-state-container" id="emptyState" style="display: none;">
             <div class="empty-state">
-                <p><?php echo htmlspecialchars(__('cm.no_data_found_message')); ?></p>
+                <p>No data found. Please adjust your search criteria and try again.</p>
             </div>
         </div>
     </div>
@@ -181,11 +181,11 @@ if (!empty($session_company_id)) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
             </div>
-            <h2 class="maintenance-confirm-title"><?php echo htmlspecialchars(__('cm.confirm_delete')); ?></h2>
-            <p id="confirmDeleteMessage" class="maintenance-confirm-message"><?php echo htmlspecialchars(__('cm.cannot_undo')); ?></p>
+            <h2 class="maintenance-confirm-title">Confirm Delete</h2>
+            <p id="confirmDeleteMessage" class="maintenance-confirm-message">This action cannot be undone.</p>
             <div class="maintenance-confirm-actions">
-                <button type="button" class="maintenance-btn maintenance-btn-cancel confirm-cancel" onclick="closeConfirmDeleteModal()"><?php echo htmlspecialchars(__('cm.cancel')); ?></button>
-                <button type="button" class="maintenance-btn maintenance-btn-delete confirm-delete" onclick="confirmDelete()"><?php echo htmlspecialchars(__('cm.delete')); ?></button>
+                <button type="button" class="maintenance-btn maintenance-btn-cancel confirm-cancel" onclick="closeConfirmDeleteModal()">Cancel</button>
+                <button type="button" class="maintenance-btn maintenance-btn-delete confirm-delete" onclick="confirmDelete()">Delete</button>
             </div>
         </div>
     </div>
@@ -198,18 +198,18 @@ if (!empty($session_company_id)) {
             </button>
             <div class="calendar-month-year" onclick="event.stopPropagation();">
                 <select id="calendar-month-select">
-                    <option value="0"><?php echo htmlspecialchars(__('dashboard.jan')); ?></option>
-                    <option value="1"><?php echo htmlspecialchars(__('dashboard.feb')); ?></option>
-                    <option value="2"><?php echo htmlspecialchars(__('dashboard.mar')); ?></option>
-                    <option value="3"><?php echo htmlspecialchars(__('dashboard.apr')); ?></option>
-                    <option value="4"><?php echo htmlspecialchars(__('dashboard.may')); ?></option>
-                    <option value="5"><?php echo htmlspecialchars(__('dashboard.jun')); ?></option>
-                    <option value="6"><?php echo htmlspecialchars(__('dashboard.jul')); ?></option>
-                    <option value="7"><?php echo htmlspecialchars(__('dashboard.aug')); ?></option>
-                    <option value="8"><?php echo htmlspecialchars(__('dashboard.sep')); ?></option>
-                    <option value="9"><?php echo htmlspecialchars(__('dashboard.oct')); ?></option>
-                    <option value="10"><?php echo htmlspecialchars(__('dashboard.nov')); ?></option>
-                    <option value="11"><?php echo htmlspecialchars(__('dashboard.dec')); ?></option>
+                    <option value="0">Jan</option>
+                    <option value="1">Feb</option>
+                    <option value="2">Mar</option>
+                    <option value="3">Apr</option>
+                    <option value="4">May</option>
+                    <option value="5">Jun</option>
+                    <option value="6">Jul</option>
+                    <option value="7">Aug</option>
+                    <option value="8">Sep</option>
+                    <option value="9">Oct</option>
+                    <option value="10">Nov</option>
+                    <option value="11">Dec</option>
                 </select>
                 <select id="calendar-year-select"></select>
             </div>
@@ -229,24 +229,7 @@ if (!empty($session_company_id)) {
         <div class="calendar-days" id="calendar-days"></div>
     </div>
 
-    <?php
-    $cmLang = [];
-    $langForCm = isset($lang) && is_array($lang) ? $lang : [];
-    if (empty($langForCm)) {
-        $langCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
-        $langFile = __DIR__ . '/lang/' . $langCode . '.php';
-        if (is_file($langFile)) {
-            $loaded = require $langFile;
-            $langForCm = is_array($loaded) ? $loaded : [];
-        }
-    }
-    foreach ($langForCm as $k => $v) {
-        if (strpos($k, 'cm.') === 0) {
-            $cmLang[$k] = $v;
-        }
-    }
-    ?>
-    <script>window.currentCompanyId = <?php echo json_encode($session_company_id); ?>; window.currentCompanyCode = <?php echo json_encode($session_company_code); ?>; window.cmLang = <?php echo json_encode($cmLang); ?>;</script>
+    <script>window.currentCompanyId = <?php echo json_encode($session_company_id); ?>; window.currentCompanyCode = <?php echo json_encode($session_company_code); ?>;</script>
     <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
     <script src="js/capture_maintenance.js?v=<?php echo time(); ?>"></script>
 </body>

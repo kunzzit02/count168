@@ -1,5 +1,4 @@
-function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
-        let ownerCompanies = [];
+let ownerCompanies = [];
         // 从 PHP session 中获取 company_id（用于跨页面同步）
         let currentCompanyId = typeof window.currentCompanyId !== 'undefined' ? window.currentCompanyId : null;
         let currentCompanyCode = typeof window.currentCompanyCode !== 'undefined' ? (window.currentCompanyCode || '') : '';
@@ -198,8 +197,7 @@ function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
                         const btn = document.createElement('button');
                         btn.type = 'button';
                         btn.className = 'maintenance-company-btn';
-                        const labelKey = 'cm.category_' + permission.toLowerCase();
-                        btn.textContent = _t(labelKey) !== labelKey ? _t(labelKey) : permission;
+                        btn.textContent = permission;
                         btn.dataset.permission = permission;
                         btn.onclick = () => switchPermission(permission);
                         containerEl.appendChild(btn);
@@ -299,14 +297,13 @@ function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
                         optionsContainer.innerHTML = '';
                         
                         // Add "All Process" option
-                        const selectAllText = _t('cm.select_all');
                         const allOption = document.createElement('div');
                         allOption.className = 'custom-select-option';
-                        allOption.textContent = selectAllText;
+                        allOption.textContent = '--Select All--';
                         allOption.setAttribute('data-value', '');
                         if (!previousValue) {
                             allOption.classList.add('selected');
-                            processButton.textContent = selectAllText;
+                            processButton.textContent = '--Select All--';
                         }
                         optionsContainer.appendChild(allOption);
                         
@@ -386,7 +383,7 @@ function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
                     if (!noResults) {
                         noResults = document.createElement('div');
                         noResults.className = 'custom-select-no-results';
-                        noResults.textContent = _t('cm.no_results_found');
+                        noResults.textContent = 'No results found';
                         optionsContainer.appendChild(noResults);
                     }
                     noResults.style.display = 'block';
@@ -510,7 +507,7 @@ function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
             
             // 验证日期
             if (!dateFrom || !dateTo) {
-                showNotification(_t('cm.please_select_date_range'), 'error');
+                showNotification('Please select date range', 'error');
                 return;
             }
             
@@ -547,19 +544,19 @@ function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
                         if (data.data.length === 0) {
                             document.getElementById('emptyState').style.display = 'block';
                             document.getElementById('tableContainer').style.display = 'none';
-                            showNotification(_t('cm.no_data_found'), 'info');
+                            showNotification('No data found', 'info');
                         } else {
-                            showNotification((_t('cm.found_records').replace('%d', data.data.length)), 'success');
+                            showNotification(`Found ${data.data.length} record(s)`, 'success');
                         }
                     } else {
-                        showNotification(data.message || data.error || _t('cm.search_failed'), 'error');
+                        showNotification(data.message || data.error || 'Search failed', 'error');
                         document.getElementById('emptyState').style.display = 'block';
                         document.getElementById('tableContainer').style.display = 'none';
                     }
                 })
                 .catch(error => {
                     console.error('❌ 搜索失败:', error);
-                    showNotification(_t('cm.search_failed') + ': ' + error.message, 'error');
+                    showNotification('Search failed: ' + error.message, 'error');
                     document.getElementById('emptyState').style.display = 'block';
                     document.getElementById('tableContainer').style.display = 'none';
                 });
@@ -585,7 +582,7 @@ function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
                 emptyRow.className = 'maintenance-row-empty';
                 emptyRow.innerHTML = `
                     <td class="maintenance-table-cell" colspan="9" style="text-align: center; padding: 16px;">
-                        ${_t('cm.no_data')}
+                        No data
                     </td>
                 `;
                 tbody.appendChild(emptyRow);
@@ -663,14 +660,14 @@ function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
             const confirmCheckbox = document.getElementById('confirmDelete');
             
             if (!confirmCheckbox.checked) {
-                showNotification(_t('cm.confirm_checkbox_required'), 'error');
+                showNotification('Please confirm deletion by checking the checkbox', 'error');
                 return;
             }
             
             // Get all checked capture IDs
             const checkboxes = document.querySelectorAll('.maintenance-row-checkbox:checked');
             if (checkboxes.length === 0) {
-                showNotification(_t('cm.select_at_least_one'), 'error');
+                showNotification('Please select at least one record', 'error');
                 return;
             }
             
@@ -681,13 +678,12 @@ function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
             })).filter(item => Number.isFinite(item.capture_id) && item.capture_id > 0);
             
             if (selection.length === 0) {
-                showNotification(_t('cm.no_valid_records'), 'error');
+                showNotification('No valid records found for deletion', 'error');
                 return;
             }
             
-            const confirmMsg = (_t('cm.confirm_delete_message').replace('%d', selection.length));
             showConfirmDelete(
-                confirmMsg,
+                `Are you sure you want to delete the selected ${selection.length} record(s)? This action cannot be undone.`,
                 function() {
                     const dateFrom = document.getElementById('date_from').value.trim();
                     const dateTo = document.getElementById('date_to').value.trim();
@@ -708,7 +704,7 @@ function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            showNotification(data.message || _t('cm.delete_success'), 'success');
+                            showNotification(data.message || 'Delete successful', 'success');
                             
                             checkboxes.forEach(cb => cb.checked = false);
                             confirmCheckbox.checked = false;
@@ -723,12 +719,12 @@ function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
                                 searchData();
                             }, 300);
                         } else {
-                            showNotification(data.message || data.error || _t('cm.delete_failed'), 'error');
+                            showNotification(data.message || data.error || 'Delete failed', 'error');
                         }
                     })
                     .catch(error => {
                         console.error('删除失败:', error);
-                        showNotification(_t('cm.delete_failed') + ': ' + error.message, 'error');
+                        showNotification('Delete failed: ' + error.message, 'error');
                     });
                 }
             );
@@ -816,11 +812,11 @@ function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
             // Check for URL parameters and show notifications
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('success') === '1') {
-                showNotification(_t('cm.operation_success'), 'success');
+                showNotification('Operation completed successfully!', 'success');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (urlParams.get('error') === '1') {
-                showNotification(_t('cm.operation_failed'), 'error');
+                showNotification('Operation failed. Please try again.', 'error');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
