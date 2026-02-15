@@ -115,14 +115,30 @@ $userData = [
 
 // 权限检查
 $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
+
+// 语言：默认英语，支持 ?lang=zh 切换并写入 Cookie
+$langCode = isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'zh'], true) ? $_GET['lang'] : (isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en');
+if (isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'zh'], true)) {
+    setcookie('lang', $_GET['lang'], time() + 86400 * 365, '/', '', false, true);
+    header('Location: dashboard.php');
+    exit;
+}
+$lang = require __DIR__ . '/lang/' . $langCode . '.php';
+if (!is_array($lang)) {
+    $lang = [];
+}
+function __($key) {
+    global $lang;
+    return $lang[$key] ?? $key;
+}
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?php echo $langCode === 'zh' ? 'zh-CN' : 'en'; ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transaction Dashboard - EazyCount</title>
+    <title><?php echo htmlspecialchars(__('dashboard.title_page')); ?></title>
     <link rel="icon" type="image/png" href="images/count_logo.png">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
@@ -139,6 +155,8 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
         // 用户数据供JavaScript使用（外部 js/dashboard.js 依赖此变量）
         window.userData = <?php echo json_encode($userData); ?>;
         window.companyId = <?php echo isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 'null'; ?>;
+        window.__LANG = <?php echo json_encode($lang); ?>;
+        window.__LOCALE = <?php echo json_encode($langCode); ?>;
     </script>
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <script src="js/dashboard.js?v=<?php echo $assetVer('js/dashboard.js'); ?>"></script>
@@ -147,7 +165,14 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
     <?php include 'sidebar.php'; ?>
     
     <div class="dashboard-container">
-        <h1 class="dashboard-title">Transaction Dashboard</h1>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <h1 class="dashboard-title"><?php echo htmlspecialchars(__('dashboard.title')); ?></h1>
+            <span class="dashboard-lang-switcher" style="font-size: 14px; color: #6b7280;">
+                <a href="dashboard.php?lang=en" style="color: inherit; text-decoration: none; padding: 4px 8px; border-radius: 4px;" <?php if ($langCode === 'en') echo ' class="active" style="font-weight:600;color:#3b82f6;"'; ?>><?php echo htmlspecialchars(__('lang.english')); ?></a>
+                <span style="margin: 0 4px;">|</span>
+                <a href="dashboard.php?lang=zh" style="color: inherit; text-decoration: none; padding: 4px 8px; border-radius: 4px;" <?php if ($langCode === 'zh') echo ' class="active" style="font-weight:600;color:#3b82f6;"'; ?>><?php echo htmlspecialchars(__('lang.zh')); ?></a>
+            </span>
+        </div>
         
         <div id="app" class="dashboard-content">
             <!-- Date Controls -->
@@ -156,10 +181,10 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                     <div class="dashboard-date-controls">
                         <!-- 日期范围选择器 -->
                         <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label class="form-label" style="margin: 0;">Date Range</label>
+                            <label class="form-label" style="margin: 0;"><?php echo htmlspecialchars(__('dashboard.date_range')); ?></label>
                             <div class="date-range-picker" id="date-range-picker" onclick="toggleCalendar()">
                                 <i class="fas fa-calendar-alt"></i>
-                                <span id="date-range-display">Select date range</span>
+                                <span id="date-range-display"><?php echo htmlspecialchars(__('dashboard.select_date_range')); ?></span>
                             </div>
                         </div>
 
@@ -169,17 +194,17 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                         <div style="display: flex; flex-direction: column; gap: 4px;">
                             <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
                                 <i class="fas fa-calendar" style="color: #3b82f6;"></i>
-                                Select Year & Month
+                                <?php echo htmlspecialchars(__('dashboard.select_year_month')); ?>
                             </label>
                             <div class="enhanced-date-picker month-only" id="month-date-picker">
                                 <div class="date-part" data-type="year" onclick="showDateDropdown('month', 'year')">
                                     <span id="month-year-display">--</span>
                                 </div>
-                                <span class="date-separator">Year</span>
+                                <span class="date-separator"><?php echo htmlspecialchars(__('dashboard.year')); ?></span>
                                 <div class="date-part" data-type="month" onclick="showDateDropdown('month', 'month')">
                                     <span id="month-month-display">--</span>
                                 </div>
-                                <span class="date-separator">Month</span>
+                                <span class="date-separator"><?php echo htmlspecialchars(__('dashboard.month')); ?></span>
             
                                 <div class="date-dropdown" id="month-dropdown"></div>
                             </div>
@@ -188,23 +213,23 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                         <div style="display: flex; flex-direction: column; gap: clamp(0px, 0.21vw, 4px);">
                             <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
                                 <i class="fas fa-clock" style="color: #3b82f6;"></i>
-                                Quick Select
+                                <?php echo htmlspecialchars(__('dashboard.quick_select')); ?>
                             </label>
                             <div class="dropdown">
                                 <button class="btn btn-secondary dropdown-toggle" onclick="toggleQuickSelectDropdown()">
                                     <i class="fas fa-calendar-alt"></i>
-                                    <span id="quick-select-text">Period</span>
+                                    <span id="quick-select-text"><?php echo htmlspecialchars(__('dashboard.period')); ?></span>
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                                 <div class="dropdown-menu" id="quick-select-dropdown">
-                                    <button class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
-                                    <button class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('today')"><?php echo htmlspecialchars(__('dashboard.today')); ?></button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('yesterday')"><?php echo htmlspecialchars(__('dashboard.yesterday')); ?></button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('thisWeek')"><?php echo htmlspecialchars(__('dashboard.this_week')); ?></button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('lastWeek')"><?php echo htmlspecialchars(__('dashboard.last_week')); ?></button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('thisMonth')"><?php echo htmlspecialchars(__('dashboard.this_month')); ?></button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('lastMonth')"><?php echo htmlspecialchars(__('dashboard.last_month')); ?></button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('thisYear')"><?php echo htmlspecialchars(__('dashboard.this_year')); ?></button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('lastYear')"><?php echo htmlspecialchars(__('dashboard.last_year')); ?></button>
                                 </div>
                             </div>
                         </div>
@@ -212,14 +237,14 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                     
                     <!-- Company Buttons -->
                     <div id="company-buttons-wrapper" class="transaction-company-filter">
-                        <span class="transaction-company-label">Company:</span>
+                        <span class="transaction-company-label"><?php echo htmlspecialchars(__('dashboard.company')); ?></span>
                         <div id="company-buttons-container" class="transaction-company-buttons">
                             <!-- Company buttons will be dynamically added here -->
                         </div>
                     </div>
                     <!-- Currency Buttons (below Company) -->
                     <div id="currency-buttons-wrapper" class="transaction-company-filter">
-                        <span class="transaction-company-label">Currency:</span>
+                        <span class="transaction-company-label"><?php echo htmlspecialchars(__('dashboard.currency')); ?></span>
                         <div id="currency-buttons-container" class="transaction-company-buttons">
                             <!-- Currency buttons will be dynamically added here -->
                         </div>
@@ -234,7 +259,7 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                                 <div class="icon text-blue">
                                     <i class="fas fa-wallet"></i>
                                 </div>
-                    <div class="kpi-label">Profit</div>
+                    <div class="kpi-label"><?php echo htmlspecialchars(__('dashboard.profit')); ?></div>
                     <div class="kpi-value" id="capital-value">0</div>
                     </div>
                     
@@ -243,7 +268,7 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                                 <div class="icon text-red">
                                     <i class="fas fa-arrow-down"></i>
                                 </div>
-                    <div class="kpi-label">Expenses</div>
+                    <div class="kpi-label"><?php echo htmlspecialchars(__('dashboard.expenses')); ?></div>
                     <div class="kpi-value" id="expenses-value">0</div>
                     </div>
                     
@@ -252,7 +277,7 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
                                 <div class="icon text-green">
                                     <i class="fas fa-chart-line"></i>
                                 </div>
-                    <div class="kpi-label">NET PROFIT</div>
+                    <div class="kpi-label"><?php echo htmlspecialchars(__('dashboard.net_profit')); ?></div>
                     <div class="kpi-value" id="profit-value">0</div>
                                 </div>
                             </div>
@@ -261,8 +286,8 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
             <div class="dashboard-chart-section">
                 <div class="dashboard-chart-header">
                     <div>
-                        <div class="dashboard-chart-title">Trend Chart</div>
-                        <div class="dashboard-date-info" id="chart-date-range" style="margin-top: 4px; margin-bottom: 0; border: none; padding: 0; background: transparent;">Loading data...</div>
+                        <div class="dashboard-chart-title"><?php echo htmlspecialchars(__('dashboard.trend_chart')); ?></div>
+                        <div class="dashboard-date-info" id="chart-date-range" style="margin-top: 4px; margin-bottom: 0; border: none; padding: 0; background: transparent;"><?php echo htmlspecialchars(__('dashboard.loading_data')); ?></div>
                     </div>
                 </div>
                 <div class="dashboard-chart-container">
@@ -281,18 +306,18 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
             </button>
             <div class="calendar-month-year" onclick="event.stopPropagation();">
                 <select id="calendar-month-select" onchange="renderCalendar()">
-                    <option value="0">Jan</option>
-                    <option value="1">Feb</option>
-                    <option value="2">Mar</option>
-                    <option value="3">Apr</option>
-                    <option value="4">May</option>
-                    <option value="5">Jun</option>
-                    <option value="6">Jul</option>
-                    <option value="7">Aug</option>
-                    <option value="8">Sep</option>
-                    <option value="9">Oct</option>
-                    <option value="10">Nov</option>
-                    <option value="11">Dec</option>
+                    <option value="0"><?php echo htmlspecialchars(__('dashboard.jan')); ?></option>
+                    <option value="1"><?php echo htmlspecialchars(__('dashboard.feb')); ?></option>
+                    <option value="2"><?php echo htmlspecialchars(__('dashboard.mar')); ?></option>
+                    <option value="3"><?php echo htmlspecialchars(__('dashboard.apr')); ?></option>
+                    <option value="4"><?php echo htmlspecialchars(__('dashboard.may')); ?></option>
+                    <option value="5"><?php echo htmlspecialchars(__('dashboard.jun')); ?></option>
+                    <option value="6"><?php echo htmlspecialchars(__('dashboard.jul')); ?></option>
+                    <option value="7"><?php echo htmlspecialchars(__('dashboard.aug')); ?></option>
+                    <option value="8"><?php echo htmlspecialchars(__('dashboard.sep')); ?></option>
+                    <option value="9"><?php echo htmlspecialchars(__('dashboard.oct')); ?></option>
+                    <option value="10"><?php echo htmlspecialchars(__('dashboard.nov')); ?></option>
+                    <option value="11"><?php echo htmlspecialchars(__('dashboard.dec')); ?></option>
                 </select>
                 <select id="calendar-year-select" onchange="renderCalendar()">
                     <!-- 动态生成年份 -->
@@ -303,13 +328,13 @@ $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
             </button>
         </div>
         <div class="calendar-weekdays">
-            <div class="calendar-weekday">Sun</div>
-            <div class="calendar-weekday">Mon</div>
-            <div class="calendar-weekday">Tue</div>
-            <div class="calendar-weekday">Wed</div>
-            <div class="calendar-weekday">Thu</div>
-            <div class="calendar-weekday">Fri</div>
-            <div class="calendar-weekday">Sat</div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.sun')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.mon')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.tue')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.wed')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.thu')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.fri')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.sat')); ?></div>
         </div>
         <div class="calendar-days" id="calendar-days">
             <!-- 动态生成日期 -->

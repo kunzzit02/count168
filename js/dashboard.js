@@ -1,3 +1,8 @@
+// 多语言：使用 PHP 注入的 window.__LANG
+function __(key) {
+    return (window.__LANG && window.__LANG[key]) || key
+}
+
 // 构造 API 绝对 URL（与 processlist/datacapture 一致，避免 404）
 function buildApiUrl(pathAndQuery) {
     const pathname = window.location.pathname || '/';
@@ -192,7 +197,7 @@ function generateDropdownContent(prefix, type) {
             // 月份选择器的月份下拉：添加"无"选项
             const noneOption = document.createElement('div');
             noneOption.className = 'date-option';
-            noneOption.textContent = 'None';
+            noneOption.textContent = __('dashboard.none');
             noneOption.style.gridColumn = '1 / -1';
             if (!dateValue.month) noneOption.classList.add('selected');
             noneOption.addEventListener('click', function() {
@@ -201,7 +206,7 @@ function generateDropdownContent(prefix, type) {
             monthGrid.appendChild(noneOption);
         }
         
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const months = ['dashboard.jan', 'dashboard.feb', 'dashboard.mar', 'dashboard.apr', 'dashboard.may', 'dashboard.jun', 'dashboard.jul', 'dashboard.aug', 'dashboard.sep', 'dashboard.oct', 'dashboard.nov', 'dashboard.dec'].map(k => __(k));
         months.forEach((monthName, index) => {
             const monthValue = index + 1;
             const monthOption = document.createElement('div');
@@ -220,7 +225,7 @@ function generateDropdownContent(prefix, type) {
     } else if (type === 'day') {
         const dayGrid = document.createElement('div');
         dayGrid.className = 'day-grid';
-        const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const weekdays = ['dashboard.sun', 'dashboard.mon', 'dashboard.tue', 'dashboard.wed', 'dashboard.thu', 'dashboard.fri', 'dashboard.sat'].map(k => __(k));
         weekdays.forEach(day => {
             const dayHeader = document.createElement('div');
             dayHeader.className = 'day-header';
@@ -298,7 +303,7 @@ async function updateDateRangeFromPickers() {
         }
         
         if (startDate > endDate) {
-            showError('Start date cannot be later than end date');
+            showError(__('dashboard.start_after_end'));
         return;
     }
     
@@ -318,7 +323,7 @@ async function updateDateRangeFromPickers() {
     await loadData(true); // 立即执行
     } catch (error) {
         console.error('Failed to update date range:', error);
-        showError('Failed to update date range');
+        showError(__('dashboard.failed_update_range'));
     }
 }
 
@@ -332,9 +337,9 @@ function updateDateRangeDisplay() {
         display.textContent = `${start} - ${end}`;
     } else if (calendarStartDate) {
         const start = formatDateDisplay(calendarStartDate);
-        display.textContent = `${start} - Select end date`;
+        display.textContent = `${start} - ${__('dashboard.select_end_date')}`;
     } else {
-        display.textContent = 'Select date range';
+        display.textContent = __('dashboard.select_date_range');
     }
 }
 
@@ -738,16 +743,16 @@ async function selectQuickRange(range) {
     updateDateRangeDisplay();
     const quickSelectText = document.getElementById('quick-select-text');
     const rangeTexts = {
-        'today': 'Today',
-        'yesterday': 'Yesterday',
-        'thisWeek': 'This Week',
-        'lastWeek': 'Last Week',
-        'thisMonth': 'This Month',
-        'lastMonth': 'Last Month',
-        'thisYear': 'This Year',
-        'lastYear': 'Last Year'
+        'today': __('dashboard.today'),
+        'yesterday': __('dashboard.yesterday'),
+        'thisWeek': __('dashboard.this_week'),
+        'lastWeek': __('dashboard.last_week'),
+        'thisMonth': __('dashboard.this_month'),
+        'lastMonth': __('dashboard.last_month'),
+        'thisYear': __('dashboard.this_year'),
+        'lastYear': __('dashboard.last_year')
     };
-    if (quickSelectText) quickSelectText.textContent = rangeTexts[range] || 'Period';
+    if (quickSelectText) quickSelectText.textContent = rangeTexts[range] || __('dashboard.period');
     
     // 设置范围类型：如果是年份范围，设置为 'year'
     currentRangeType = (range === 'thisYear' || range === 'lastYear') ? 'year' : null;
@@ -850,7 +855,7 @@ async function executeLoadData() {
                     showError('Request timeout, please try again later');
                 } else {
                 console.error('API调用失败:', error);
-                    showError('Failed to load data: ' + (error.message || 'Unknown error'));
+                    showError(__('dashboard.failed_load') + ': ' + (error.message || 'Unknown error'));
                 }
                 // 发生错误时，恢复上次请求参数，允许重试
                 lastRequestParams = null;
@@ -917,14 +922,14 @@ function setLoadingState(loading) {
     const chartDateRange = document.getElementById('chart-date-range');
     if (!chartDateRange) return;
     if (loading) {
-        chartDateRange.textContent = 'Loading data...';
+        chartDateRange.textContent = __('dashboard.loading_data');
         chartDateRange.style.color = '#6b7280';
     } else {
-        // 加载结束：显示当前日期范围，避免一直显示 Loading data...
+        // 加载结束：显示当前日期范围
         if (dateRange && dateRange.startDate && dateRange.endDate) {
             chartDateRange.textContent = `${formatDateForDisplay(dateRange.startDate)} to ${formatDateForDisplay(dateRange.endDate)}`;
         } else {
-            chartDateRange.textContent = 'No data';
+            chartDateRange.textContent = __('dashboard.no_data');
         }
         chartDateRange.style.color = '#6b7280';
     }
@@ -941,7 +946,7 @@ function showError(message) {
     // 3秒后恢复
     setTimeout(() => {
         if (chartDateRange && chartDateRange.textContent.includes('❌')) {
-            chartDateRange.textContent = 'Data loading failed, please refresh the page';
+            chartDateRange.textContent = __('dashboard.data_loading_failed');
             chartDateRange.style.color = '#6b7280';
         }
     }, 3000);
@@ -973,16 +978,16 @@ function updateDashboard(data) {
                     updateChart(data);
                 } catch (chartError) {
                     console.error('更新图表失败:', chartError);
-                    showError('Chart update failed');
+                    showError(__('dashboard.chart_update_failed'));
                 }
             } catch (domError) {
                 console.error('更新DOM失败:', domError);
-                showError('UI update failed');
+                showError(__('dashboard.ui_update_failed'));
             }
         });
     } catch (error) {
         console.error('updateDashboard 错误:', error);
-        showError('Data update failed');
+        showError(__('dashboard.data_update_failed'));
     }
 }
 
@@ -1157,11 +1162,11 @@ function updateChart(data) {
             // 更新日期范围显示
             const chartDateRangeEl = document.getElementById('chart-date-range');
             if (chartDateRangeEl && data.date_range) {
-                chartDateRangeEl.textContent = 
-                    `${formatDateForDisplay(data.date_range.from)} to ${formatDateForDisplay(data.date_range.to)} (No data in this date range)`;
+                chartDateRangeEl.textContent =
+                    `${formatDateForDisplay(data.date_range.from)} to ${formatDateForDisplay(data.date_range.to)} (${__('dashboard.no_data_in_range')})`;
                 chartDateRangeEl.style.color = '#9ca3af';
             } else if (chartDateRangeEl) {
-                chartDateRangeEl.textContent = 'No data in this date range';
+                chartDateRangeEl.textContent = __('dashboard.no_data_in_range');
                 chartDateRangeEl.style.color = '#9ca3af';
             }
             return;
