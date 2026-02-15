@@ -1,4 +1,5 @@
-let ownerCompanies = [];
+function _t(key) { return (window.cmLang && window.cmLang[key]) || key; }
+        let ownerCompanies = [];
         // 从 PHP session 中获取 company_id（用于跨页面同步）
         let currentCompanyId = typeof window.currentCompanyId !== 'undefined' ? window.currentCompanyId : null;
         let currentCompanyCode = typeof window.currentCompanyCode !== 'undefined' ? (window.currentCompanyCode || '') : '';
@@ -197,7 +198,8 @@ let ownerCompanies = [];
                         const btn = document.createElement('button');
                         btn.type = 'button';
                         btn.className = 'maintenance-company-btn';
-                        btn.textContent = permission;
+                        const labelKey = 'cm.category_' + permission.toLowerCase();
+                        btn.textContent = _t(labelKey) !== labelKey ? _t(labelKey) : permission;
                         btn.dataset.permission = permission;
                         btn.onclick = () => switchPermission(permission);
                         containerEl.appendChild(btn);
@@ -297,13 +299,14 @@ let ownerCompanies = [];
                         optionsContainer.innerHTML = '';
                         
                         // Add "All Process" option
+                        const selectAllText = _t('cm.select_all');
                         const allOption = document.createElement('div');
                         allOption.className = 'custom-select-option';
-                        allOption.textContent = '--Select All--';
+                        allOption.textContent = selectAllText;
                         allOption.setAttribute('data-value', '');
                         if (!previousValue) {
                             allOption.classList.add('selected');
-                            processButton.textContent = '--Select All--';
+                            processButton.textContent = selectAllText;
                         }
                         optionsContainer.appendChild(allOption);
                         
@@ -383,7 +386,7 @@ let ownerCompanies = [];
                     if (!noResults) {
                         noResults = document.createElement('div');
                         noResults.className = 'custom-select-no-results';
-                        noResults.textContent = 'No results found';
+                        noResults.textContent = _t('cm.no_results_found');
                         optionsContainer.appendChild(noResults);
                     }
                     noResults.style.display = 'block';
@@ -507,7 +510,7 @@ let ownerCompanies = [];
             
             // 验证日期
             if (!dateFrom || !dateTo) {
-                showNotification('Please select date range', 'error');
+                showNotification(_t('cm.please_select_date_range'), 'error');
                 return;
             }
             
@@ -544,19 +547,19 @@ let ownerCompanies = [];
                         if (data.data.length === 0) {
                             document.getElementById('emptyState').style.display = 'block';
                             document.getElementById('tableContainer').style.display = 'none';
-                            showNotification('No data found', 'info');
+                            showNotification(_t('cm.no_data_found'), 'info');
                         } else {
-                            showNotification(`Found ${data.data.length} record(s)`, 'success');
+                            showNotification((_t('cm.found_records').replace('%d', data.data.length)), 'success');
                         }
                     } else {
-                        showNotification(data.message || data.error || 'Search failed', 'error');
+                        showNotification(data.message || data.error || _t('cm.search_failed'), 'error');
                         document.getElementById('emptyState').style.display = 'block';
                         document.getElementById('tableContainer').style.display = 'none';
                     }
                 })
                 .catch(error => {
                     console.error('❌ 搜索失败:', error);
-                    showNotification('Search failed: ' + error.message, 'error');
+                    showNotification(_t('cm.search_failed') + ': ' + error.message, 'error');
                     document.getElementById('emptyState').style.display = 'block';
                     document.getElementById('tableContainer').style.display = 'none';
                 });
@@ -582,7 +585,7 @@ let ownerCompanies = [];
                 emptyRow.className = 'maintenance-row-empty';
                 emptyRow.innerHTML = `
                     <td class="maintenance-table-cell" colspan="9" style="text-align: center; padding: 16px;">
-                        No data
+                        ${_t('cm.no_data')}
                     </td>
                 `;
                 tbody.appendChild(emptyRow);
@@ -660,14 +663,14 @@ let ownerCompanies = [];
             const confirmCheckbox = document.getElementById('confirmDelete');
             
             if (!confirmCheckbox.checked) {
-                showNotification('Please confirm deletion by checking the checkbox', 'error');
+                showNotification(_t('cm.confirm_checkbox_required'), 'error');
                 return;
             }
             
             // Get all checked capture IDs
             const checkboxes = document.querySelectorAll('.maintenance-row-checkbox:checked');
             if (checkboxes.length === 0) {
-                showNotification('Please select at least one record', 'error');
+                showNotification(_t('cm.select_at_least_one'), 'error');
                 return;
             }
             
@@ -678,12 +681,13 @@ let ownerCompanies = [];
             })).filter(item => Number.isFinite(item.capture_id) && item.capture_id > 0);
             
             if (selection.length === 0) {
-                showNotification('No valid records found for deletion', 'error');
+                showNotification(_t('cm.no_valid_records'), 'error');
                 return;
             }
             
+            const confirmMsg = (_t('cm.confirm_delete_message').replace('%d', selection.length));
             showConfirmDelete(
-                `Are you sure you want to delete the selected ${selection.length} record(s)? This action cannot be undone.`,
+                confirmMsg,
                 function() {
                     const dateFrom = document.getElementById('date_from').value.trim();
                     const dateTo = document.getElementById('date_to').value.trim();
@@ -704,7 +708,7 @@ let ownerCompanies = [];
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            showNotification(data.message || 'Delete successful', 'success');
+                            showNotification(data.message || _t('cm.delete_success'), 'success');
                             
                             checkboxes.forEach(cb => cb.checked = false);
                             confirmCheckbox.checked = false;
@@ -719,12 +723,12 @@ let ownerCompanies = [];
                                 searchData();
                             }, 300);
                         } else {
-                            showNotification(data.message || data.error || 'Delete failed', 'error');
+                            showNotification(data.message || data.error || _t('cm.delete_failed'), 'error');
                         }
                     })
                     .catch(error => {
                         console.error('删除失败:', error);
-                        showNotification('Delete failed: ' + error.message, 'error');
+                        showNotification(_t('cm.delete_failed') + ': ' + error.message, 'error');
                     });
                 }
             );
@@ -812,11 +816,11 @@ let ownerCompanies = [];
             // Check for URL parameters and show notifications
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('success') === '1') {
-                showNotification('Operation completed successfully!', 'success');
+                showNotification(_t('cm.operation_success'), 'success');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (urlParams.get('error') === '1') {
-                showNotification('Operation failed. Please try again.', 'error');
+                showNotification(_t('cm.operation_failed'), 'error');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
