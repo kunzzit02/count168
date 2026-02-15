@@ -153,7 +153,7 @@ function __($key) {
         window.__LANG = <?php echo json_encode($lang); ?>;
         window.__LOCALE = <?php echo json_encode($langCode); ?>;
     </script>
-    <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <script src="js/dashboard.js?v=<?php echo $assetVer('js/dashboard.js'); ?>"></script>
 </head>
 <body class="dashboard-page">

@@ -28,6 +28,9 @@ if (isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'zh'], true)) {
     unset($params['lang']);
     $newQuery = http_build_query($params);
     $redirect = ($path ?: '/') . ($newQuery ? '?' . $newQuery : '');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
     header('Location: ' . $redirect);
     exit;
 }
