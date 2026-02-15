@@ -198,6 +198,7 @@ return [
     'report.show_all' => '显示全部',
     'report.company' => '公司：',
     'report.currency' => '货币：',
+    'report.currency_header' => '货币',
     'report.loading' => '加载中...',
     'report.total' => '合计',
     'report.name' => '姓名',
@@ -211,6 +212,9 @@ return [
     'report.no_results_found' => '未找到结果',
     'report.no_data_found' => '暂无数据',
     'report.all' => '全部',
+    'report.total_label' => '合计：',
+    'report.load_failed' => '获取报表数据失败',
+    'report.network_failed' => '网络连接失败',
 
     // Data Capture
     'dc.title_page' => '数据采集',

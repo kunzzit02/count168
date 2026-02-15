@@ -43,7 +43,7 @@ if (!function_exists('__')) {
     <div class="container">
         <div class="content">
             <div class="report-header">
-                <h1 class="account-page-title">Customer Report</h1>
+                <h1 class="account-page-title"><?php echo htmlspecialchars(__('report.title_customer')); ?></h1>
             </div>
             
             <div class="account-separator-line"></div>
@@ -52,44 +52,44 @@ if (!function_exists('__')) {
             <div class="customer-report-filter-container">
                 <div class="customer-report-filters">
                     <div class="customer-report-filter-group">
-                        <label for="accountSelect">Account</label>
+                        <label for="accountSelect"><?php echo htmlspecialchars(__('report.account')); ?></label>
                         <div class="custom-select-wrapper">
-                            <button type="button" class="custom-select-button" id="accountSelect" data-placeholder="All Accounts">All Accounts</button>
+                            <button type="button" class="custom-select-button" id="accountSelect" data-placeholder="<?php echo htmlspecialchars(__('report.all_accounts')); ?>"><?php echo htmlspecialchars(__('report.all_accounts')); ?></button>
                             <div class="custom-select-dropdown" id="accountSelect_dropdown">
                                 <div class="custom-select-search">
-                                    <input type="text" placeholder="Search account..." autocomplete="off">
+                                    <input type="text" placeholder="<?php echo htmlspecialchars(__('report.search_account')); ?>" autocomplete="off">
                                 </div>
                                 <div class="custom-select-options"></div>
                             </div>
                         </div>
                     </div>
                     <div class="customer-report-filter-group report-date-range-group">
-                        <label for="date-range-picker">Date Range</label>
+                        <label for="date-range-picker"><?php echo htmlspecialchars(__('report.date_range')); ?></label>
                         <div class="date-range-picker" id="date-range-picker">
                             <i class="fas fa-calendar-alt"></i>
-                            <span id="date-range-display">Select date range</span>
+                            <span id="date-range-display"><?php echo htmlspecialchars(__('report.select_date_range')); ?></span>
                         </div>
                         <input type="hidden" id="date_from" value="<?php echo date('d/m/Y'); ?>">
                         <input type="hidden" id="date_to" value="<?php echo date('d/m/Y'); ?>">
                     </div>
                     <div class="customer-report-quick-and-showall">
                         <div class="customer-report-filter-group quick-select-wrap">
-                            <label class="form-label"><i class="fas fa-clock"></i> Quick Select</label>
+                            <label class="form-label"><i class="fas fa-clock"></i> <?php echo htmlspecialchars(__('report.quick_select')); ?></label>
                             <div class="quick-select-dropdown quick-select-dropdown-toggle">
                                 <button type="button" class="dropdown-toggle" onclick="event.stopPropagation(); window.toggleQuickSelectDropdown();">
                                     <i class="fas fa-calendar-alt"></i>
-                                    <span id="quick-select-text">Period</span>
+                                    <span id="quick-select-text"><?php echo htmlspecialchars(__('report.period')); ?></span>
                                     <i class="fas fa-chevron-down"></i>
                                 </button>
                                 <div class="dropdown-menu" id="quick-select-dropdown">
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
-                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('today')"><?php echo htmlspecialchars(__('report.today')); ?></button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')"><?php echo htmlspecialchars(__('report.yesterday')); ?></button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')"><?php echo htmlspecialchars(__('report.this_week')); ?></button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')"><?php echo htmlspecialchars(__('report.last_week')); ?></button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')"><?php echo htmlspecialchars(__('report.this_month')); ?></button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')"><?php echo htmlspecialchars(__('report.last_month')); ?></button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')"><?php echo htmlspecialchars(__('report.this_year')); ?></button>
+                                    <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')"><?php echo htmlspecialchars(__('report.last_year')); ?></button>
                                 </div>
                             </div>
                         </div>
@@ -97,7 +97,7 @@ if (!function_exists('__')) {
                             <div class="customer-report-checkbox-section">
                                 <label class="transaction-checkbox-label" for="showAll">
                                     <input type="checkbox" id="showAll" class="transaction-checkbox">
-                                    Show All
+                                    <?php echo htmlspecialchars(__('report.show_all')); ?>
                                 </label>
                             </div>
                         </div>
@@ -106,7 +106,7 @@ if (!function_exists('__')) {
                 
                 <!-- Company Buttons (for owner) -->
                 <div id="company-buttons-wrapper" class="transaction-company-filter" style="display: none;">
-                    <span class="transaction-company-label">Company:</span>
+                    <span class="transaction-company-label"><?php echo htmlspecialchars(__('report.company')); ?></span>
                     <div id="company-buttons-container" class="transaction-company-buttons">
                         <!-- Company buttons will be dynamically added here -->
                     </div>
@@ -114,7 +114,7 @@ if (!function_exists('__')) {
                 
                 <!-- Currency Buttons -->
                 <div id="currency-buttons-wrapper" class="transaction-company-filter" style="display: none;">
-                    <span class="transaction-company-label">Currency:</span>
+                    <span class="transaction-company-label"><?php echo htmlspecialchars(__('report.currency')); ?></span>
                     <div id="currency-buttons-container" class="transaction-company-buttons">
                         <!-- Currency buttons will be dynamically added here -->
                     </div>
@@ -127,25 +127,25 @@ if (!function_exists('__')) {
                 <div id="default-report-container">
                     <!-- Table Header -->
                     <div class="customer-report-table-header">
-                        <div>Account</div>
-                        <div>Name</div>
-                        <div>Currency</div>
-                        <div>Win</div>
-                        <div>Lose</div>
+                        <div><?php echo htmlspecialchars(__('report.account')); ?></div>
+                        <div><?php echo htmlspecialchars(__('report.name')); ?></div>
+                        <div><?php echo htmlspecialchars(__('report.currency_header')); ?></div>
+                        <div><?php echo htmlspecialchars(__('report.win')); ?></div>
+                        <div><?php echo htmlspecialchars(__('report.lose')); ?></div>
                     </div>
                     
                     <!-- Report Cards List -->
                     <div class="customer-report-cards" id="reportTableBody">
                         <div class="customer-report-card">
                             <div class="customer-report-card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">
-                                Loading...
+                                <?php echo htmlspecialchars(__('report.loading')); ?>
                             </div>
                         </div>
                     </div>
                     
                     <!-- Total Row -->
                     <div class="customer-report-total" id="totalRow" style="display: none;">
-                        <div class="customer-report-total-label">Total:</div>
+                        <div class="customer-report-total-label"><?php echo htmlspecialchars(__('report.total_label')); ?></div>
                         <div class="customer-report-amount win customer-report-total-win" id="totalWin">0.00</div>
                         <div class="customer-report-amount lose customer-report-total-lose" id="totalLose">0.00</div>
                     </div>
@@ -168,18 +168,18 @@ if (!function_exists('__')) {
             </button>
             <div class="calendar-month-year" onclick="event.stopPropagation();">
                 <select id="calendar-month-select">
-                    <option value="0">Jan</option>
-                    <option value="1">Feb</option>
-                    <option value="2">Mar</option>
-                    <option value="3">Apr</option>
-                    <option value="4">May</option>
-                    <option value="5">Jun</option>
-                    <option value="6">Jul</option>
-                    <option value="7">Aug</option>
-                    <option value="8">Sep</option>
-                    <option value="9">Oct</option>
-                    <option value="10">Nov</option>
-                    <option value="11">Dec</option>
+                    <option value="0"><?php echo htmlspecialchars(__('tp.calendar_jan')); ?></option>
+                    <option value="1"><?php echo htmlspecialchars(__('tp.calendar_feb')); ?></option>
+                    <option value="2"><?php echo htmlspecialchars(__('tp.calendar_mar')); ?></option>
+                    <option value="3"><?php echo htmlspecialchars(__('tp.calendar_apr')); ?></option>
+                    <option value="4"><?php echo htmlspecialchars(__('tp.calendar_may')); ?></option>
+                    <option value="5"><?php echo htmlspecialchars(__('tp.calendar_jun')); ?></option>
+                    <option value="6"><?php echo htmlspecialchars(__('tp.calendar_jul')); ?></option>
+                    <option value="7"><?php echo htmlspecialchars(__('tp.calendar_aug')); ?></option>
+                    <option value="8"><?php echo htmlspecialchars(__('tp.calendar_sep')); ?></option>
+                    <option value="9"><?php echo htmlspecialchars(__('tp.calendar_oct')); ?></option>
+                    <option value="10"><?php echo htmlspecialchars(__('tp.calendar_nov')); ?></option>
+                    <option value="11"><?php echo htmlspecialchars(__('tp.calendar_dec')); ?></option>
                 </select>
                 <select id="calendar-year-select"></select>
             </div>
@@ -188,19 +188,20 @@ if (!function_exists('__')) {
             </button>
         </div>
         <div class="calendar-weekdays">
-            <div class="calendar-weekday">Sun</div>
-            <div class="calendar-weekday">Mon</div>
-            <div class="calendar-weekday">Tue</div>
-            <div class="calendar-weekday">Wed</div>
-            <div class="calendar-weekday">Thu</div>
-            <div class="calendar-weekday">Fri</div>
-            <div class="calendar-weekday">Sat</div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('tp.weekday_sun')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('tp.weekday_mon')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('tp.weekday_tue')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('tp.weekday_wed')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('tp.weekday_thu')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('tp.weekday_fri')); ?></div>
+            <div class="calendar-weekday"><?php echo htmlspecialchars(__('tp.weekday_sat')); ?></div>
         </div>
         <div class="calendar-days" id="calendar-days"></div>
     </div>
 
     <script>
         window.CUSTOMER_REPORT_COMPANY_ID = <?php echo $company_id; ?>;
+        window.__LANG = <?php echo json_encode($reportLang); ?>;
     </script>
     <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
     <script src="js/customer_report.js?v=<?php echo time(); ?>"></script>

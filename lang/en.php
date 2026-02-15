@@ -198,6 +198,7 @@ return [
     'report.show_all' => 'Show All',
     'report.company' => 'Company:',
     'report.currency' => 'Currency:',
+    'report.currency_header' => 'Currency',
     'report.loading' => 'Loading...',
     'report.total' => 'Total',
     'report.name' => 'Name',
@@ -211,6 +212,9 @@ return [
     'report.no_results_found' => 'No results found',
     'report.no_data_found' => 'No data found',
     'report.all' => 'All',
+    'report.total_label' => 'Total:',
+    'report.load_failed' => 'Failed to get report data',
+    'report.network_failed' => 'Network connection failed',
 
     // Data Capture
     'dc.title_page' => 'Data Capture',

@@ -1,4 +1,5 @@
-function showNotification(message, type = 'success') {
+function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
+        function showNotification(message, type = 'success') {
             const container = document.getElementById('domainReportNotificationContainer');
 
             const existingNotifications = container.querySelectorAll('.account-notification');
@@ -176,11 +177,11 @@ function showNotification(message, type = 'success') {
                     // Add "All Process" option
                     const allOption = document.createElement('div');
                     allOption.className = 'custom-select-option';
-                    allOption.textContent = 'All Process';
+                    allOption.textContent = (typeof __ !== 'undefined' ? __('report.all_process') : 'All Process');
                     allOption.setAttribute('data-value', '');
                     if (!previousValue) {
                         allOption.classList.add('selected');
-                        processButton.textContent = 'All Process';
+                        processButton.textContent = (typeof __ !== 'undefined' ? __('report.all_process') : 'All Process');
                     }
                     optionsContainer.appendChild(allOption);
                     
@@ -203,7 +204,7 @@ function showNotification(message, type = 'success') {
                     
                     // If no value selected, show placeholder
                     if (!previousValue) {
-                        processButton.textContent = processButton.getAttribute('data-placeholder') || 'All Process';
+                        processButton.textContent = processButton.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('report.all_process') : 'All Process');
                         processButton.removeAttribute('data-value');
                     }
                 }
@@ -251,7 +252,7 @@ function showNotification(message, type = 'success') {
                     if (!noResults) {
                         noResults = document.createElement('div');
                         noResults.className = 'custom-select-no-results';
-                        noResults.textContent = 'No results found';
+                        noResults.textContent = (typeof __ !== 'undefined' ? __('report.no_results_found') : 'No results found');
                         optionsContainer.appendChild(noResults);
                     }
                     noResults.style.display = 'block';
@@ -435,12 +436,12 @@ function showNotification(message, type = 'success') {
                     renderReport(result.data, result.totals);
                 } else {
                     showNotification(result.message || result.error || 'Failed to get report data', 'danger');
-                    renderError(result.message || result.error || 'Failed to get report data');
+                    renderError(result.message || result.error || (typeof __ !== 'undefined' ? __('report.load_failed') : 'Failed to get report data'));
                 }
             } catch (error) {
                 console.error('Error loading domain report:', error);
-                showNotification('Network connection failed', 'danger');
-                renderError('Network connection failed');
+                showNotification((typeof __ !== 'undefined' ? __('report.network_failed') : 'Network connection failed'), 'danger');
+                renderError((typeof __ !== 'undefined' ? __('report.network_failed') : 'Network connection failed'));
             }
         }
 
@@ -464,7 +465,7 @@ function showNotification(message, type = 'success') {
                 container.innerHTML = `
                     <div class="domain-report-card">
                         <div class="domain-report-card-item" style="grid-column: 1 / -1; text-align: center; justify-content: center; padding: 20px;">
-                            No data found
+                            ${typeof __ !== 'undefined' ? __('report.no_data_found') : 'No data found'}
                         </div>
                     </div>
                 `;
