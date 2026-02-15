@@ -713,4 +713,10 @@ return [
     'fm.description' => '描述',
     'fm.select_all_title' => '全选',
     'fm.deleted_records' => '已删除 %d 条记录',
+
+    // 维护 - 银行（银行流程）
+    'bm.title_page' => '维护 - 银行',
+    'bm.no_data_found_message' => '未找到银行流程交易。请调整筛选条件后重试。',
+    'bm.no_data_found' => '未找到银行流程交易',
+    'bm.confirm_delete_records_message' => '确定要删除选中的 %d 条银行流程交易吗？此操作无法撤销。',
 ];

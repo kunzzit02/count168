@@ -713,4 +713,10 @@ return [
     'fm.description' => 'Description',
     'fm.select_all_title' => 'Select All',
     'fm.deleted_records' => 'Deleted %d record(s)',
+
+    // Maintenance - Bank (Bank Process)
+    'bm.title_page' => 'Maintenance - Bank',
+    'bm.no_data_found_message' => 'No bank process transactions found. Please adjust your search criteria and try again.',
+    'bm.no_data_found' => 'No bank process transactions found',
+    'bm.confirm_delete_records_message' => 'Are you sure you want to delete the selected %d Bank process transaction(s)? This action cannot be undone.',
 ];

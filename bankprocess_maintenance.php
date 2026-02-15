@@ -36,21 +36,25 @@ $error = isset($_GET['error']) ? true : false;
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
-    <title>Process Maintenance</title>
     <link rel="stylesheet" href="css/bankprocess_maintenance.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/sidebar.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
-    <?php include 'sidebar.php'; ?>
+    <?php include 'sidebar.php';
+    $langCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
+    $bmLang = require __DIR__ . '/lang/' . $langCode . '.php';
+    if (!is_array($bmLang)) { $bmLang = []; }
+    ?>
+    <title><?php echo htmlspecialchars(__('bm.title_page')); ?></title>
 </head>
 <body>
     <div class="container">
         <div class="maintenance-header">
-            <h1 id="maintenance-page-title">Maintenance - Process</h1>
+            <h1 id="maintenance-page-title"><?php echo htmlspecialchars(__('bm.title_page')); ?></h1>
             <!-- Category 权限（与 processlist.php 同步） -->
             <div id="bankprocess-permission-filter" class="maintenance-permission-filter-header" style="display: none;">
-                <span class="maintenance-company-label">Category:</span>
+                <span class="maintenance-company-label"><?php echo htmlspecialchars(__('cm.category')); ?></span>
                 <div id="bankprocess-permission-buttons" class="maintenance-company-buttons">
                     <!-- Permission buttons will be loaded dynamically -->
                 </div>
@@ -61,31 +65,31 @@ $error = isset($_GET['error']) ? true : false;
         <div class="maintenance-search-section">
             <div class="maintenance-filters">
                 <div class="maintenance-form-group">
-                    <label class="maintenance-label">Date Range</label>
+                    <label class="maintenance-label"><?php echo htmlspecialchars(__('cm.date_range')); ?></label>
                     <div class="date-range-picker" id="date-range-picker">
                         <i class="fas fa-calendar-alt"></i>
-                        <span id="date-range-display">Select date range</span>
+                        <span id="date-range-display"><?php echo htmlspecialchars(__('cm.select_date_range')); ?></span>
                     </div>
                     <input type="hidden" id="date_from" value="<?php echo date('d/m/Y'); ?>">
                     <input type="hidden" id="date_to" value="<?php echo date('d/m/Y'); ?>">
                 </div>
                 <div class="maintenance-form-group quick-select-wrap">
-                    <label class="form-label"><i class="fas fa-clock"></i> Quick Select</label>
+                    <label class="form-label"><i class="fas fa-clock"></i> <?php echo htmlspecialchars(__('cm.quick_select')); ?></label>
                     <div class="quick-select-dropdown quick-select-dropdown-toggle">
                         <button type="button" class="dropdown-toggle" onclick="event.stopPropagation(); window.toggleQuickSelectDropdown();">
                             <i class="fas fa-calendar-alt"></i>
-                            <span id="quick-select-text">Period</span>
+                            <span id="quick-select-text"><?php echo htmlspecialchars(__('cm.period')); ?></span>
                             <i class="fas fa-chevron-down"></i>
                         </button>
                         <div class="dropdown-menu" id="quick-select-dropdown">
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('today')"><?php echo htmlspecialchars(__('dashboard.today')); ?></button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')"><?php echo htmlspecialchars(__('dashboard.yesterday')); ?></button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')"><?php echo htmlspecialchars(__('dashboard.this_week')); ?></button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')"><?php echo htmlspecialchars(__('dashboard.last_week')); ?></button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')"><?php echo htmlspecialchars(__('dashboard.this_month')); ?></button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')"><?php echo htmlspecialchars(__('dashboard.last_month')); ?></button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')"><?php echo htmlspecialchars(__('dashboard.this_year')); ?></button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')"><?php echo htmlspecialchars(__('dashboard.last_year')); ?></button>
                         </div>
                     </div>
                 </div>
@@ -94,7 +98,7 @@ $error = isset($_GET['error']) ? true : false;
             <div class="maintenance-filter-row">
                 <div class="maintenance-filter-left">
                     <div id="company-buttons-wrapper" class="maintenance-company-filter" style="display: none;">
-                        <span class="maintenance-company-label">Company:</span>
+                        <span class="maintenance-company-label"><?php echo htmlspecialchars(__('cm.company')); ?></span>
                         <div class="maintenance-company-buttons" id="company-buttons-container">
                             <!-- Company buttons injected here -->
                         </div>
@@ -109,10 +113,10 @@ $error = isset($_GET['error']) ? true : false;
                 </div>
 
                 <div class="maintenance-actions">
-                    <button type="button" class="maintenance-delete-btn" id="deleteBtn" onclick="deleteData()" disabled>Delete</button>
+                    <button type="button" class="maintenance-delete-btn" id="deleteBtn" onclick="deleteData()" disabled><?php echo htmlspecialchars(__('cm.delete')); ?></button>
                     <label class="maintenance-confirm-delete-label">
                         <input type="checkbox" id="confirmDelete" class="maintenance-checkbox" onchange="toggleDeleteButton()">
-                        <span>Confirm Delete</span>
+                        <span><?php echo htmlspecialchars(__('cm.confirm_delete')); ?></span>
                     </label>
                 </div>
             </div>
@@ -146,7 +150,7 @@ $error = isset($_GET['error']) ? true : false;
         <!-- Empty State -->
         <div class="empty-state-container" id="emptyState" style="display: none;">
             <div class="empty-state">
-                <p>No bank process transactions found. Please adjust your search criteria and try again.</p>
+                <p><?php echo htmlspecialchars(__('bm.no_data_found_message')); ?></p>
             </div>
         </div>
     </div>
@@ -162,11 +166,11 @@ $error = isset($_GET['error']) ? true : false;
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
             </div>
-            <h2 class="maintenance-confirm-title">Confirm Delete</h2>
-            <p id="confirmDeleteMessage" class="maintenance-confirm-message">This action cannot be undone.</p>
+            <h2 class="maintenance-confirm-title"><?php echo htmlspecialchars(__('cm.confirm_delete')); ?></h2>
+            <p id="confirmDeleteMessage" class="maintenance-confirm-message"><?php echo htmlspecialchars(__('cm.confirm_delete_message')); ?></p>
             <div class="maintenance-confirm-actions">
-                <button type="button" class="maintenance-btn maintenance-btn-cancel confirm-cancel" onclick="closeConfirmDeleteModal()">Cancel</button>
-                <button type="button" class="maintenance-btn maintenance-btn-delete confirm-delete" onclick="confirmDelete()">Delete</button>
+                <button type="button" class="maintenance-btn maintenance-btn-cancel confirm-cancel" onclick="closeConfirmDeleteModal()"><?php echo htmlspecialchars(__('cm.cancel')); ?></button>
+                <button type="button" class="maintenance-btn maintenance-btn-delete confirm-delete" onclick="confirmDelete()"><?php echo htmlspecialchars(__('cm.delete')); ?></button>
             </div>
         </div>
     </div>
@@ -209,7 +213,7 @@ $error = isset($_GET['error']) ? true : false;
         <div class="calendar-days" id="calendar-days"></div>
     </div>
 
-    <script>window.currentCompanyId = <?php echo json_encode($session_company_id); ?>;</script>
+    <script>window.currentCompanyId = <?php echo json_encode($session_company_id); ?>; window.__LANG = <?php echo json_encode($bmLang); ?>;</script>
     <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
     <script src="js/bankprocess_maintenance.js?v=<?php echo time(); ?>"></script>
 </body>
