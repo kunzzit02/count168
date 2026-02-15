@@ -436,7 +436,7 @@ return [
     'process.remove_from_accounting_due' => '从待入账中移除',
     'process.remove_from_accounting_due_message' => '所选行将从待入账中移除，流程数据不变。',
     'process.bank_supplier' => '供应商',
-    'process.bank_country_currency' => '国家（货币）',
+    'process.bank_country_currency' => '国家',
     'process.bank_bank' => '银行',
     'process.bank_types' => '类型',
     'process.bank_card_owner' => '持卡人',

@@ -436,7 +436,7 @@ return [
     'process.remove_from_accounting_due' => 'Remove from Accounting Due',
     'process.remove_from_accounting_due_message' => 'Selected rows will be removed from Accounting Due. Process data will not change.',
     'process.bank_supplier' => 'Supplier',
-    'process.bank_country_currency' => 'Country (Currency)',
+    'process.bank_country_currency' => 'Country',
     'process.bank_bank' => 'Bank',
     'process.bank_types' => 'Types',
     'process.bank_card_owner' => 'Card Owner',
