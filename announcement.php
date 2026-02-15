@@ -61,7 +61,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
     <div class="container announcement-page-container">
         <div class="page-header">
             <h1>Announcement and Maintenance Management</h1>
-            <!-- 頁面切換按鈕 -->
+            <!-- 页面切换按钮 -->
             <div class="page-tabs">
                 <button type="button" class="page-tab active" data-page="announcement">Announcement</button>
                 <button type="button" class="page-tab" data-page="maintenance">Maintenance</button>
@@ -70,7 +70,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
         
         <div class="separator-line"></div>
         
-        <!-- Announcement 頁面 -->
+        <!-- Announcement 页面 -->
         <div id="panel-announcement" class="page-panel">
         <div class="announcement-layout">
             <!-- Left: Create Announcement Form -->
@@ -101,7 +101,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
         </div>
         </div><!-- /#panel-announcement -->
 
-        <!-- Maintenance 頁面 -->
+        <!-- Maintenance 页面 -->
         <div id="panel-maintenance" class="page-panel hidden">
         <div class="maintenance-layout">
             <!-- Left: Create Maintenance Content Form -->

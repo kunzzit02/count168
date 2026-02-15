@@ -42,7 +42,7 @@ h1 {
     letter-spacing: -0.025em;
 }
 
-/* 大標題與切換按鈕同一行：標題左、按鈕右 */
+/* 大标题与切换按钮同一行：标题左、按钮右 */
 .page-header {
     display: flex;
     align-items: center;
@@ -58,7 +58,7 @@ h1 {
     min-width: 0;
 }
 
-/* 頁面切換按鈕（在標題右邊） */
+/* 页面切换按钮（在标题右边） */
 .page-tabs {
     display: flex;
     gap: 8px;

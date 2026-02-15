@@ -118,7 +118,7 @@
                     currentPage = 1;
                     renderTable();
                     renderPagination();
-                    updateDeleteButton(); // 鏇存柊鍒犻櫎鎸夐挳鐘舵€?
+                    updateDeleteButton(); // 更新删除按钮状态
                 } else {
                     console.error('API error:', result.message || result.error);
                     showNotification('Failed to get data: ' + (result.message || result.error), 'danger');
@@ -228,10 +228,10 @@
             
             const totalPages = Math.max(1, Math.ceil(accounts.length / PAGE_SIZE));
             
-            // 鏇存柊鍒嗛〉鎺т欢淇℃伅
+            // 更新分页控件信息
             document.getElementById('paginationInfo').textContent = `${currentPage} of ${totalPages}`;
 
-            // 鏇存柊鎸夐挳鐘舵€?
+            // 更新按钮状态
             const isPrevDisabled = currentPage <= 1;
             const isNextDisabled = currentPage >= totalPages;
 
@@ -335,7 +335,7 @@
             updateSortIndicators();
         }
 
-        // 鏇存柊鎺掑簭鎸囩ず鍣?
+        // 更新排序指示器
         function updateSortIndicators() {
             const accountIndicator = document.getElementById('sortAccountIndicator');
             const roleIndicator = document.getElementById('sortRoleIndicator');
@@ -399,11 +399,11 @@
         function closeAddModal() {
             document.getElementById('addModal').style.display = 'none';
             document.getElementById('addAccountForm').reset();
-            // 閲嶇疆閫変腑鐨勮揣甯佸垪琛?
+            // 重置选中的货币列表
             selectedCurrencyIdsForAdd = [];
-            // 閲嶇疆宸插垹闄ょ殑璐у竵鍒楄〃
+            // 重置已删除的货币列表
             deletedCurrencyIds = [];
-            // 閲嶇疆閫変腑鐨勫叕鍙稿垪琛紝淇濈暀褰撳墠鍏徃
+            // 重置选中的公司列表，保留当前公司
             const currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID;
             selectedCompanyIdsForAdd = currentCompanyId ? [currentCompanyId] : [];
         }
@@ -505,20 +505,20 @@
             }
         }
         
-        // 瀛樺偍褰撳墠缂栬緫鐨勮处鎴稩D
+        // 存储当前编辑的账户ID
         let currentEditAccountId = null;
         
-        // 瀛樺偍娣诲姞璐︽埛鏃堕€変腑鐨勮揣甯両D锛堜复鏃跺瓨鍌紝鍦ㄨ处鎴峰垱寤哄悗鍏宠仈锛?
+        // 存储添加账户时选中的货币ID（临时存储，在账户创建后关联）
         let selectedCurrencyIdsForAdd = [];
         
-        // 瀛樺偍宸插垹闄ょ殑璐у竵ID锛堝湪娣诲姞鍜岀紪杈戞ā寮忎笅锛岄伩鍏嶉噸鏂板姞杞芥椂鍐嶆鏄剧ず锛?
+        // 存储已删除的货币ID（在添加和编辑模式下，避免重新加载时再次显示）
         let deletedCurrencyIds = [];
         
-        // 瀛樺偍娣诲姞璐︽埛鏃堕€変腑鐨勫叕鍙窱D锛堜复鏃跺瓨鍌紝鍦ㄨ处鎴峰垱寤哄悗鍏宠仈锛?
+        // 存储添加账户时选中的货币ID（临时存储，在账户创建后关联）
         // 榛樿閫変腑褰撳墠鍏徃
         let selectedCompanyIdsForAdd = (window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD && Array.isArray(window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD)) ? [...window.ACCOUNT_LIST_SELECTED_COMPANY_IDS_FOR_ADD] : (window.ACCOUNT_LIST_COMPANY_ID ? [window.ACCOUNT_LIST_COMPANY_ID] : []);
 
-        // 瀛樺偍缂栬緫璐︽埛鏃堕€変腑鐨勫叕鍙窱D锛堝湪鐐瑰嚮 Update 鏃朵竴娆℃€т繚瀛橈級
+        // 存储编辑账户时选中的公司ID（在点击 Update 时一次性保存）
         let selectedCompanyIdsForEdit = [];
 
         // 鍔犺浇鍏徃鍙敤璐у竵骞朵互鎸夐挳鏂瑰紡灞曠ず
@@ -530,7 +530,7 @@
 
             if (accountId) {
                 currentEditAccountId = accountId; // 淇濆瓨璐︽埛ID渚涘悗缁娇鐢?
-                // 缂栬緫妯″紡涓嬶紝姣忔鍔犺浇鍏徃鍒楄〃鍓嶉噸缃€変腑鍏徃鍒楄〃
+                // 编辑模式下，每次加载公司列表前重置选中公司列表
                 if (type === 'edit') {
                     selectedCompanyIdsForEdit = [];
                 }
@@ -595,7 +595,7 @@
                     codeSpan.className = 'currency-code-text';
                     codeSpan.textContent = code;
                     
-                    // 鍒涘缓鍒犻櫎鎸夐挳锛堝缁堟樉绀猴級
+                    // 初始终显示删除按钮
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'currency-delete-btn';
                     deleteBtn.innerHTML = '×';
@@ -609,7 +609,7 @@
                         deleteCurrencyPermanently(currency.id, code, item);
                     });
                     
-                    // 灏嗕唬鐮佸拰鍒犻櫎鎸夐挳娣诲姞鍒伴」涓?
+                    // 将代码和删除按钮添加到项中
                     item.appendChild(codeSpan);
                     item.appendChild(deleteBtn);
 
@@ -734,7 +734,7 @@
                 return;
             }
             
-            // 缂栬緫妯″紡锛氶渶瑕?accountId 鎵嶈兘鎿嶄綔
+            // 编辑模式：需要 accountId 才能操作
             if (!accountId) {
                 showNotification('Please save the account first before removing currencies', 'info');
                 return;
@@ -807,13 +807,13 @@
                 return;
             }
             
-            // 缂栬緫妯″紡锛氶渶瑕?accountId 鎵嶈兘鎿嶄綔
+            // 编辑模式：需要 accountId 才能操作
             if (!accountId) {
                 showNotification('Please save the account first before adding currencies', 'info');
                 return;
             }
             
-            // 绔嬪嵆鏇存柊 UI 鐘舵€侊紝鎻愪緵鍗虫椂鍙嶉
+            // 立即更新 UI 状态，提供即时反馈
             const previousState = itemElement.classList.contains('selected');
             if (isChecked) {
                 itemElement.classList.add('selected');
@@ -841,7 +841,7 @@
                         `Currency ${currencyCode} added to account` : 
                         `Currency ${currencyCode} removed from account`;
                     showNotification(message, 'success');
-                    // UI 宸茬粡鏇存柊锛屼笉闇€瑕侀噸鏂板姞杞芥暣涓垪琛?
+                    // UI 已经更新，不需要重新加载整个列表
                 } else {
                     // API 澶辫触锛屽洖婊?UI 鐘舵€?
                     if (previousState) {
@@ -963,7 +963,7 @@
                 return;
             }
             
-            // 缂栬緫妯″紡锛氬彧鏇存柊鍓嶇鐘舵€侊紝瀹為檯淇濆瓨鐢?Update 鎸夐挳缁熶竴鎻愪氦锛堜笌 userlist 涓€鑷达級
+            // 编辑模式：只更新前端状态，实际保存由 Update 按钮统一提交（与 userlist 一致）
             if (!accountId) {
                 showNotification('Please save the account first before adding companies', 'info');
                 return;
@@ -983,10 +983,10 @@
         // 褰撳墠姝ｅ湪绠＄悊鍏宠仈鐨勮处鎴稩D
         let currentLinkAccountId = null;
         
-        // 瀛樺偍閾炬帴璐︽埛妯℃€佹涓€夋嫨鐨勮处鎴稩D
+        // 存储链接账户模式框中选择的账户ID
         let selectedLinkedAccountIdsForLink = [];
         
-        // 瀛樺偍褰撳墠杩炴帴绫诲瀷锛堝弻鍚?鍗曞悜锛?
+        // 存储当前连接类型（双响/单向）
         let currentLinkType = 'bidirectional';
         
         // 鎵撳紑閾炬帴璐︽埛妯℃€佹
@@ -995,7 +995,7 @@
             selectedLinkedAccountIdsForLink = [];
             currentLinkType = 'bidirectional'; // 榛樿鍙屽悜
             
-            // 閲嶇疆鍗曢€夋寜閽?
+            // 重置单选按钮?
             document.getElementById('linkTypeBidirectional').checked = true;
             document.getElementById('linkTypeUnidirectional').checked = false;
             updateLinkTypeDescription();
@@ -1115,7 +1115,7 @@
                 
                 // 濡傛灉杩炴帴绫诲瀷鏀瑰彉锛岄渶瑕佹洿鏂扮幇鏈夊叧鑱旂殑绫诲瀷
                 if (toAdd.length === 0 && toRemove.length === 0 && newIds.length > 0) {
-                    // 鏇存柊鐜版湁鍏宠仈鐨勭被鍨?
+                    // 更新现有关联的类型?
                     for (const linkedId of newIds) {
                         try {
                             const response = await fetch('/api/accounts/account_link_api.php?action=update_link_type', {
@@ -1192,7 +1192,7 @@
                 // 鑾峰彇褰撳墠璐︽埛宸插叧鑱旂殑璐︽埛鍒楄〃鍜岃繛鎺ョ被鍨嬩俊鎭?
                 let linkedAccountIds = [];
                 let linkTypeInfo = null;
-                let linkTypesMap = {}; // 瀛樺偍姣忎釜璐︽埛鐨勮繛鎺ョ被鍨嬫槧灏?
+                let linkTypesMap = {}; // 存储每个账户的连接类型映射
                 try {
                     const linkResponse = await fetch(`api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${accountId}&company_id=${currentCompanyId}`);
                     const linkResult = await linkResponse.json();
@@ -1220,7 +1220,7 @@
                 currentLinkType = 'bidirectional';
                 updateLinkTypeDescription();
                 
-                // 瀛樺偍杩炴帴绫诲瀷鏄犲皠锛岀敤浜庡姩鎬佹洿鏂板嬀閫夌姸鎬?
+                // 存储连接类型映射，用于动态更新勾选状态
                 window.linkTypesMap = linkTypesMap;
 
                 // 鎸?account_id 鎺掑簭
@@ -1407,7 +1407,7 @@
         function closeEditModal() {
             document.getElementById('editModal').style.display = 'none';
             document.getElementById('editAccountForm').reset();
-            // 閲嶇疆宸插垹闄ょ殑璐у竵鍒楄〃
+            // 重置已删除的货币列表
             deletedCurrencyIds = [];
         }
 
@@ -1431,7 +1431,7 @@
                         account.payment_alert = result.newPaymentAlert;
                     }
                     
-                    // 绔嬪嵆鏇存柊 alert badge 鐨勬樉绀?
+                    // 立即更新 alert badge 的显示
                     const card = document.querySelector(`.account-card[data-id="${accountId}"]`);
                     if (card) {
                         const items = card.querySelectorAll('.account-card-item');
@@ -1483,7 +1483,7 @@
                             const statusClass = (result.newStatus || (result.data && result.data.newStatus)) === 'active' ? 'account-status-active' : 'account-status-inactive';
                             // Status 鏄 5 鍒楋紙绱㈠紩 5锛夛紝Alert 鏄 4 鍒楋紙绱㈠紩 4锛?
                             items[5].innerHTML = `<span class="account-role-badge ${statusClass} account-status-clickable" onclick="toggleAccountStatus(${accountId}, '${result.newStatus || (result.data && result.data.newStatus)}')" title="Click to toggle status">${((result.newStatus || (result.data && result.data.newStatus)) || '').toUpperCase()}</span>`;
-                            // 鏇存柊鍒犻櫎澶嶉€夋鏄剧ず锛欰CTIVE 涓嶆樉绀猴紝INACTIVE 鎵嶆樉绀?
+                            // 更新删除复选框显示：ACTIVE 不显示，INACTIVE 才显示
                             const actionCell = items[8]; // Action 鍒?
                             if (actionCell) {
                                 const existingCheckbox = actionCell.querySelector('.account-row-checkbox');
@@ -1521,7 +1521,7 @@
                         // 濡傛灉搴旇鏄剧ず锛岀姸鎬?badge 宸茬粡鏇存柊锛屼笉闇€瑕侀噸鏂版覆鏌撴暣涓〃鏍?
                     }
                     
-                    // 鏇存柊鍒犻櫎鎸夐挳鐘舵€?
+                    // 更新删除按钮状态
                     updateDeleteButton();
                     updateSelectAllAccountsVisibility();
                     
@@ -1567,7 +1567,7 @@
             }
         }
 
-        // 鏇存柊鍒犻櫎鎸夐挳鐘舵€?
+        // 更新删除按钮状态
         function updateDeleteButton() {
             const selectedCheckboxes = document.querySelectorAll('.account-row-checkbox:checked');
             const deleteBtn = document.getElementById('accountDeleteSelectedBtn');
@@ -1575,7 +1575,7 @@
             // 閫夋嫨鎵€鏈?checkbox锛岀劧鍚庤繃婊ゆ帀 disabled 鐨?
             const allCheckboxes = Array.from(document.querySelectorAll('.account-row-checkbox')).filter(cb => !cb.disabled);
             
-            // 鏇存柊鍏ㄩ€?checkbox 鐘舵€?
+            // 更新全选 checkbox 状态
             if (selectAllCheckbox && allCheckboxes.length > 0) {
                 const allSelected = allCheckboxes.length > 0 && 
                     allCheckboxes.every(cb => cb.checked);
@@ -2132,7 +2132,7 @@
             loadEditData(); // Load currencies and roles for edit modal (闇€瑕佸湪鎺掑簭鍓嶅姞杞?
             fetchAccounts();
             
-            // 缁熶竴绠＄悊闇€瑕佸ぇ鍐欑殑杈撳叆妗?
+            // 统一管理需要大写的输入框
             const uppercaseInputs = [
                 'add_account_id',
                 'add_name',
@@ -2218,7 +2218,7 @@
                         const shouldBeChecked = accountLinkType === currentLinkType;
                         checkbox.checked = shouldBeChecked;
                         
-                        // 鏇存柊閫変腑鐘舵€佹暟缁?
+                        // 更新选中状态数组?
                         if (shouldBeChecked) {
                             if (!selectedLinkedAccountIdsForLink.includes(accountId)) {
                                 selectedLinkedAccountIdsForLink.push(accountId);
@@ -2332,7 +2332,7 @@
                 const count = parseInt(deleted);
                 const message = count === 1 ? '1 account deleted successfully' : `${count} accounts deleted successfully`;
                 showNotification(message, 'success');
-                updateDeleteButton(); // 閲嶇疆鍒犻櫎鎸夐挳鐘舵€?
+                updateDeleteButton(); // 重置删除按钮状态
                 // Clean up URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
