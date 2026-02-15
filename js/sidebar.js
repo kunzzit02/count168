@@ -458,7 +458,9 @@
             }
         });
 
-        var currentLang = window.location.pathname.indexOf('/cn/') !== -1 ? 'zh' : 'en';
+        // 与 config/dashboard 一致：以 Cookie lang 为准，不再用 URL /cn/ 或 localStorage
+        var langMatch = document.cookie.match(/(?:^|;\s*)lang=([^;]*)/);
+        var currentLang = (langMatch && langMatch[1] === 'zh') ? 'zh' : 'en';
         var currentFlag = document.getElementById('current-flag');
         var currentLangText = document.getElementById('current-lang');
         if (currentLang === 'zh') {
@@ -468,7 +470,6 @@
             if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
             if (currentLangText) currentLangText.textContent = 'English';
         }
-        try { localStorage.setItem('selectedLanguage', currentLang); } catch (e) {}
 
         var savedAvatar = null;
         try { savedAvatar = localStorage.getItem('selectedAvatar'); } catch (e) {}
