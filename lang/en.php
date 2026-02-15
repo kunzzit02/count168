@@ -483,6 +483,7 @@ return [
     'process.selected_countries' => 'Selected Countries',
     'process.selected_banks' => 'Selected Banks',
     'process.add_profit_sharing_title' => 'Add Profit Sharing',
+    'process.add_another_account_amount' => 'Add another Account & Amount',
     'process.amount' => 'Amount',
     'process.enter_amount_placeholder' => 'Enter amount',
 ];

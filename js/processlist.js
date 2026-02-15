@@ -179,16 +179,22 @@
             const tbody = document.getElementById('bankTableBody');
             if (!headRow || !tbody) return;
 
-            const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
+            const thLabels = [
+                __('process.no'), __('process.bank_supplier'), __('process.bank_country_currency'), __('process.bank_bank'), __('process.bank_types'),
+                __('process.bank_card_owner'), __('process.bank_contract'), __('process.bank_insurance'), __('process.bank_customer'),
+                __('process.bank_cost'), __('process.bank_price'), __('process.bank_profit'), __('process.status'), __('process.bank_date'), __('process.action')
+            ];
+            const thKeys = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
             headRow.innerHTML = thLabels.map((label, i) => {
-                if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
-                if (label === 'Country') return '<th class="bank-th-country">' + escapeHtml(label) + '</th>';
-                if (label === 'Types') return '<th class="bank-th-types">' + escapeHtml(label) + '</th>';
-                if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
-                if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
-                if (label === 'Action') {
+                const key = thKeys[i];
+                if (key === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
+                if (key === 'Country') return '<th class="bank-th-country">' + escapeHtml(label) + '</th>';
+                if (key === 'Types') return '<th class="bank-th-types">' + escapeHtml(label) + '</th>';
+                if (key === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
+                if (key === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
+                if (key === 'Action') {
                     const showActionCheckbox = showInactive || showAll;
-                    return '<th class="bank-th-action">' + __('process.action') + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="' + (__('process.select_all')).replace(/"/g, '&quot;') + '" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
+                    return '<th class="bank-th-action">' + label + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="' + (__('process.select_all')).replace(/"/g, '&quot;') + '" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
                 }
                 return '<th>' + escapeHtml(label) + '</th>';
             }).join('');
@@ -444,16 +450,16 @@
             const cardMerchantBtn = document.getElementById('bank_card_merchant');
             const customerBtn = document.getElementById('bank_customer');
             if (cardMerchantBtn) {
-                cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
+                cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || __('process.select_account');
                 cardMerchantBtn.removeAttribute('data-value');
             }
             if (customerBtn) {
-                customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
+                customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || __('process.select_account');
                 customerBtn.removeAttribute('data-value');
             }
             const profitAccountBtn = document.getElementById('bank_profit_account');
             if (profitAccountBtn) {
-                profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
+                profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || __('process.select_account');
                 profitAccountBtn.removeAttribute('data-value');
             }
         }
@@ -580,25 +586,25 @@
                     cardMerchantBtn.setAttribute('data-value', process.card_merchant_id);
                     const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
                     const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
-                    cardMerchantBtn.textContent = cmCode !== '' ? cmCode : (cmName || process.card_merchant_account_id || process.card_merchant_id || 'Select Account');
+                    cardMerchantBtn.textContent = cmCode !== '' ? cmCode : (cmName || process.card_merchant_account_id || process.card_merchant_id || __('process.select_account'));
                 } else if (cardMerchantBtn) {
                     cardMerchantBtn.removeAttribute('data-value');
-                    cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
+                    cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || __('process.select_account');
                 }
                 if (customerBtn && process.customer_id) {
                     customerBtn.setAttribute('data-value', process.customer_id);
-                    customerBtn.textContent = (process.customer_account || process.customer_name || process.customer_id) || 'Select Account';
+                    customerBtn.textContent = (process.customer_account || process.customer_name || process.customer_id) || __('process.select_account');
                 } else if (customerBtn) {
                     customerBtn.removeAttribute('data-value');
-                    customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
+                    customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || __('process.select_account');
                 }
                 const profitAccountBtn = document.getElementById('bank_profit_account');
                 if (profitAccountBtn && process.profit_account_id) {
                     profitAccountBtn.setAttribute('data-value', process.profit_account_id);
-                    profitAccountBtn.textContent = (process.profit_account_name || process.profit_account_id) || 'Select Account';
+                    profitAccountBtn.textContent = (process.profit_account_name || process.profit_account_id) || __('process.select_account');
                 } else if (profitAccountBtn) {
                     profitAccountBtn.removeAttribute('data-value');
-                    profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
+                    profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || __('process.select_account');
                 }
                 document.getElementById('bank_contract').value = process.contract || '';
                 document.getElementById('bank_insurance').value = process.insurance != null && process.insurance !== '' ? process.insurance : '';
@@ -3373,7 +3379,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             accountDropdown._bankAccountClose = closeThisDropdown;
 
             // Load accounts into dropdown（API 返回该公司下全部账户，四类下拉共用同一列表）
-            const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
+            const placeholderText = accountButton.getAttribute('data-placeholder') || __('process.select_account');
             function loadAccounts() {
                 optionsContainer.innerHTML = '';
                 // Always read filter from this dropdown's search input so search matches what user sees
@@ -3385,7 +3391,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     const selectOpt = document.createElement('div');
                     selectOpt.className = 'custom-select-option';
                     selectOpt.setAttribute('data-value', '');
-                    selectOpt.textContent = 'Select Account';
+                    selectOpt.textContent = __('process.select_account');
                     selectOpt.addEventListener('click', () => {
                         accountButton.textContent = placeholderText;
                         accountButton.setAttribute('data-value', '');
@@ -3506,7 +3512,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
             if (!accountButton || !accountDropdown || !hiddenInput || !searchInput || !optionsContainer) return;
             let isOpen = false;
-            const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
+            const placeholderText = accountButton.getAttribute('data-placeholder') || __('process.select_account');
             const isInProfitSharingModal = accountDropdown.closest('#profitSharingModal');
             let dropdownOriginalParent = null;
             let dropdownOriginalNextSibling = null;
@@ -3544,7 +3550,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const selectOpt = document.createElement('div');
                 selectOpt.className = 'custom-select-option';
                 selectOpt.setAttribute('data-value', '');
-                selectOpt.textContent = 'Select Account';
+                selectOpt.textContent = __('process.select_account');
                 selectOpt.addEventListener('click', () => {
                     accountButton.textContent = placeholderText;
                     accountButton.setAttribute('data-value', '');
@@ -4396,7 +4402,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const amountId = 'profit_sharing_amount_' + ts;
             const row = document.createElement('div');
             row.className = 'form-row bank-row-two-cols profit-sharing-row';
-            row.innerHTML = '<div class="form-group"><label for="' + btnId + '">Account</label><input type="hidden" id="' + hiddenId + '" class="profit-sharing-account-id" name="account_id" value=""><div class="account-select-with-buttons"><div class="custom-select-wrapper"><button type="button" class="custom-select-button profit-sharing-account-btn" id="' + btnId + '" data-placeholder="Select Account">Select Account</button><div class="custom-select-dropdown" id="' + dropdownId + '"><div class="custom-select-search"><input type="text" placeholder="Search account..." autocomplete="off"></div><div class="custom-select-options"></div></div></div><button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick(\'' + btnId + '\', \'' + hiddenId + '\')" title="Add New Account">+</button></div></div><div class="form-group"><label for="' + amountId + '">Amount</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0"></div>';
+            row.innerHTML = '<div class="form-group"><label for="' + btnId + '">' + __('dcs.account') + '</label><input type="hidden" id="' + hiddenId + '" class="profit-sharing-account-id" name="account_id" value=""><div class="account-select-with-buttons"><div class="custom-select-wrapper"><button type="button" class="custom-select-button profit-sharing-account-btn" id="' + btnId + '" data-placeholder="' + __('process.select_account').replace(/"/g, '&quot;') + '">' + __('process.select_account') + '</button><div class="custom-select-dropdown" id="' + dropdownId + '"><div class="custom-select-search"><input type="text" placeholder="' + __('process.search_account').replace(/"/g, '&quot;') + '" autocomplete="off"></div><div class="custom-select-options"></div></div></div><button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick(\'' + btnId + '\', \'' + hiddenId + '\')" title="' + __('process.add_new_account').replace(/"/g, '&quot;') + '">+</button></div></div><div class="form-group"><label for="' + amountId + '">' + __('process.amount') + '</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="' + __('process.enter_amount').replace(/"/g, '&quot;') + '" step="0.01" min="0"></div>';
             container.appendChild(row);
             if (typeof initProfitSharingAccountSelect === 'function') {
                 initProfitSharingAccountSelect(btnId, dropdownId, hiddenId);
@@ -4429,7 +4435,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const accountBtn = document.getElementById('profit_sharing_account_btn');
             const accountHidden = document.getElementById('profit_sharing_account_id');
             if (accountBtn) {
-                accountBtn.textContent = accountBtn.getAttribute('data-placeholder') || 'Select Account';
+                accountBtn.textContent = accountBtn.getAttribute('data-placeholder') || __('process.select_account');
                 accountBtn.setAttribute('data-value', '');
             }
             if (accountHidden) accountHidden.value = '';

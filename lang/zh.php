@@ -483,6 +483,7 @@ return [
     'process.selected_countries' => '已选国家',
     'process.selected_banks' => '已选银行',
     'process.add_profit_sharing_title' => '添加利润分配',
+    'process.add_another_account_amount' => '再添加账户与金额',
     'process.amount' => '金额',
     'process.enter_amount_placeholder' => '输入金额',
 ];
