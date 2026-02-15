@@ -2751,7 +2751,7 @@ function getCurrentProcessId() {
             if (!descriptionSelect1) return;
 
             // Clear existing options except the first one
-            descriptionSelect1.innerHTML = '<option value="">${typeof __ !== 'undefined' ? __('dcs.select_id_product') : 'Select Id Product'}</option>';
+            descriptionSelect1.innerHTML = `<option value="">${typeof __ !== 'undefined' ? __('dcs.select_id_product') : 'Select Id Product'}</option>`;
 
             // Get table data
             let parsedTableData;
