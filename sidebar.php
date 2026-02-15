@@ -276,7 +276,7 @@ if ($companyId) {
                     </div>
                     <div class="language-option" onclick="selectLanguage('zh')">
                         <img src="images/china.png" alt="中文" class="flag-icon">
-                        <span>涓枃</span>
+                        <span>中文</span>
                     </div>
                 </div>
             </div>
