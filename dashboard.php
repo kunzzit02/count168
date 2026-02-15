@@ -165,14 +165,7 @@ function __($key) {
     <?php include 'sidebar.php'; ?>
     
     <div class="dashboard-container">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-            <h1 class="dashboard-title"><?php echo htmlspecialchars(__('dashboard.title')); ?></h1>
-            <span class="dashboard-lang-switcher" style="font-size: 14px; color: #6b7280;">
-                <a href="dashboard.php?lang=en" style="color: inherit; text-decoration: none; padding: 4px 8px; border-radius: 4px;" <?php if ($langCode === 'en') echo ' class="active" style="font-weight:600;color:#3b82f6;"'; ?>><?php echo htmlspecialchars(__('lang.english')); ?></a>
-                <span style="margin: 0 4px;">|</span>
-                <a href="dashboard.php?lang=zh" style="color: inherit; text-decoration: none; padding: 4px 8px; border-radius: 4px;" <?php if ($langCode === 'zh') echo ' class="active" style="font-weight:600;color:#3b82f6;"'; ?>><?php echo htmlspecialchars(__('lang.zh')); ?></a>
-            </span>
-        </div>
+        <h1 class="dashboard-title"><?php echo htmlspecialchars(__('dashboard.title')); ?></h1>
         
         <div id="app" class="dashboard-content">
             <!-- Date Controls -->
