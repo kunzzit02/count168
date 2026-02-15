@@ -1,4 +1,5 @@
-let ownerCompanies = [];
+function __(key) { return (typeof window.__LANG !== 'undefined' && window.__LANG[key]) ? window.__LANG[key] : key; }
+        let ownerCompanies = [];
         // 从 PHP session 中获取 company_id（用于跨页面同步）
         let currentCompanyId = typeof window.currentCompanyId !== 'undefined' ? window.currentCompanyId : null;
         let currentCompanyCode = typeof window.currentCompanyCode !== 'undefined' ? (window.currentCompanyCode || '') : '';
@@ -197,7 +198,8 @@ let ownerCompanies = [];
                         const btn = document.createElement('button');
                         btn.type = 'button';
                         btn.className = 'maintenance-company-btn';
-                        btn.textContent = permission;
+                        const labelKey = 'cm.category_' + permission.toLowerCase();
+                        btn.textContent = typeof __ !== 'undefined' ? __(labelKey) : permission;
                         btn.dataset.permission = permission;
                         btn.onclick = () => switchPermission(permission);
                         containerEl.appendChild(btn);
@@ -297,13 +299,14 @@ let ownerCompanies = [];
                         optionsContainer.innerHTML = '';
                         
                         // Add "All Process" option
+                        const selectAllText = typeof __ !== 'undefined' ? __('cm.select_all') : '--Select All--';
                         const allOption = document.createElement('div');
                         allOption.className = 'custom-select-option';
-                        allOption.textContent = '--Select All--';
+                        allOption.textContent = selectAllText;
                         allOption.setAttribute('data-value', '');
                         if (!previousValue) {
                             allOption.classList.add('selected');
-                            processButton.textContent = '--Select All--';
+                            processButton.textContent = selectAllText;
                         }
                         optionsContainer.appendChild(allOption);
                         
@@ -329,7 +332,7 @@ let ownerCompanies = [];
                         
                         // If no value selected, show placeholder
                         if (!previousValue) {
-                            processButton.textContent = processButton.getAttribute('data-placeholder') || '--Select All--';
+                            processButton.textContent = processButton.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('cm.select_all') : '--Select All--');
                             processButton.removeAttribute('data-value');
                         }
                         
@@ -340,7 +343,7 @@ let ownerCompanies = [];
                 })
                 .catch(error => {
                     console.error('❌ 加载Process列表失败:', error);
-                    showNotification(error.message || 'Failed to load process list', 'error');
+                    showNotification(error.message || (typeof __ !== 'undefined' ? __('cm.failed_load_process_list') : 'Failed to load process list'), 'error');
                 });
         }
         
@@ -544,7 +547,7 @@ let ownerCompanies = [];
                         if (data.data.length === 0) {
                             document.getElementById('emptyState').style.display = 'block';
                             document.getElementById('tableContainer').style.display = 'none';
-                            showNotification('No data found', 'info');
+                            showNotification(typeof __ !== 'undefined' ? __('cm.no_data_found') : 'No data found', 'info');
                         } else {
                             showNotification(`Found ${data.data.length} record(s)`, 'success');
                         }
@@ -678,12 +681,13 @@ let ownerCompanies = [];
             })).filter(item => Number.isFinite(item.capture_id) && item.capture_id > 0);
             
             if (selection.length === 0) {
-                showNotification('No valid records found for deletion', 'error');
+                showNotification(typeof __ !== 'undefined' ? __('cm.no_valid_records_for_deletion') : 'No valid records found for deletion', 'error');
                 return;
             }
-            
-            showConfirmDelete(
-                `Are you sure you want to delete the selected ${selection.length} record(s)? This action cannot be undone.`,
+            const confirmMsg = typeof __ !== 'undefined'
+                ? (__('cm.confirm_delete_records_message').replace('%d', selection.length))
+                : `Are you sure you want to delete the selected ${selection.length} record(s)? This action cannot be undone.`;
+            showConfirmDelete(confirmMsg,
                 function() {
                     const dateFrom = document.getElementById('date_from').value.trim();
                     const dateTo = document.getElementById('date_to').value.trim();
@@ -704,7 +708,7 @@ let ownerCompanies = [];
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            showNotification(data.message || 'Delete successful', 'success');
+                            showNotification(data.message || (typeof __ !== 'undefined' ? __('cm.delete_successful') : 'Delete successful'), 'success');
                             
                             checkboxes.forEach(cb => cb.checked = false);
                             confirmCheckbox.checked = false;
@@ -719,12 +723,12 @@ let ownerCompanies = [];
                                 searchData();
                             }, 300);
                         } else {
-                            showNotification(data.message || data.error || 'Delete failed', 'error');
+                            showNotification(data.message || data.error || (typeof __ !== 'undefined' ? __('cm.delete_failed') : 'Delete failed'), 'error');
                         }
                     })
                     .catch(error => {
                         console.error('删除失败:', error);
-                        showNotification('Delete failed: ' + error.message, 'error');
+                        showNotification((typeof __ !== 'undefined' ? __('cm.delete_failed') : 'Delete failed') + ': ' + error.message, 'error');
                     });
                 }
             );
