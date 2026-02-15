@@ -149,20 +149,10 @@
     }
 
     function selectLanguage(lang) {
-        var dropdown = document.getElementById('languageDropdown');
-        var button = document.querySelector('.language-btn');
-        var currentFlag = document.getElementById('current-flag');
-        var currentLang = document.getElementById('current-lang');
-        if (lang === 'en') {
-            if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
-            if (currentLang) currentLang.textContent = 'English';
-        } else if (lang === 'zh') {
-            if (currentFlag) { currentFlag.src = 'images/china.png'; currentFlag.alt = '中文'; }
-            if (currentLang) currentLang.textContent = '中文';
-        }
-        if (dropdown) dropdown.classList.remove('show');
-        if (button) button.classList.remove('active');
-        try { localStorage.setItem('selectedLanguage', lang); } catch (e) {}
+        if (lang !== 'en' && lang !== 'zh') return;
+        // 与 dashboard 等页统一：写入 Cookie 后刷新，整页切换语言
+        document.cookie = 'lang=' + lang + '; path=/; max-age=' + (365 * 24 * 60 * 60) + '; SameSite=Lax';
+        window.location.reload();
     }
 
     function toggleNotificationPanel(event) {

@@ -261,12 +261,13 @@ if ($companyId) {
                 </div>
             </div>
         </div>
-        <<!-- 语言切换按钮 -->
+        <!-- 语言切换按钮（与 dashboard 等页的 Cookie lang 一致） -->
         <div class="language-switcher">
             <div class="language-dropdown">
                 <button class="language-btn" onclick="toggleLanguageDropdown()">
-                    <img src="images/uk.png" alt="English" class="flag-icon" id="current-flag">
-                    <span class="language-text" id="current-lang">English</span>
+                    <?php $sidebarLang = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en'; ?>
+                    <img src="images/<?php echo $sidebarLang === 'zh' ? 'china' : 'uk'; ?>.png" alt="<?php echo $sidebarLang === 'zh' ? '中文' : 'English'; ?>" class="flag-icon" id="current-flag">
+                    <span class="language-text" id="current-lang"><?php echo $sidebarLang === 'zh' ? '中文' : 'English'; ?></span>
                     <span class="dropdown-arrow">&#9658;</span>
                 </button>
                 <div class="language-dropdown-list" id="languageDropdown">
