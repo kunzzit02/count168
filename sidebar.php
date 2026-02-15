@@ -261,7 +261,7 @@ if ($companyId) {
                 </div>
             </div>
         </div>
-        <!-- 璇█鍒囨崲鎸夐挳 -->
+        <!-- 语言切换按钮 -->
         <!-- <div class="language-switcher">
             <div class="language-dropdown">
                 <button class="language-btn" onclick="toggleLanguageDropdown()">
