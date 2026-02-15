@@ -38,6 +38,15 @@ body {
     gap: 16px;
 }
 
+.maintenance-permission-filter-header {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 0.83vw, 16px);
+    flex-wrap: wrap;
+    padding: 0;
+    margin-top: clamp(12px, 1.04vw, 20px);
+}
+
 h1 {
     color: #002C49;
     text-align: left;
