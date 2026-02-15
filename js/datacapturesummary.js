@@ -2895,7 +2895,7 @@ function getCurrentProcessId() {
             if (!descriptionSelect2) return;
 
             // Clear existing options
-            descriptionSelect2.innerHTML = '<option value="">${typeof __ !== 'undefined' ? __('dcs.select_row_data') : 'Select Row Data'}</option>';
+            descriptionSelect2.innerHTML = `<option value="">${typeof __ !== 'undefined' ? __('dcs.select_row_data') : 'Select Row Data'}</option>`;
 
             if (!idProductValue || idProductValue.trim() === '') {
                 return;
