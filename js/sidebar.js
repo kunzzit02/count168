@@ -150,22 +150,13 @@
 
     function selectLanguage(lang) {
         if (lang !== 'en' && lang !== 'zh') return;
-        var currentFlag = document.getElementById('current-flag');
-        var currentLang = document.getElementById('current-lang');
-        if (lang === 'zh') {
-            if (currentFlag) { currentFlag.src = 'images/china.png'; currentFlag.alt = '中文'; }
-            if (currentLang) currentLang.textContent = '中文';
-        } else {
-            if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
-            if (currentLang) currentLang.textContent = 'English';
-        }
         var dropdown = document.getElementById('languageDropdown');
         var button = document.querySelector('.language-btn');
         if (dropdown) dropdown.classList.remove('show');
         if (button) button.classList.remove('active');
-        // 与 dashboard 等页统一：写入 Cookie 后刷新，整页切换语言
-        document.cookie = 'lang=' + lang + '; path=/; max-age=' + (365 * 24 * 60 * 60) + '; SameSite=Lax';
-        window.location.reload();
+        // 跳转到当前页 + ?lang=，由 config 服务端写 Cookie 并重定向，保证整页语言生效
+        var url = window.location.pathname + (window.location.search ? window.location.search + '&' : '?') + 'lang=' + lang;
+        window.location.href = url;
     }
 
     function toggleNotificationPanel(event) {

@@ -116,13 +116,8 @@ $userData = [
 // 权限检查
 $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
 
-// 语言：默认英语，支持 ?lang=zh 切换并写入 Cookie
-$langCode = isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'zh'], true) ? $_GET['lang'] : (isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en');
-if (isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'zh'], true)) {
-    setcookie('lang', $_GET['lang'], time() + 86400 * 365, '/', '', false, true);
-    header('Location: dashboard.php');
-    exit;
-}
+// 语言：由 Cookie 决定（?lang= 已在 config 中统一处理并重定向）
+$langCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
 $lang = require __DIR__ . '/lang/' . $langCode . '.php';
 if (!is_array($lang)) {
     $lang = [];
