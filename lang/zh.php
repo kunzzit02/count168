@@ -246,7 +246,7 @@ return [
     'process.category' => '类别：',
     'process.accounting_due' => '待入账',
     'process.no' => '序号',
-    'process.process_id' => '流程 ID',
+    'process.process_id' => '流程账号',
     'process.description' => '描述',
     'process.status' => '状态',
     'process.currency' => '货币',
