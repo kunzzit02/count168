@@ -20,12 +20,15 @@
     function updateDateRangeDisplay() {
         const display = document.getElementById('date-range-display');
         if (!display) return;
+        const L = typeof window.__LANG !== 'undefined' ? window.__LANG : {};
+        const selectDateRange = L['cm.select_date_range'] || L['dashboard.select_date_range'] || 'Select date range';
+        const selectEndDate = L['dashboard.select_end_date'] || 'Select end date';
         if (calendarStartDate && calendarEndDate) {
             display.textContent = formatDateDisplay(calendarStartDate) + ' - ' + formatDateDisplay(calendarEndDate);
         } else if (calendarStartDate) {
-            display.textContent = formatDateDisplay(calendarStartDate) + ' - Select end date';
+            display.textContent = formatDateDisplay(calendarStartDate) + ' - ' + selectEndDate;
         } else {
-            display.textContent = 'Select date range';
+            display.textContent = selectDateRange;
         }
     }
 
@@ -249,6 +252,22 @@
         'thisYear': 'This Year',
         'lastYear': 'Last Year'
     };
+    var RANGE_LANG_KEYS = {
+        'today': 'dashboard.today',
+        'yesterday': 'dashboard.yesterday',
+        'thisWeek': 'dashboard.this_week',
+        'lastWeek': 'dashboard.last_week',
+        'thisMonth': 'dashboard.this_month',
+        'lastMonth': 'dashboard.last_month',
+        'thisYear': 'dashboard.this_year',
+        'lastYear': 'dashboard.last_year'
+    };
+    function getQuickRangeLabel(range) {
+        var L = typeof window.__LANG !== 'undefined' ? window.__LANG : {};
+        var langKey = RANGE_LANG_KEYS[range];
+        if (langKey && L[langKey]) return L[langKey];
+        return RANGE_TEXTS[range] || (L['cm.period'] || L['dashboard.period'] || 'Period');
+    }
 
     function setQuickRange(range) {
         const today = new Date();
@@ -312,7 +331,7 @@
         syncToHiddenInputs();
         updateDateRangeDisplay();
         var quickSelectText = document.getElementById('quick-select-text');
-        if (quickSelectText) quickSelectText.textContent = RANGE_TEXTS[range] || 'Period';
+        if (quickSelectText) quickSelectText.textContent = getQuickRangeLabel(range);
         var dropdown = document.getElementById('quick-select-dropdown');
         if (dropdown) dropdown.classList.remove('show');
         if (typeof config.onChange === 'function') config.onChange();

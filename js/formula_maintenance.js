@@ -1,4 +1,6 @@
-// Notification functions
+function __(key) { return (typeof window.__LANG !== 'undefined' && window.__LANG[key]) ? window.__LANG[key] : key; }
+
+        // Notification functions
         function showNotification(message, type = 'success') {
             const container = document.getElementById('notificationContainer');
             
@@ -135,13 +137,14 @@
                         });
                         
                         // Add "All Process" option
+                        const selectAllText = typeof __ !== 'undefined' ? __('cm.select_all') : '--Select All--';
                         const allOption = document.createElement('div');
                         allOption.className = 'custom-select-option';
-                        allOption.textContent = '--Select All--';
+                        allOption.textContent = selectAllText;
                         allOption.setAttribute('data-value', '');
                         if (!previousValue) {
                             allOption.classList.add('selected');
-                            processButton.textContent = '--Select All--';
+                            processButton.textContent = selectAllText;
                         }
                         optionsContainer.appendChild(allOption);
                         
@@ -167,7 +170,7 @@
                         
                         // If no value selected, show placeholder
                         if (!previousValue) {
-                            processButton.textContent = processButton.getAttribute('data-placeholder') || '--Select All--';
+                            processButton.textContent = processButton.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('cm.select_all') : '--Select All--');
                             processButton.removeAttribute('data-value');
                         }
                         
@@ -178,7 +181,7 @@
                 })
                 .catch(error => {
                     console.error('❌ 加载Process列表失败:', error);
-                    showNotification(error.message || 'Failed to load process list', 'error');
+                    showNotification(error.message || (typeof __ !== 'undefined' ? __('cm.failed_load_process_list') : 'Failed to load process list'), 'error');
                 });
         }
         
@@ -221,7 +224,7 @@
                     if (!noResults) {
                         noResults = document.createElement('div');
                         noResults.className = 'custom-select-no-results';
-                        noResults.textContent = 'No results found';
+                        noResults.textContent = typeof __ !== 'undefined' ? __('tm.no_results_found') : 'No results found';
                         optionsContainer.appendChild(noResults);
                     }
                     noResults.style.display = 'block';
@@ -428,7 +431,9 @@
                         const btn = document.createElement('button');
                         btn.type = 'button';
                         btn.className = 'maintenance-company-btn';
-                        btn.textContent = permission;
+                        const L = typeof window.__LANG !== 'undefined' ? window.__LANG : {};
+                        const labelKey = 'cm.category_' + permission.toLowerCase();
+                        btn.textContent = L[labelKey] || permission;
                         btn.dataset.permission = permission;
                         btn.onclick = () => switchPermission(permission);
                         containerEl.appendChild(btn);
@@ -549,7 +554,8 @@
             const process = processButton?.getAttribute('data-value') || '';
             // 使用展示文本进行精确匹配，避免包含相同字眼的其他 Process 也被列出
             const selectedProcessDisplay = (processButton?.textContent || '').trim();
-            const selectedProcessUpper = selectedProcessDisplay && selectedProcessDisplay !== '--Select All--'
+            const selectAllText = typeof __ !== 'undefined' ? __('cm.select_all') : '--Select All--';
+            const selectedProcessUpper = selectedProcessDisplay && selectedProcessDisplay !== selectAllText
                 ? selectedProcessDisplay.toUpperCase()
                 : '';
             const searchFilter = document.getElementById('search_filter').value.trim();
@@ -649,14 +655,15 @@
                             if (container) {
                                 container.style.display = 'none';
                             }
-                            showNotification('No data found', 'info');
+                            showNotification(typeof __ !== 'undefined' ? __('cm.no_data_found') : 'No data found', 'info');
                         } else {
                             renderDataCaptureTable(filteredData);
-                            showNotification(`Found ${filteredData.length} record(s)`, 'success');
+                            const foundMsg = typeof __ !== 'undefined' ? (__('tm.found_records').replace('%d', filteredData.length)) : `Found ${filteredData.length} record(s)`;
+                            showNotification(foundMsg, 'success');
                         }
                     } else {
                         console.error('❌ 加载数据捕获列表失败:', data.message || data.error);
-                        showNotification(data.message || data.error || 'Search failed', 'error');
+                        showNotification(data.message || data.error || (typeof __ !== 'undefined' ? __('tm.search_failed') : 'Search failed'), 'error');
                         document.getElementById('emptyState').style.display = 'block';
                         if (container) {
                             container.style.display = 'none';
@@ -665,7 +672,7 @@
                 })
                 .catch(error => {
                     console.error('❌ 加载数据捕获列表失败:', error);
-                    showNotification('Search failed: ' + error.message, 'error');
+                    showNotification((typeof __ !== 'undefined' ? __('tm.search_failed') : 'Search failed') + ': ' + error.message, 'error');
                     document.getElementById('emptyState').style.display = 'block';
                     if (container) {
                         container.style.display = 'none';
@@ -1139,8 +1146,8 @@
             
             const templateIds = Array.from(checkboxes).map(cb => parseInt(cb.getAttribute('data-id')));
             
-            showConfirmDelete(
-                `Are you sure you want to delete the selected ${templateIds.length} record(s)? This action cannot be undone.`,
+            const confirmMsg = typeof __ !== 'undefined' ? (__('cm.confirm_delete_records_message').replace('%d', templateIds.length)) : `Are you sure you want to delete the selected ${templateIds.length} record(s)? This action cannot be undone.`;
+            showConfirmDelete(confirmMsg,
                 function() {
                     const deleteData = {
                         template_ids: templateIds
@@ -1169,7 +1176,7 @@
                     })
                     .then(data => {
                         if (data.success) {
-                            showNotification(data.message || `Deleted ${templateIds.length} record(s)`, 'success');
+                            showNotification(data.message || (typeof __ !== 'undefined' ? __('fm.deleted_records').replace('%d', templateIds.length) : `Deleted ${templateIds.length} record(s)`), 'success');
                             checkboxes.forEach(cb => cb.checked = false);
                             confirmCheckbox.checked = false;
                             updateDeleteButtonState();
@@ -1177,12 +1184,12 @@
                                 searchData();
                             }, 300);
                         } else {
-                            showNotification(data.message || data.error || 'Delete failed', 'error');
+                            showNotification(data.message || data.error || (typeof __ !== 'undefined' ? __('cm.delete_failed') : 'Delete failed'), 'error');
                         }
                     })
                     .catch(error => {
                         console.error('删除失败:', error);
-                        showNotification('Delete failed: ' + error.message, 'error');
+                        showNotification((typeof __ !== 'undefined' ? __('cm.delete_failed') : 'Delete failed') + ': ' + error.message, 'error');
                     });
                 }
             );
