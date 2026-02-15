@@ -1,3 +1,4 @@
+        function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
         // 全局变量
         let processes = [];
         let showInactive = (typeof window.PROCESSLIST_SHOW_INACTIVE !== 'undefined' ? window.PROCESSLIST_SHOW_INACTIVE : false);
@@ -118,7 +119,7 @@
             if (processes.length === 0) {
                 const emptyCard = document.createElement('div');
                 emptyCard.className = 'process-card';
-                emptyCard.innerHTML = `<div class="card-item" style="text-align: left; padding: 20px; grid-column: 1 / -1;">No process data found</div>`;
+                emptyCard.innerHTML = '<div class="card-item" style="text-align: left; padding: 20px; grid-column: 1 / -1;">' + __('process.no_process_data') + '</div>';
                 container.appendChild(emptyCard);
                 return;
             }
@@ -152,17 +153,17 @@
                         <div class="card-item">${escapeHtml((process.process_name || '').toUpperCase())}</div>
                         <div class="card-item">${escapeHtml((process.description || '').toUpperCase())}</div>
                         <div class="card-item">
-                            <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="Click to toggle status" style="cursor: pointer;">
+                            <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="' + (__('process.click_toggle_status')).replace(/"/g, '&quot;') + '" style="cursor: pointer;">
                                 ${escapeHtml((process.status || '').toUpperCase())}
                             </span>
                         </div>
                         <div class="card-item">${escapeHtml(process.currency || '')}</div>
                         <div class="card-item">${escapeHtml(process.day_use || process.day_name || '')}</div>
                         <div class="card-item">
-                            <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
+                            <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="' + __('process.edit').replace(/"/g, '&quot;') + '" title="' + __('process.edit').replace(/"/g, '&quot;') + '">
                                 <img src="images/edit.svg" alt="Edit" />
                             </button>
-                            ${process.status === 'active' ? '' : (process.has_transactions ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`)}
+                            ${process.status === 'active' ? '' : (process.has_transactions ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="' + (__('process.select_for_deletion')).replace(/"/g, '&quot;') + '" onchange="updateDeleteButton()" style="margin-left: 10px;">`)}
                         </div>
                     `;
                     container.appendChild(card);
@@ -187,7 +188,7 @@
                 if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
                 if (label === 'Action') {
                     const showActionCheckbox = showInactive || showAll;
-                    return '<th class="bank-th-action">Action' + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
+                    return '<th class="bank-th-action">' + __('process.action') + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="' + (__('process.select_all')).replace(/"/g, '&quot;') + '" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
                 }
                 return '<th>' + escapeHtml(label) + '</th>';
             }).join('');
@@ -214,7 +215,7 @@
             window.__bankFilteredLength = waiting ? listToShow.length : null;
 
             if (listToShow.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="15" class="bank-empty-cell">No process data found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="15" class="bank-empty-cell">' + __('process.no_process_data') + '</td></tr>';
                 renderPagination();
                 updateSelectAllProcessesVisibility();
                 return;
@@ -252,9 +253,9 @@
                 const price = dashIfEmpty(process.price);
                 const profit = dashIfEmpty(process.profit);
                 // 状态徽章：Bank 现在允许 INACTIVE ↔ ACTIVE 自由切换，前端只做确认弹窗，不再禁止点击
-                const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
-                const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                    (process.status === 'active' ? '' : (process.has_transactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
+                const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="' + (__('process.click_toggle_status')).replace(/"/g, '&quot;') + '" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
+                const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="' + __('process.edit').replace(/"/g, '&quot;') + '" title="' + __('process.edit').replace(/"/g, '&quot;') + '"><img src="images/edit.svg" alt="Edit" /></button>' +
+                    (process.status === 'active' ? '' : (process.has_transactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="' + (__('process.select_for_deletion')).replace(/"/g, '&quot;') + '" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.setAttribute('data-status', process.status || '');
@@ -307,7 +308,8 @@
             const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
             // 更新分页控件信息
-            document.getElementById('paginationInfo').textContent = `${currentPage} of ${totalPages}`;
+            const paginationFmt = __('process.pagination_of');
+            document.getElementById('paginationInfo').textContent = paginationFmt.replace(/%d/, String(currentPage)).replace(/%d/, String(totalPages));
 
             // 更新按钮状态
             const isPrevDisabled = currentPage <= 1;
@@ -433,8 +435,8 @@
             window.selectedProfitSharingEntries = [];
             const titleEl = document.getElementById('bankModalTitle');
             const submitBtn = document.getElementById('bankSubmitBtn');
-            if (titleEl) titleEl.textContent = 'Add Process';
-            if (submitBtn) submitBtn.textContent = 'Add Process';
+            if (titleEl) titleEl.textContent = __('process.add_process');
+            if (submitBtn) submitBtn.textContent = __('process.add_process');
             document.getElementById('addBankProcessForm').reset();
             document.getElementById('bank_edit_id').value = '';
             const profitInput = document.getElementById('bank_profit');
@@ -539,8 +541,8 @@
                 const process = result.data;
                 await loadAddBankProcessData();
                 document.getElementById('bank_edit_id').value = process.id;
-                document.getElementById('bankModalTitle').textContent = 'Edit Process';
-                document.getElementById('bankSubmitBtn').textContent = 'Update Process';
+                document.getElementById('bankModalTitle').textContent = __('process.edit_process');
+                document.getElementById('bankSubmitBtn').textContent = __('process.update_process');
                 const countrySelect = document.getElementById('bank_country');
                 const bankSelect = document.getElementById('bank_bank');
                 if (process.country) {
@@ -910,10 +912,10 @@
             }
 
             if (selectedCheckboxes.length > 0) {
-                deleteBtn.textContent = `Delete (${selectedCheckboxes.length})`;
+                deleteBtn.textContent = __('process.delete') + ' (' + selectedCheckboxes.length + ')';
                 deleteBtn.disabled = !deleteEnabled;
             } else {
-                deleteBtn.textContent = 'Delete';
+                deleteBtn.textContent = __('process.delete');
                 deleteBtn.disabled = true;
             }
 
@@ -934,7 +936,7 @@
                 return row && row.getAttribute('data-status') === 'active';
             }).map(cb => cb.dataset.id);
             postBtn.disabled = activeSelectedIds.length === 0;
-            postBtn.textContent = activeSelectedIds.length > 0 ? `Transaction (${activeSelectedIds.length})` : 'Transaction';
+            postBtn.textContent = activeSelectedIds.length > 0 ? __('process.transaction') + ' (' + activeSelectedIds.length + ')' : __('process.transaction');
         }
 
         window.__accountingInboxList = [];
@@ -967,7 +969,7 @@
             if (countModal) countModal.textContent = String(postableCount);
             if (selectAllCb) { selectAllCb.checked = postableCount > 0; selectAllCb.disabled = postableCount === 0; }
             if (count === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:10px 8px; color:#6b7280;">' + __('process.no_due_today') + '</td></tr>';
                 if (postBtn) postBtn.disabled = true;
                 const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
                 if (deleteBtn) deleteBtn.disabled = true;
@@ -1144,8 +1146,8 @@
             closeConfirmAccountingDueDeleteModal();
             const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
             const confirmBtn = document.getElementById('confirmAccountingDueDeleteBtn');
-            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Removing...'; }
-            if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Removing...'; }
+            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = __('process.removing'); }
+            if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = __('process.removing'); }
             try {
                 const formData = new FormData();
                 pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
@@ -1161,8 +1163,8 @@
                 console.error('Dismiss error:', err);
                 showNotification('Request failed: ' + (err.message || 'Network error'), 'danger');
             } finally {
-                if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = 'Delete'; updateAccountingInboxDeleteButton(); }
-                if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Delete'; }
+                if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = __('process.delete'); updateAccountingInboxDeleteButton(); }
+                if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = __('process.delete'); }
             }
         }
 
@@ -1233,13 +1235,13 @@
                 } else {
                     const statusClass = newStatus === 'active' ? 'status-active' : (newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
                     const process = processes.find(p => p.id === processId);
-                    const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
+                    const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="' + (__('process.click_toggle_status')).replace(/"/g, '&quot;') + '" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
 
                     if (selectedPermission === 'Bank') {
                         const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                         const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
-                        const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                            (newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
+                        const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="' + __('process.edit').replace(/"/g, '&quot;') + '" title="' + __('process.edit').replace(/"/g, '&quot;') + '"><img src="images/edit.svg" alt="Edit" /></button>' +
+                            (newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="' + (__('process.select_for_deletion')).replace(/"/g, '&quot;') + '" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                         if (row) {
                             row.setAttribute('data-status', newStatus || '');
                             const cells = row.querySelectorAll('td');
@@ -1334,13 +1336,13 @@
             const confirmBtn = document.getElementById('confirmInactiveBtn');
 
             if (pendingToggleNewStatus === 'inactive') {
-                if (titleEl) titleEl.textContent = 'Switch to Inactive';
-                if (messageEl) messageEl.textContent = 'Confirm switching this Bank Process to Inactive?';
-                if (confirmBtn) confirmBtn.textContent = 'Inactive';
+                if (titleEl) titleEl.textContent = __('process.switch_to_inactive');
+                if (messageEl) messageEl.textContent = __('process.confirm_switch_inactive');
+                if (confirmBtn) confirmBtn.textContent = __('process.inactive');
             } else {
-                if (titleEl) titleEl.textContent = 'Switch to Active';
-                if (messageEl) messageEl.textContent = 'Confirm switching this Bank Process to Active?';
-                if (confirmBtn) confirmBtn.textContent = 'Active';
+                if (titleEl) titleEl.textContent = __('process.switch_to_active');
+                if (messageEl) messageEl.textContent = __('process.confirm_switch_active');
+                if (confirmBtn) confirmBtn.textContent = __('process.active');
             }
 
             if (modal) modal.style.display = 'block';
@@ -1476,7 +1478,7 @@
                     selectedList.appendChild(div);
                 });
             } else {
-                selectedList.innerHTML = '<div class="no-descriptions">No descriptions selected</div>';
+                selectedList.innerHTML = '<div class="no-descriptions">' + __('process.no_descriptions_selected') + '</div>';
             }
         }
 
@@ -1527,7 +1529,7 @@
             if (!selectedList.querySelector('.selected-description-modal-item')) {
                 const empty = document.createElement('div');
                 empty.className = 'no-descriptions';
-                empty.textContent = 'No descriptions selected';
+                empty.textContent = __('process.no_descriptions_selected');
                 selectedList.appendChild(empty);
             }
         }
@@ -1545,7 +1547,7 @@
             if (!selectedList.querySelector('.selected-description-modal-item')) {
                 const empty = document.createElement('div');
                 empty.className = 'no-descriptions';
-                empty.textContent = 'No descriptions selected';
+                empty.textContent = __('process.no_descriptions_selected');
                 selectedList.appendChild(empty);
             }
             // add back to available list

@@ -196,16 +196,30 @@ if ($current_user_id && count($user_companies) > 0) {
     // 如果没有关联的 company，使用 session 中的 company_id
     $company_id = $_SESSION['company_id'] ?? null;
 }
+
+// 语言：按 Cookie 加载
+$processLangCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
+$processLang = require __DIR__ . '/lang/' . $processLangCode . '.php';
+if (!is_array($processLang)) {
+    $processLang = [];
+}
+if (!function_exists('__')) {
+    $lang = $processLang;
+    function __($key) {
+        global $lang;
+        return $lang[$key] ?? $key;
+    }
+}
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?php echo $processLangCode === 'zh' ? 'zh' : 'en'; ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
-    <title>Process List</title>
+    <title><?php echo htmlspecialchars(__('process.title_page')); ?></title>
     <link rel="stylesheet" href="css/processCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
@@ -220,14 +234,14 @@ if ($current_user_id && count($user_companies) > 0) {
             <div
                 style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
                 <div style="display: flex; align-items: center; gap: 16px;">
-                    <h1 class="page-title" style="margin: 0;">Process List</h1>
+                    <h1 class="page-title" style="margin: 0;"><?php echo htmlspecialchars(__('process.title')); ?></h1>
                     <!-- Accounting Due (Bank only): opens large modal like Add Process -->
                     <div class="process-accounting-inbox-wrap" id="processAccountingInboxWrap" style="display: none;">
                         <button type="button" class="process-accounting-inbox-btn process-accounting-inbox-main" id="processAccountingInboxBtn">
                             <svg class="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                 <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
                             </svg>
-                            Accounting Due
+                            <?php echo htmlspecialchars(__('process.accounting_due')); ?>
                             <span class="process-accounting-inbox-badge" id="processAccountingInboxCount">0</span>
                         </button>
                     </div>
@@ -235,7 +249,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <!-- Permission Filter -->
                 <div id="process-list-permission-filter" class="process-company-filter process-permission-filter-header"
                     style="display: none;">
-                    <span class="process-company-label">Category:</span>
+                    <span class="process-company-label"><?php echo htmlspecialchars(__('process.category')); ?></span>
                     <div id="process-list-permission-buttons" class="process-company-buttons">
                         <!-- Permission buttons will be loaded dynamically -->
                     </div>
@@ -247,32 +261,32 @@ if ($current_user_id && count($user_companies) > 0) {
             <div class="action-buttons-container">
                 <div class="action-buttons">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <button class="btn btn-add" onclick="addProcess()">Add Process</button>
+                        <button class="btn btn-add" onclick="addProcess()"><?php echo htmlspecialchars(__('process.add_process')); ?></button>
                         <div class="search-container">
                             <svg class="search-icon" fill="currentColor" viewBox="0 0 24 24">
                                 <path
                                     d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
                             </svg>
-                            <input type="text" id="searchInput" placeholder="Search by Description" class="search-input"
+                            <input type="text" id="searchInput" placeholder="<?php echo htmlspecialchars(__('process.search_placeholder')); ?>" class="search-input"
                                 value="<?php echo $searchTerm; ?>">
                         </div>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactive ? 'checked' : ''; ?>>
-                            <label for="showInactive">Show Inactive</label>
+                            <label for="showInactive"><?php echo htmlspecialchars(__('process.show_inactive')); ?></label>
                         </div>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAll ? 'checked' : ''; ?>>
-                            <label for="showAll">Show All</label>
+                            <label for="showAll"><?php echo htmlspecialchars(__('process.show_all')); ?></label>
                         </div>
                     </div>
                     <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
-                        title="Only inactive processes can be deleted" disabled>Delete</button>
+                        title="<?php echo htmlspecialchars(__('process.delete_only_inactive')); ?>" disabled><?php echo htmlspecialchars(__('process.delete')); ?></button>
                 </div>
 
                 <?php if (count($user_companies) > 1): ?>
                     <div id="process-list-company-filter" class="process-company-filter"
                         style="display: flex; margin-top: 10px;">
-                        <span class="process-company-label">Company:</span>
+                        <span class="process-company-label"><?php echo htmlspecialchars(__('process.company')); ?></span>
                         <div id="process-list-company-buttons" class="process-company-buttons">
                             <?php foreach ($user_companies as $comp): ?>
                                 <button type="button"
@@ -292,33 +306,33 @@ if ($current_user_id && count($user_companies) > 0) {
                 <!-- Table Header -->
                 <div class="table-header" id="tableHeader">
                     <!-- Games table headers (default) -->
-                    <div class="header-item gambling-header">No</div>
-                    <div class="header-item gambling-header">Process ID</div>
-                    <div class="header-item gambling-header">Description</div>
-                    <div class="header-item gambling-header">Status</div>
-                    <div class="header-item gambling-header">Currency</div>
-                    <div class="header-item gambling-header">Day Use</div>
-                    <div class="header-item gambling-header">Action
-                        <input type="checkbox" id="selectAllProcesses" title="Select all"
+                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.no')); ?></div>
+                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.process_id')); ?></div>
+                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.description')); ?></div>
+                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.status')); ?></div>
+                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.currency')); ?></div>
+                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.day_use')); ?></div>
+                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.action')); ?>
+                        <input type="checkbox" id="selectAllProcesses" title="<?php echo htmlspecialchars(__('process.select_all')); ?>"
                             style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllProcesses()">
                     </div>
                     <!-- Bank table headers (hidden by default) -->
-                    <div class="header-item bank-header" style="display: none;">No</div>
-                    <div class="header-item bank-header" style="display: none;">Supplier</div>
-                    <div class="header-item bank-header" style="display: none;">Country (Currency)</div>
-                    <div class="header-item bank-header" style="display: none;">Bank</div>
-                    <div class="header-item bank-header" style="display: none;">Types</div>
-                    <div class="header-item bank-header" style="display: none;">Card Owner</div>
-                    <div class="header-item bank-header" style="display: none;">Contract</div>
-                    <div class="header-item bank-header" style="display: none;">Insurance</div>
-                    <div class="header-item bank-header" style="display: none;">Customer</div>
-                    <div class="header-item bank-header" style="display: none;">Cost</div>
-                    <div class="header-item bank-header" style="display: none;">Price</div>
-                    <div class="header-item bank-header" style="display: none;">Profit</div>
-                    <div class="header-item bank-header" style="display: none;">Status</div>
-                    <div class="header-item bank-header" style="display: none;">Date</div>
-                    <div class="header-item bank-header bank-action-header" style="display: none;">Action
-                        <input type="checkbox" title="Select all" class="header-action-checkbox"
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.no')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_supplier')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_country_currency')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_bank')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_types')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_card_owner')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_contract')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_insurance')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_customer')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_cost')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_price')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_profit')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.status')); ?></div>
+                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_date')); ?></div>
+                    <div class="header-item bank-header bank-action-header" style="display: none;"><?php echo htmlspecialchars(__('process.action')); ?>
+                        <input type="checkbox" title="<?php echo htmlspecialchars(__('process.select_all')); ?>" class="header-action-checkbox"
                             style="margin-left: 10px; cursor: pointer;">
                     </div>
                 </div>
@@ -326,7 +340,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <!-- Process Cards List -->
                 <div class="process-cards" id="processTableBody">
                     <div class="process-card">
-                        <div class="card-item">Load the Data...</div>
+                        <div class="card-item"><?php echo htmlspecialchars(__('process.load_data')); ?></div>
                     </div>
                 </div>
             </div>
@@ -354,7 +368,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <div id="editModal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Edit Process</h2>
+                <h2><?php echo htmlspecialchars(__('process.edit_process')); ?></h2>
                 <span class="close" onclick="closeEditModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -367,7 +381,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="add-col">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_process_name">Process Name *</label>
+                                <label for="edit_process_name"><?php echo htmlspecialchars(__('process.process_name')); ?></label>
                                 <input type="text" id="edit_process_name" name="process_name" required readonly
                                     style="background-color: #f5f5f5; cursor: not-allowed;">
                             </div>
@@ -375,10 +389,10 @@ if ($current_user_id && count($user_companies) > 0) {
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_description">Description</label>
+                                <label for="edit_description"><?php echo htmlspecialchars(__('process.description')); ?></label>
                                 <div class="input-with-icon">
                                     <input type="text" id="edit_description" name="description" readonly
-                                        placeholder="Click + to select descriptions">
+                                        placeholder="<?php echo htmlspecialchars(__('process.click_to_select_descriptions')); ?>">
                                     <button type="button" class="add-icon" onclick="expandEditDescription()">+</button>
                                 </div>
                             </div>
@@ -387,24 +401,23 @@ if ($current_user_id && count($user_companies) > 0) {
                         <!-- Selected Descriptions Display for Edit (hidden by default) -->
                         <div class="form-row" id="edit_selected_descriptions_display" style="display: none;">
                             <div class="form-group">
-                                <label>Selected Descriptions</label>
+                                <label><?php echo htmlspecialchars(__('process.selected_descriptions')); ?></label>
                                 <div class="selected-descriptions" id="edit_selected_descriptions_list"></div>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_currency">Currency</label>
+                                <label for="edit_currency"><?php echo htmlspecialchars(__('process.currency')); ?></label>
                                 <select id="edit_currency" name="currency_id">
-                                    <option value="">Select Currency</option>
+                                    <option value=""><?php echo htmlspecialchars(__('process.select_currency')); ?></option>
                                 </select>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_dts_modified" style="font-weight: 600; color: #666;">DTS
-                                    Modified:</label>
+                                <label for="edit_dts_modified" style="font-weight: 600; color: #666;"><?php echo htmlspecialchars(__('process.dts_modified')); ?></label>
                                 <div id="edit_dts_modified" readonly
                                     style="background-color: #f5f5f5; cursor: not-allowed; margin-top: 5px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%; min-width: 200px; min-height: 38px; box-sizing: border-box;">
                                     <span id="edit_dts_modified_date" style="min-height: 1em;"></span>
@@ -415,8 +428,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_dts_created" style="font-weight: 600; color: #666;">DTS
-                                    Created:</label>
+                                <label for="edit_dts_created" style="font-weight: 600; color: #666;"><?php echo htmlspecialchars(__('process.dts_created')); ?></label>
                                 <div id="edit_dts_created" readonly
                                     style="background-color: #f5f5f5; cursor: not-allowed; margin-top: 5px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%; min-width: 200px; min-height: 38px; box-sizing: border-box;">
                                     <span id="edit_dts_created_date" style="min-height: 1em;"></span>
@@ -430,21 +442,20 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="add-col">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_remove_words">Remove Words</label>
+                                <label for="edit_remove_words"><?php echo htmlspecialchars(__('process.remove_words')); ?></label>
                                 <input type="text" id="edit_remove_words" name="remove_word"
-                                    placeholder="Enter words to remove">
-                                <small class="field-help">(Use semicolon to separate multiple words, e.g.
-                                    abc;cde;efg)</small>
+                                    placeholder="<?php echo htmlspecialchars(__('process.remove_words_placeholder')); ?>">
+                                <small class="field-help"><?php echo htmlspecialchars(__('process.remove_words_help')); ?></small>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
                                 <div class="day-use-header">
-                                    <label>Day Use</label>
+                                    <label><?php echo htmlspecialchars(__('process.day_use')); ?></label>
                                     <div class="all-day-checkbox">
                                         <input type="checkbox" id="edit_all_day" name="all_day">
-                                        <label for="edit_all_day">All Day</label>
+                                        <label for="edit_all_day"><?php echo htmlspecialchars(__('process.all_day')); ?></label>
                                     </div>
                                 </div>
                                 <div class="day-checkboxes" id="edit_day_checkboxes"></div>
@@ -453,32 +464,32 @@ if ($current_user_id && count($user_companies) > 0) {
 
                         <div class="form-row row-two-cols">
                             <div class="form-group">
-                                <label for="edit_replace_word_from">Replace From</label>
+                                <label for="edit_replace_word_from"><?php echo htmlspecialchars(__('process.replace_from')); ?></label>
                                 <input type="text" id="edit_replace_word_from" name="replace_word_from"
-                                    placeholder="Old word">
-                                <small class="field-help">(Word to be replaced)</small>
+                                    placeholder="<?php echo htmlspecialchars(__('process.old_word')); ?>">
+                                <small class="field-help"><?php echo htmlspecialchars(__('process.word_to_replace')); ?></small>
                             </div>
 
                             <div class="form-group">
-                                <label for="edit_replace_word_to">Replace To</label>
+                                <label for="edit_replace_word_to"><?php echo htmlspecialchars(__('process.replace_to')); ?></label>
                                 <input type="text" id="edit_replace_word_to" name="replace_word_to"
-                                    placeholder="New word">
-                                <small class="field-help">(Replacement word)</small>
+                                    placeholder="<?php echo htmlspecialchars(__('process.new_word')); ?>">
+                                <small class="field-help"><?php echo htmlspecialchars(__('process.replacement_word')); ?></small>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_remarks">Remarks</label>
+                                <label for="edit_remarks"><?php echo htmlspecialchars(__('process.remarks')); ?></label>
                                 <textarea id="edit_remarks" name="remark" rows="5"
-                                    placeholder="Enter remarks..."></textarea>
+                                    placeholder="<?php echo htmlspecialchars(__('process.remarks_placeholder')); ?>"></textarea>
                             </div>
                         </div>
                     </div>
 
                     <div class="form-actions add-actions">
-                        <button type="submit" class="btn btn-save">Update Process</button>
-                        <button type="button" class="btn btn-cancel" onclick="closeEditModal()">Cancel</button>
+                        <button type="submit" class="btn btn-save"><?php echo htmlspecialchars(__('process.update_process')); ?></button>
+                        <button type="button" class="btn btn-cancel" onclick="closeEditModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
                     </div>
                 </form>
             </div>
@@ -490,7 +501,7 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="modal-content accounting-due-modal-content">
             <div class="modal-header">
                 <h2>
-                    Accounting Due
+                    <?php echo htmlspecialchars(__('process.accounting_due')); ?>
                     <span class="process-accounting-inbox-badge" id="processAccountingInboxCountModal">0</span>
                 </h2>
                 <div class="modal-header-actions">
@@ -502,22 +513,22 @@ if ($current_user_id && count($user_companies) > 0) {
                     <table class="process-accounting-inbox-table">
                         <thead>
                             <tr>
-                                <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="Select all" class="process-accounting-inbox-cb"></th>
-                                <th>No</th>
-                                <th>Start Date</th>
-                                <th>Card Owner</th>
-                                <th>Bank</th>
-                                <th>Contract</th>
-                                <th style="width:80px;">Delete <input type="checkbox" id="processAccountingInboxDeleteSelectAll" title="Select all for delete" class="process-accounting-inbox-delete-cb"></th>
+                                <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="<?php echo htmlspecialchars(__('process.select_all')); ?>" class="process-accounting-inbox-cb"></th>
+                                <th><?php echo htmlspecialchars(__('process.no')); ?></th>
+                                <th><?php echo htmlspecialchars(__('process.start_date')); ?></th>
+                                <th><?php echo htmlspecialchars(__('process.bank_card_owner')); ?></th>
+                                <th><?php echo htmlspecialchars(__('process.bank_bank')); ?></th>
+                                <th><?php echo htmlspecialchars(__('process.bank_contract')); ?></th>
+                                <th style="width:80px;"><?php echo htmlspecialchars(__('process.delete')); ?> <input type="checkbox" id="processAccountingInboxDeleteSelectAll" title="<?php echo htmlspecialchars(__('process.select_all_for_delete')); ?>" class="process-accounting-inbox-delete-cb"></th>
                             </tr>
                         </thead>
                         <tbody id="processAccountingInboxTbody"></tbody>
                     </table>
                 </div>
                 <div class="process-accounting-inbox-actions">
-                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Transaction</button>
-                    <button type="button" class="btn btn-delete" id="processAccountingInboxDeleteBtn" onclick="deleteAccountingInboxSelected()" disabled>Delete</button>
-                    <button type="button" class="btn btn-cancel" onclick="closeAccountingDueModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled><?php echo htmlspecialchars(__('process.transaction')); ?></button>
+                    <button type="button" class="btn btn-delete" id="processAccountingInboxDeleteBtn" onclick="deleteAccountingInboxSelected()" disabled><?php echo htmlspecialchars(__('process.delete')); ?></button>
+                    <button type="button" class="btn btn-cancel" onclick="closeAccountingDueModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
                 </div>
             </div>
         </div>
@@ -527,7 +538,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <div id="addModal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Add Process</h2>
+                <h2><?php echo htmlspecialchars(__('process.add_process')); ?></h2>
                 <span class="close" onclick="closeAddModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -536,22 +547,22 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="add-col">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_copy_from">Copy From</label>
+                                <label for="add_copy_from"><?php echo htmlspecialchars(__('process.copy_from')); ?></label>
                                 <select id="add_copy_from" name="copy_from">
-                                    <option value="">Select Process to Copy</option>
+                                    <option value=""><?php echo htmlspecialchars(__('process.select_process_to_copy')); ?></option>
                                 </select>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_process_id">Process ID *</label>
+                                <label for="add_process_id"><?php echo htmlspecialchars(__('process.process_id')); ?> *</label>
                                 <div class="input-with-checkbox">
                                     <input type="text" id="add_process_id" name="process_id"
-                                        placeholder="Enter Process ID" required>
+                                        placeholder="<?php echo htmlspecialchars(__('process.process_id_placeholder')); ?>" required>
                                     <div class="checkbox-container">
                                         <input type="checkbox" id="add_multi_use" name="multi_use_purpose">
-                                        <label for="add_multi_use">Multi-Process</label>
+                                        <label for="add_multi_use"><?php echo htmlspecialchars(__('process.multi_process')); ?></label>
                                     </div>
                                 </div>
                             </div>
@@ -560,11 +571,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         <!-- Multi-use Process Selection (hidden by default) -->
                         <div class="form-row" id="multi_use_processes" style="display: none;">
                             <div class="form-group">
-                                <label>Select Multi-use Processes</label>
+                                <label><?php echo htmlspecialchars(__('process.select_multi_use')); ?></label>
                                 <div class="process-checkboxes" id="process_checkboxes"></div>
                                 <div class="multi-use-actions">
                                     <button type="button" class="btn btn-save btn-small"
-                                        onclick="confirmMultiUseProcessSelection()">Confirm</button>
+                                        onclick="confirmMultiUseProcessSelection()"><?php echo htmlspecialchars(__('process.confirm')); ?></button>
                                 </div>
                             </div>
                         </div>
@@ -572,17 +583,17 @@ if ($current_user_id && count($user_companies) > 0) {
                         <!-- Selected Processes Display (hidden by default) -->
                         <div class="form-row" id="selected_processes_display" style="display: none;">
                             <div class="form-group">
-                                <label>Selected Multi-use Processes</label>
+                                <label><?php echo htmlspecialchars(__('process.selected_multi_use')); ?></label>
                                 <div class="selected-processes" id="selected_processes_list"></div>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_description">Description *</label>
+                                <label for="add_description"><?php echo htmlspecialchars(__('process.description')); ?> *</label>
                                 <div class="input-with-icon">
                                     <input type="text" id="add_description" name="description" required readonly
-                                        placeholder="Click + to select descriptions">
+                                        placeholder="<?php echo htmlspecialchars(__('process.click_to_select_descriptions')); ?>">
                                     <button type="button" class="add-icon" onclick="expandDescription()">+</button>
                                 </div>
                             </div>
@@ -591,16 +602,16 @@ if ($current_user_id && count($user_companies) > 0) {
                         <!-- Selected Descriptions Display (hidden by default) -->
                         <div class="form-row" id="selected_descriptions_display" style="display: none;">
                             <div class="form-group">
-                                <label>Selected Descriptions</label>
+                                <label><?php echo htmlspecialchars(__('process.selected_descriptions')); ?></label>
                                 <div class="selected-descriptions" id="selected_descriptions_list"></div>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_currency">Currency</label>
+                                <label for="add_currency"><?php echo htmlspecialchars(__('process.currency')); ?></label>
                                 <select id="add_currency" name="currency_id">
-                                    <option value="">Select Currency</option>
+                                    <option value=""><?php echo htmlspecialchars(__('process.select_currency')); ?></option>
                                 </select>
                             </div>
                         </div>
@@ -610,20 +621,19 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="add-col">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_remove_words">Remove Words</label>
+                                <label for="add_remove_words"><?php echo htmlspecialchars(__('process.remove_words')); ?></label>
                                 <input type="text" id="add_remove_words" name="remove_word"
-                                    placeholder="Enter words to remove">
-                                <small class="field-help">(Use semicolon to separate multiple words, e.g.
-                                    abc;cde;efg)</small>
+                                    placeholder="<?php echo htmlspecialchars(__('process.remove_words_placeholder')); ?>">
+                                <small class="field-help"><?php echo htmlspecialchars(__('process.remove_words_help')); ?></small>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <div class="day-use-header">
-                                    <label>Day Use</label>
+                                    <label><?php echo htmlspecialchars(__('process.day_use')); ?></label>
                                     <div class="all-day-checkbox">
                                         <input type="checkbox" id="add_all_day" name="all_day">
-                                        <label for="add_all_day">All Day</label>
+                                        <label for="add_all_day"><?php echo htmlspecialchars(__('process.all_day')); ?></label>
                                     </div>
                                 </div>
                                 <div class="day-checkboxes" id="day_checkboxes"></div>
@@ -631,31 +641,31 @@ if ($current_user_id && count($user_companies) > 0) {
                         </div>
                         <div class="form-row row-two-cols">
                             <div class="form-group">
-                                <label for="add_replace_word_from">Replace From</label>
+                                <label for="add_replace_word_from"><?php echo htmlspecialchars(__('process.replace_from')); ?></label>
                                 <input type="text" id="add_replace_word_from" name="replace_word_from"
-                                    placeholder="Old word">
-                                <small class="field-help">(Word to be replaced)</small>
+                                    placeholder="<?php echo htmlspecialchars(__('process.old_word')); ?>">
+                                <small class="field-help"><?php echo htmlspecialchars(__('process.word_to_replace')); ?></small>
                             </div>
                             <div class="form-group">
-                                <label for="add_replace_word_to">Replace To</label>
+                                <label for="add_replace_word_to"><?php echo htmlspecialchars(__('process.replace_to')); ?></label>
                                 <input type="text" id="add_replace_word_to" name="replace_word_to"
-                                    placeholder="New word">
-                                <small class="field-help">(Replacement word)</small>
+                                    placeholder="<?php echo htmlspecialchars(__('process.new_word')); ?>">
+                                <small class="field-help"><?php echo htmlspecialchars(__('process.replacement_word')); ?></small>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_remarks">Remarks</label>
+                                <label for="add_remarks"><?php echo htmlspecialchars(__('process.remarks')); ?></label>
                                 <textarea id="add_remarks" name="remark" rows="5"
-                                    placeholder="Enter remarks..."></textarea>
+                                    placeholder="<?php echo htmlspecialchars(__('process.remarks_placeholder')); ?>"></textarea>
                             </div>
                         </div>
                     </div>
 
                     <!-- Actions: span full width -->
                     <div class="form-actions add-actions">
-                        <button type="submit" class="btn btn-save">Add Process</button>
-                        <button type="button" class="btn btn-cancel" onclick="closeAddModal()">Cancel</button>
+                        <button type="submit" class="btn btn-save"><?php echo htmlspecialchars(__('process.add_process')); ?></button>
+                        <button type="button" class="btn btn-cancel" onclick="closeAddModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
                     </div>
                 </form>
             </div>
@@ -666,7 +676,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <div id="addBankModal" class="modal bank-modal" style="display: none;">
         <div class="modal-content bank-modal-content">
             <div class="modal-header">
-                <h2 id="bankModalTitle">Add Process</h2>
+                <h2 id="bankModalTitle"><?php echo htmlspecialchars(__('process.add_process')); ?></h2>
                 <span class="close" onclick="closeAddBankModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -1307,13 +1317,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
             </div>
-            <h2 class="process-confirm-title">Confirm Delete</h2>
-            <p id="confirmDeleteMessage" class="process-confirm-message">This action cannot be undone.</p>
+            <h2 class="process-confirm-title"><?php echo htmlspecialchars(__('process.confirm_delete')); ?></h2>
+            <p id="confirmDeleteMessage" class="process-confirm-message"><?php echo htmlspecialchars(__('process.confirm_delete_message')); ?></p>
             <div class="process-confirm-actions">
                 <button type="button" class="process-btn process-btn-cancel confirm-cancel"
-                    onclick="closeConfirmDeleteModal()">Cancel</button>
+                    onclick="closeConfirmDeleteModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
                 <button type="button" class="process-btn process-btn-delete confirm-delete"
-                    onclick="confirmDelete()">Delete</button>
+                    onclick="confirmDelete()"><?php echo htmlspecialchars(__('process.delete')); ?></button>
             </div>
         </div>
     </div>
@@ -1327,11 +1337,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         d="M10 9v2m0 4h.01M14 9v2m0 4h.01M5 9h14a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4a1 1 0 011-1z" />
                 </svg>
             </div>
-            <h2 class="process-confirm-title">Switch to Inactive</h2>
-            <p id="confirmInactiveMessage" class="process-confirm-message">Confirm switching this Bank Process to Inactive?</p>
+            <h2 class="process-confirm-title" id="confirmInactiveTitle"><?php echo htmlspecialchars(__('process.switch_to_inactive')); ?></h2>
+            <p id="confirmInactiveMessage" class="process-confirm-message"><?php echo htmlspecialchars(__('process.confirm_switch_inactive')); ?></p>
             <div class="process-confirm-actions">
-                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmInactiveModal()">Cancel</button>
-                <button type="button" class="process-btn process-btn-inactive confirm-inactive" id="confirmInactiveBtn" onclick="confirmInactive()">Inactive</button>
+                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmInactiveModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+                <button type="button" class="process-btn process-btn-inactive confirm-inactive" id="confirmInactiveBtn" onclick="confirmInactive()"><?php echo htmlspecialchars(__('process.inactive')); ?></button>
             </div>
         </div>
     </div>
@@ -1345,16 +1355,17 @@ if ($current_user_id && count($user_companies) > 0) {
                         d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
             </div>
-            <h2 class="process-confirm-title">Remove from Accounting Due</h2>
-            <p id="confirmAccountingDueDeleteMessage" class="process-confirm-message">Selected rows will be removed from Accounting Due. Process data will not change.</p>
+            <h2 class="process-confirm-title"><?php echo htmlspecialchars(__('process.remove_from_accounting_due')); ?></h2>
+            <p id="confirmAccountingDueDeleteMessage" class="process-confirm-message"><?php echo htmlspecialchars(__('process.remove_from_accounting_due_message')); ?></p>
             <div class="process-confirm-actions">
-                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmAccountingDueDeleteModal()">Cancel</button>
-                <button type="button" class="process-btn process-btn-delete confirm-delete" id="confirmAccountingDueDeleteBtn" onclick="confirmAccountingDueDelete()">Delete</button>
+                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmAccountingDueDeleteModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+                <button type="button" class="process-btn process-btn-delete confirm-delete" id="confirmAccountingDueDeleteBtn" onclick="confirmAccountingDueDelete()"><?php echo htmlspecialchars(__('process.delete')); ?></button>
             </div>
         </div>
     </div>
 
     <script>
+        window.__LANG = <?php echo json_encode($processLang); ?>;
         window.PROCESSLIST_SHOW_INACTIVE = <?php echo isset($_GET['showInactive']) ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_ALL = <?php echo isset($_GET['showAll']) ? 'true' : 'false'; ?>;
         window.PROCESSLIST_COMPANY_ID = <?php echo json_encode($company_id ?? null); ?>;
