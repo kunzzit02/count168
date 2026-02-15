@@ -1670,7 +1670,7 @@
                 if (result.success) {
                     // 填充 currency 下拉列表
                     const currencySelect = document.getElementById('add_currency');
-                    currencySelect.innerHTML = '<option value="">Select Currency</option>';
+                    currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
                     result.currencies.forEach(currency => {
                         const option = document.createElement('option');
                         option.value = currency.id;
@@ -1780,7 +1780,7 @@
                 if (result.success) {
                     // Populate currency dropdown
                     const currencySelect = document.getElementById('edit_currency');
-                    currencySelect.innerHTML = '<option value="">Select Currency</option>';
+                    currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
                     result.currencies.forEach(currency => {
                         const option = document.createElement('option');
                         option.value = currency.id;
