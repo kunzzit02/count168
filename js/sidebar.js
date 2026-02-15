@@ -458,19 +458,16 @@
             }
         });
 
-        // 与 config/dashboard 一致：以 Cookie lang 为准，不再用 URL /cn/ 或 localStorage
+        // 与 config/dashboard 一致：以 Cookie lang 为准；按钮文案用 PHP 注入的 window.__LANG
+        function __ (key) { return (window.__LANG && window.__LANG[key]) || key; }
         var langMatch = document.cookie.match(/(?:^|;\s*)lang=([^;]*)/);
         var currentLang = (langMatch && langMatch[1] === 'zh') ? 'zh' : 'en';
         var currentFlag = document.getElementById('current-flag');
         var currentLangText = document.getElementById('current-lang');
-        if (currentLang === 'zh') {
-            if (currentFlag) { currentFlag.src = 'images/china.png'; currentFlag.alt = '中文'; }
-            if (currentLangText) currentLangText.textContent = '中文';
-        } else {
-            if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
-            if (currentLangText) currentLangText.textContent = 'English';
-        }
-        console.log('[Sidebar 语言] 页面加载 | Cookie lang:', (langMatch ? langMatch[1] : '无'), '| 按钮显示:', currentLang === 'zh' ? '中文' : 'English');
+        var langLabel = currentLang === 'zh' ? __('lang.zh') : __('lang.english');
+        if (currentFlag) { currentFlag.src = currentLang === 'zh' ? 'images/china.png' : 'images/uk.png'; currentFlag.alt = langLabel; }
+        if (currentLangText) currentLangText.textContent = langLabel;
+        console.log('[Sidebar 语言] 页面加载 | Cookie lang:', (langMatch ? langMatch[1] : '无'), '| 按钮显示:', langLabel);
 
         var savedAvatar = null;
         try { savedAvatar = localStorage.getItem('selectedAvatar'); } catch (e) {}

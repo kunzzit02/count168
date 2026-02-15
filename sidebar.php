@@ -21,6 +21,20 @@ $name = $_SESSION['name'] ?? '';
 $role = $_SESSION['role'] ?? '';
 
 require_once 'config.php';
+
+// 侧栏文案需翻译：若当前页未定义 __ 则按 Cookie 加载 lang
+if (!function_exists('__')) {
+    $langCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
+    $lang = require __DIR__ . '/lang/' . $langCode . '.php';
+    if (!is_array($lang)) {
+        $lang = [];
+    }
+    function __($key) {
+        global $lang;
+        return $lang[$key] ?? $key;
+    }
+}
+
 $permissions = [];
 
 // 获取用户权限（仅针对 member 用户）
@@ -93,35 +107,39 @@ if ($companyId) {
             $diffDays = (int)$diff->format('%r%a'); // 带符号的天数差
             
             if ($diffDays < 0) {
-                $expiration_countdown_text = 'Expired';
+                $expiration_countdown_text = __('sidebar.expired');
                 $expiration_status = 'expired';
             } else if ($diffDays === 0) {
-                $expiration_countdown_text = 'Expires today';
+                $expiration_countdown_text = __('sidebar.expires_today');
                 $expiration_status = 'warning';
             } else if ($diffDays <= 7) {
-                $expiration_countdown_text = $diffDays . ' day' . ($diffDays > 1 ? 's' : '') . ' left';
+                $expiration_countdown_text = $diffDays === 1
+                    ? sprintf(__('sidebar.day_left'), 1)
+                    : sprintf(__('sidebar.days_left'), $diffDays);
                 $expiration_status = 'warning';
             } else if ($diffDays <= 30) {
-                $expiration_countdown_text = $diffDays . ' days left';
+                $expiration_countdown_text = sprintf(__('sidebar.days_left'), $diffDays);
                 $expiration_status = 'normal';
             } else {
                 $months = floor($diffDays / 30);
                 $days = $diffDays % 30;
                 if ($days === 0) {
-                    $expiration_countdown_text = $months . ' month' . ($months > 1 ? 's' : '') . ' left';
+                    $expiration_countdown_text = $months === 1
+                        ? sprintf(__('sidebar.month_left'), 1)
+                        : sprintf(__('sidebar.months_left'), $months);
                 } else {
-                    $expiration_countdown_text = $months . 'm ' . $days . 'd left';
+                    $expiration_countdown_text = sprintf(__('sidebar.m_d_left'), $months, $days);
                 }
                 $expiration_status = 'normal';
             }
         } else {
-            $expiration_countdown_text = 'No expiration date';
+            $expiration_countdown_text = __('sidebar.no_expiration');
             $expiration_status = 'normal';
         }
     } catch(PDOException $e) {
         error_log("获取公司到期日期失败: " . $e->getMessage());
         $company_expiration_date = null;
-        $expiration_countdown_text = 'No expiration date';
+        $expiration_countdown_text = __('sidebar.no_expiration');
         $expiration_status = 'normal';
     }
 }
@@ -165,7 +183,7 @@ if ($companyId) {
         <div class="header-logo-section">
             <img src="images/count_whitelogo.png" alt="EAZYCOUNT Logo" class="header-logo">
             <!-- 通知铃铛 -->
-            <div class="notification-bell" title="Notifications" onclick="toggleNotificationPanel(event)">
+            <div class="notification-bell" title="<?php echo htmlspecialchars(__('sidebar.notifications')); ?>" onclick="toggleNotificationPanel(event)">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z"/>
                 </svg>
@@ -182,12 +200,12 @@ if ($companyId) {
                 </div>
                 
             <div class="avatar-options" id="avatarOptions">
-                <div class="options-title">Choose Avatar</div>
+                <div class="options-title"><?php echo htmlspecialchars(__('sidebar.choose_avatar')); ?></div>
                 
                 <!-- 性别选择 -->
                 <div class="gender-selection" id="genderSelection">
-                    <button type="button" class="gender-btn active" onclick="selectGender('male')">Male</button>
-                    <button type="button" class="gender-btn" onclick="selectGender('female')">Female</button>
+                    <button type="button" class="gender-btn active" onclick="selectGender('male')"><?php echo htmlspecialchars(__('sidebar.male')); ?></button>
+                    <button type="button" class="gender-btn" onclick="selectGender('female')"><?php echo htmlspecialchars(__('sidebar.female')); ?></button>
                 </div>
 
                 <!-- 男性头像列表-->
@@ -266,18 +284,18 @@ if ($companyId) {
             <div class="language-dropdown">
                 <button class="language-btn" onclick="toggleLanguageDropdown()">
                     <?php $sidebarLang = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en'; ?>
-                    <img src="images/<?php echo $sidebarLang === 'zh' ? 'china' : 'uk'; ?>.png" alt="<?php echo $sidebarLang === 'zh' ? '中文' : 'English'; ?>" class="flag-icon" id="current-flag">
-                    <span class="language-text" id="current-lang"><?php echo $sidebarLang === 'zh' ? '中文' : 'English'; ?></span>
+                    <img src="images/<?php echo $sidebarLang === 'zh' ? 'china' : 'uk'; ?>.png" alt="<?php echo htmlspecialchars($sidebarLang === 'zh' ? __('lang.zh') : __('lang.english')); ?>" class="flag-icon" id="current-flag">
+                    <span class="language-text" id="current-lang"><?php echo htmlspecialchars($sidebarLang === 'zh' ? __('lang.zh') : __('lang.english')); ?></span>
                     <span class="dropdown-arrow">&#9658;</span>
                 </button>
                 <div class="language-dropdown-list" id="languageDropdown">
                     <div class="language-option" onclick="selectLanguage('en')">
-                        <img src="images/uk.png" alt="English" class="flag-icon">
-                        <span>English</span>
+                        <img src="images/uk.png" alt="<?php echo htmlspecialchars(__('lang.english')); ?>" class="flag-icon">
+                        <span><?php echo htmlspecialchars(__('lang.english')); ?></span>
                     </div>
                     <div class="language-option" onclick="selectLanguage('zh')">
-                        <img src="images/china.png" alt="中文" class="flag-icon">
-                        <span>中文</span>
+                        <img src="images/china.png" alt="<?php echo htmlspecialchars(__('lang.zh')); ?>" class="flag-icon">
+                        <span><?php echo htmlspecialchars(__('lang.zh')); ?></span>
                     </div>
                 </div>
             </div>
@@ -294,7 +312,7 @@ if ($companyId) {
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
                     </svg>
-                    Win/Loss
+                    <?php echo htmlspecialchars(__('sidebar.win_loss')); ?>
                 </div>
             </div>
         <?php else: ?>
@@ -305,7 +323,7 @@ if ($companyId) {
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                     </svg>
-                    Home
+                    <?php echo htmlspecialchars(__('sidebar.home')); ?>
                 </div>                
             </div>
             <?php endif; ?>
@@ -317,7 +335,7 @@ if ($companyId) {
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z"/>
                     </svg>
-                    Domain
+                    <?php echo htmlspecialchars(__('sidebar.domain')); ?>
                 </div>
             </div>
             <?php endif; ?>
@@ -330,7 +348,7 @@ if ($companyId) {
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
                     </svg>
-                    Announcement
+                    <?php echo htmlspecialchars(__('sidebar.announcement')); ?>
                 </div>
             </div>
             <?php endif; ?>
@@ -352,7 +370,7 @@ if ($companyId) {
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
                     </svg>
-                    Admin
+                    <?php echo htmlspecialchars(__('sidebar.admin')); ?>
                 </div>
             </div>
             <?php endif; ?>
@@ -364,7 +382,7 @@ if ($companyId) {
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                     </svg>
-                    Account
+                    <?php echo htmlspecialchars(__('sidebar.account')); ?>
                 </div>
             </div>
             <?php endif; ?>
@@ -376,7 +394,7 @@ if ($companyId) {
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                     </svg>
-                    Process
+                    <?php echo htmlspecialchars(__('sidebar.process')); ?>
                 </div>
             </div>
             <?php endif; ?>
@@ -388,7 +406,7 @@ if ($companyId) {
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
                     </svg>
-                    Data Capture
+                    <?php echo htmlspecialchars(__('sidebar.data_capture')); ?>
                 </div>
             </div>
             <?php endif; ?>
@@ -400,7 +418,7 @@ if ($companyId) {
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
                     </svg>
-                    Transaction Payment
+                    <?php echo htmlspecialchars(__('sidebar.transaction_payment')); ?>
                 </div>
             </div>
             <?php endif; ?>
@@ -413,16 +431,16 @@ if ($companyId) {
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
                         </svg>
-                        Report
+                        <?php echo htmlspecialchars(__('sidebar.report')); ?>
                         <span class="section-arrow">▶</span>
                     </div>
                     <div class="submenu" id="report-submenu">
                         <div class="submenu-content">
                             <a href="customer_report.php" class="submenu-item">
-                                <span>Customer Report</span>
+                                <span><?php echo htmlspecialchars(__('sidebar.customer_report')); ?></span>
                             </a>
                             <a href="domain_report.php" class="submenu-item">
-                                <span>Domain Report</span>
+                                <span><?php echo htmlspecialchars(__('sidebar.domain_report')); ?></span>
                             </a>
                         </div>
                     </div>
@@ -438,7 +456,7 @@ if ($companyId) {
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
                         </svg>
-                        Maintenance
+                        <?php echo htmlspecialchars(__('sidebar.maintenance')); ?>
                         <span class="section-arrow">▶</span>
                     </div>
                     <div class="submenu" id="maintenance-submenu">
@@ -447,27 +465,27 @@ if ($companyId) {
                             <a href="capture_maintenance.php"
                                class="submenu-item"
                                id="maintenance-capture-link">
-                                <span>Data Capture</span>
+                                <span><?php echo htmlspecialchars(__('sidebar.data_capture')); ?></span>
                             </a>
                             <?php endif; ?>
                             <a href="transaction_maintenance.php" class="submenu-item">
-                                <span>Transaction</span>
+                                <span><?php echo htmlspecialchars(__('sidebar.transaction')); ?></span>
                             </a>
                             <?php if ($hasMaintenance): ?>
                             <a href="payment_maintenance.php" class="submenu-item">
-                                <span>Payment</span>
+                                <span><?php echo htmlspecialchars(__('sidebar.payment')); ?></span>
                             </a>
                             <?php endif; ?>
                             <?php if ($companyHasGambling): ?>
                             <a href="formula_maintenance.php"
                                class="submenu-item"
                                id="maintenance-formula-link">
-                                <span>Formula</span>
+                                <span><?php echo htmlspecialchars(__('sidebar.formula')); ?></span>
                             </a>
                             <?php endif; ?>
                             <?php if ($hasMaintenance && !empty($companyCategories) && in_array('Bank', $companyCategories)): ?>
                             <a href="bankprocess_maintenance.php" class="submenu-item">
-                                <span>Process</span>
+                                <span><?php echo htmlspecialchars(__('sidebar.process')); ?></span>
                             </a>
                             <?php endif; ?>
                         </div>
@@ -485,7 +503,7 @@ if ($companyId) {
                 <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
             <div class="expiration-content">
-                <span class="expiration-label">Exp:</span>
+                <span class="expiration-label"><?php echo htmlspecialchars(__('sidebar.exp_label')); ?></span>
                 <span class="expiration-countdown-text <?php echo $expiration_status; ?>" id="expirationCountdownText">
                     <?php echo htmlspecialchars($expiration_countdown_text); ?>
                 </span>
@@ -493,7 +511,7 @@ if ($companyId) {
         </div>
         <?php endif; ?>
         <button class="btn logout-btn" onclick="handleLogout()">
-            Logout
+            <?php echo htmlspecialchars(__('sidebar.logout')); ?>
         </button>
     </div>
 </div>
@@ -504,8 +522,8 @@ if ($companyId) {
 <!-- 通知面板遮罩 -->
 <div class="notification-panel" id="notificationPanel">
     <div class="notification-header">
-        <h2>Announcements</h2>
-        <button class="notification-close" onclick="closeNotificationPanel()" title="关闭">
+        <h2><?php echo htmlspecialchars(__('sidebar.announcements')); ?></h2>
+        <button class="notification-close" onclick="closeNotificationPanel()" title="<?php echo htmlspecialchars(__('sidebar.close')); ?>">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -517,8 +535,15 @@ if ($companyId) {
     </div>
 </div>
 
-<!-- Sidebar JavaScript: PHP 变量注入，调用外部 js/sidebar.js 中的 updateExpirationCountdown / updateSidebarDataCaptureVisibility -->
+<!-- Sidebar JavaScript: 注入当前语言包供 JS 显示语言按钮等；调用外部 js/sidebar.js -->
+<?php
+$sidebarLangForJs = isset($lang) ? $lang : require __DIR__ . '/lang/' . (isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en') . '.php';
+if (!is_array($sidebarLangForJs)) {
+    $sidebarLangForJs = [];
+}
+?>
 <script>
+window.__LANG = <?php echo json_encode($sidebarLangForJs); ?>;
 window.SIDEBAR_IS_MEMBER = <?php echo $isMember ? 'true' : 'false'; ?>;
 window.SIDEBAR_EXPIRATION_DATE = '<?php echo $company_expiration_date ? addslashes($company_expiration_date) : ''; ?>';
 window.SIDEBAR_COMPANY_HAS_GAMBLING = <?php echo $companyHasGambling ? 'true' : 'false'; ?>;
