@@ -231,7 +231,16 @@ if (!empty($session_company_id)) {
 
     <?php
     $cmLang = [];
-    foreach ($lang as $k => $v) {
+    $langForCm = isset($lang) && is_array($lang) ? $lang : [];
+    if (empty($langForCm)) {
+        $langCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
+        $langFile = __DIR__ . '/lang/' . $langCode . '.php';
+        if (is_file($langFile)) {
+            $loaded = require $langFile;
+            $langForCm = is_array($loaded) ? $loaded : [];
+        }
+    }
+    foreach ($langForCm as $k => $v) {
         if (strpos($k, 'cm.') === 0) {
             $cmLang[$k] = $v;
         }
