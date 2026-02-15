@@ -1680,7 +1680,7 @@
 
                     // 填充 copy from 下拉列表
                     const copyFromSelect = document.getElementById('add_copy_from');
-                    copyFromSelect.innerHTML = '<option value="">Select Process to Copy From</option>';
+                    copyFromSelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_process_to_copy') : 'Select Process to Copy From') + '</option>';
                     if (result.existingProcesses && result.existingProcesses.length > 0) {
                         // 按 A-Z 排序：先按 process_name 排序，如果相同则按 description_name 排序
                         const sortedProcesses = [...result.existingProcesses].sort((a, b) => {
@@ -1736,9 +1736,10 @@
                         result.days.forEach(day => {
                             const checkboxItem = document.createElement('div');
                             checkboxItem.className = 'checkbox-item';
+                            const dayLabel = (typeof __ !== 'undefined' ? __('process.day_' + (day.day_name || '').toLowerCase()) : day.day_name) || day.day_name;
                             checkboxItem.innerHTML = `
                                 <input type="checkbox" id="add_day_${day.id}" name="day_use[]" value="${day.id}">
-                                <label for="add_day_${day.id}">${day.day_name}</label>
+                                <label for="add_day_${day.id}">${dayLabel}</label>
                             `;
                             dayCheckboxes.appendChild(checkboxItem);
                         });
@@ -1794,9 +1795,10 @@
                         result.days.forEach(day => {
                             const checkboxItem = document.createElement('div');
                             checkboxItem.className = 'checkbox-item';
+                            const dayLabel = (typeof __ !== 'undefined' ? __('process.day_' + (day.day_name || '').toLowerCase()) : day.day_name) || day.day_name;
                             checkboxItem.innerHTML = `
                                 <input type="checkbox" id="edit_day_${day.id}" name="edit_day_use[]" value="${day.id}">
-                                <label for="edit_day_${day.id}">${day.day_name}</label>
+                                <label for="edit_day_${day.id}">${dayLabel}</label>
                             `;
                             dayCheckboxes.appendChild(checkboxItem);
                         });
