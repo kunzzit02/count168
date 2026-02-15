@@ -1,4 +1,5 @@
-// Notification functions
+function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
+        // Notification functions
         function showNotification(title, message, type = 'success') {
             const popup = document.getElementById('notificationPopup');
             const titleEl = document.getElementById('notificationTitle');
@@ -96,11 +97,11 @@
             // Check for URL parameters and show notifications
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('success') === '1') {
-                showNotification('Success', 'Data captured and summary generated successfully!', 'success');
+                showNotification((typeof __ !== 'undefined' ? __('dcs.success') : 'Success'), (typeof __ !== 'undefined' ? __('dcs.success_summary') : 'Data captured and summary generated successfully!'), 'success');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (urlParams.get('error') === '1') {
-                showNotification('Error', 'Failed to generate summary. Please try again.', 'error');
+                showNotification((typeof __ !== 'undefined' ? __('dcs.error') : 'Error'), (typeof __ !== 'undefined' ? __('dcs.error_summary') : 'Failed to generate summary. Please try again.'), 'error');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
                 }
@@ -1445,7 +1446,7 @@ function getCurrentProcessId() {
                                         <label for="account">Account</label>
                                         <div class="account-select-with-buttons">
                                             <div class="custom-select-wrapper">
-                                                <button type="button" class="custom-select-button" id="account" data-placeholder="Select Account" name="account">Select Account</button>
+                                                <button type="button" class="custom-select-button" id="account" data-placeholder="${typeof __ !== 'undefined' ? __('dcs.select_account') : 'Select Account'}" name="account">${typeof __ !== 'undefined' ? __('dcs.select_account') : 'Select Account'}</button>
                                                 <div class="custom-select-dropdown" id="account_dropdown">
                                                     <div class="custom-select-search">
                                                         <input type="text" placeholder="Search account..." autocomplete="off">
@@ -1470,11 +1471,11 @@ function getCurrentProcessId() {
                                         <label for="descriptionSelect1">Data</label>
                                         <div class="description-select-with-buttons">
                                             <select id="descriptionSelect1">
-                                                <option value="">Select Id Product</option>
+                                                <option value="">${typeof __ !== 'undefined' ? __('dcs.select_id_product') : 'Select Id Product'}</option>
                                                 <!-- Id Product options will be loaded here via JavaScript -->
                                             </select>
                                             <select id="descriptionSelect2">
-                                                <option value="">Select Row Data</option>
+                                                <option value="">${typeof __ !== 'undefined' ? __('dcs.select_row_data') : 'Select Row Data'}</option>
                                                 <!-- Row data options will be loaded here via JavaScript -->
                                             </select>
                                             <button type="button" class="description-add-btn" onclick="addSelectedDataToFormula()" title="Add Selected Data To Formula">Add</button>
@@ -1513,7 +1514,7 @@ function getCurrentProcessId() {
                                     <div class="form-group">
                                         <label for="inputMethod">Input Method</label>
                                         <select id="inputMethod">
-                                            <option value="">Select Input Method (Optional)</option>
+                                            <option value="">${typeof __ !== 'undefined' ? __('dcs.select_input_method') : 'Select Input Method (Optional)'}</option>
                                             <option value="positive_to_negative_negative_to_positive">Positive to negative, negative to positive</option>
                                             <option value="positive_to_negative_negative_to_zero">Positive to negative, negative to zero</option>
                                             <option value="negative_to_positive_positive_to_zero">Negative to positive, positive to zero</option>
@@ -1530,7 +1531,7 @@ function getCurrentProcessId() {
                                     <div class="form-group">
                                         <label for="currency">Currency</label>
                                         <select id="currency">
-                                            <option value="">Select Currency</option>
+                                            <option value="">${typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency'}</option>
                                             <!-- Currency options will be loaded here via JavaScript -->
                                         </select>
                                     </div>
@@ -1940,7 +1941,7 @@ function getCurrentProcessId() {
         function submitRateValues() {
             const rateInput = document.getElementById('rateInput');
             if (!rateInput) {
-                showNotification('Error', 'Rate input field not found', 'error');
+                showNotification((typeof __ !== 'undefined' ? __('dcs.error') : 'Error'), (typeof __ !== 'undefined' ? __('dcs.error_rate_input') : 'Rate input field not found'), 'error');
                 return;
             }
             
@@ -1952,7 +1953,7 @@ function getCurrentProcessId() {
             
             const summaryTableBody = document.getElementById('summaryTableBody');
             if (!summaryTableBody) {
-                showNotification('Error', 'Summary table not found', 'error');
+                showNotification((typeof __ !== 'undefined' ? __('dcs.error') : 'Error'), (typeof __ !== 'undefined' ? __('dcs.error_table_not_found') : 'Summary table not found'), 'error');
                 return;
             }
             
@@ -2006,7 +2007,7 @@ function getCurrentProcessId() {
             updateProcessedAmountTotal();
             
             if (updatedCount > 0) {
-                showNotification('Success', `Rate Value updated for ${updatedCount} row(s)`, 'success');
+                showNotification((typeof __ !== 'undefined' ? __('dcs.success') : 'Success'), (typeof __ !== 'undefined' ? __('dcs.rate_value_updated').replace('%d', String(updatedCount)) : `Rate Value updated for ${updatedCount} row(s)`), 'success');
             } else {
                 showNotification('Info', 'No rows with Rate checkbox checked', 'info');
             }
@@ -2206,7 +2207,7 @@ function getCurrentProcessId() {
                     // Reset currency dropdown if no account selected
                     const currencySelect = document.getElementById('currency');
                     if (currencySelect) {
-                        currencySelect.innerHTML = '<option value="">Select Currency</option>';
+                        currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
                     }
                 }
                 if (typeof updateEditFormulaSaveButtonState === 'function') {
@@ -2276,7 +2277,7 @@ function getCurrentProcessId() {
                     // Clear currency dropdown initially
                     const currencySelect = document.getElementById('currency');
                     if (currencySelect) {
-                        currencySelect.innerHTML = '<option value="">Select Currency</option>';
+                        currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
                     }
                     
                     // Load account data
@@ -2409,7 +2410,7 @@ function getCurrentProcessId() {
                     const currencySelect = document.getElementById('currency');
                     if (currencySelect) {
                         // Clear existing options
-                        currencySelect.innerHTML = '<option value="">Select Currency</option>';
+                        currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
                         
                         // Add currency options from account's currencies
                         if (result.data && result.data.length > 0) {
@@ -2750,7 +2751,7 @@ function getCurrentProcessId() {
             if (!descriptionSelect1) return;
 
             // Clear existing options except the first one
-            descriptionSelect1.innerHTML = '<option value="">Select Id Product</option>';
+            descriptionSelect1.innerHTML = '<option value="">${typeof __ !== 'undefined' ? __('dcs.select_id_product') : 'Select Id Product'}</option>';
 
             // Get table data
             let parsedTableData;
@@ -2894,7 +2895,7 @@ function getCurrentProcessId() {
             if (!descriptionSelect2) return;
 
             // Clear existing options
-            descriptionSelect2.innerHTML = '<option value="">Select Row Data</option>';
+            descriptionSelect2.innerHTML = '<option value="">${typeof __ !== 'undefined' ? __('dcs.select_row_data') : 'Select Row Data'}</option>';
 
             if (!idProductValue || idProductValue.trim() === '') {
                 return;
