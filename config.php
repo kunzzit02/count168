@@ -21,7 +21,7 @@ try {
 
 // 语言切换：任意页带 ?lang=zh 或 ?lang=en 时由服务端写 Cookie 并重定向到当前页（无参），保证整站语言一致
 if (isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'zh'], true)) {
-    setcookie('lang', $_GET['lang'], time() + 86400 * 365, '/', '', false, true);
+    setcookie('lang', $_GET['lang'], time() + 86400 * 365, '/', '', false, false);
     $path = strtok($_SERVER['REQUEST_URI'] ?? '/', '?');
     $query = $_SERVER['QUERY_STRING'] ?? '';
     parse_str($query, $params);
