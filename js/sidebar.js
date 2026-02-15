@@ -154,8 +154,8 @@
         var button = document.querySelector('.language-btn');
         if (dropdown) dropdown.classList.remove('show');
         if (button) button.classList.remove('active');
-        // 跳转到当前页 + ?lang=，由 config 服务端写 Cookie 并重定向，保证整页语言生效
         var url = window.location.pathname + (window.location.search ? window.location.search + '&' : '?') + 'lang=' + lang;
+        console.log('[Sidebar 语言] 选择:', lang, '| 当前 Cookie:', document.cookie, '| 即将跳转:', url);
         window.location.href = url;
     }
 
@@ -470,6 +470,7 @@
             if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
             if (currentLangText) currentLangText.textContent = 'English';
         }
+        console.log('[Sidebar 语言] 页面加载 | Cookie lang:', (langMatch ? langMatch[1] : '无'), '| 按钮显示:', currentLang === 'zh' ? '中文' : 'English');
 
         var savedAvatar = null;
         try { savedAvatar = localStorage.getItem('selectedAvatar'); } catch (e) {}
