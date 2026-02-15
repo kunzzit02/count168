@@ -6,10 +6,22 @@ require_once 'session_check.php';
 $company_id = $_SESSION['company_id'];
 $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
 $isOwner = ($userRole === 'owner');
+
+$reportLangCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
+$reportLang = require __DIR__ . '/lang/' . $reportLangCode . '.php';
+if (!function_exists('__')) {
+    $lang = $reportLang;
+    function __($key) {
+        global $lang;
+        return $lang[$key] ?? $key;
+    }
+} else {
+    $lang = $reportLang;
+}
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?php echo $reportLangCode === 'zh' ? 'zh' : 'en'; ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,7 +29,7 @@ $isOwner = ($userRole === 'owner');
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
-    <title>Customer Report</title>
+    <title><?php echo htmlspecialchars(__('report.title_customer')); ?></title>
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo time(); ?>">
