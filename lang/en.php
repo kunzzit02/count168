@@ -697,4 +697,20 @@ return [
     'pm.confirm_checkbox_required' => 'Please confirm deletion by checking the checkbox',
     'pm.select_at_least_one' => 'Please select at least one record',
     'pm.found_records' => 'Found %d record(s)',
+
+    // Maintenance - Formula
+    'fm.title_page' => 'Maintenance - Formula',
+    'fm.search' => 'Search',
+    'fm.search_formula_placeholder' => 'Search formula...',
+    'fm.no' => 'No',
+    'fm.process' => 'Process',
+    'fm.account' => 'Account',
+    'fm.currency' => 'Currency',
+    'fm.source' => 'Source',
+    'fm.product' => 'Product',
+    'fm.input_method' => 'Input Method',
+    'fm.formula' => 'Formula',
+    'fm.description' => 'Description',
+    'fm.select_all_title' => 'Select All',
+    'fm.deleted_records' => 'Deleted %d record(s)',
 ];

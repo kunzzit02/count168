@@ -697,4 +697,20 @@ return [
     'pm.confirm_checkbox_required' => '请勾选确认删除',
     'pm.select_at_least_one' => '请至少选择一条记录',
     'pm.found_records' => '共找到 %d 条记录',
+
+    // 维护 - 公式
+    'fm.title_page' => '维护 - 公式',
+    'fm.search' => '搜索',
+    'fm.search_formula_placeholder' => '搜索公式...',
+    'fm.no' => '序号',
+    'fm.process' => '流程',
+    'fm.account' => '账户',
+    'fm.currency' => '货币',
+    'fm.source' => '来源',
+    'fm.product' => '产品',
+    'fm.input_method' => '输入方式',
+    'fm.formula' => '公式',
+    'fm.description' => '描述',
+    'fm.select_all_title' => '全选',
+    'fm.deleted_records' => '已删除 %d 条记录',
 ];
