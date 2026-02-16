@@ -261,8 +261,8 @@ if ($companyId) {
                 </div>
             </div>
         </div>
-        <<!-- 语言切换按钮 -->
-        <div class="language-switcher">
+        <!-- 语言切换按钮 -->
+        <!-- <div class="language-switcher">
             <div class="language-dropdown">
                 <button class="language-btn" onclick="toggleLanguageDropdown()">
                     <img src="images/uk.png" alt="English" class="flag-icon" id="current-flag">
@@ -280,7 +280,7 @@ if ($companyId) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
     </div>
 
     <div class="informationmenu-content">
