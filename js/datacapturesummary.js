@@ -7659,31 +7659,41 @@ function getCurrentProcessId() {
 
             // 完整 id_product（ALLBET95MS(SV)MYR / (KM) / (SEXY) 等）只做精确或去空格匹配，不归一成同一 base
             const normalizeSpaces = (s) => (s || '').trim().replace(/\s+/g, '');
+            const isSubTotalRow = (r) => {
+                const h = (r[0] && r[0].value) ? String(r[0].value).trim().toUpperCase() : '';
+                const v = (r[1] && r[1].value) ? String(r[1].value).trim().toUpperCase() : '';
+                return h.includes('SUB TOTAL') || h.includes('SUBTOTAL') || v.includes('SUB TOTAL') || v.includes('SUBTOTAL');
+            };
             console.log('findProcessRow: Searching all rows for id_product:', processValueResolved);
+            let matchedRows = [];
             for (let i = 0; i < tableData.rows.length; i++) {
                 const row = tableData.rows[i];
                 if (row.length > 1 && row[1].type === 'data') {
                     const rowValue = row[1].value;
-                    if (rowValue === processValueResolved) {
-                        console.log('findProcessRow: Found row at index:', i, 'by exact match');
-                        return row;
-                    }
-                    if (useExactOnly && normalizeSpaces(rowValue) === normalizeSpaces(processValueResolved)) {
-                        console.log('findProcessRow: Found row at index:', i, 'by normalize-spaces match');
-                        return row;
-                    }
-                    if (!useExactOnly) {
+                    let matched = false;
+                    if (rowValue === processValueResolved) matched = true;
+                    else if (useExactOnly && normalizeSpaces(rowValue) === normalizeSpaces(processValueResolved)) matched = true;
+                    else if (!useExactOnly) {
                         const normalizedRowValue = normalizeIdProductText(rowValue);
-                        if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
-                            console.log('findProcessRow: Found row at index:', i, 'by normalized match');
-                            return row;
-                        }
+                        if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) matched = true;
                     }
+                    if (matched) matchedRows.push({ row, index: i });
                 }
             }
-            
-            console.error('findProcessRow: No row found for processValue:', processValueResolved, 'rowIndex:', rowIndex);
-            return null;
+            if (matchedRows.length === 0) {
+                console.error('findProcessRow: No row found for processValue:', processValueResolved, 'rowIndex:', rowIndex);
+                return null;
+            }
+            // 多行同 id_product 时优先取 SUB TOTAL 行，避免最后一行(Sub Total)误用第一行数据
+            if (matchedRows.length > 1) {
+                const subTotal = matchedRows.find(m => isSubTotalRow(m.row));
+                if (subTotal) {
+                    console.log('findProcessRow: Multiple rows for id_product, using SUB TOTAL row at index:', subTotal.index);
+                    return subTotal.row;
+                }
+            }
+            console.log('findProcessRow: Found row at index:', matchedRows[0].index, 'by id_product match');
+            return matchedRows[0].row;
         }
 
         // Get column value by id_product and column_number (for reference format [id_product : column])
