@@ -4350,41 +4350,37 @@ function getCurrentProcessId() {
                                 }
                             }
                             
-                            // 使用id_product和列号获取值
-                            if (dataColumnIndex > 0) {
-                                columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
+                            // 使用id_product和列号获取值（表格列号 2,3,4,5 即 displayColumnIndex，1-based 数据列 = 列号-1，故传 dataColumnIndex+1）
+                            if (dataColumnIndex >= 0) {
+                                columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex + 1, rowLabel);
                                 console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], value:', columnValue);
                             }
                         } else {
-                            // 当前row格式 $数字：从引用中按顺序获取（parseIdProductColumnRef 保留完整 id_product）
-                            if (refIndex < refs.length) {
-                                const ref = refs[refIndex];
+                            // 当前row格式 $数字：按列号在 refs 中查找匹配的引用（不依赖 ref 顺序，避免 ($5)+$4 与 refs=[ref_4,ref_5] 错配）
+                            const wantCol = match.columnNumber;
+                            for (let r = 0; r < refs.length && columnValue === null; r++) {
+                                const ref = refs[r];
                                 const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
-                                if (parsed) {
-                                    const refIdProduct = parsed.idProduct;
-                                    const refDataColumnIndex = parsed.dataColumnIndex;
-                                    const refRowLabel = parsed.rowLabel;
-                                    const isCurrentRowRef = currentIdProduct && (
-                                        (typeof isFullIdProduct === 'function' && isFullIdProduct(refIdProduct))
-                                            ? (refIdProduct.trim() === (currentIdProduct || '').trim())
-                                            : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(currentIdProduct))
-                                    );
-                                    if (isCurrentRowRef) {
-                                        const displayColumnIndex = refDataColumnIndex + 1;
-                                        if (displayColumnIndex === match.columnNumber) {
-                                            columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
-                                            refIndex++;
-                                        }
-                                    }
+                                if (!parsed) continue;
+                                const refDisplayCol = parsed.dataColumnIndex + 1;
+                                if (refDisplayCol !== wantCol) continue;
+                                const isCurrentRowRef = currentIdProduct && (
+                                    (typeof isFullIdProduct === 'function' && isFullIdProduct(parsed.idProduct))
+                                        ? (parsed.idProduct.trim() === (currentIdProduct || '').trim())
+                                        : (normalizeIdProductText(parsed.idProduct) === normalizeIdProductText(currentIdProduct))
+                                );
+                                if (isCurrentRowRef) {
+                                    columnValue = getCellValueByIdProductAndColumn(parsed.idProduct, parsed.dataColumnIndex, parsed.rowLabel);
+                                    break;
                                 }
                             }
                             
-                            // 如果从引用中找不到值，使用当前编辑的id_product
+                            // 如果从引用中找不到值，使用当前编辑的id_product（match.columnNumber 为表格列号 2,3,4,5...，1-based 数据列 = 列号-1：列2→1，列5→4）
                             if (columnValue === null && currentIdProduct) {
                                 const rowLabel = getRowLabelFromProcessValue(processValue);
                                 if (rowLabel) {
-                                    const dataColumnIndex = match.columnNumber - 1;
-                                    columnValue = getCellValueByIdProductAndColumn(currentIdProduct, dataColumnIndex, rowLabel);
+                                    const oneBasedDataCol = match.columnNumber >= 2 ? match.columnNumber - 1 : 1;
+                                    columnValue = getCellValueByIdProductAndColumn(currentIdProduct, oneBasedDataCol, rowLabel);
                                     console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
                                 }
                             }
