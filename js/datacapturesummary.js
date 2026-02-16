@@ -7596,15 +7596,21 @@ function getCurrentProcessId() {
                 }
                 const nSp = (s) => (s || '').trim().replace(/\s+/g, '');
                 const shortNorm = nSp(shortTrim);
+                const isBareCKZNoLabel = /^CKZ$/i.test(shortTrim);
                 for (let i = 0; i < parsedTableData.rows.length; i++) {
                     const row = parsedTableData.rows[i];
                     if (row && row.length > 1 && row[1].type === 'data') {
                         const full = (row[1].value || '').trim();
-                        if (full === shortTrim || full.endsWith(shortTrim)) {
+                        if (full === shortTrim) {
+                            console.log('resolveToFullIdProduct: resolved', shortTrim, '->', full);
+                            return full;
+                        }
+                        if (!isBareCKZNoLabel && full.endsWith(shortTrim)) {
                             console.log('resolveToFullIdProduct: resolved', shortTrim, '->', full);
                             return full;
                         }
                         if (shortNorm && nSp(full).indexOf(shortNorm) === 0) {
+                            if (isBareCKZNoLabel && full !== shortTrim) continue;
                             console.log('resolveToFullIdProduct: resolved (prefix match)', shortTrim, '->', full);
                             return full;
                         }
@@ -7651,9 +7657,12 @@ function getCurrentProcessId() {
         function findProcessRow(tableData, processValue, rowIndex = null) {
             if (!tableData.rows) return null;
 
-            // 仅当传入的是截断 id（如 "(T07)"、"KZAWCMS(SV)"）时才解析为完整 id_product，完整 id（如 KZAWCMS (SV) MYR）直接使用，避免 (SV) 被错误解析成 (KM)
-            const processValueResolved = (typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(processValue))
-                ? resolveToFullIdProduct(processValue) : (processValue || '').trim();
+            const trimmed = (processValue || '').trim();
+            // CKZ 为 Replace Word（SUBTOTAL 转换来的），不解析为 CKZ03，保持 CKZ
+            const isBareCKZ = /^CKZ$/i.test(trimmed);
+            const processValueResolved = (isBareCKZ || !(typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(processValue)))
+                ? trimmed
+                : resolveToFullIdProduct(processValue);
 
             // Normalize the process value for comparison (only used when not full id)
             const normalizedProcessValue = normalizeIdProductText(processValueResolved);
@@ -7686,7 +7695,7 @@ function getCurrentProcessId() {
             const isSubTotalRow = (r) => {
                 const h = (r[0] && r[0].value) ? String(r[0].value).trim().toUpperCase() : '';
                 const v = (r[1] && r[1].value) ? String(r[1].value).trim().toUpperCase() : '';
-                return h.includes('SUB TOTAL') || h.includes('SUBTOTAL') || v.includes('SUB TOTAL') || v.includes('SUBTOTAL');
+                return h.includes('SUB TOTAL') || h.includes('SUBTOTAL') || v.includes('SUB TOTAL') || v.includes('SUBTOTAL') || v === 'CKZ';
             };
             console.log('findProcessRow: Searching all rows for id_product:', processValueResolved);
             let matchedRows = [];
@@ -7708,9 +7717,10 @@ function getCurrentProcessId() {
                 console.error('findProcessRow: No row found for processValue:', processValueResolved, 'rowIndex:', rowIndex);
                 return null;
             }
-            // 多行同 id_product 时优先取 SUB TOTAL 行，避免最后一行(Sub Total)误用第一行数据
+            // 多行同 id_product 时优先取 SUB TOTAL 行（CKZ 为 Replace Word 来自 SUBTOTAL，取最后一行即 Sub Total 行）
             if (matchedRows.length > 1) {
-                const subTotal = matchedRows.find(m => isSubTotalRow(m.row));
+                const subTotalCandidates = matchedRows.filter(m => isSubTotalRow(m.row));
+                const subTotal = subTotalCandidates.length > 0 ? subTotalCandidates[subTotalCandidates.length - 1] : null;
                 if (subTotal) {
                     console.log('findProcessRow: Multiple rows for id_product, using SUB TOTAL row at index:', subTotal.index);
                     return subTotal.row;
