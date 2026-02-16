@@ -1,226 +1,165 @@
 <?php
-/**
- * Domain Report API - 按 Process 汇总 Domain 报表（Turnover / Win / Lose）
- * 路径: api/reports/domain_report_api.php
- */
+// 使用统一的 session 检查
+require_once 'session_check.php';
 
-session_start();
-header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
+// 获取 company_id（session_check.php 已确保用户已登录）
+$company_id = $_SESSION['company_id'];
+$userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
+$isOwner = ($userRole === 'owner');
+?>
 
-/**
- * 标准 JSON 响应：success, message, data
- */
-function jsonResponse($success, $message, $data = null, $httpCode = null) {
-    if ($httpCode !== null) {
-        http_response_code($httpCode);
-    }
-    echo json_encode([
-        'success' => (bool) $success,
-        'message' => $message,
-        'data' => $data
-    ], JSON_UNESCAPED_UNICODE);
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
+    <title>Domain Report</title>
+    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo time(); ?>">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
+    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <?php include 'sidebar.php'; ?>
+    <link rel="stylesheet" href="css/domain_report.css?v=<?php echo time(); ?>">
 
-/**
- * 解析并验证请求中的 company_id
- */
-function getCompanyIdForRequest(PDO $pdo) {
-    if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
-        $requestedCompanyId = (int)$_GET['company_id'];
-        $userRole = strtolower($_SESSION['role'] ?? '');
+</head>
+<body class="report-page">
+    <div class="container">
+        <div class="content">
+            <div class="report-header">
+                <h1 class="account-page-title">Domain Report</h1>
+            </div>
+            <div class="account-separator-line"></div>
 
-        if ($userRole === 'owner') {
-            $ownerId = $_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? null;
-            if (!$ownerId) {
-                throw new Exception('缺少 Owner 信息');
-            }
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ? LIMIT 1");
-            $stmt->execute([$requestedCompanyId, $ownerId]);
-            if (!$stmt->fetchColumn()) {
-                throw new Exception('无权访问该公司');
-            }
-            return $requestedCompanyId;
-        }
+            <div class="domain-report-filter-container">
+                <div class="domain-report-filters">
+                    <div class="domain-report-filter-group">
+                        <label for="processSelect">Process</label>
+                        <div class="custom-select-wrapper">
+                            <button type="button" class="custom-select-button" id="processSelect" data-placeholder="All Process">All Process</button>
+                            <div class="custom-select-dropdown" id="processSelect_dropdown">
+                                <div class="custom-select-search">
+                                    <input type="text" placeholder="Search process..." autocomplete="off">
+                                </div>
+                                <div class="custom-select-options"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="domain-report-filter-group report-date-range-group">
+                        <label for="date-range-picker">Date Range</label>
+                        <div class="date-range-picker" id="date-range-picker">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="date-range-display">Select date range</span>
+                        </div>
+                        <input type="hidden" id="date_from" value="<?php echo date('d/m/Y'); ?>">
+                        <input type="hidden" id="date_to" value="<?php echo date('d/m/Y'); ?>">
+                    </div>
+                    <div class="domain-report-filter-group quick-select-wrap">
+                        <label class="form-label"><i class="fas fa-clock"></i> Quick Select</label>
+                        <div class="quick-select-dropdown quick-select-dropdown-toggle">
+                            <button type="button" class="dropdown-toggle" onclick="event.stopPropagation(); window.toggleQuickSelectDropdown();">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span id="quick-select-text">Period</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-menu" id="quick-select-dropdown">
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
+                                <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-        if (!isset($_SESSION['company_id'])) {
-            throw new Exception('缺少公司信息');
-        }
-        if ((int)$_SESSION['company_id'] !== $requestedCompanyId) {
-            throw new Exception('无权访问该公司');
-        }
-        return $requestedCompanyId;
-    }
+                <div id="company-buttons-wrapper" class="transaction-company-filter" style="display: none;">
+                    <span class="transaction-company-label">Company:</span>
+                    <div id="company-buttons-container" class="transaction-company-buttons"></div>
+                </div>
+            </div>
 
-    if (!isset($_SESSION['company_id'])) {
-        throw new Exception('缺少公司信息');
-    }
-    return (int)$_SESSION['company_id'];
-}
+            <div class="domain-report-list-container">
+                <div class="domain-report-table-header">
+                    <div>Process</div>
+                    <div>Turnover</div>
+                    <div>Win</div>
+                    <div>Lose</div>
+                    <div>Win/Lose</div>
+                </div>
 
-/**
- * 查询 Process 列表（id, process_id, description）
- */
-function fetchProcesses(PDO $pdo, int $company_id) {
-    $stmt = $pdo->prepare("
-        SELECT p.id, p.process_id, d.name AS description
-        FROM process p
-        LEFT JOIN description d ON p.description_id = d.id
-        WHERE p.company_id = ?
-        ORDER BY p.process_id ASC
-    ");
-    $stmt->execute([$company_id]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
+                <div class="domain-report-cards" id="domainReportBody">
+                    <div class="domain-report-card">
+                        <div class="domain-report-card-item" style="grid-column: 1 / -1; text-align: center; justify-content: center; padding: 20px;">
+                            Loading...
+                        </div>
+                    </div>
+                </div>
 
-/**
- * 格式化为前端下拉所需结构
- */
-function formatProcesses(array $processes) {
-    return array_map(function ($row) {
-        $label = $row['process_id'];
-        if (!empty($row['description'])) {
-            $label .= ' (' . $row['description'] . ')';
-        }
-        return [
-            'id' => (int)$row['id'],
-            'process' => $row['process_id'],
-            'description' => $row['description'],
-            'display_text' => $label
-        ];
-    }, $processes);
-}
+                <div class="domain-report-total" id="domainReportTotal" style="display: none;">
+                    <div class="domain-report-total-label">Total</div>
+                    <div class="domain-report-amount" id="totalTurnover">0.00</div>
+                    <div class="domain-report-amount" id="totalWin">0.00</div>
+                    <div class="domain-report-amount" id="totalLose">0.00</div>
+                    <div class="domain-report-amount" id="totalWinLose">0.00</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-/**
- * 查询 Domain 报表原始行（按 Process 汇总 Turnover / Win / Lose）
- */
-function fetchDomainReportRows(PDO $pdo, int $company_id, string $date_from, string $date_to, ?int $process_id) {
-    $sql = "
-        SELECT 
-            p.id AS process_pk,
-            p.process_id,
-            d.name AS description_name,
-            COALESCE(SUM(ABS(dcd.processed_amount)), 0) AS turnover_total,
-            COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win_total,
-            COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN ABS(dcd.processed_amount) ELSE 0 END), 0) AS lose_total
-        FROM data_captures dc
-        INNER JOIN process p ON dc.process_id = p.id
-        LEFT JOIN description d ON p.description_id = d.id
-        INNER JOIN data_capture_details dcd ON dc.id = dcd.capture_id
-        WHERE p.company_id = ?
-          AND dc.capture_date BETWEEN ? AND ?
-    ";
-    $params = [$company_id, $date_from, $date_to];
-    if ($process_id !== null && $process_id > 0) {
-        $sql .= " AND p.id = ? ";
-        $params[] = $process_id;
-    }
-    $sql .= " GROUP BY p.id, p.process_id, d.name ORDER BY p.process_id ASC ";
+    <div id="domainReportNotificationContainer" class="account-notification-container"></div>
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
+    <!-- Calendar popup (same as dashboard) -->
+    <div class="calendar-popup" id="calendar-popup" style="display: none;">
+        <div class="calendar-header">
+            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(-1)">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="calendar-month-year" onclick="event.stopPropagation();">
+                <select id="calendar-month-select">
+                    <option value="0">Jan</option>
+                    <option value="1">Feb</option>
+                    <option value="2">Mar</option>
+                    <option value="3">Apr</option>
+                    <option value="4">May</option>
+                    <option value="5">Jun</option>
+                    <option value="6">Jul</option>
+                    <option value="7">Aug</option>
+                    <option value="8">Sep</option>
+                    <option value="9">Oct</option>
+                    <option value="10">Nov</option>
+                    <option value="11">Dec</option>
+                </select>
+                <select id="calendar-year-select"></select>
+            </div>
+            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(1)">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <div class="calendar-weekdays">
+            <div class="calendar-weekday">Sun</div>
+            <div class="calendar-weekday">Mon</div>
+            <div class="calendar-weekday">Tue</div>
+            <div class="calendar-weekday">Wed</div>
+            <div class="calendar-weekday">Thu</div>
+            <div class="calendar-weekday">Fri</div>
+            <div class="calendar-weekday">Sat</div>
+        </div>
+        <div class="calendar-days" id="calendar-days"></div>
+    </div>
 
-/**
- * 将原始行转为报表数据并计算合计
- */
-function buildReportResult(array $rows, string $date_from, string $date_to) {
-    $report_data = [];
-    $total_turnover = 0;
-    $total_win = 0;
-    $total_lose = 0;
-
-    foreach ($rows as $row) {
-        $turnover = (float)$row['turnover_total'];
-        $win = (float)$row['win_total'];
-        $lose = (float)$row['lose_total'];
-        $winLose = $win - $lose;
-
-        $report_data[] = [
-            'process_id' => (int)$row['process_pk'],
-            'process' => $row['process_id'],
-            'description' => $row['description_name'],
-            'turnover' => $turnover,
-            'win' => $win,
-            'lose' => $lose,
-            'win_lose' => $winLose
-        ];
-
-        $total_turnover += $turnover;
-        $total_win += $win;
-        $total_lose += $lose;
-    }
-
-    return [
-        'report_data' => $report_data,
-        'totals' => [
-            'turnover' => $total_turnover,
-            'win' => $total_win,
-            'lose' => $total_lose,
-            'win_lose' => $total_win - $total_lose
-        ],
-        'date_from' => $date_from,
-        'date_to' => $date_to
-    ];
-}
-
-try {
-    $action = isset($_GET['action']) ? trim($_GET['action']) : '';
-    $company_id = getCompanyIdForRequest($pdo);
-
-    if ($action === 'processes') {
-        $processes = fetchProcesses($pdo, $company_id);
-        $formatted = formatProcesses($processes);
-        echo json_encode([
-            'success' => true,
-            'message' => 'OK',
-            'data' => $formatted
-        ]);
-        exit;
-    }
-
-    $date_from = isset($_GET['date_from']) ? trim($_GET['date_from']) : '';
-    $date_to = isset($_GET['date_to']) ? trim($_GET['date_to']) : '';
-    $process_id = isset($_GET['process_id']) ? (int)$_GET['process_id'] : null;
-
-    if (empty($date_from) || empty($date_to)) {
-        throw new Exception('开始日期和结束日期不能为空');
-    }
-
-    $date_from_obj = DateTime::createFromFormat('Y-m-d', $date_from);
-    $date_to_obj = DateTime::createFromFormat('Y-m-d', $date_to);
-    if (!$date_from_obj || !$date_to_obj) {
-        throw new Exception('日期格式不正确，请使用 YYYY-MM-DD');
-    }
-    if ($date_from_obj > $date_to_obj) {
-        throw new Exception('开始日期不能大于结束日期');
-    }
-
-    $rows = fetchDomainReportRows($pdo, $company_id, $date_from, $date_to, $process_id);
-    $result = buildReportResult($rows, $date_from, $date_to);
-
-    echo json_encode([
-        'success' => true,
-        'message' => 'OK',
-        'data' => $result['report_data'],
-        'totals' => $result['totals'],
-        'date_from' => $result['date_from'],
-        'date_to' => $result['date_to']
-    ]);
-} catch (PDOException $e) {
-    http_response_code(500);
-    error_log('Domain Report API Error: ' . $e->getMessage());
-    echo json_encode([
-        'success' => false,
-        'message' => '数据库查询失败',
-        'data' => null
-    ]);
-} catch (Exception $e) {
-    http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'message' => $e->getMessage(),
-        'data' => null
-    ]);
-}
+    <script>
+        window.DOMAIN_REPORT_COMPANY_ID = <?php echo $company_id; ?>;
+    </script>
+    <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
+    <script src="js/domain_report.js?v=<?php echo time(); ?>"></script>
+</body>
+</html>
