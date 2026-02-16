@@ -7541,7 +7541,7 @@ function getCurrentProcessId() {
                             }
                         }
                     }
-                    const isBareCKZ = /^CKZ$/i.test(shortTrim);
+                    const isBareReplaceWord = /^[A-Z]{2,5}$/i.test(shortTrim) && !/\d/.test(shortTrim);
                     const nSpLabel = (s) => (s || '').trim().replace(/\s+/g, '');
                     const shortNormLabel = nSpLabel(shortTrim);
                     for (let i = 0; i < parsedTableData.rows.length; i++) {
@@ -7554,12 +7554,12 @@ function getCurrentProcessId() {
                                 console.log('resolveToFullIdProduct: resolved', shortTrim, 'with rowLabel', extractedRowLabel, '->', full);
                                 return full;
                             }
-                            if (!isBareCKZ && full.endsWith(shortTrim)) {
+                            if (!isBareReplaceWord && full.endsWith(shortTrim)) {
                                 console.log('resolveToFullIdProduct: resolved', shortTrim, 'with rowLabel', extractedRowLabel, '->', full);
                                 return full;
                             }
                             if (shortNormLabel && nSpLabel(full).indexOf(shortNormLabel) === 0) {
-                                if (isBareCKZ && full !== shortTrim) continue;
+                                if (isBareReplaceWord && full !== shortTrim) continue;
                                 console.log('resolveToFullIdProduct: resolved (prefix) with rowLabel', extractedRowLabel, shortTrim, '->', full);
                                 return full;
                             }
@@ -7583,7 +7583,7 @@ function getCurrentProcessId() {
                         const row = parsedTableData.rows[idxByLabel];
                         if (row && row.length > 1 && row[1].type === 'data') {
                             const full = (row[1].value || '').trim();
-                            if (full && (full === shortTrim || (!isBareCKZ && full.endsWith(shortTrim)) || full.indexOf(' - ') >= 0)) {
+                            if (full && (full === shortTrim || (!isBareReplaceWord && full.endsWith(shortTrim)) || full.indexOf(' - ') >= 0)) {
                                 console.log('resolveToFullIdProduct: resolved by row index', extractedRowLabel, '->', full);
                                 return full;
                             }
@@ -7592,7 +7592,7 @@ function getCurrentProcessId() {
                 }
                 const nSp = (s) => (s || '').trim().replace(/\s+/g, '');
                 const shortNorm = nSp(shortTrim);
-                const isBareCKZNoLabel = /^CKZ$/i.test(shortTrim);
+                const isBareReplaceWordNoLabel = /^[A-Z]{2,5}$/i.test(shortTrim) && !/\d/.test(shortTrim);
                 for (let i = 0; i < parsedTableData.rows.length; i++) {
                     const row = parsedTableData.rows[i];
                     if (row && row.length > 1 && row[1].type === 'data') {
@@ -7601,12 +7601,12 @@ function getCurrentProcessId() {
                             console.log('resolveToFullIdProduct: resolved', shortTrim, '->', full);
                             return full;
                         }
-                        if (!isBareCKZNoLabel && full.endsWith(shortTrim)) {
+                        if (!isBareReplaceWordNoLabel && full.endsWith(shortTrim)) {
                             console.log('resolveToFullIdProduct: resolved', shortTrim, '->', full);
                             return full;
                         }
                         if (shortNorm && nSp(full).indexOf(shortNorm) === 0) {
-                            if (isBareCKZNoLabel && full !== shortTrim) continue;
+                            if (isBareReplaceWordNoLabel && full !== shortTrim) continue;
                             console.log('resolveToFullIdProduct: resolved (prefix match)', shortTrim, '->', full);
                             return full;
                         }
@@ -7654,9 +7654,9 @@ function getCurrentProcessId() {
             if (!tableData.rows) return null;
 
             const trimmed = (processValue || '').trim();
-            // CKZ 为 Replace Word（SUBTOTAL 转换来的），不解析为 CKZ03，保持 CKZ
-            const isBareCKZ = /^CKZ$/i.test(trimmed);
-            const processValueResolved = (isBareCKZ || !(typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(processValue)))
+            // Replace Word（如 CKZ、KBK）不解析为 CKZ03/KBK01，保持原样，避免抓错行
+            const isBareReplaceWord = /^[A-Z]{2,5}$/i.test(trimmed) && !/\d/.test(trimmed);
+            const processValueResolved = (isBareReplaceWord || !(typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(processValue)))
                 ? trimmed
                 : resolveToFullIdProduct(processValue);
 
@@ -7691,7 +7691,8 @@ function getCurrentProcessId() {
             const isSubTotalRow = (r) => {
                 const h = (r[0] && r[0].value) ? String(r[0].value).trim().toUpperCase() : '';
                 const v = (r[1] && r[1].value) ? String(r[1].value).trim().toUpperCase() : '';
-                return h.includes('SUB TOTAL') || h.includes('SUBTOTAL') || v.includes('SUB TOTAL') || v.includes('SUBTOTAL') || v === 'CKZ';
+                const isReplaceWordCell = /^[A-Z]{2,5}$/.test(v) && !/\d/.test(v);
+                return h.includes('SUB TOTAL') || h.includes('SUBTOTAL') || v.includes('SUB TOTAL') || v.includes('SUBTOTAL') || isReplaceWordCell;
             };
             console.log('findProcessRow: Searching all rows for id_product:', processValueResolved);
             let matchedRows = [];
