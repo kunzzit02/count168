@@ -152,13 +152,10 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 });
             }
             
-            // Apply replace word（整格为 SUBTOTAL/SUB TOTAL 时保留不替换，避免 Sub Total 行被改成 CKZ 等）
+            // Apply replace word
             if (replaceWordFrom && replaceWordFrom.trim() !== '' && replaceWordTo !== undefined) {
-                const trimmedResult = result.trim();
-                const isSubTotalCell = /^SUB\s*TOTAL$/i.test(trimmedResult.replace(/\s+/g, ' '));
-                if (isSubTotalCell) {
-                    return trimmedResult;
-                }
+                // Replace all occurrences of the word (case-insensitive)
+                // Escape special regex characters to match them literally
                 const escapedReplaceWord = escapeRegex(replaceWordFrom.trim());
                 const replaceRegex = new RegExp(escapedReplaceWord, 'gi');
                 result = result.replace(replaceRegex, replaceWordTo);
@@ -7575,8 +7572,6 @@ function getCurrentProcessId() {
                 }
                 const nSp = (s) => (s || '').trim().replace(/\s+/g, '');
                 const shortNorm = nSp(shortTrim);
-                // CKZ 仅精确匹配，不按前缀解析为 CKZ03（该行应为 SUBTOTAL）
-                const isBareCKZ = /^CKZ$/i.test(shortTrim);
                 for (let i = 0; i < parsedTableData.rows.length; i++) {
                     const row = parsedTableData.rows[i];
                     if (row && row.length > 1 && row[1].type === 'data') {
@@ -7586,7 +7581,6 @@ function getCurrentProcessId() {
                             return full;
                         }
                         if (shortNorm && nSp(full).indexOf(shortNorm) === 0) {
-                            if (isBareCKZ && full !== shortTrim) continue;
                             console.log('resolveToFullIdProduct: resolved (prefix match)', shortTrim, '->', full);
                             return full;
                         }
@@ -7668,7 +7662,7 @@ function getCurrentProcessId() {
             const isSubTotalRow = (r) => {
                 const h = (r[0] && r[0].value) ? String(r[0].value).trim().toUpperCase() : '';
                 const v = (r[1] && r[1].value) ? String(r[1].value).trim().toUpperCase() : '';
-                return h.includes('SUB TOTAL') || h.includes('SUBTOTAL') || v.includes('SUB TOTAL') || v.includes('SUBTOTAL') || v === 'CKZ';
+                return h.includes('SUB TOTAL') || h.includes('SUBTOTAL') || v.includes('SUB TOTAL') || v.includes('SUBTOTAL');
             };
             console.log('findProcessRow: Searching all rows for id_product:', processValueResolved);
             let matchedRows = [];
