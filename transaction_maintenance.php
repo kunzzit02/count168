@@ -32,24 +32,20 @@ if (!empty($session_company_id)) {
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/transaction_maintenance.css?v=<?php echo time(); ?>">
+    <title>Transaction Maintenance</title>
     <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/sidebar.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
-    <?php include 'sidebar.php';
-    $langCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
-    $tmLang = require __DIR__ . '/lang/' . $langCode . '.php';
-    if (!is_array($tmLang)) { $tmLang = []; }
-    ?>
-    <title><?php echo htmlspecialchars(__('tm.title_page')); ?></title>
+    <?php include 'sidebar.php'; ?>
 </head>
 <body>
     <div class="container">
         <div class="maintenance-header">
-            <h1 id="maintenance-page-title"><?php echo htmlspecialchars(__('tm.title_page')); ?></h1>
+            <h1 id="maintenance-page-title">Maintenance - Transaction</h1>
             <!-- Category 选项（与 bankprocess_maintenance 一致） -->
             <div id="maintenance-permission-filter" class="maintenance-permission-filter-header" style="display: none;">
-                <span class="maintenance-company-label"><?php echo htmlspecialchars(__('cm.category')); ?></span>
+                <span class="maintenance-company-label">Category:</span>
                 <div id="maintenance-permission-buttons" class="maintenance-company-buttons">
                     <!-- Permission buttons will be loaded dynamically -->
                 </div>
@@ -60,12 +56,12 @@ if (!empty($session_company_id)) {
         <div class="maintenance-search-section">
             <div class="maintenance-filters">
                 <div class="maintenance-form-group">
-                    <label class="maintenance-label"><?php echo htmlspecialchars(__('cm.process')); ?></label>
+                    <label class="maintenance-label">Process</label>
                     <div class="custom-select-wrapper">
-                        <button type="button" class="custom-select-button" id="filter_process" data-placeholder="<?php echo htmlspecialchars(__('cm.select_all')); ?>"><?php echo htmlspecialchars(__('cm.select_all')); ?></button>
+                        <button type="button" class="custom-select-button" id="filter_process" data-placeholder="--Select All--">--Select All--</button>
                         <div class="custom-select-dropdown" id="filter_process_dropdown">
                             <div class="custom-select-search">
-                                <input type="text" placeholder="<?php echo htmlspecialchars(__('cm.search_process')); ?>" autocomplete="off">
+                                <input type="text" placeholder="Search process..." autocomplete="off">
                             </div>
                             <div class="custom-select-options"></div>
                         </div>
@@ -73,31 +69,31 @@ if (!empty($session_company_id)) {
                 </div>
                 
                 <div class="maintenance-form-group">
-                    <label class="maintenance-label"><?php echo htmlspecialchars(__('cm.date_range')); ?></label>
+                    <label class="maintenance-label">Date Range</label>
                     <div class="date-range-picker" id="date-range-picker">
                         <i class="fas fa-calendar-alt"></i>
-                        <span id="date-range-display"><?php echo htmlspecialchars(__('cm.select_date_range')); ?></span>
+                        <span id="date-range-display">Select date range</span>
                     </div>
                     <input type="hidden" id="date_from" value="<?php echo date('d/m/Y'); ?>">
                     <input type="hidden" id="date_to" value="<?php echo date('d/m/Y'); ?>">
                 </div>
                 <div class="maintenance-form-group quick-select-wrap">
-                    <label class="form-label"><i class="fas fa-clock"></i> <?php echo htmlspecialchars(__('cm.quick_select')); ?></label>
+                    <label class="form-label"><i class="fas fa-clock"></i> Quick Select</label>
                     <div class="quick-select-dropdown quick-select-dropdown-toggle">
                         <button type="button" class="dropdown-toggle" onclick="event.stopPropagation(); window.toggleQuickSelectDropdown();">
                             <i class="fas fa-calendar-alt"></i>
-                            <span id="quick-select-text"><?php echo htmlspecialchars(__('cm.period')); ?></span>
+                            <span id="quick-select-text">Period</span>
                             <i class="fas fa-chevron-down"></i>
                         </button>
                         <div class="dropdown-menu" id="quick-select-dropdown">
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('today')"><?php echo htmlspecialchars(__('dashboard.today')); ?></button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')"><?php echo htmlspecialchars(__('dashboard.yesterday')); ?></button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')"><?php echo htmlspecialchars(__('dashboard.this_week')); ?></button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')"><?php echo htmlspecialchars(__('dashboard.last_week')); ?></button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')"><?php echo htmlspecialchars(__('dashboard.this_month')); ?></button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')"><?php echo htmlspecialchars(__('dashboard.last_month')); ?></button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')"><?php echo htmlspecialchars(__('dashboard.this_year')); ?></button>
-                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')"><?php echo htmlspecialchars(__('dashboard.last_year')); ?></button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
+                            <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
                         </div>
                     </div>
                 </div>
@@ -106,7 +102,7 @@ if (!empty($session_company_id)) {
             <div class="maintenance-filter-row">
                 <div class="maintenance-filter-left">
                     <div class="maintenance-company-filter" id="companyButtonsWrapper" style="display: none;">
-                        <span class="maintenance-company-label"><?php echo htmlspecialchars(__('cm.company')); ?></span>
+                        <span class="maintenance-company-label">Company:</span>
                         <div class="maintenance-company-buttons" id="companyButtonsContainer">
                             <!-- Company buttons injected here -->
                         </div>
@@ -123,20 +119,20 @@ if (!empty($session_company_id)) {
             <table class="maintenance-table">
                 <thead>
                     <tr>
-                        <th><?php echo htmlspecialchars(__('tm.no')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.dts_created')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.process')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.account')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.description')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.remark')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.source')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.percent')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.currency')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.rate')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.cr')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.dr')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.created_by')); ?></th>
-                        <th><?php echo htmlspecialchars(__('tm.deleted_by')); ?></th>
+                        <th>No.</th>
+                        <th>Dts Created</th>
+                        <th>Process</th>
+                        <th>Account</th>
+                        <th>Description</th>
+                        <th>Remark</th>
+                        <th>Source</th>
+                        <th>Percent</th>
+                        <th>Currency</th>
+                        <th>Rate</th>
+                        <th>Cr</th>
+                        <th>Dr</th>
+                        <th>Created By</th>
+                        <th>Deleted By</th>
                     </tr>
                 </thead>
                 <tbody id="dataTableBody">
@@ -148,7 +144,7 @@ if (!empty($session_company_id)) {
         <!-- Empty State -->
         <div class="empty-state-container" id="emptyState" style="display: none;">
             <div class="empty-state">
-                <p><?php echo htmlspecialchars(__('cm.no_data_found_message')); ?></p>
+                <p>No data found. Please adjust your search criteria and try again.</p>
             </div>
         </div>
     </div>
@@ -164,18 +160,18 @@ if (!empty($session_company_id)) {
             </button>
             <div class="calendar-month-year" onclick="event.stopPropagation();">
                 <select id="calendar-month-select">
-                    <option value="0"><?php echo htmlspecialchars(__('dashboard.jan')); ?></option>
-                    <option value="1"><?php echo htmlspecialchars(__('dashboard.feb')); ?></option>
-                    <option value="2"><?php echo htmlspecialchars(__('dashboard.mar')); ?></option>
-                    <option value="3"><?php echo htmlspecialchars(__('dashboard.apr')); ?></option>
-                    <option value="4"><?php echo htmlspecialchars(__('dashboard.may')); ?></option>
-                    <option value="5"><?php echo htmlspecialchars(__('dashboard.jun')); ?></option>
-                    <option value="6"><?php echo htmlspecialchars(__('dashboard.jul')); ?></option>
-                    <option value="7"><?php echo htmlspecialchars(__('dashboard.aug')); ?></option>
-                    <option value="8"><?php echo htmlspecialchars(__('dashboard.sep')); ?></option>
-                    <option value="9"><?php echo htmlspecialchars(__('dashboard.oct')); ?></option>
-                    <option value="10"><?php echo htmlspecialchars(__('dashboard.nov')); ?></option>
-                    <option value="11"><?php echo htmlspecialchars(__('dashboard.dec')); ?></option>
+                    <option value="0">Jan</option>
+                    <option value="1">Feb</option>
+                    <option value="2">Mar</option>
+                    <option value="3">Apr</option>
+                    <option value="4">May</option>
+                    <option value="5">Jun</option>
+                    <option value="6">Jul</option>
+                    <option value="7">Aug</option>
+                    <option value="8">Sep</option>
+                    <option value="9">Oct</option>
+                    <option value="10">Nov</option>
+                    <option value="11">Dec</option>
                 </select>
                 <select id="calendar-year-select"></select>
             </div>
@@ -184,20 +180,18 @@ if (!empty($session_company_id)) {
             </button>
         </div>
         <div class="calendar-weekdays">
-            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.sun')); ?></div>
-            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.mon')); ?></div>
-            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.tue')); ?></div>
-            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.wed')); ?></div>
-            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.thu')); ?></div>
-            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.fri')); ?></div>
-            <div class="calendar-weekday"><?php echo htmlspecialchars(__('dashboard.sat')); ?></div>
+            <div class="calendar-weekday">Sun</div>
+            <div class="calendar-weekday">Mon</div>
+            <div class="calendar-weekday">Tue</div>
+            <div class="calendar-weekday">Wed</div>
+            <div class="calendar-weekday">Thu</div>
+            <div class="calendar-weekday">Fri</div>
+            <div class="calendar-weekday">Sat</div>
         </div>
         <div class="calendar-days" id="calendar-days"></div>
     </div>
 
     <script>
-        window.__LANG = <?php echo json_encode($tmLang); ?>;
-        function __(key) { return (typeof window.__LANG !== 'undefined' && window.__LANG[key]) ? window.__LANG[key] : key; }
         let ownerCompanies = [];
         // 从 PHP session 中获取 company_id（用于跨页面同步）
         let currentCompanyId = <?php echo json_encode($session_company_id); ?>;
@@ -413,14 +407,13 @@ if (!empty($session_company_id)) {
                         optionsContainer.innerHTML = '';
                         
                         // Add "All Process" option
-                        const selectAllText = typeof __ !== 'undefined' ? __('cm.select_all') : '--Select All--';
                         const allOption = document.createElement('div');
                         allOption.className = 'custom-select-option';
-                        allOption.textContent = selectAllText;
+                        allOption.textContent = '--Select All--';
                         allOption.setAttribute('data-value', '');
                         if (!previousValue) {
                             allOption.classList.add('selected');
-                            processButton.textContent = selectAllText;
+                            processButton.textContent = '--Select All--';
                         }
                         optionsContainer.appendChild(allOption);
                         
@@ -500,7 +493,7 @@ if (!empty($session_company_id)) {
                     if (!noResults) {
                         noResults = document.createElement('div');
                         noResults.className = 'custom-select-no-results';
-                        noResults.textContent = typeof __ !== 'undefined' ? __('tm.no_results_found') : 'No results found';
+                        noResults.textContent = 'No results found';
                         optionsContainer.appendChild(noResults);
                     }
                     noResults.style.display = 'block';
@@ -624,7 +617,7 @@ if (!empty($session_company_id)) {
             
             // 验证日期
             if (!dateFrom || !dateTo) {
-                showNotification(typeof __ !== 'undefined' ? __('tm.please_select_date_range') : 'Please select date range', 'error');
+                showNotification('Please select date range', 'error');
                 return;
             }
             
@@ -658,13 +651,12 @@ if (!empty($session_company_id)) {
                         if (data.data.length === 0) {
                             document.getElementById('emptyState').style.display = 'block';
                             document.getElementById('tableContainer').style.display = 'none';
-                            showNotification(typeof __ !== 'undefined' ? __('cm.no_data_found') : 'No data found', 'info');
+                            showNotification('No data found', 'info');
                         } else {
-                            const foundMsg = typeof __ !== 'undefined' ? (__('tm.found_records').replace('%d', data.data.length)) : `Found ${data.data.length} record(s)`;
-                            showNotification(foundMsg, 'success');
+                            showNotification(`Found ${data.data.length} record(s)`, 'success');
                         }
                     } else {
-                        showNotification(data.error || (typeof __ !== 'undefined' ? __('tm.search_failed') : 'Search failed'), 'error');
+                        showNotification(data.error || 'Search failed', 'error');
                         document.getElementById('emptyState').style.display = 'block';
                         document.getElementById('tableContainer').style.display = 'none';
                     }
@@ -697,7 +689,7 @@ if (!empty($session_company_id)) {
                 emptyRow.className = 'maintenance-row-empty';
                 emptyRow.innerHTML = `
                     <td class="maintenance-table-cell" colspan="14" style="text-align: center; padding: 16px;">
-                        ` + (typeof __ !== 'undefined' ? __('tm.no_data') : 'No data') + `
+                        No data
                     </td>
                 `;
                 tbody.appendChild(emptyRow);
@@ -794,11 +786,11 @@ if (!empty($session_company_id)) {
             // Check for URL parameters and show notifications
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('success') === '1') {
-                showNotification(typeof __ !== 'undefined' ? __('tm.operation_success') : 'Operation completed successfully!', 'success');
+                showNotification('Operation completed successfully!', 'success');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (urlParams.get('error') === '1') {
-                showNotification(typeof __ !== 'undefined' ? __('tm.operation_failed') : 'Operation failed. Please try again.', 'error');
+                showNotification('Operation failed. Please try again.', 'error');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
