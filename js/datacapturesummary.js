@@ -5883,18 +5883,25 @@ function getCurrentProcessId() {
                         
                         // 检查公式是否已经包含新格式 [id_product,数字]
                         const hasNewFormat = /\[[^,\]]+,\d+\]/.test(formulaValueToSet);
-                        const processValue = document.getElementById('process')?.value;
+                        const processValue = (document.getElementById('process')?.value || data.processValue || '').toString().trim();
                         
                         if (hasNewFormat && processValue) {
-                            // 将当前行的 [id_product,列号] 转为 $列号 显示，与第二张图一致
+                            // 将当前行的 [id_product,列号] 转为 $列号 显示（含 CKZ/SUBTOTAL 等价）
                             const currentIdProduct = processValue.trim();
+                            const sameSubTotalRow = (a, b) => {
+                                const u = (v) => (v || '').trim().toUpperCase().replace(/\s+/g, '');
+                                const x = u(a), y = u(b);
+                                return (x === 'CKZ' && (y === 'SUBTOTAL' || y === 'SUB TOTAL')) || (y === 'CKZ' && (x === 'SUBTOTAL' || x === 'SUB TOTAL'));
+                            };
                             const bracketPattern = /\[([^,\]]+),(\d+)\]/g;
                             formulaValueToSet = formulaValueToSet.replace(bracketPattern, function(match, idProduct, colNum) {
                                 const refId = (idProduct || '').trim();
+                                const normRef = typeof normalizeIdProductText === 'function' ? normalizeIdProductText(refId) : refId;
+                                const normCur = typeof normalizeIdProductText === 'function' ? normalizeIdProductText(currentIdProduct) : currentIdProduct;
                                 const isCurrentRow = currentIdProduct && (
                                     (typeof isFullIdProduct === 'function' && isFullIdProduct(refId))
-                                        ? (refId === currentIdProduct)
-                                        : (typeof normalizeIdProductText === 'function' && normalizeIdProductText(refId) === normalizeIdProductText(currentIdProduct))
+                                        ? (refId === currentIdProduct || sameSubTotalRow(refId, currentIdProduct))
+                                        : (normRef === normCur || sameSubTotalRow(refId, currentIdProduct))
                                 );
                                 return isCurrentRow ? '$' + colNum : match;
                             });
@@ -11315,6 +11322,7 @@ function getCurrentProcessId() {
             
             // Show the Edit Formula form with pre-populated data
             showEditFormulaForm(processValue, false, {
+                processValue: processValue,
                 account: accountValue,
                 accountDbId: accountDbId,
                 currency: currencyValue,
