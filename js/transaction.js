@@ -3,7 +3,6 @@
  */
 (function() {
     'use strict';
-    function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
     let lastSearchData = null;
     let currentCompanyId = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.currentCompanyId !== undefined) ? window.TRANSACTION_PAGE.currentCompanyId : null;
     const viewerRole = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.viewerRole !== undefined) ? window.TRANSACTION_PAGE.viewerRole : '';
@@ -76,7 +75,7 @@ function renderContraInbox(items) {
     if (countEl2) countEl2.textContent = String(count);
 
     if (count === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="padding:10px 8px; color:#6b7280;">' + (typeof __ !== 'undefined' ? __('tp.no_pending_contra') : 'No pending contra.') + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="padding:10px 8px; color:#6b7280;">No pending contra.</td></tr>';
         return;
     }
     tbody.innerHTML = items.map(row => {
@@ -161,7 +160,7 @@ function rejectContra(transactionId) {
     const id = parseInt(transactionId, 10);
     if (!id) return;
 
-    if (!confirm(typeof __ !== 'undefined' ? __('tp.confirm_reject_contra') : 'Are you sure to reject this Contra? Rejected data will be permanently deleted.')) {
+    if (!confirm('确定要拒绝这条 Contra 交易吗？拒绝后数据将被永久删除。')) {
         return;
     }
 
@@ -428,7 +427,7 @@ function loadCategories() {
         .then(data => {
             if (data.success) {
                 const categorySelect = document.getElementById('filter_category');
-                categorySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('tp.select_all') : '--Select All--') + '</option>';
+                categorySelect.innerHTML = '<option value="">--Select All--</option>';
                 data.data.forEach(role => {
                     const option = document.createElement('option');
                     option.value = role;
@@ -545,7 +544,7 @@ function loadAccounts() {
                     
                     // 如果没有选中值，显示 placeholder
                     if (!currentValue) {
-                        button.textContent = button.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('tp.select_account') : '--Select Account--');
+                        button.textContent = button.getAttribute('data-placeholder') || '--Select Account--';
                         button.removeAttribute('data-value');
                     }
                 });
@@ -610,7 +609,7 @@ function initCustomSelects() {
                 if (!noResults) {
                     noResults = document.createElement('div');
                     noResults.className = 'custom-select-no-results';
-                    noResults.textContent = (typeof __ !== 'undefined' ? __('tp.no_results_found') : 'No results found');
+                    noResults.textContent = 'No results found';
                     optionsContainer.appendChild(noResults);
                 }
                 noResults.style.display = 'block';
@@ -945,7 +944,7 @@ function loadCompanyCurrencies() {
                 // 创建 "All" 按钮
                 const allBtn = document.createElement('button');
                 allBtn.className = 'transaction-company-btn';
-                allBtn.textContent = (typeof __ !== 'undefined' ? __('tp.all') : 'All');
+                allBtn.textContent = 'All';
                 allBtn.dataset.currencyCode = 'ALL';
                 if (previousShowAll) {
                     allBtn.classList.add('active');
@@ -1012,9 +1011,9 @@ function loadCompanyCurrencies() {
                 const rateCurrencyToSelect = document.getElementById('rate_currency_to');
                 
                 const currencySelects = [
-                    { element: currencySelect, placeholder: (typeof __ !== 'undefined' ? __('tp.select_currency') : '--Select Currency--') },
-                    { element: rateCurrencyFromSelect, placeholder: (typeof __ !== 'undefined' ? __('tp.currency') : 'Currency') },
-                    { element: rateCurrencyToSelect, placeholder: (typeof __ !== 'undefined' ? __('tp.currency') : 'Currency') }
+                    { element: currencySelect, placeholder: '--Select Currency--' },
+                    { element: rateCurrencyFromSelect, placeholder: 'Currency' },
+                    { element: rateCurrencyToSelect, placeholder: 'Currency' }
                 ];
                 
                 const previousCurrencyValues = new Map();
@@ -1062,7 +1061,7 @@ function loadCompanyCurrencies() {
                 // 清空下拉框
                 const currencySelect = document.getElementById('transaction_currency');
                 if (currencySelect) {
-                    currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('tp.select_currency') : '--Select Currency--') + '</option>';
+                    currencySelect.innerHTML = '<option value="">--Select Currency--</option>';
                 }
                 
                 console.log('⚠️ 没有 currency 数据');
@@ -1307,7 +1306,7 @@ function searchTransactions() {
                     // 没有数据，隐藏表格区域
                     if (tablesSection) tablesSection.style.display = 'none';
                     if (summarySection) summarySection.style.display = 'none';
-                    showNotification((typeof __ !== 'undefined' ? __('tp.search_no_data') : 'Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted'), 'info');
+                    showNotification('Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted', 'info');
                 } else {
                     // 有数据，显示表格区域（恢复 flex 布局，由 applyZeroBalanceFilterAndRender 显示对应容器）
                     if (tablesSection) {
@@ -1319,19 +1318,19 @@ function searchTransactions() {
                     // 使用最新搜索结果，根据「Show 0 balance」状态在前端过滤并渲染
                     applyZeroBalanceFilterAndRender();
                     
-                    showNotification((typeof __ !== 'undefined' ? __('tp.search_success').replace('%d', String(totalAccounts)) : `Search completed, found ${totalAccounts} record(s)`), 'success');
+                    showNotification(`Search completed, found ${totalAccounts} record(s)`, 'success');
                 }
             } else {
                 console.error('❌ 搜索失败:', data.error);
                 if (tablesSection) tablesSection.style.display = 'none';
-                showNotification(data.error || (typeof __ !== 'undefined' ? __('tp.search_failed') : 'Search failed'), 'error');
+                showNotification(data.error || 'Search failed', 'error');
             }
         })
         .catch(error => {
             if (loadingEl) loadingEl.style.display = 'none';
             if (tablesSection) tablesSection.style.display = 'none';
             console.error('❌ 搜索失败:', error);
-            showNotification((typeof __ !== 'undefined' ? __('tp.search_failed') : 'Search failed') + ': ' + error.message, 'error');
+            showNotification('Search failed: ' + error.message, 'error');
         });
 }
 
@@ -1360,7 +1359,7 @@ function renderTables(leftRows, rightRows, totalsFromApi) {
         // 显示 currency 标题
         const currencyTitle = document.getElementById('default-currency-title');
         if (currencyTitle && selectedCurrencies.length === 1) {
-            currencyTitle.textContent = (typeof __ !== 'undefined' ? __('tp.currency_title') : 'Currency: ') + selectedCurrencies[0];
+            currencyTitle.textContent = `Currency: ${selectedCurrencies[0]}`;
             currencyTitle.style.display = 'block';
         } else {
             currencyTitle.style.display = 'none';
@@ -1451,7 +1450,7 @@ function renderCurrencyGroupedTables(leftRows, rightRows, options) {
         // 创建 currency 标题
         const currencyTitle = document.createElement('h3');
         currencyTitle.style.cssText = 'margin: 20px 0 10px 0; font-size: clamp(14px, 1.2vw, 18px); font-weight: bold; color: #1f2937;';
-        currencyTitle.textContent = (typeof __ !== 'undefined' ? __('tp.currency_title') : 'Currency: ') + currency;
+        currencyTitle.textContent = `Currency: ${currency}`;
         groupedContainer.appendChild(currencyTitle);
         
         // 创建表格容器
@@ -1513,7 +1512,7 @@ function createCurrencySummaryTable(tableId, totals) {
     const thead = document.createElement('thead');
     thead.innerHTML = `
         <tr class="transaction-table-header">
-            <th colspan="2">${typeof __ !== 'undefined' ? __('tp.total') : 'Total'}</th>
+            <th colspan="2">Total</th>
         </tr>
     `;
     table.appendChild(thead);
@@ -1522,19 +1521,19 @@ function createCurrencySummaryTable(tableId, totals) {
     const tbody = document.createElement('tbody');
     tbody.innerHTML = `
         <tr class="transaction-table-row">
-            <td class="transaction-summary-label">${typeof __ !== 'undefined' ? __('tp.bf') : 'B/F'}</td>
+            <td class="transaction-summary-label">B/F</td>
             <td>${formatNumber(totals.bf)}</td>
         </tr>
         <tr class="transaction-table-row">
-            <td class="transaction-summary-label">${typeof __ !== 'undefined' ? __('tp.win_loss') : 'Win/Loss'}</td>
+            <td class="transaction-summary-label">Win/Loss</td>
             <td>${formatNumber(totals.win_loss)}</td>
         </tr>
         <tr class="transaction-table-row">
-            <td class="transaction-summary-label">${typeof __ !== 'undefined' ? __('tp.cr_dr') : 'Cr/Dr'}</td>
+            <td class="transaction-summary-label">Cr/Dr</td>
             <td>${formatNumber(totals.cr_dr)}</td>
         </tr>
         <tr class="transaction-table-row">
-            <td class="transaction-summary-label">${typeof __ !== 'undefined' ? __('tp.balance') : 'Balance'}</td>
+            <td class="transaction-summary-label">Balance</td>
             <td>${formatNumber(totals.balance)}</td>
         </tr>
     `;
@@ -1556,12 +1555,12 @@ function createCurrencyTable(tableId, rows) {
     const thead = document.createElement('thead');
     thead.innerHTML = `
         <tr class="transaction-table-header">
-            <th>${typeof __ !== 'undefined' ? __('tp.account') : 'Account'}</th>
-            <th class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${typeof __ !== 'undefined' ? __('tp.name') : 'Name'}</th>
-            <th>${typeof __ !== 'undefined' ? __('tp.bf') : 'B/F'}</th>
-            <th>${typeof __ !== 'undefined' ? __('tp.win_loss') : 'Win/Loss'}</th>
-            <th>${typeof __ !== 'undefined' ? __('tp.cr_dr') : 'Cr/Dr'}</th>
-            <th>${typeof __ !== 'undefined' ? __('tp.balance') : 'Balance'}</th>
+            <th>Account</th>
+            <th class="transaction-name-column" style="display: ${showName ? '' : 'none'};">Name</th>
+            <th>B/F</th>
+            <th>Win/Loss</th>
+            <th>Cr/Dr</th>
+            <th>Balance</th>
         </tr>
     `;
     table.appendChild(thead);
@@ -1623,7 +1622,7 @@ function createCurrencyTable(tableId, rows) {
     const totals = calculateTotals(rows);
     tfoot.innerHTML = `
         <tr class="transaction-table-footer">
-            <td>${typeof __ !== 'undefined' ? __('tp.total') : 'Total'}</td>
+            <td>Total</td>
             <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};"></td>
             <td>${formatNumber(totals.bf)}</td>
             <td>${formatNumber(totals.win_loss)}</td>

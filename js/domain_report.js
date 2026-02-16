@@ -1,5 +1,4 @@
-function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
-        function showNotification(message, type = 'success') {
+function showNotification(message, type = 'success') {
             const container = document.getElementById('domainReportNotificationContainer');
 
             const existingNotifications = container.querySelectorAll('.account-notification');
@@ -177,11 +176,11 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     // Add "All Process" option
                     const allOption = document.createElement('div');
                     allOption.className = 'custom-select-option';
-                    allOption.textContent = (typeof __ !== 'undefined' ? __('report.all_process') : 'All Process');
+                    allOption.textContent = 'All Process';
                     allOption.setAttribute('data-value', '');
                     if (!previousValue) {
                         allOption.classList.add('selected');
-                        processButton.textContent = (typeof __ !== 'undefined' ? __('report.all_process') : 'All Process');
+                        processButton.textContent = 'All Process';
                     }
                     optionsContainer.appendChild(allOption);
                     
@@ -204,7 +203,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     
                     // If no value selected, show placeholder
                     if (!previousValue) {
-                        processButton.textContent = processButton.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('report.all_process') : 'All Process');
+                        processButton.textContent = processButton.getAttribute('data-placeholder') || 'All Process';
                         processButton.removeAttribute('data-value');
                     }
                 }
@@ -252,7 +251,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     if (!noResults) {
                         noResults = document.createElement('div');
                         noResults.className = 'custom-select-no-results';
-                        noResults.textContent = (typeof __ !== 'undefined' ? __('report.no_results_found') : 'No results found');
+                        noResults.textContent = 'No results found';
                         optionsContainer.appendChild(noResults);
                     }
                     noResults.style.display = 'block';
@@ -436,12 +435,12 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     renderReport(result.data, result.totals);
                 } else {
                     showNotification(result.message || result.error || 'Failed to get report data', 'danger');
-                    renderError(result.message || result.error || (typeof __ !== 'undefined' ? __('report.load_failed') : 'Failed to get report data'));
+                    renderError(result.message || result.error || 'Failed to get report data');
                 }
             } catch (error) {
                 console.error('Error loading domain report:', error);
-                showNotification((typeof __ !== 'undefined' ? __('report.network_failed') : 'Network connection failed'), 'danger');
-                renderError((typeof __ !== 'undefined' ? __('report.network_failed') : 'Network connection failed'));
+                showNotification('Network connection failed', 'danger');
+                renderError('Network connection failed');
             }
         }
 
@@ -465,7 +464,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 container.innerHTML = `
                     <div class="domain-report-card">
                         <div class="domain-report-card-item" style="grid-column: 1 / -1; text-align: center; justify-content: center; padding: 20px;">
-                            ${typeof __ !== 'undefined' ? __('report.no_data_found') : 'No data found'}
+                            No data found
                         </div>
                     </div>
                 `;

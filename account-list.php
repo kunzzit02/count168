@@ -205,24 +205,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
 $searchTerm = isset($_GET['search']) ? htmlspecialchars($_GET['search']) : '';
 $showInactive = isset($_GET['showInactive']) ? true : false;
 $showAll = isset($_GET['showAll']) ? true : false;
-
-// 语言：按 Cookie 加载
-$accountLangCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
-$accountLang = require __DIR__ . '/lang/' . $accountLangCode . '.php';
-if (!is_array($accountLang)) {
-    $accountLang = [];
-}
-if (!function_exists('__')) {
-    $lang = $accountLang;
-    function __($key) {
-        global $lang;
-        return $lang[$key] ?? $key;
-    }
-}
 ?>
 
 <!DOCTYPE html>
-<html lang="<?php echo $accountLangCode === 'zh' ? 'zh' : 'en'; ?>">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -233,7 +219,7 @@ if (!function_exists('__')) {
     };
     ?>
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
-    <title><?php echo htmlspecialchars(__('account.title_page')); ?></title>
+    <title>Account List</title>
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo $assetVer('css/accountCSS.css'); ?>">
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <link rel="stylesheet" href="css/account-list.css?v=<?php echo $assetVer('css/account-list.css'); ?>">
@@ -243,36 +229,36 @@ if (!function_exists('__')) {
 <body>
     <div class="container">
         <div class="content">
-            <h1 class="account-page-title"><?php echo htmlspecialchars(__('account.title')); ?></h1>
+            <h1 class="account-page-title">Account List</h1>
 
             <div class="account-separator-line"></div>
             
             <div class="account-action-buttons-container" style="margin-bottom: 20px;">
                 <div class="account-action-buttons" style="display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <button class="account-btn account-btn-add" onclick="addAccount()"><?php echo htmlspecialchars(__('account.add_account')); ?></button>
+                        <button class="account-btn account-btn-add" onclick="addAccount()">Add Account</button>
                         <div class="account-search-container">
                             <svg class="account-search-icon" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                             </svg>
-                            <input type="text" id="searchInput" placeholder="<?php echo htmlspecialchars(__('account.search_placeholder')); ?>" class="account-search-input" value="<?php echo $searchTerm; ?>">
+                            <input type="text" id="searchInput" placeholder="Search by Account or Name" class="account-search-input" value="<?php echo $searchTerm; ?>">
                         </div>
                         <div class="account-checkbox-section">
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactive ? 'checked' : ''; ?>>
-                            <label for="showInactive"><?php echo htmlspecialchars(__('account.show_inactive')); ?></label>
+                            <label for="showInactive">Show Inactive</label>
                         </div>
                         <div class="account-checkbox-section">
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAll ? 'checked' : ''; ?>>
-                            <label for="showAll"><?php echo htmlspecialchars(__('account.show_all')); ?></label>
+                            <label for="showAll">Show All</label>
                         </div>
                     </div>
-                    <button class="account-btn account-btn-delete" id="accountDeleteSelectedBtn" onclick="deleteSelected()" title="<?php echo htmlspecialchars(__('account.delete_only_inactive')); ?>"><?php echo htmlspecialchars(__('account.delete')); ?></button>
+                    <button class="account-btn account-btn-delete" id="accountDeleteSelectedBtn" onclick="deleteSelected()" title="Only inactive accounts can be deleted">Delete</button>
                 </div>
                 
                 <!-- Company Buttons (显示多个 company 时) -->
                 <?php if (count($user_companies) > 1): ?>
                 <div id="account-list-company-filter" class="account-company-filter" style="display: flex; padding: 0 20px 10px 20px;">
-                    <span class="account-company-label"><?php echo htmlspecialchars(__('account.company')); ?></span>
+                    <span class="account-company-label">Company:</span>
                     <div id="account-list-company-buttons" class="account-company-buttons">
                         <?php foreach($user_companies as $comp): ?>
                             <button type="button" 
@@ -289,29 +275,29 @@ if (!function_exists('__')) {
             
             <!-- Table Header -->
             <div class="account-table-header">
-                <div class="account-header-item"><?php echo htmlspecialchars(__('account.no')); ?></div>
+                <div class="account-header-item">No</div>
                 <div class="account-header-item account-header-sortable" onclick="sortByAccount()">
-                    <?php echo htmlspecialchars(__('account.account')); ?>
+                    Account
                     <span class="account-sort-indicator" id="sortAccountIndicator">▲</span>
                 </div>
-                <div class="account-header-item"><?php echo htmlspecialchars(__('account.name')); ?></div>
+                <div class="account-header-item">Name</div>
                 <div class="account-header-item account-header-sortable" onclick="sortByRole()">
-                    <?php echo htmlspecialchars(__('account.role')); ?>
+                    Role
                     <span class="account-sort-indicator" id="sortRoleIndicator"></span>
                 </div>
-                <div class="account-header-item"><?php echo htmlspecialchars(__('account.alert')); ?></div>
-                <div class="account-header-item"><?php echo htmlspecialchars(__('account.status')); ?></div>
-                <div class="account-header-item"><?php echo htmlspecialchars(__('account.last_login')); ?></div>
-                <div class="account-header-item"><?php echo htmlspecialchars(__('account.remark')); ?></div>
-                <div class="account-header-item"><?php echo htmlspecialchars(__('account.action')); ?>
-                    <input type="checkbox" id="selectAllAccounts" title="<?php echo htmlspecialchars(__('account.select_all')); ?>" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllAccounts()">
+                <div class="account-header-item">Alert</div>
+                <div class="account-header-item">Status</div>
+                <div class="account-header-item">Last Login</div>
+                <div class="account-header-item">Remark</div>
+                <div class="account-header-item">Action
+                    <input type="checkbox" id="selectAllAccounts" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllAccounts()">
                 </div>
             </div>
             
             <!-- Account Cards List -->
             <div class="account-cards" id="accountTableBody">
                 <div class="account-card">
-                    <div class="account-card-item"><?php echo htmlspecialchars(__('account.loading')); ?></div>
+                    <div class="account-card-item">Loading...</div>
                 </div>
             </div>
             
@@ -328,7 +314,7 @@ if (!function_exists('__')) {
     <div id="editModal" class="account-modal" style="display: none;">
         <div class="account-modal-content">
             <div class="account-modal-header">
-                <h2><?php echo htmlspecialchars(__('account.edit_account')); ?></h2>
+                <h2>Edit Account</h2>
                 <span class="account-close" onclick="closeEditModal()">&times;</span>
             </div>
             <div class="account-modal-body">
@@ -339,67 +325,67 @@ if (!function_exists('__')) {
                     <div class="account-form-columns">
                         <!-- 左列：Personal Information -->
                         <div class="account-form-column">
-                            <h3 class="account-section-header"><?php echo htmlspecialchars(__('account.personal_info')); ?></h3>
+                            <h3 class="account-section-header">Personal Information</h3>
                             <div class="account-form-group">
-                                <label for="edit_account_id_field"><?php echo htmlspecialchars(__('account.account_id_required')); ?></label>
+                                <label for="edit_account_id_field">Account ID *</label>
                                 <input type="text" id="edit_account_id_field" name="account_id" readonly>
                             </div>
                             <div class="account-form-group">
-                                <label for="edit_name"><?php echo htmlspecialchars(__('account.name_required')); ?></label>
+                                <label for="edit_name">Name *</label>
                                 <input type="text" id="edit_name" name="name" required>
                             </div>
                             <div class="account-form-group">
-                                <label for="edit_role"><?php echo htmlspecialchars(__('account.role_required')); ?></label>
+                                <label for="edit_role">Role *</label>
                                 <select id="edit_role" name="role" required>
-                                    <option value=""><?php echo htmlspecialchars(__('account.select_role')); ?></option>
+                                    <option value="">Select Role</option>
                                 </select>
                             </div>
                             <div class="account-form-group">
-                                <label for="edit_password"><?php echo htmlspecialchars(__('account.password_required')); ?></label>
+                                <label for="edit_password">Password *</label>
                                 <input type="password" id="edit_password" name="password" required>
                             </div>
                         </div>
                         
                         <!-- 右列：Payment -->
                         <div class="account-form-column">
-                            <h3 class="account-section-header"><?php echo htmlspecialchars(__('account.payment')); ?></h3>
+                            <h3 class="account-section-header">Payment</h3>
                             <div class="account-form-group"></div>
                             <div class="account-form-group">
-                                <label><?php echo htmlspecialchars(__('account.payment_alert')); ?></label>
+                                <label>Payment Alert</label>
                                 <div class="account-radio-group">
                                     <label class="account-radio-label">
                                         <input type="radio" name="payment_alert" value="1">
-                                        <?php echo htmlspecialchars(__('account.yes')); ?>
+                                        Yes
                                     </label>
                                     <label class="account-radio-label">
                                         <input type="radio" name="payment_alert" value="0">
-                                        <?php echo htmlspecialchars(__('account.no_option')); ?>
+                                        No
                                     </label>
                                 </div>
                             </div>
                             <div class="account-form-row" id="edit_alert_fields" style="display: none;">
                                 <div class="account-form-group">
-                                    <label for="edit_alert_type"><?php echo htmlspecialchars(__('account.alert_type')); ?></label>
+                                    <label for="edit_alert_type">Alert Type</label>
                                     <select id="edit_alert_type" name="alert_type">
-                                        <option value=""><?php echo htmlspecialchars(__('account.select_type')); ?></option>
-                                        <option value="weekly"><?php echo htmlspecialchars(__('account.weekly')); ?></option>
-                                        <option value="monthly"><?php echo htmlspecialchars(__('account.monthly')); ?></option>
+                                        <option value="">Select Type</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
                                         <?php for ($i = 1; $i <= 31; $i++): ?>
-                                            <option value="<?php echo $i; ?>"><?php echo sprintf(__('account.days'), $i); ?></option>
+                                            <option value="<?php echo $i; ?>"><?php echo $i; ?> Days</option>
                                         <?php endfor; ?>
                                     </select>
                                 </div>
                                 <div class="account-form-group">
-                                    <label for="edit_alert_start_date"><?php echo htmlspecialchars(__('account.start_date')); ?></label>
+                                    <label for="edit_alert_start_date">Start Date</label>
                                     <input type="date" id="edit_alert_start_date" name="alert_start_date">
                                 </div>
                             </div>
                             <div class="account-form-group" id="edit_alert_amount_row" style="display: none;">
-                                <label for="edit_alert_amount"><?php echo htmlspecialchars(__('account.alert_amount')); ?></label>
-                                <input type="number" id="edit_alert_amount" name="alert_amount" step="0.01" placeholder="<?php echo htmlspecialchars(__('account.alert_amount_placeholder')); ?>">
+                                <label for="edit_alert_amount">Alert (Amount)</label>
+                                <input type="number" id="edit_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount (auto-converted to negative)">
                             </div>
                             <div class="account-form-group">
-                                <label for="edit_remark"><?php echo htmlspecialchars(__('account.remark')); ?></label>
+                                <label for="edit_remark">Remark</label>
                                 <textarea id="edit_remark" name="remark" rows="1" style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea>
                             </div>
                         </div>
@@ -408,15 +394,15 @@ if (!function_exists('__')) {
                     <!-- Advanced Account Section -->
                     <div class="account-form-section">
                         <div class="account-advance-section">
-                            <h3><?php echo htmlspecialchars(__('account.advanced_account')); ?></h3>
+                            <h3>Advanced Account</h3>
                             
                             <div class="account-other-currency">
-                                <label><?php echo htmlspecialchars(__('account.other_currency')); ?></label>
+                                <label>Other Currency:</label>
                                 
                                 <!-- Add New Currency Section -->
                                 <div style="display: flex; gap: 8px;">
-                                    <input type="text" id="editCurrencyInput" placeholder="<?php echo htmlspecialchars(__('account.currency_placeholder')); ?>">
-                                    <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInput('edit'); return false;"><?php echo htmlspecialchars(__('account.create_currency')); ?></button>
+                                    <input type="text" id="editCurrencyInput" placeholder="Enter new currency code (e.g., EUR, JPY, GBP)">
+                                    <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInput('edit'); return false;">Create Currency</button>
                                 </div>
                                 
                                 <!-- Currency Selection Section -->
@@ -426,7 +412,7 @@ if (!function_exists('__')) {
                             </div>
                             
                             <div class="account-other-currency" style="margin-top: 20px;">
-                                <label><?php echo htmlspecialchars(__('account.company')); ?></label>
+                                <label>Company:</label>
                                 
                                 <!-- Company Selection Section -->
                                 <div class="account-currency-list" id="editCompanyList">
@@ -437,8 +423,8 @@ if (!function_exists('__')) {
                     </div>
                     
                     <div class="account-form-actions">
-                        <button type="submit" class="account-btn account-btn-save"><?php echo htmlspecialchars(__('account.update_account')); ?></button>
-                        <button type="button" class="account-btn account-btn-cancel" onclick="closeEditModal()"><?php echo htmlspecialchars(__('account.cancel')); ?></button>
+                        <button type="submit" class="account-btn account-btn-save">Update Account</button>
+                        <button type="button" class="account-btn account-btn-cancel" onclick="closeEditModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -452,7 +438,7 @@ if (!function_exists('__')) {
     <div id="addModal" class="account-modal" style="display: none;">
         <div class="account-modal-content">
             <div class="account-modal-header">
-                <h2><?php echo htmlspecialchars(__('account.add_account')); ?></h2>
+                <h2>Add Account</h2>
                 <span class="account-close" onclick="closeAddModal()">&times;</span>
             </div>
             <div class="account-modal-body">
@@ -461,30 +447,30 @@ if (!function_exists('__')) {
                     <div class="account-form-columns">
                         <!-- 左列：Personal Information -->
                         <div class="account-form-column">
-                            <h3 class="account-section-header"><?php echo htmlspecialchars(__('account.personal_info')); ?></h3>
+                            <h3 class="account-section-header">Personal Information</h3>
                             <div class="account-form-group">
-                                <label for="add_account_id"><?php echo htmlspecialchars(__('account.account_id_required')); ?></label>
+                                <label for="add_account_id">Account ID *</label>
                                 <input type="text" id="add_account_id" name="account_id" required>
                             </div>
                             <div class="account-form-group">
-                                <label for="add_name"><?php echo htmlspecialchars(__('account.name_required')); ?></label>
+                                <label for="add_name">Name *</label>
                                 <input type="text" id="add_name" name="name" required>
                             </div>
                             <div class="account-form-group">
-                                <label for="add_role"><?php echo htmlspecialchars(__('account.role_required')); ?></label>
+                                <label for="add_role">Role *</label>
                                 <select id="add_role" name="role" required>
-                                    <option value=""><?php echo htmlspecialchars(__('account.select_role')); ?></option>
+                                    <option value="">Select Role</option>
                                 </select>
                             </div>
                             <div class="account-form-group">
-                                <label for="add_password"><?php echo htmlspecialchars(__('account.password_required')); ?></label>
+                                <label for="add_password">Password *</label>
                                 <input type="password" id="add_password" name="password" required>
                             </div>
                         </div>
                         
                         <!-- 右列：Payment -->
                         <div class="account-form-column">
-                            <h3 class="account-section-header"><?php echo htmlspecialchars(__('account.payment')); ?></h3>
+                            <h3 class="account-section-header">Payment</h3>
                             <div class="account-form-group">
                                 <!-- <label for="add_currency_id">Currency *</label>
                                 <select id="add_currency_id" name="currency_id" required>
@@ -492,41 +478,41 @@ if (!function_exists('__')) {
                                 </select> -->
                             </div>
                             <div class="account-form-group">
-                                <label><?php echo htmlspecialchars(__('account.payment_alert')); ?></label>
+                                <label>Payment Alert</label>
                                 <div class="account-radio-group">
                                     <label class="account-radio-label">
                                         <input type="radio" name="add_payment_alert" value="1">
-                                        <?php echo htmlspecialchars(__('account.yes')); ?>
+                                        Yes
                                     </label>
                                     <label class="account-radio-label">
                                         <input type="radio" name="add_payment_alert" value="0" checked>
-                                        <?php echo htmlspecialchars(__('account.no_option')); ?>
+                                        No
                                     </label>
                                 </div>
                             </div>
                             <div class="account-form-row" id="add_alert_fields" style="display: none;">
                                 <div class="account-form-group">
-                                    <label for="add_alert_type"><?php echo htmlspecialchars(__('account.alert_type')); ?></label>
+                                    <label for="add_alert_type">Alert Type</label>
                                     <select id="add_alert_type" name="alert_type">
-                                        <option value=""><?php echo htmlspecialchars(__('account.select_type')); ?></option>
-                                        <option value="weekly"><?php echo htmlspecialchars(__('account.weekly')); ?></option>
-                                        <option value="monthly"><?php echo htmlspecialchars(__('account.monthly')); ?></option>
+                                        <option value="">Select Type</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
                                         <?php for ($i = 1; $i <= 31; $i++): ?>
-                                            <option value="<?php echo $i; ?>"><?php echo sprintf(__('account.days'), $i); ?></option>
+                                            <option value="<?php echo $i; ?>"><?php echo $i; ?> Days</option>
                                         <?php endfor; ?>
                                     </select>
                                 </div>
                                 <div class="account-form-group">
-                                    <label for="add_alert_start_date"><?php echo htmlspecialchars(__('account.start_date')); ?></label>
+                                    <label for="add_alert_start_date">Start Date</label>
                                     <input type="date" id="add_alert_start_date" name="alert_start_date">
                                 </div>
                             </div>
                             <div class="account-form-group" id="add_alert_amount_row" style="display: none;">
-                                <label for="add_alert_amount"><?php echo htmlspecialchars(__('account.alert_amount')); ?></label>
-                                <input type="number" id="add_alert_amount" name="alert_amount" step="0.01" placeholder="<?php echo htmlspecialchars(__('account.alert_amount_placeholder')); ?>">
+                                <label for="add_alert_amount">Alert (Amount)</label>
+                                <input type="number" id="add_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount (auto-converted to negative)">
                             </div>
                             <div class="account-form-group">
-                                <label for="add_remark"><?php echo htmlspecialchars(__('account.remark')); ?></label>
+                                <label for="add_remark">Remark</label>
                                 <textarea id="add_remark" name="remark" rows="1" style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea>
                             </div>
                         </div>
@@ -535,15 +521,15 @@ if (!function_exists('__')) {
                     <!-- Advanced Account Section -->
                     <div class="account-form-section">
                         <div class="account-advance-section">
-                            <h3><?php echo htmlspecialchars(__('account.advanced_account')); ?></h3>
+                            <h3>Advanced Account</h3>
                             
                             <div class="account-other-currency">
-                                <label><?php echo htmlspecialchars(__('account.other_currency')); ?></label>
+                                <label>Other Currency:</label>
                                 
                                 <!-- Add New Currency Section -->
                                 <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                                    <input type="text" id="addCurrencyInput" placeholder="<?php echo htmlspecialchars(__('account.currency_placeholder')); ?>">
-                                    <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInput('add'); return false;"><?php echo htmlspecialchars(__('account.create_currency')); ?></button>
+                                    <input type="text" id="addCurrencyInput" placeholder="Enter new currency code (e.g., EUR, JPY, GBP)">
+                                    <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInput('add'); return false;">Create Currency</button>
                                 </div>
                                 
                                 <!-- Currency Selection Section -->
@@ -553,7 +539,7 @@ if (!function_exists('__')) {
                             </div>
                             
                             <div class="account-other-currency" style="margin-top: 20px;">
-                                <label><?php echo htmlspecialchars(__('account.company')); ?></label>
+                                <label>Company:</label>
                                 
                                 <!-- Company Selection Section -->
                                 <div class="account-currency-list" id="addCompanyList">
@@ -564,8 +550,8 @@ if (!function_exists('__')) {
                     </div>
                     
                     <div class="account-form-actions">
-                        <button type="submit" class="account-btn account-btn-save"><?php echo htmlspecialchars(__('account.add_account')); ?></button>
-                        <button type="button" class="account-btn account-btn-cancel" onclick="closeAddModal()"><?php echo htmlspecialchars(__('account.cancel')); ?></button>
+                        <button type="submit" class="account-btn account-btn-save">Add Account</button>
+                        <button type="button" class="account-btn account-btn-cancel" onclick="closeAddModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -576,7 +562,7 @@ if (!function_exists('__')) {
     <div id="linkAccountModal" class="account-modal" style="display: none;">
         <div class="account-modal-content">
             <div class="account-modal-header">
-                <h2><?php echo htmlspecialchars(__('account.link_account')); ?></h2>
+                <h2>Link Account</h2>
                 <span class="account-close" onclick="closeLinkAccountModal()">&times;</span>
             </div>
             <!-- 红框区域：固定不随列表滚动；搜索栏在蓝框位置，与下方列表右对齐 -->
@@ -586,22 +572,22 @@ if (!function_exists('__')) {
                         <label class="link-type-pill" id="linkTypeLabelBidirectional">
                             <input type="radio" name="linkType" value="bidirectional" id="linkTypeBidirectional" checked class="link-type-radio">
                             <span class="link-type-pill-check">&#10003;</span>
-                            <span class="link-type-pill-text"><?php echo htmlspecialchars(__('account.bidirectional')); ?></span>
+                            <span class="link-type-pill-text">Bidirectional</span>
                         </label>
                         <label class="link-type-pill" id="linkTypeLabelUnidirectional">
                             <input type="radio" name="linkType" value="unidirectional" id="linkTypeUnidirectional" class="link-type-radio">
                             <span class="link-type-pill-check">&#10003;</span>
-                            <span class="link-type-pill-text"><?php echo htmlspecialchars(__('account.unidirectional')); ?></span>
+                            <span class="link-type-pill-text">Unidirectional</span>
                         </label>
                     </div>
-                    <p class="link-type-desc" id="linkTypeDescription"><?php echo htmlspecialchars(__('account.link_desc_bidi')); ?></p>
+                    <p class="link-type-desc" id="linkTypeDescription">Bidirectional: Data syncs both ways.</p>
                 </div>
                 <div class="link-account-search-wrap">
                     <div class="link-account-search-inner">
                         <svg class="link-account-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                         </svg>
-                        <input type="text" id="linkAccountSearchInput" class="link-account-search-input" placeholder="<?php echo htmlspecialchars(__('account.search_account')); ?>" autocomplete="off" aria-label="<?php echo htmlspecialchars(__('account.search_account')); ?>">
+                        <input type="text" id="linkAccountSearchInput" class="link-account-search-input" placeholder="Search account..." autocomplete="off" aria-label="Search account">
                     </div>
                 </div>
             </div>
@@ -615,8 +601,8 @@ if (!function_exists('__')) {
                 </div>
             </div>
             <div class="account-form-actions link-account-form-actions">
-                <button type="button" class="account-btn account-btn-save" onclick="saveAccountLinks()"><?php echo htmlspecialchars(__('account.save')); ?></button>
-                <button type="button" class="account-btn account-btn-cancel" onclick="closeLinkAccountModal()"><?php echo htmlspecialchars(__('account.cancel')); ?></button>
+                <button type="button" class="account-btn account-btn-save" onclick="saveAccountLinks()">Save</button>
+                <button type="button" class="account-btn account-btn-cancel" onclick="closeLinkAccountModal()">Cancel</button>
             </div>
         </div>
     </div>
@@ -629,18 +615,17 @@ if (!function_exists('__')) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
             </div>
-            <h2 class="account-confirm-title"><?php echo htmlspecialchars(__('account.confirm_delete')); ?></h2>
-            <p id="confirmDeleteMessage" class="account-confirm-message"><?php echo htmlspecialchars(__('account.confirm_delete_message')); ?></p>
+            <h2 class="account-confirm-title">Confirm Delete</h2>
+            <p id="confirmDeleteMessage" class="account-confirm-message">This action cannot be undone.</p>
             <div class="account-confirm-actions">
-                <button type="button" class="account-btn account-btn-cancel confirm-cancel" onclick="closeConfirmDeleteModal()"><?php echo htmlspecialchars(__('account.cancel')); ?></button>
-                <button type="button" class="account-btn account-btn-delete confirm-delete" onclick="confirmDelete()"><?php echo htmlspecialchars(__('account.delete')); ?></button>
+                <button type="button" class="account-btn account-btn-cancel confirm-cancel" onclick="closeConfirmDeleteModal()">Cancel</button>
+                <button type="button" class="account-btn account-btn-delete confirm-delete" onclick="confirmDelete()">Delete</button>
             </div>
         </div>
     </div>
 
 
     <script>
-        window.__LANG = <?php echo json_encode($accountLang); ?>;
         window.ACCOUNT_LIST_SHOW_INACTIVE = <?php echo isset($_GET['showInactive']) ? 'true' : 'false'; ?>;
         window.ACCOUNT_LIST_SHOW_ALL = <?php echo isset($_GET['showAll']) ? 'true' : 'false'; ?>;
         window.ACCOUNT_LIST_COMPANY_ID = <?php echo json_encode($company_id); ?>;

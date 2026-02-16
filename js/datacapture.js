@@ -1,5 +1,4 @@
-function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
-        let isSelecting = false;
+let isSelecting = false;
         let startCell = null;
         let selectedCells = new Set();
         
@@ -1416,7 +1415,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             const remainingRows = currentRows - rowsToDelete.length;
             
             if (remainingRows < 1) {
-                showNotification((typeof __ !== 'undefined' ? __('dc.cannot_delete_last_row') : 'Cannot delete the last row'), 'danger');
+                showNotification('Cannot delete the last row', 'danger');
                 return;
             }
 
@@ -1468,7 +1467,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             const remainingCols = currentCols - colsToDelete.length;
             
             if (remainingCols < 1) {
-                showNotification((typeof __ !== 'undefined' ? __('dc.cannot_delete_last_column') : 'Cannot delete the last column'), 'danger');
+                showNotification('Cannot delete the last column', 'danger');
                 return;
             }
 
@@ -1691,7 +1690,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             const remainingCols = currentCols - selectedIndices.length;
             
             if (remainingCols < 1) {
-                showNotification((typeof __ !== 'undefined' ? __('dc.cannot_delete_last_column') : 'Cannot delete the last column'), 'danger');
+                showNotification('Cannot delete the last column', 'danger');
                 hideContextMenu();
                 return;
             }
@@ -1949,7 +1948,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             const remainingRows = currentRows - selectedIndices.length;
             
             if (remainingRows < 1) {
-                showNotification((typeof __ !== 'undefined' ? __('dc.cannot_delete_last_row') : 'Cannot delete the last row'), 'danger');
+                showNotification('Cannot delete the last row', 'danger');
                 hideContextMenu();
                 return;
             }
@@ -2102,7 +2101,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 handleCellPaste(mockEvent);
             }).catch(err => {
                 console.error('Failed to read from clipboard:', err);
-                showNotification((typeof __ !== 'undefined' ? __('dc.failed_clipboard') : 'Failed to access clipboard'), 'danger');
+                showNotification('Failed to access clipboard', 'danger');
             });
             
             hideContextMenu();
@@ -2146,11 +2145,11 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     console.log('Process submission saved to database');
                 } else {
                     console.error('Failed to save submission:', result.error);
-                    showNotification((typeof __ !== 'undefined' ? __('dc.failed_save_submission') : 'Failed to save submission') + ': ' + result.error, 'danger');
+                    showNotification('Failed to save submission: ' + result.error, 'danger');
                 }
             } catch (error) {
                 console.error('Error saving submission:', error);
-                showNotification((typeof __ !== 'undefined' ? __('dc.failed_save_submission') : 'Failed to save submission'), 'danger');
+                showNotification('Failed to save submission', 'danger');
             }
         }
 
@@ -2159,7 +2158,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             const listContainer = document.getElementById('submittedProcessesList');
             
             if (submittedProcesses.length === 0) {
-                listContainer.innerHTML = '<div class="no-data">' + (typeof __ !== 'undefined' ? __('dc.no_processes_submitted_for_date') : 'No processes submitted for this date') + '</div>';
+                listContainer.innerHTML = '<div class="no-data">No processes submitted for this date</div>';
                 return;
             }
             
@@ -2304,7 +2303,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     if (!noResults) {
                         noResults = document.createElement('div');
                         noResults.className = 'custom-select-no-results';
-                        noResults.textContent = (typeof __ !== 'undefined' ? __('dc.no_results_found') : 'No results found');
+                        noResults.textContent = 'No results found';
                         optionsContainer.appendChild(noResults);
                     }
                     noResults.style.display = 'block';
@@ -2453,7 +2452,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                         const formDataResponse = await fetch('api/processes/addprocess_api.php');
                         const formDataResult = await formDataResponse.json();
                         if (formDataResult.success && formDataResult.currencies) {
-                            currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
+                            currencySelect.innerHTML = '<option value="">Select Currency</option>';
                             formDataResult.currencies.forEach(currency => {
                                 const option = document.createElement('option');
                                 option.value = currency.id;
@@ -2577,11 +2576,11 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     console.log('Process data loaded successfully:', processData);
                 } else {
                     console.error('Failed to load process data:', result.error);
-                    showNotification((typeof __ !== 'undefined' ? __('dc.failed_load_process_data') : 'Failed to load process data') + ': ' + (result.error || 'Unknown error'), 'danger');
+                    showNotification('Failed to load process data: ' + (result.error || 'Unknown error'), 'danger');
                 }
             } catch (error) {
                 console.error('Error loading process data:', error);
-                showNotification((typeof __ !== 'undefined' ? __('dc.failed_load_process_data') : 'Failed to load process data'), 'danger');
+                showNotification('Failed to load process data', 'danger');
             }
         }
 
@@ -2665,7 +2664,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             }
             
             // Clear existing options and add new ones
-            dateSelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('dc.select_date') : 'Select Date') + '</option>';
+            dateSelect.innerHTML = '<option value="">Select Date</option>';
             options.forEach(option => dateSelect.appendChild(option));
         }
 
@@ -2686,7 +2685,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 if (result.success) {
                     // Fill currency dropdown
                     const currencySelect = document.getElementById('capture_currency');
-                    currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
+                    currencySelect.innerHTML = '<option value="">Select Currency</option>';
                     result.currencies.forEach(currency => {
                         const option = document.createElement('option');
                         option.value = currency.id;
@@ -2697,11 +2696,11 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     // Load processes based on selected date
                     await loadProcessesByDate();
                 } else {
-                    showNotification((typeof __ !== 'undefined' ? __('dc.failed_load_form_data') : 'Failed to load form data') + ': ' + result.error, 'danger');
+                    showNotification('Failed to load form data: ' + result.error, 'danger');
                 }
             } catch (error) {
                 console.error('Error loading form data:', error);
-                showNotification((typeof __ !== 'undefined' ? __('dc.failed_load_form_data') : 'Failed to load form data'), 'danger');
+                showNotification('Failed to load form data', 'danger');
             }
         }
 
@@ -2787,13 +2786,13 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                                     }
                                 });
                         } else {
-                                processButton.textContent = processButton.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('dc.select_process') : 'Select Process');
+                                processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
                                 processButton.removeAttribute('data-value');
                                 processButton.removeAttribute('data-process-code');
                                 processButton.removeAttribute('data-description-name');
                             }
                         } else {
-                            processButton.textContent = processButton.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('dc.select_process') : 'Select Process');
+                            processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
                             processButton.removeAttribute('data-value');
                             processButton.removeAttribute('data-process-code');
                             processButton.removeAttribute('data-description-name');
@@ -2802,7 +2801,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                         console.log('Process custom select populated with', result.data.length, 'options for', selectedDate);
                     } else {
                         console.log('No processes found for selected date:', selectedDate);
-                        processButton.textContent = processButton.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('dc.select_process') : 'Select Process');
+                        processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
                         processButton.removeAttribute('data-value');
                         processButton.removeAttribute('data-process-code');
                         processButton.removeAttribute('data-description-name');
@@ -2812,11 +2811,11 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     updateSubmitButtonState();
                 } else {
                     console.error('Failed to load processes by date:', result.error);
-                    showNotification((typeof __ !== 'undefined' ? __('dc.failed_load_processes') : 'Failed to load processes') + ': ' + result.error, 'danger');
+                    showNotification('Failed to load processes: ' + result.error, 'danger');
                 }
             } catch (error) {
                 console.error('Error loading processes by date:', error);
-                showNotification((typeof __ !== 'undefined' ? __('dc.failed_load_processes') : 'Failed to load processes'), 'danger');
+                showNotification('Failed to load processes', 'danger');
             }
         }
 
@@ -22366,7 +22365,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             // Clear process selection
             const processInput = document.getElementById('capture_process');
             if (processInput) {
-                processInput.textContent = processInput.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('dc.select_process') : 'Select Process');
+                processInput.textContent = processInput.getAttribute('data-placeholder') || 'Select Process';
                 processInput.removeAttribute('data-value');
                 processInput.removeAttribute('data-process-code');
                 processInput.removeAttribute('data-description-name');
@@ -22394,7 +22393,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             // Reset process button (custom select)
             const processButton = document.getElementById('capture_process');
             if (processButton) {
-                const placeholder = processButton.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('dc.select_process') : 'Select Process');
+                const placeholder = processButton.getAttribute('data-placeholder') || 'Select Process';
                 processButton.textContent = placeholder;
                 processButton.removeAttribute('data-value');
                 processButton.removeAttribute('data-process-code');
@@ -24630,7 +24629,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     if (!isRestoringData) {
                         const processInput = document.getElementById('capture_process');
                         if (processInput) {
-                            processInput.textContent = processInput.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('dc.select_process') : 'Select Process');
+                            processInput.textContent = processInput.getAttribute('data-placeholder') || 'Select Process';
                             processInput.removeAttribute('data-value');
                             processInput.removeAttribute('data-process-code');
                             processInput.removeAttribute('data-description-name');

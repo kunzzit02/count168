@@ -1,5 +1,4 @@
-function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
-        // Notification functions
+// Notification functions
         function showNotification(message, type = 'success') {
             const container = document.getElementById('customerReportNotificationContainer');
             
@@ -192,7 +191,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     // 创建 "All" 按钮
                     const allBtn = document.createElement('button');
                     allBtn.className = 'transaction-company-btn';
-                    allBtn.textContent = (typeof __ !== 'undefined' ? __('report.all') : 'All');
+                    allBtn.textContent = 'All';
                     allBtn.dataset.currencyCode = 'ALL';
                     if (previousShowAll) {
                         allBtn.classList.add('active');
@@ -366,11 +365,11 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     // 添加 "All Accounts" 选项
                     const allOption = document.createElement('div');
                     allOption.className = 'custom-select-option';
-                    allOption.textContent = (typeof __ !== 'undefined' ? __('report.all_accounts') : 'All Accounts');
+                    allOption.textContent = 'All Accounts';
                     allOption.setAttribute('data-value', '');
                     if (!previousValue) {
                         allOption.classList.add('selected');
-                        accountButton.textContent = (typeof __ !== 'undefined' ? __('report.all_accounts') : 'All Accounts');
+                        accountButton.textContent = 'All Accounts';
                     }
                     optionsContainer.appendChild(allOption);
                     
@@ -393,7 +392,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     
                     // 如果没有选中值，显示 placeholder
                     if (!previousValue) {
-                        accountButton.textContent = accountButton.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('report.all_accounts') : 'All Accounts');
+                        accountButton.textContent = accountButton.getAttribute('data-placeholder') || 'All Accounts';
                         accountButton.removeAttribute('data-value');
                     }
                 }
@@ -441,7 +440,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     if (!noResults) {
                         noResults = document.createElement('div');
                         noResults.className = 'custom-select-no-results';
-                        noResults.textContent = (typeof __ !== 'undefined' ? __('report.no_results_found') : 'No results found');
+                        noResults.textContent = 'No results found';
                         optionsContainer.appendChild(noResults);
                     }
                     noResults.style.display = 'block';
@@ -642,11 +641,11 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 if (result.success) {
                     renderReport(result.data, result.total_win, result.total_lose);
                 } else {
-                    showNotification(result.message || result.error || (typeof __ !== 'undefined' ? __('report.load_failed') : 'Failed to get report data'), 'danger');
+                    showNotification(result.message || result.message || result.error || 'Failed to get report data', 'danger');
                     document.getElementById('reportTableBody').innerHTML = `
                         <div class="customer-report-card">
                             <div class="customer-report-card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1; color: red;">
-                                ${escapeHtml(result.message || result.error || (typeof __ !== 'undefined' ? __('report.load_failed') : 'Failed to get report data'))}
+                                ${escapeHtml(result.message || result.error || 'Failed to get report data')}
                             </div>
                         </div>
                     `;
@@ -654,7 +653,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 }
             } catch (error) {
                 console.error('Error loading report:', error);
-                showNotification((typeof __ !== 'undefined' ? __('report.network_failed') : 'Network connection failed'), 'danger');
+                showNotification('Network connection failed', 'danger');
             }
         }
 
@@ -664,7 +663,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 container.innerHTML = `
                     <div class="customer-report-card">
                         <div class="customer-report-card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">
-                            ${typeof __ !== 'undefined' ? __('report.no_data_found') : 'No data found'}
+                            No data found
                         </div>
                     </div>
                 `;
@@ -778,7 +777,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 // 创建 currency 标题
                 const currencyTitle = document.createElement('h3');
                 currencyTitle.style.cssText = 'margin: 20px 0 10px 0; font-size: clamp(14px, 1.2vw, 18px); font-weight: bold; color: #1f2937;';
-                currencyTitle.textContent = (typeof __ !== 'undefined' ? __('tp.currency_title') : 'Currency: ') + currency.toUpperCase();
+                currencyTitle.textContent = `Currency: ${currency.toUpperCase()}`;
                 groupedContainer.appendChild(currencyTitle);
 
                 // 创建报告容器
@@ -790,11 +789,11 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 const header = document.createElement('div');
                 header.className = 'customer-report-table-header';
                 header.innerHTML = `
-                    <div>${typeof __ !== 'undefined' ? __('report.account') : 'Account'}</div>
-                    <div>${typeof __ !== 'undefined' ? __('report.name') : 'Name'}</div>
-                    <div>${typeof __ !== 'undefined' ? __('report.currency_header') : 'Currency'}</div>
-                    <div>${typeof __ !== 'undefined' ? __('report.win') : 'Win'}</div>
-                    <div>${typeof __ !== 'undefined' ? __('report.lose') : 'Lose'}</div>
+                    <div>Account</div>
+                    <div>Name</div>
+                    <div>Currency</div>
+                    <div>Win</div>
+                    <div>Lose</div>
                 `;
                 reportSection.appendChild(header);
 
@@ -825,7 +824,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 const currencyTotal = document.createElement('div');
                 currencyTotal.className = 'customer-report-total';
                 currencyTotal.innerHTML = `
-                    <div class="customer-report-total-label">${typeof __ !== 'undefined' ? __('report.total_label') : 'Total:'}</div>
+                    <div class="customer-report-total-label">Total:</div>
                     <div class="customer-report-amount win customer-report-total-win">${formatAmount(currencyWin)}</div>
                     <div class="customer-report-amount lose customer-report-total-lose">${formatAmount(currencyLose)}</div>
                 `;

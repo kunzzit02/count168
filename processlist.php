@@ -196,30 +196,16 @@ if ($current_user_id && count($user_companies) > 0) {
     // 如果没有关联的 company，使用 session 中的 company_id
     $company_id = $_SESSION['company_id'] ?? null;
 }
-
-// 语言：按 Cookie 加载
-$processLangCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
-$processLang = require __DIR__ . '/lang/' . $processLangCode . '.php';
-if (!is_array($processLang)) {
-    $processLang = [];
-}
-if (!function_exists('__')) {
-    $lang = $processLang;
-    function __($key) {
-        global $lang;
-        return $lang[$key] ?? $key;
-    }
-}
 ?>
 
 <!DOCTYPE html>
-<html lang="<?php echo $processLangCode === 'zh' ? 'zh' : 'en'; ?>">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
-    <title><?php echo htmlspecialchars(__('process.title_page')); ?></title>
+    <title>Process List</title>
     <link rel="stylesheet" href="css/processCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <link rel="stylesheet" href="css/sidebar.css">
@@ -234,14 +220,14 @@ if (!function_exists('__')) {
             <div
                 style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
                 <div style="display: flex; align-items: center; gap: 16px;">
-                    <h1 class="page-title" style="margin: 0;"><?php echo htmlspecialchars(__('process.title')); ?></h1>
+                    <h1 class="page-title" style="margin: 0;">Process List</h1>
                     <!-- Accounting Due (Bank only): opens large modal like Add Process -->
                     <div class="process-accounting-inbox-wrap" id="processAccountingInboxWrap" style="display: none;">
                         <button type="button" class="process-accounting-inbox-btn process-accounting-inbox-main" id="processAccountingInboxBtn">
                             <svg class="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                 <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
                             </svg>
-                            <?php echo htmlspecialchars(__('process.accounting_due')); ?>
+                            Accounting Due
                             <span class="process-accounting-inbox-badge" id="processAccountingInboxCount">0</span>
                         </button>
                     </div>
@@ -249,7 +235,7 @@ if (!function_exists('__')) {
                 <!-- Permission Filter -->
                 <div id="process-list-permission-filter" class="process-company-filter process-permission-filter-header"
                     style="display: none;">
-                    <span class="process-company-label"><?php echo htmlspecialchars(__('process.category')); ?></span>
+                    <span class="process-company-label">Category:</span>
                     <div id="process-list-permission-buttons" class="process-company-buttons">
                         <!-- Permission buttons will be loaded dynamically -->
                     </div>
@@ -261,32 +247,32 @@ if (!function_exists('__')) {
             <div class="action-buttons-container">
                 <div class="action-buttons">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <button class="btn btn-add" onclick="addProcess()"><?php echo htmlspecialchars(__('process.add_process')); ?></button>
+                        <button class="btn btn-add" onclick="addProcess()">Add Process</button>
                         <div class="search-container">
                             <svg class="search-icon" fill="currentColor" viewBox="0 0 24 24">
                                 <path
                                     d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
                             </svg>
-                            <input type="text" id="searchInput" placeholder="<?php echo htmlspecialchars(__('process.search_placeholder')); ?>" class="search-input"
+                            <input type="text" id="searchInput" placeholder="Search by Description" class="search-input"
                                 value="<?php echo $searchTerm; ?>">
                         </div>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactive ? 'checked' : ''; ?>>
-                            <label for="showInactive"><?php echo htmlspecialchars(__('process.show_inactive')); ?></label>
+                            <label for="showInactive">Show Inactive</label>
                         </div>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAll ? 'checked' : ''; ?>>
-                            <label for="showAll"><?php echo htmlspecialchars(__('process.show_all')); ?></label>
+                            <label for="showAll">Show All</label>
                         </div>
                     </div>
                     <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
-                        title="<?php echo htmlspecialchars(__('process.delete_only_inactive')); ?>" disabled><?php echo htmlspecialchars(__('process.delete')); ?></button>
+                        title="Only inactive processes can be deleted" disabled>Delete</button>
                 </div>
 
                 <?php if (count($user_companies) > 1): ?>
                     <div id="process-list-company-filter" class="process-company-filter"
                         style="display: flex; margin-top: 10px;">
-                        <span class="process-company-label"><?php echo htmlspecialchars(__('process.company')); ?></span>
+                        <span class="process-company-label">Company:</span>
                         <div id="process-list-company-buttons" class="process-company-buttons">
                             <?php foreach ($user_companies as $comp): ?>
                                 <button type="button"
@@ -306,33 +292,33 @@ if (!function_exists('__')) {
                 <!-- Table Header -->
                 <div class="table-header" id="tableHeader">
                     <!-- Games table headers (default) -->
-                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.no')); ?></div>
-                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.process_id')); ?></div>
-                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.description')); ?></div>
-                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.status')); ?></div>
-                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.currency')); ?></div>
-                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.day_use')); ?></div>
-                    <div class="header-item gambling-header"><?php echo htmlspecialchars(__('process.action')); ?>
-                        <input type="checkbox" id="selectAllProcesses" title="<?php echo htmlspecialchars(__('process.select_all')); ?>"
+                    <div class="header-item gambling-header">No</div>
+                    <div class="header-item gambling-header">Process ID</div>
+                    <div class="header-item gambling-header">Description</div>
+                    <div class="header-item gambling-header">Status</div>
+                    <div class="header-item gambling-header">Currency</div>
+                    <div class="header-item gambling-header">Day Use</div>
+                    <div class="header-item gambling-header">Action
+                        <input type="checkbox" id="selectAllProcesses" title="Select all"
                             style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllProcesses()">
                     </div>
                     <!-- Bank table headers (hidden by default) -->
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.no')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_supplier')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_country_currency')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_bank')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_types')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_card_owner')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_contract')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_insurance')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_customer')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_cost')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_price')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_profit')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.status')); ?></div>
-                    <div class="header-item bank-header" style="display: none;"><?php echo htmlspecialchars(__('process.bank_date')); ?></div>
-                    <div class="header-item bank-header bank-action-header" style="display: none;"><?php echo htmlspecialchars(__('process.action')); ?>
-                        <input type="checkbox" title="<?php echo htmlspecialchars(__('process.select_all')); ?>" class="header-action-checkbox"
+                    <div class="header-item bank-header" style="display: none;">No</div>
+                    <div class="header-item bank-header" style="display: none;">Supplier</div>
+                    <div class="header-item bank-header" style="display: none;">Country (Currency)</div>
+                    <div class="header-item bank-header" style="display: none;">Bank</div>
+                    <div class="header-item bank-header" style="display: none;">Types</div>
+                    <div class="header-item bank-header" style="display: none;">Card Owner</div>
+                    <div class="header-item bank-header" style="display: none;">Contract</div>
+                    <div class="header-item bank-header" style="display: none;">Insurance</div>
+                    <div class="header-item bank-header" style="display: none;">Customer</div>
+                    <div class="header-item bank-header" style="display: none;">Cost</div>
+                    <div class="header-item bank-header" style="display: none;">Price</div>
+                    <div class="header-item bank-header" style="display: none;">Profit</div>
+                    <div class="header-item bank-header" style="display: none;">Status</div>
+                    <div class="header-item bank-header" style="display: none;">Date</div>
+                    <div class="header-item bank-header bank-action-header" style="display: none;">Action
+                        <input type="checkbox" title="Select all" class="header-action-checkbox"
                             style="margin-left: 10px; cursor: pointer;">
                     </div>
                 </div>
@@ -340,7 +326,7 @@ if (!function_exists('__')) {
                 <!-- Process Cards List -->
                 <div class="process-cards" id="processTableBody">
                     <div class="process-card">
-                        <div class="card-item"><?php echo htmlspecialchars(__('process.load_data')); ?></div>
+                        <div class="card-item">Load the Data...</div>
                     </div>
                 </div>
             </div>
@@ -368,7 +354,7 @@ if (!function_exists('__')) {
     <div id="editModal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h2><?php echo htmlspecialchars(__('process.edit_process')); ?></h2>
+                <h2>Edit Process</h2>
                 <span class="close" onclick="closeEditModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -381,7 +367,7 @@ if (!function_exists('__')) {
                     <div class="add-col">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_process_name"><?php echo htmlspecialchars(__('process.process_name')); ?></label>
+                                <label for="edit_process_name">Process Name *</label>
                                 <input type="text" id="edit_process_name" name="process_name" required readonly
                                     style="background-color: #f5f5f5; cursor: not-allowed;">
                             </div>
@@ -389,10 +375,10 @@ if (!function_exists('__')) {
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_description"><?php echo htmlspecialchars(__('process.description')); ?></label>
+                                <label for="edit_description">Description</label>
                                 <div class="input-with-icon">
                                     <input type="text" id="edit_description" name="description" readonly
-                                        placeholder="<?php echo htmlspecialchars(__('process.click_to_select_descriptions')); ?>">
+                                        placeholder="Click + to select descriptions">
                                     <button type="button" class="add-icon" onclick="expandEditDescription()">+</button>
                                 </div>
                             </div>
@@ -401,23 +387,24 @@ if (!function_exists('__')) {
                         <!-- Selected Descriptions Display for Edit (hidden by default) -->
                         <div class="form-row" id="edit_selected_descriptions_display" style="display: none;">
                             <div class="form-group">
-                                <label><?php echo htmlspecialchars(__('process.selected_descriptions')); ?></label>
+                                <label>Selected Descriptions</label>
                                 <div class="selected-descriptions" id="edit_selected_descriptions_list"></div>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_currency"><?php echo htmlspecialchars(__('process.currency')); ?></label>
+                                <label for="edit_currency">Currency</label>
                                 <select id="edit_currency" name="currency_id">
-                                    <option value=""><?php echo htmlspecialchars(__('process.select_currency')); ?></option>
+                                    <option value="">Select Currency</option>
                                 </select>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_dts_modified" style="font-weight: 600; color: #666;"><?php echo htmlspecialchars(__('process.dts_modified')); ?></label>
+                                <label for="edit_dts_modified" style="font-weight: 600; color: #666;">DTS
+                                    Modified:</label>
                                 <div id="edit_dts_modified" readonly
                                     style="background-color: #f5f5f5; cursor: not-allowed; margin-top: 5px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%; min-width: 200px; min-height: 38px; box-sizing: border-box;">
                                     <span id="edit_dts_modified_date" style="min-height: 1em;"></span>
@@ -428,7 +415,8 @@ if (!function_exists('__')) {
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_dts_created" style="font-weight: 600; color: #666;"><?php echo htmlspecialchars(__('process.dts_created')); ?></label>
+                                <label for="edit_dts_created" style="font-weight: 600; color: #666;">DTS
+                                    Created:</label>
                                 <div id="edit_dts_created" readonly
                                     style="background-color: #f5f5f5; cursor: not-allowed; margin-top: 5px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%; min-width: 200px; min-height: 38px; box-sizing: border-box;">
                                     <span id="edit_dts_created_date" style="min-height: 1em;"></span>
@@ -442,20 +430,21 @@ if (!function_exists('__')) {
                     <div class="add-col">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_remove_words"><?php echo htmlspecialchars(__('process.remove_words')); ?></label>
+                                <label for="edit_remove_words">Remove Words</label>
                                 <input type="text" id="edit_remove_words" name="remove_word"
-                                    placeholder="<?php echo htmlspecialchars(__('process.remove_words_placeholder')); ?>">
-                                <small class="field-help"><?php echo htmlspecialchars(__('process.remove_words_help')); ?></small>
+                                    placeholder="Enter words to remove">
+                                <small class="field-help">(Use semicolon to separate multiple words, e.g.
+                                    abc;cde;efg)</small>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
                                 <div class="day-use-header">
-                                    <label><?php echo htmlspecialchars(__('process.day_use')); ?></label>
+                                    <label>Day Use</label>
                                     <div class="all-day-checkbox">
                                         <input type="checkbox" id="edit_all_day" name="all_day">
-                                        <label for="edit_all_day"><?php echo htmlspecialchars(__('process.all_day')); ?></label>
+                                        <label for="edit_all_day">All Day</label>
                                     </div>
                                 </div>
                                 <div class="day-checkboxes" id="edit_day_checkboxes"></div>
@@ -464,32 +453,32 @@ if (!function_exists('__')) {
 
                         <div class="form-row row-two-cols">
                             <div class="form-group">
-                                <label for="edit_replace_word_from"><?php echo htmlspecialchars(__('process.replace_from')); ?></label>
+                                <label for="edit_replace_word_from">Replace From</label>
                                 <input type="text" id="edit_replace_word_from" name="replace_word_from"
-                                    placeholder="<?php echo htmlspecialchars(__('process.old_word')); ?>">
-                                <small class="field-help"><?php echo htmlspecialchars(__('process.word_to_replace')); ?></small>
+                                    placeholder="Old word">
+                                <small class="field-help">(Word to be replaced)</small>
                             </div>
 
                             <div class="form-group">
-                                <label for="edit_replace_word_to"><?php echo htmlspecialchars(__('process.replace_to')); ?></label>
+                                <label for="edit_replace_word_to">Replace To</label>
                                 <input type="text" id="edit_replace_word_to" name="replace_word_to"
-                                    placeholder="<?php echo htmlspecialchars(__('process.new_word')); ?>">
-                                <small class="field-help"><?php echo htmlspecialchars(__('process.replacement_word')); ?></small>
+                                    placeholder="New word">
+                                <small class="field-help">(Replacement word)</small>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_remarks"><?php echo htmlspecialchars(__('process.remarks')); ?></label>
+                                <label for="edit_remarks">Remarks</label>
                                 <textarea id="edit_remarks" name="remark" rows="5"
-                                    placeholder="<?php echo htmlspecialchars(__('process.remarks_placeholder')); ?>"></textarea>
+                                    placeholder="Enter remarks..."></textarea>
                             </div>
                         </div>
                     </div>
 
                     <div class="form-actions add-actions">
-                        <button type="submit" class="btn btn-save"><?php echo htmlspecialchars(__('process.update_process')); ?></button>
-                        <button type="button" class="btn btn-cancel" onclick="closeEditModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+                        <button type="submit" class="btn btn-save">Update Process</button>
+                        <button type="button" class="btn btn-cancel" onclick="closeEditModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -501,7 +490,7 @@ if (!function_exists('__')) {
         <div class="modal-content accounting-due-modal-content">
             <div class="modal-header">
                 <h2>
-                    <?php echo htmlspecialchars(__('process.accounting_due')); ?>
+                    Accounting Due
                     <span class="process-accounting-inbox-badge" id="processAccountingInboxCountModal">0</span>
                 </h2>
                 <div class="modal-header-actions">
@@ -513,22 +502,22 @@ if (!function_exists('__')) {
                     <table class="process-accounting-inbox-table">
                         <thead>
                             <tr>
-                                <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="<?php echo htmlspecialchars(__('process.select_all')); ?>" class="process-accounting-inbox-cb"></th>
-                                <th><?php echo htmlspecialchars(__('process.no')); ?></th>
-                                <th><?php echo htmlspecialchars(__('process.start_date')); ?></th>
-                                <th><?php echo htmlspecialchars(__('process.bank_card_owner')); ?></th>
-                                <th><?php echo htmlspecialchars(__('process.bank_bank')); ?></th>
-                                <th><?php echo htmlspecialchars(__('process.bank_contract')); ?></th>
-                                <th style="width:80px;"><?php echo htmlspecialchars(__('process.delete')); ?> <input type="checkbox" id="processAccountingInboxDeleteSelectAll" title="<?php echo htmlspecialchars(__('process.select_all_for_delete')); ?>" class="process-accounting-inbox-delete-cb"></th>
+                                <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="Select all" class="process-accounting-inbox-cb"></th>
+                                <th>No</th>
+                                <th>Start Date</th>
+                                <th>Card Owner</th>
+                                <th>Bank</th>
+                                <th>Contract</th>
+                                <th style="width:80px;">Delete <input type="checkbox" id="processAccountingInboxDeleteSelectAll" title="Select all for delete" class="process-accounting-inbox-delete-cb"></th>
                             </tr>
                         </thead>
                         <tbody id="processAccountingInboxTbody"></tbody>
                     </table>
                 </div>
                 <div class="process-accounting-inbox-actions">
-                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled><?php echo htmlspecialchars(__('process.transaction')); ?></button>
-                    <button type="button" class="btn btn-delete" id="processAccountingInboxDeleteBtn" onclick="deleteAccountingInboxSelected()" disabled><?php echo htmlspecialchars(__('process.delete')); ?></button>
-                    <button type="button" class="btn btn-cancel" onclick="closeAccountingDueModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Transaction</button>
+                    <button type="button" class="btn btn-delete" id="processAccountingInboxDeleteBtn" onclick="deleteAccountingInboxSelected()" disabled>Delete</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeAccountingDueModal()">Cancel</button>
                 </div>
             </div>
         </div>
@@ -538,7 +527,7 @@ if (!function_exists('__')) {
     <div id="addModal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h2><?php echo htmlspecialchars(__('process.add_process')); ?></h2>
+                <h2>Add Process</h2>
                 <span class="close" onclick="closeAddModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -547,22 +536,22 @@ if (!function_exists('__')) {
                     <div class="add-col">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_copy_from"><?php echo htmlspecialchars(__('process.copy_from')); ?></label>
+                                <label for="add_copy_from">Copy From</label>
                                 <select id="add_copy_from" name="copy_from">
-                                    <option value=""><?php echo htmlspecialchars(__('process.select_process_to_copy')); ?></option>
+                                    <option value="">Select Process to Copy</option>
                                 </select>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_process_id"><?php echo htmlspecialchars(__('process.process_id')); ?> *</label>
+                                <label for="add_process_id">Process ID *</label>
                                 <div class="input-with-checkbox">
                                     <input type="text" id="add_process_id" name="process_id"
-                                        placeholder="<?php echo htmlspecialchars(__('process.process_id_placeholder')); ?>" required>
+                                        placeholder="Enter Process ID" required>
                                     <div class="checkbox-container">
                                         <input type="checkbox" id="add_multi_use" name="multi_use_purpose">
-                                        <label for="add_multi_use"><?php echo htmlspecialchars(__('process.multi_process')); ?></label>
+                                        <label for="add_multi_use">Multi-Process</label>
                                     </div>
                                 </div>
                             </div>
@@ -571,11 +560,11 @@ if (!function_exists('__')) {
                         <!-- Multi-use Process Selection (hidden by default) -->
                         <div class="form-row" id="multi_use_processes" style="display: none;">
                             <div class="form-group">
-                                <label><?php echo htmlspecialchars(__('process.select_multi_use')); ?></label>
+                                <label>Select Multi-use Processes</label>
                                 <div class="process-checkboxes" id="process_checkboxes"></div>
                                 <div class="multi-use-actions">
                                     <button type="button" class="btn btn-save btn-small"
-                                        onclick="confirmMultiUseProcessSelection()"><?php echo htmlspecialchars(__('process.confirm')); ?></button>
+                                        onclick="confirmMultiUseProcessSelection()">Confirm</button>
                                 </div>
                             </div>
                         </div>
@@ -583,17 +572,17 @@ if (!function_exists('__')) {
                         <!-- Selected Processes Display (hidden by default) -->
                         <div class="form-row" id="selected_processes_display" style="display: none;">
                             <div class="form-group">
-                                <label><?php echo htmlspecialchars(__('process.selected_multi_use')); ?></label>
+                                <label>Selected Multi-use Processes</label>
                                 <div class="selected-processes" id="selected_processes_list"></div>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_description"><?php echo htmlspecialchars(__('process.description')); ?> *</label>
+                                <label for="add_description">Description *</label>
                                 <div class="input-with-icon">
                                     <input type="text" id="add_description" name="description" required readonly
-                                        placeholder="<?php echo htmlspecialchars(__('process.click_to_select_descriptions')); ?>">
+                                        placeholder="Click + to select descriptions">
                                     <button type="button" class="add-icon" onclick="expandDescription()">+</button>
                                 </div>
                             </div>
@@ -602,16 +591,16 @@ if (!function_exists('__')) {
                         <!-- Selected Descriptions Display (hidden by default) -->
                         <div class="form-row" id="selected_descriptions_display" style="display: none;">
                             <div class="form-group">
-                                <label><?php echo htmlspecialchars(__('process.selected_descriptions')); ?></label>
+                                <label>Selected Descriptions</label>
                                 <div class="selected-descriptions" id="selected_descriptions_list"></div>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_currency"><?php echo htmlspecialchars(__('process.currency')); ?></label>
+                                <label for="add_currency">Currency</label>
                                 <select id="add_currency" name="currency_id">
-                                    <option value=""><?php echo htmlspecialchars(__('process.select_currency')); ?></option>
+                                    <option value="">Select Currency</option>
                                 </select>
                             </div>
                         </div>
@@ -621,19 +610,20 @@ if (!function_exists('__')) {
                     <div class="add-col">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_remove_words"><?php echo htmlspecialchars(__('process.remove_words')); ?></label>
+                                <label for="add_remove_words">Remove Words</label>
                                 <input type="text" id="add_remove_words" name="remove_word"
-                                    placeholder="<?php echo htmlspecialchars(__('process.remove_words_placeholder')); ?>">
-                                <small class="field-help"><?php echo htmlspecialchars(__('process.remove_words_help')); ?></small>
+                                    placeholder="Enter words to remove">
+                                <small class="field-help">(Use semicolon to separate multiple words, e.g.
+                                    abc;cde;efg)</small>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <div class="day-use-header">
-                                    <label><?php echo htmlspecialchars(__('process.day_use')); ?></label>
+                                    <label>Day Use</label>
                                     <div class="all-day-checkbox">
                                         <input type="checkbox" id="add_all_day" name="all_day">
-                                        <label for="add_all_day"><?php echo htmlspecialchars(__('process.all_day')); ?></label>
+                                        <label for="add_all_day">All Day</label>
                                     </div>
                                 </div>
                                 <div class="day-checkboxes" id="day_checkboxes"></div>
@@ -641,31 +631,31 @@ if (!function_exists('__')) {
                         </div>
                         <div class="form-row row-two-cols">
                             <div class="form-group">
-                                <label for="add_replace_word_from"><?php echo htmlspecialchars(__('process.replace_from')); ?></label>
+                                <label for="add_replace_word_from">Replace From</label>
                                 <input type="text" id="add_replace_word_from" name="replace_word_from"
-                                    placeholder="<?php echo htmlspecialchars(__('process.old_word')); ?>">
-                                <small class="field-help"><?php echo htmlspecialchars(__('process.word_to_replace')); ?></small>
+                                    placeholder="Old word">
+                                <small class="field-help">(Word to be replaced)</small>
                             </div>
                             <div class="form-group">
-                                <label for="add_replace_word_to"><?php echo htmlspecialchars(__('process.replace_to')); ?></label>
+                                <label for="add_replace_word_to">Replace To</label>
                                 <input type="text" id="add_replace_word_to" name="replace_word_to"
-                                    placeholder="<?php echo htmlspecialchars(__('process.new_word')); ?>">
-                                <small class="field-help"><?php echo htmlspecialchars(__('process.replacement_word')); ?></small>
+                                    placeholder="New word">
+                                <small class="field-help">(Replacement word)</small>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_remarks"><?php echo htmlspecialchars(__('process.remarks')); ?></label>
+                                <label for="add_remarks">Remarks</label>
                                 <textarea id="add_remarks" name="remark" rows="5"
-                                    placeholder="<?php echo htmlspecialchars(__('process.remarks_placeholder')); ?>"></textarea>
+                                    placeholder="Enter remarks..."></textarea>
                             </div>
                         </div>
                     </div>
 
                     <!-- Actions: span full width -->
                     <div class="form-actions add-actions">
-                        <button type="submit" class="btn btn-save"><?php echo htmlspecialchars(__('process.add_process')); ?></button>
-                        <button type="button" class="btn btn-cancel" onclick="closeAddModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+                        <button type="submit" class="btn btn-save">Add Process</button>
+                        <button type="button" class="btn btn-cancel" onclick="closeAddModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -676,7 +666,7 @@ if (!function_exists('__')) {
     <div id="addBankModal" class="modal bank-modal" style="display: none;">
         <div class="modal-content bank-modal-content">
             <div class="modal-header">
-                <h2 id="bankModalTitle"><?php echo htmlspecialchars(__('process.add_process')); ?></h2>
+                <h2 id="bankModalTitle">Add Process</h2>
                 <span class="close" onclick="closeAddBankModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -685,42 +675,43 @@ if (!function_exists('__')) {
                     <!-- Row 1: same height left & right -->
                     <div class="bank-form-row">
                         <div class="bank-form-cell bank-form-cell-left">
-                            <h3 class="bank-section-title"><?php echo htmlspecialchars(__('process.bank_information')); ?></h3>
+                            <h3 class="bank-section-title">Bank Information</h3>
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_country"><?php echo htmlspecialchars(__('process.bank_country_currency')); ?></label>
+                                    <label for="bank_country">Country (Currency)</label>
                                     <div class="select-with-add">
                                         <select id="bank_country" name="country" class="bank-select" required>
-                                            <option value=""><?php echo htmlspecialchars(__('process.select_country')); ?></option>
+                                            <option value="">Select Country</option>
                                         </select>
                                         <button type="button" class="bank-add-btn" onclick="showAddCountryModal()"
-                                            title="<?php echo htmlspecialchars(__('process.add_new_country')); ?>">+</button>
+                                            title="Add New Country">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label for="bank_bank"><?php echo htmlspecialchars(__('process.bank_bank')); ?></label>
+                                    <label for="bank_bank">Bank</label>
                                     <div class="select-with-add">
                                         <select id="bank_bank" name="bank" class="bank-select" required>
-                                            <option value=""><?php echo htmlspecialchars(__('process.select_bank')); ?></option>
+                                            <option value="">Select Bank</option>
                                         </select>
                                         <button type="button" class="bank-add-btn" onclick="showAddBankModal()"
-                                            title="<?php echo htmlspecialchars(__('process.add_new_bank')); ?>">+</button>
+                                            title="Add New Bank">+</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div class="bank-form-cell bank-form-cell-right">
-                            <h3 class="bank-section-title"><?php echo htmlspecialchars(__('process.detail')); ?></h3>
+                            <h3 class="bank-section-title">Detail</h3>
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_card_merchant"><?php echo htmlspecialchars(__('process.bank_supplier')); ?></label>
+                                    <label for="bank_card_merchant">Supplier</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
                                             <button type="button" class="custom-select-button" id="bank_card_merchant"
-                                                data-placeholder="<?php echo htmlspecialchars(__('process.select_account')); ?>" name="card_merchant"><?php echo htmlspecialchars(__('process.select_account')); ?></button>
+                                                data-placeholder="Select Account" name="card_merchant">Select
+                                                Account</button>
                                             <div class="custom-select-dropdown" id="bank_card_merchant_dropdown">
                                                 <div class="custom-select-search">
-                                                    <input type="text" placeholder="<?php echo htmlspecialchars(__('process.search_account')); ?>"
+                                                    <input type="text" placeholder="Search account..."
                                                         autocomplete="off">
                                                 </div>
                                                 <div class="custom-select-options"></div>
@@ -728,12 +719,12 @@ if (!function_exists('__')) {
                                         </div>
                                         <button type="button" class="bank-add-btn"
                                             onclick="bankAccountPlusClick('bank_card_merchant')"
-                                            title="<?php echo htmlspecialchars(__('process.add_new_account')); ?>">+</button>
+                                            title="Add New Account">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label for="bank_cost"><?php echo htmlspecialchars(__('process.buy_price')); ?></label>
-                                    <input type="text" id="bank_cost" name="cost" placeholder="<?php echo htmlspecialchars(__('process.enter_amount')); ?>"
+                                    <label for="bank_cost">Buy Price</label>
+                                    <input type="text" id="bank_cost" name="cost" placeholder="Enter amount"
                                         class="bank-input" inputmode="decimal" autocomplete="off" required>
                                 </div>
                             </div>
@@ -744,17 +735,17 @@ if (!function_exists('__')) {
                         <div class="bank-form-cell bank-form-cell-left">
                             <div class="form-row bank-row-two-cols bank-row-type-name">
                                 <div class="form-group">
-                                    <label for="bank_type"><?php echo htmlspecialchars(__('process.bank_types')); ?></label>
+                                    <label for="bank_type">Type</label>
                                     <select id="bank_type" name="type" class="bank-select" required>
-                                        <option value=""><?php echo htmlspecialchars(__('process.select_type')); ?></option>
+                                        <option value="">Select Type</option>
                                         <option value="PERSONAL">PERSONAL</option>
                                         <option value="BUSINESS">BUSINESS</option>
                                         <option value="ENTERPRISE">ENTERPRISE</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="bank_name"><?php echo htmlspecialchars(__('process.bank_card_owner')); ?></label>
-                                    <input type="text" id="bank_name" name="name" placeholder="<?php echo htmlspecialchars(__('process.enter_card_owner')); ?>"
+                                    <label for="bank_name">Card Owner</label>
+                                    <input type="text" id="bank_name" name="name" placeholder="Enter Card Owner"
                                         class="bank-input" oninput="this.value=this.value.toUpperCase()" required>
                                 </div>
                             </div>
@@ -762,14 +753,15 @@ if (!function_exists('__')) {
                         <div class="bank-form-cell bank-form-cell-right">
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_customer"><?php echo htmlspecialchars(__('process.bank_customer')); ?></label>
+                                    <label for="bank_customer">Customer</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
                                             <button type="button" class="custom-select-button" id="bank_customer"
-                                                data-placeholder="<?php echo htmlspecialchars(__('process.select_account')); ?>" name="customer"><?php echo htmlspecialchars(__('process.select_account')); ?></button>
+                                                data-placeholder="Select Account" name="customer">Select
+                                                Account</button>
                                             <div class="custom-select-dropdown" id="bank_customer_dropdown">
                                                 <div class="custom-select-search">
-                                                    <input type="text" placeholder="<?php echo htmlspecialchars(__('process.search_account')); ?>"
+                                                    <input type="text" placeholder="Search account..."
                                                         autocomplete="off">
                                                 </div>
                                                 <div class="custom-select-options"></div>
@@ -777,12 +769,12 @@ if (!function_exists('__')) {
                                         </div>
                                         <button type="button" class="bank-add-btn"
                                             onclick="bankAccountPlusClick('bank_customer')"
-                                            title="<?php echo htmlspecialchars(__('process.add_new_account')); ?>">+</button>
+                                            title="Add New Account">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label for="bank_price"><?php echo htmlspecialchars(__('process.sell_price')); ?></label>
-                                    <input type="text" id="bank_price" name="price" placeholder="<?php echo htmlspecialchars(__('process.enter_amount')); ?>"
+                                    <label for="bank_price">Sell Price</label>
+                                    <input type="text" id="bank_price" name="price" placeholder="Enter amount"
                                         class="bank-input" inputmode="decimal" autocomplete="off" required>
                                 </div>
                             </div>
@@ -793,14 +785,14 @@ if (!function_exists('__')) {
                         <div class="bank-form-cell bank-form-cell-left">
                             <div class="form-row bank-day-start-row">
                                 <div class="form-group bank-day-start-input-wrap">
-                                    <label for="bank_day_start"><?php echo htmlspecialchars(__('process.day_start')); ?></label>
+                                    <label for="bank_day_start">Day start</label>
                                     <input type="date" id="bank_day_start" name="day_start" class="bank-input">
                                 </div>
                                 <div class="form-group bank-day-start-frequency-wrap">
-                                    <label for="bank_day_start_frequency"><?php echo htmlspecialchars(__('process.frequency')); ?></label>
+                                    <label for="bank_day_start_frequency">Frequency</label>
                                     <select id="bank_day_start_frequency" name="day_start_frequency" class="bank-input bank-select">
-                                        <option value="1st_of_every_month"><?php echo htmlspecialchars(__('process.first_of_every_month')); ?></option>
-                                        <option value="monthly"><?php echo htmlspecialchars(__('process.monthly')); ?></option>
+                                        <option value="1st_of_every_month">1st of Every Month</option>
+                                        <option value="monthly">Monthly</option>
                                     </select>
                                 </div>
                             </div>
@@ -808,14 +800,15 @@ if (!function_exists('__')) {
                         <div class="bank-form-cell bank-form-cell-right">
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_profit_account"><?php echo htmlspecialchars(__('process.company')); ?></label>
+                                    <label for="bank_profit_account">Company</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
                                             <button type="button" class="custom-select-button" id="bank_profit_account"
-                                                data-placeholder="<?php echo htmlspecialchars(__('process.select_account')); ?>" name="profit_account"><?php echo htmlspecialchars(__('process.select_account')); ?></button>
+                                                data-placeholder="Select Account" name="profit_account">Select
+                                                Account</button>
                                             <div class="custom-select-dropdown" id="bank_profit_account_dropdown">
                                                 <div class="custom-select-search">
-                                                    <input type="text" placeholder="<?php echo htmlspecialchars(__('process.search_account')); ?>"
+                                                    <input type="text" placeholder="Search account..."
                                                         autocomplete="off">
                                                 </div>
                                                 <div class="custom-select-options"></div>
@@ -823,12 +816,12 @@ if (!function_exists('__')) {
                                         </div>
                                         <button type="button" class="bank-add-btn"
                                             onclick="bankAccountPlusClick('bank_profit_account')"
-                                            title="<?php echo htmlspecialchars(__('process.add_new_account')); ?>">+</button>
+                                            title="Add New Account">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label for="bank_profit"><?php echo htmlspecialchars(__('process.bank_profit')); ?></label>
-                                    <input type="number" id="bank_profit" name="profit" placeholder="<?php echo htmlspecialchars(__('process.auto_calculated')); ?>"
+                                    <label for="bank_profit">Profit</label>
+                                    <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated"
                                         class="bank-input" readonly style="background-color: #f5f5f5;">
                                 </div>
                             </div>
@@ -841,21 +834,21 @@ if (!function_exists('__')) {
                             <div class="selected-countries-section">
                                 <div class="selected-profit-sharing-header"
                                     style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                    <h3 style="margin: 0;"><?php echo htmlspecialchars(__('process.selected_profit_sharing')); ?></h3>
+                                    <h3 style="margin: 0;">Selected Profit Sharing</h3>
                                     <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()"
-                                        title="<?php echo htmlspecialchars(__('process.add_profit_sharing_title')); ?>">+</button>
+                                        title="Add Profit Sharing">+</button>
                                 </div>
                                 <div class="selected-countries-list" id="selectedProfitSharingList">
-                                    <div class="no-countries"><?php echo htmlspecialchars(__('process.no_profit_sharing')); ?></div>
+                                    <div class="no-countries">No profit sharing selected</div>
                                 </div>
                             </div>
                         </div>
                         <div class="bank-form-cell bank-form-cell-right">
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_contract"><?php echo htmlspecialchars(__('process.bank_contract')); ?></label>
+                                    <label for="bank_contract">Contract</label>
                                     <select id="bank_contract" name="contract" class="bank-select" required>
-                                        <option value=""><?php echo htmlspecialchars(__('process.select_contract')); ?></option>
+                                        <option value="">Select Contract</option>
                                         <option value="1 MONTH">1 MONTH</option>
                                         <option value="2 MONTHS">2 MONTHS</option>
                                         <option value="3 MONTHS">3 MONTHS</option>
@@ -866,15 +859,15 @@ if (!function_exists('__')) {
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="bank_insurance"><?php echo htmlspecialchars(__('process.bank_insurance')); ?></label>
-                                    <input type="text" id="bank_insurance" name="insurance" placeholder="<?php echo htmlspecialchars(__('process.enter_amount')); ?>"
+                                    <label for="bank_insurance">Insurance</label>
+                                    <input type="text" id="bank_insurance" name="insurance" placeholder="Enter amount"
                                         class="bank-input" inputmode="decimal" autocomplete="off">
                                 </div>
                             </div>
                             <!-- Remark：底部与 Selected Profit Sharing 框对齐 -->
                             <div class="form-group bank-remark-wrap" style="margin-top: 12px;">
-                                <label for="bank_remark"><?php echo htmlspecialchars(__('process.remark')); ?></label>
-                                <input type="text" id="bank_remark" name="remark" placeholder="<?php echo htmlspecialchars(__('process.enter_remark')); ?>"
+                                <label for="bank_remark">Remark</label>
+                                <input type="text" id="bank_remark" name="remark" placeholder="Enter remark"
                                     class="bank-input" autocomplete="off" style="width: 100%;">
                             </div>
                         </div>
@@ -882,8 +875,8 @@ if (!function_exists('__')) {
 
                     <!-- Actions: span full width -->
                     <div class="form-actions bank-actions">
-                        <button type="submit" class="btn btn-save" id="bankSubmitBtn" disabled><?php echo htmlspecialchars(__('process.add_process')); ?></button>
-                        <button type="button" class="btn btn-cancel" onclick="closeAddBankModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+                        <button type="submit" class="btn btn-save" id="bankSubmitBtn" disabled>Add Process</button>
+                        <button type="button" class="btn btn-cancel" onclick="closeAddBankModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -1110,7 +1103,7 @@ if (!function_exists('__')) {
     <div id="profitSharingModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 480px;">
             <div class="modal-header">
-                <h2><?php echo htmlspecialchars(__('process.add_profit_sharing_title')); ?></h2>
+                <h2>Add Profit Sharing</h2>
                 <span class="close" onclick="closeProfitSharingModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -1118,36 +1111,36 @@ if (!function_exists('__')) {
                     <div id="profitSharingRowsContainer">
                         <div class="form-row bank-row-two-cols profit-sharing-row">
                             <div class="form-group">
-                                <label for="profit_sharing_account_btn"><?php echo htmlspecialchars(__('dcs.account')); ?></label>
+                                <label for="profit_sharing_account_btn">Account</label>
                                 <input type="hidden" id="profit_sharing_account_id" class="profit-sharing-account-id" name="account_id" value="">
                                 <div class="account-select-with-buttons">
                                     <div class="custom-select-wrapper">
-                                        <button type="button" class="custom-select-button profit-sharing-account-btn" id="profit_sharing_account_btn" data-placeholder="<?php echo htmlspecialchars(__('process.select_account')); ?>"><?php echo htmlspecialchars(__('process.select_account')); ?></button>
+                                        <button type="button" class="custom-select-button profit-sharing-account-btn" id="profit_sharing_account_btn" data-placeholder="Select Account">Select Account</button>
                                         <div class="custom-select-dropdown" id="profit_sharing_account_dropdown">
                                             <div class="custom-select-search">
-                                                <input type="text" placeholder="<?php echo htmlspecialchars(__('process.search_account')); ?>" autocomplete="off">
+                                                <input type="text" placeholder="Search account..." autocomplete="off">
                                             </div>
                                             <div class="custom-select-options"></div>
                                         </div>
                                     </div>
-                                    <button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick('profit_sharing_account_btn', 'profit_sharing_account_id')" title="<?php echo htmlspecialchars(__('process.add_new_account')); ?>">+</button>
+                                    <button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick('profit_sharing_account_btn', 'profit_sharing_account_id')" title="Add New Account">+</button>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="profit_sharing_amount"><?php echo htmlspecialchars(__('process.amount')); ?></label>
+                                <label for="profit_sharing_amount">Amount</label>
                                 <input type="number" id="profit_sharing_amount" name="amount"
-                                    class="bank-input profit-sharing-amount" placeholder="<?php echo htmlspecialchars(__('process.enter_amount')); ?>" step="0.01"
+                                    class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01"
                                     min="0">
                             </div>
                         </div>
                     </div>
                     <div class="profit-sharing-add-row-wrap" style="margin-top: 10px;">
                         <button type="button" class="bank-add-btn" id="profitSharingAddRowBtn"
-                            title="<?php echo htmlspecialchars(__('process.add_another_account_amount')); ?>">+</button>
+                            title="Add another Account &amp; Amount">+</button>
                     </div>
                     <div class="form-actions bank-actions" style="margin-top: 16px;">
-                        <button type="submit" class="btn btn-save"><?php echo htmlspecialchars(__('dc.add')); ?></button>
-                        <button type="button" class="btn btn-cancel" onclick="closeProfitSharingModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+                        <button type="submit" class="btn btn-save">Add</button>
+                        <button type="button" class="btn btn-cancel" onclick="closeProfitSharingModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -1210,7 +1203,7 @@ if (!function_exists('__')) {
     <div id="countrySelectionModal" class="modal" style="display: none;">
         <div class="modal-content country-selection-modal">
             <div class="modal-header">
-                <h2><?php echo htmlspecialchars(__('process.select_or_add_country')); ?></h2>
+                <h2>Select or Add Country</h2>
                 <span class="close" onclick="closeCountrySelectionModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -1218,19 +1211,19 @@ if (!function_exists('__')) {
                     <!-- Left side - Add new and available countries -->
                     <div class="available-countries-section">
                         <div class="add-country-bar">
-                            <h3><?php echo htmlspecialchars(__('process.add_new_country')); ?></h3>
+                            <h3>Add New Country</h3>
                             <form id="addCountryForm" class="add-country-form">
                                 <div class="add-country-input-group">
                                     <input type="text" id="new_country_name" name="country_name"
-                                        placeholder="<?php echo htmlspecialchars(__('process.new_country_placeholder')); ?>"
+                                        placeholder="Enter new country name..."
                                         oninput="this.value=this.value.toUpperCase()">
-                                    <button type="submit" class="btn btn-save"><?php echo htmlspecialchars(__('dc.add')); ?></button>
+                                    <button type="submit" class="btn btn-save">Add</button>
                                 </div>
                             </form>
                         </div>
-                        <h3><?php echo htmlspecialchars(__('process.available_countries')); ?></h3>
+                        <h3>Available Countries</h3>
                         <div class="country-search">
-                            <input type="text" id="countrySearch" placeholder="<?php echo htmlspecialchars(__('process.search_countries')); ?>"
+                            <input type="text" id="countrySearch" placeholder="Search countries..."
                                 onkeyup="filterCountries()" oninput="this.value=this.value.toUpperCase()">
                         </div>
                         <div class="country-list" id="existingCountries">
@@ -1239,7 +1232,7 @@ if (!function_exists('__')) {
                     </div>
                     <!-- Right side - Selected countries -->
                     <div class="selected-countries-section">
-                        <h3><?php echo htmlspecialchars(__('process.selected_countries')); ?></h3>
+                        <h3>Selected Countries</h3>
                         <div class="selected-countries-list" id="selectedCountriesInModal">
                             <!-- Selected countries will be displayed here -->
                         </div>
@@ -1247,8 +1240,8 @@ if (!function_exists('__')) {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-save" id="confirmCountriesBtn"
-                        onclick="confirmCountries()"><?php echo htmlspecialchars(__('dc.confirm')); ?></button>
-                    <button type="button" class="btn btn-cancel" onclick="closeCountrySelectionModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+                        onclick="confirmCountries()">Confirm</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeCountrySelectionModal()">Cancel</button>
                 </div>
             </div>
         </div>
@@ -1258,7 +1251,7 @@ if (!function_exists('__')) {
     <div id="bankSelectionModal" class="modal" style="display: none;">
         <div class="modal-content bank-selection-modal">
             <div class="modal-header">
-                <h2><?php echo htmlspecialchars(__('process.select_or_add_bank')); ?></h2>
+                <h2>Select or Add Bank</h2>
                 <span class="close" onclick="closeBankSelectionModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -1266,19 +1259,19 @@ if (!function_exists('__')) {
                     <!-- Left side - Add new and available banks -->
                     <div class="available-banks-section">
                         <div class="add-bank-bar">
-                            <h3><?php echo htmlspecialchars(__('process.add_new_bank')); ?></h3>
+                            <h3>Add New Bank</h3>
                             <form id="addBankForm" class="add-bank-form">
                                 <div class="add-bank-input-group">
                                     <input type="text" id="new_bank_name" name="bank_name"
-                                        placeholder="<?php echo htmlspecialchars(__('process.new_bank_placeholder')); ?>"
+                                        placeholder="Enter new bank name..."
                                         oninput="this.value=this.value.toUpperCase()">
-                                    <button type="submit" class="btn btn-save"><?php echo htmlspecialchars(__('dc.add')); ?></button>
+                                    <button type="submit" class="btn btn-save">Add</button>
                                 </div>
                             </form>
                         </div>
-                        <h3><?php echo htmlspecialchars(__('process.available_banks')); ?></h3>
+                        <h3>Available Banks</h3>
                         <div class="bank-search">
-                            <input type="text" id="bankSearch" placeholder="<?php echo htmlspecialchars(__('process.search_banks')); ?>" onkeyup="filterBanks()"
+                            <input type="text" id="bankSearch" placeholder="Search banks..." onkeyup="filterBanks()"
                                 oninput="this.value=this.value.toUpperCase()">
                         </div>
                         <div class="bank-list" id="existingBanks">
@@ -1287,7 +1280,7 @@ if (!function_exists('__')) {
                     </div>
                     <!-- Right side - Selected banks -->
                     <div class="selected-banks-section">
-                        <h3><?php echo htmlspecialchars(__('process.selected_banks')); ?></h3>
+                        <h3>Selected Banks</h3>
                         <div class="selected-banks-list" id="selectedBanksInModal">
                             <!-- Selected banks will be displayed here -->
                         </div>
@@ -1295,8 +1288,8 @@ if (!function_exists('__')) {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-save" id="confirmBanksBtn"
-                        onclick="confirmBanks()"><?php echo htmlspecialchars(__('dc.confirm')); ?></button>
-                    <button type="button" class="btn btn-cancel" onclick="closeBankSelectionModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+                        onclick="confirmBanks()">Confirm</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeBankSelectionModal()">Cancel</button>
                 </div>
             </div>
         </div>
@@ -1314,13 +1307,13 @@ if (!function_exists('__')) {
                         d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
             </div>
-            <h2 class="process-confirm-title"><?php echo htmlspecialchars(__('process.confirm_delete')); ?></h2>
-            <p id="confirmDeleteMessage" class="process-confirm-message"><?php echo htmlspecialchars(__('process.confirm_delete_message')); ?></p>
+            <h2 class="process-confirm-title">Confirm Delete</h2>
+            <p id="confirmDeleteMessage" class="process-confirm-message">This action cannot be undone.</p>
             <div class="process-confirm-actions">
                 <button type="button" class="process-btn process-btn-cancel confirm-cancel"
-                    onclick="closeConfirmDeleteModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+                    onclick="closeConfirmDeleteModal()">Cancel</button>
                 <button type="button" class="process-btn process-btn-delete confirm-delete"
-                    onclick="confirmDelete()"><?php echo htmlspecialchars(__('process.delete')); ?></button>
+                    onclick="confirmDelete()">Delete</button>
             </div>
         </div>
     </div>
@@ -1334,11 +1327,11 @@ if (!function_exists('__')) {
                         d="M10 9v2m0 4h.01M14 9v2m0 4h.01M5 9h14a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4a1 1 0 011-1z" />
                 </svg>
             </div>
-            <h2 class="process-confirm-title" id="confirmInactiveTitle"><?php echo htmlspecialchars(__('process.switch_to_inactive')); ?></h2>
-            <p id="confirmInactiveMessage" class="process-confirm-message"><?php echo htmlspecialchars(__('process.confirm_switch_inactive')); ?></p>
+            <h2 class="process-confirm-title">Switch to Inactive</h2>
+            <p id="confirmInactiveMessage" class="process-confirm-message">Confirm switching this Bank Process to Inactive?</p>
             <div class="process-confirm-actions">
-                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmInactiveModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
-                <button type="button" class="process-btn process-btn-inactive confirm-inactive" id="confirmInactiveBtn" onclick="confirmInactive()"><?php echo htmlspecialchars(__('process.inactive')); ?></button>
+                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmInactiveModal()">Cancel</button>
+                <button type="button" class="process-btn process-btn-inactive confirm-inactive" id="confirmInactiveBtn" onclick="confirmInactive()">Inactive</button>
             </div>
         </div>
     </div>
@@ -1352,17 +1345,16 @@ if (!function_exists('__')) {
                         d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
             </div>
-            <h2 class="process-confirm-title"><?php echo htmlspecialchars(__('process.remove_from_accounting_due')); ?></h2>
-            <p id="confirmAccountingDueDeleteMessage" class="process-confirm-message"><?php echo htmlspecialchars(__('process.remove_from_accounting_due_message')); ?></p>
+            <h2 class="process-confirm-title">Remove from Accounting Due</h2>
+            <p id="confirmAccountingDueDeleteMessage" class="process-confirm-message">Selected rows will be removed from Accounting Due. Process data will not change.</p>
             <div class="process-confirm-actions">
-                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmAccountingDueDeleteModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
-                <button type="button" class="process-btn process-btn-delete confirm-delete" id="confirmAccountingDueDeleteBtn" onclick="confirmAccountingDueDelete()"><?php echo htmlspecialchars(__('process.delete')); ?></button>
+                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmAccountingDueDeleteModal()">Cancel</button>
+                <button type="button" class="process-btn process-btn-delete confirm-delete" id="confirmAccountingDueDeleteBtn" onclick="confirmAccountingDueDelete()">Delete</button>
             </div>
         </div>
     </div>
 
     <script>
-        window.__LANG = <?php echo json_encode($processLang); ?>;
         window.PROCESSLIST_SHOW_INACTIVE = <?php echo isset($_GET['showInactive']) ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_ALL = <?php echo isset($_GET['showAll']) ? 'true' : 'false'; ?>;
         window.PROCESSLIST_COMPANY_ID = <?php echo json_encode($company_id ?? null); ?>;

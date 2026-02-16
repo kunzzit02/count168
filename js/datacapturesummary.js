@@ -1,5 +1,4 @@
-function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
-        // Notification functions
+// Notification functions
         function showNotification(title, message, type = 'success') {
             const popup = document.getElementById('notificationPopup');
             const titleEl = document.getElementById('notificationTitle');
@@ -97,11 +96,11 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             // Check for URL parameters and show notifications
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('success') === '1') {
-                showNotification((typeof __ !== 'undefined' ? __('dcs.success') : 'Success'), (typeof __ !== 'undefined' ? __('dcs.success_summary') : 'Data captured and summary generated successfully!'), 'success');
+                showNotification('Success', 'Data captured and summary generated successfully!', 'success');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (urlParams.get('error') === '1') {
-                showNotification((typeof __ !== 'undefined' ? __('dcs.error') : 'Error'), (typeof __ !== 'undefined' ? __('dcs.error_summary') : 'Failed to generate summary. Please try again.'), 'error');
+                showNotification('Error', 'Failed to generate summary. Please try again.', 'error');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
                 }
@@ -218,15 +217,6 @@ function getCurrentProcessId() {
     return null;
 }
 
-        // 当前 process 的 Replace To 配置（任意 word 被 replace 后都用此判断，不抓别行）
-        function getCurrentReplaceWordTo() {
-            try {
-                const data = window.capturedProcessData || JSON.parse(localStorage.getItem('capturedProcessData') || '{}');
-                const v = data.replaceWordTo;
-                return (v != null && String(v).trim() !== '') ? String(v).trim() : null;
-            } catch (e) { return null; }
-        }
-
         // Flag: set true when navigating away by Back or Submit so beforeunload does not save rate values
         window.isNavigatingAwayByBackOrSubmit = false;
 
@@ -314,7 +304,6 @@ function getCurrentProcessId() {
                     
                     // Store process data globally for later use
                     window.capturedProcessData = parsedProcessData;
-                    window.currentReplaceWordTo = (parsedProcessData.replaceWordTo != null && String(parsedProcessData.replaceWordTo).trim() !== '') ? String(parsedProcessData.replaceWordTo).trim() : null;
                     const processCodeRaw = parsedProcessData.processCode ?? parsedProcessData.process_code ?? '';
                     const storedProcessCode = typeof processCodeRaw === 'string' ? processCodeRaw.trim() : '';
                     if (storedProcessCode) {
@@ -1456,7 +1445,7 @@ function getCurrentProcessId() {
                                         <label for="account">Account</label>
                                         <div class="account-select-with-buttons">
                                             <div class="custom-select-wrapper">
-                                                <button type="button" class="custom-select-button" id="account" data-placeholder="${typeof __ !== 'undefined' ? __('dcs.select_account') : 'Select Account'}" name="account">${typeof __ !== 'undefined' ? __('dcs.select_account') : 'Select Account'}</button>
+                                                <button type="button" class="custom-select-button" id="account" data-placeholder="Select Account" name="account">Select Account</button>
                                                 <div class="custom-select-dropdown" id="account_dropdown">
                                                     <div class="custom-select-search">
                                                         <input type="text" placeholder="Search account..." autocomplete="off">
@@ -1481,11 +1470,11 @@ function getCurrentProcessId() {
                                         <label for="descriptionSelect1">Data</label>
                                         <div class="description-select-with-buttons">
                                             <select id="descriptionSelect1">
-                                                <option value="">${typeof __ !== 'undefined' ? __('dcs.select_id_product') : 'Select Id Product'}</option>
+                                                <option value="">Select Id Product</option>
                                                 <!-- Id Product options will be loaded here via JavaScript -->
                                             </select>
                                             <select id="descriptionSelect2">
-                                                <option value="">${typeof __ !== 'undefined' ? __('dcs.select_row_data') : 'Select Row Data'}</option>
+                                                <option value="">Select Row Data</option>
                                                 <!-- Row data options will be loaded here via JavaScript -->
                                             </select>
                                             <button type="button" class="description-add-btn" onclick="addSelectedDataToFormula()" title="Add Selected Data To Formula">Add</button>
@@ -1524,7 +1513,7 @@ function getCurrentProcessId() {
                                     <div class="form-group">
                                         <label for="inputMethod">Input Method</label>
                                         <select id="inputMethod">
-                                            <option value="">${typeof __ !== 'undefined' ? __('dcs.select_input_method') : 'Select Input Method (Optional)'}</option>
+                                            <option value="">Select Input Method (Optional)</option>
                                             <option value="positive_to_negative_negative_to_positive">Positive to negative, negative to positive</option>
                                             <option value="positive_to_negative_negative_to_zero">Positive to negative, negative to zero</option>
                                             <option value="negative_to_positive_positive_to_zero">Negative to positive, positive to zero</option>
@@ -1541,7 +1530,7 @@ function getCurrentProcessId() {
                                     <div class="form-group">
                                         <label for="currency">Currency</label>
                                         <select id="currency">
-                                            <option value="">${typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency'}</option>
+                                            <option value="">Select Currency</option>
                                             <!-- Currency options will be loaded here via JavaScript -->
                                         </select>
                                     </div>
@@ -1951,7 +1940,7 @@ function getCurrentProcessId() {
         function submitRateValues() {
             const rateInput = document.getElementById('rateInput');
             if (!rateInput) {
-                showNotification((typeof __ !== 'undefined' ? __('dcs.error') : 'Error'), (typeof __ !== 'undefined' ? __('dcs.error_rate_input') : 'Rate input field not found'), 'error');
+                showNotification('Error', 'Rate input field not found', 'error');
                 return;
             }
             
@@ -1963,7 +1952,7 @@ function getCurrentProcessId() {
             
             const summaryTableBody = document.getElementById('summaryTableBody');
             if (!summaryTableBody) {
-                showNotification((typeof __ !== 'undefined' ? __('dcs.error') : 'Error'), (typeof __ !== 'undefined' ? __('dcs.error_table_not_found') : 'Summary table not found'), 'error');
+                showNotification('Error', 'Summary table not found', 'error');
                 return;
             }
             
@@ -2017,7 +2006,7 @@ function getCurrentProcessId() {
             updateProcessedAmountTotal();
             
             if (updatedCount > 0) {
-                showNotification((typeof __ !== 'undefined' ? __('dcs.success') : 'Success'), (typeof __ !== 'undefined' ? __('dcs.rate_value_updated').replace('%d', String(updatedCount)) : `Rate Value updated for ${updatedCount} row(s)`), 'success');
+                showNotification('Success', `Rate Value updated for ${updatedCount} row(s)`, 'success');
             } else {
                 showNotification('Info', 'No rows with Rate checkbox checked', 'info');
             }
@@ -2217,7 +2206,7 @@ function getCurrentProcessId() {
                     // Reset currency dropdown if no account selected
                     const currencySelect = document.getElementById('currency');
                     if (currencySelect) {
-                        currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
+                        currencySelect.innerHTML = '<option value="">Select Currency</option>';
                     }
                 }
                 if (typeof updateEditFormulaSaveButtonState === 'function') {
@@ -2287,7 +2276,7 @@ function getCurrentProcessId() {
                     // Clear currency dropdown initially
                     const currencySelect = document.getElementById('currency');
                     if (currencySelect) {
-                        currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
+                        currencySelect.innerHTML = '<option value="">Select Currency</option>';
                     }
                     
                     // Load account data
@@ -2420,7 +2409,7 @@ function getCurrentProcessId() {
                     const currencySelect = document.getElementById('currency');
                     if (currencySelect) {
                         // Clear existing options
-                        currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
+                        currencySelect.innerHTML = '<option value="">Select Currency</option>';
                         
                         // Add currency options from account's currencies
                         if (result.data && result.data.length > 0) {
@@ -2761,7 +2750,7 @@ function getCurrentProcessId() {
             if (!descriptionSelect1) return;
 
             // Clear existing options except the first one
-            descriptionSelect1.innerHTML = `<option value="">${typeof __ !== 'undefined' ? __('dcs.select_id_product') : 'Select Id Product'}</option>`;
+            descriptionSelect1.innerHTML = '<option value="">Select Id Product</option>';
 
             // Get table data
             let parsedTableData;
@@ -2905,7 +2894,7 @@ function getCurrentProcessId() {
             if (!descriptionSelect2) return;
 
             // Clear existing options
-            descriptionSelect2.innerHTML = `<option value="">${typeof __ !== 'undefined' ? __('dcs.select_row_data') : 'Select Row Data'}</option>`;
+            descriptionSelect2.innerHTML = '<option value="">Select Row Data</option>';
 
             if (!idProductValue || idProductValue.trim() === '') {
                 return;
@@ -4360,37 +4349,41 @@ function getCurrentProcessId() {
                                 }
                             }
                             
-                            // 使用id_product和列号获取值（表格列号 2,3,4,5 即 displayColumnIndex，1-based 数据列 = 列号-1，故传 dataColumnIndex+1）
-                            if (dataColumnIndex >= 0) {
-                                columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex + 1, rowLabel);
+                            // 使用id_product和列号获取值
+                            if (dataColumnIndex > 0) {
+                                columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
                                 console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], value:', columnValue);
                             }
                         } else {
-                            // 当前row格式 $数字：按列号在 refs 中查找匹配的引用（不依赖 ref 顺序，避免 ($5)+$4 与 refs=[ref_4,ref_5] 错配）
-                            const wantCol = match.columnNumber;
-                            for (let r = 0; r < refs.length && columnValue === null; r++) {
-                                const ref = refs[r];
+                            // 当前row格式 $数字：从引用中按顺序获取（parseIdProductColumnRef 保留完整 id_product）
+                            if (refIndex < refs.length) {
+                                const ref = refs[refIndex];
                                 const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
-                                if (!parsed) continue;
-                                const refDisplayCol = parsed.dataColumnIndex + 1;
-                                if (refDisplayCol !== wantCol) continue;
-                                const isCurrentRowRef = currentIdProduct && (
-                                    (typeof isFullIdProduct === 'function' && isFullIdProduct(parsed.idProduct))
-                                        ? (parsed.idProduct.trim() === (currentIdProduct || '').trim())
-                                        : (normalizeIdProductText(parsed.idProduct) === normalizeIdProductText(currentIdProduct))
-                                );
-                                if (isCurrentRowRef) {
-                                    columnValue = getCellValueByIdProductAndColumn(parsed.idProduct, parsed.dataColumnIndex, parsed.rowLabel);
-                                    break;
+                                if (parsed) {
+                                    const refIdProduct = parsed.idProduct;
+                                    const refDataColumnIndex = parsed.dataColumnIndex;
+                                    const refRowLabel = parsed.rowLabel;
+                                    const isCurrentRowRef = currentIdProduct && (
+                                        (typeof isFullIdProduct === 'function' && isFullIdProduct(refIdProduct))
+                                            ? (refIdProduct.trim() === (currentIdProduct || '').trim())
+                                            : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(currentIdProduct))
+                                    );
+                                    if (isCurrentRowRef) {
+                                        const displayColumnIndex = refDataColumnIndex + 1;
+                                        if (displayColumnIndex === match.columnNumber) {
+                                            columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
+                                            refIndex++;
+                                        }
+                                    }
                                 }
                             }
                             
-                            // 如果从引用中找不到值，使用当前编辑的id_product（match.columnNumber 为表格列号 2,3,4,5...，1-based 数据列 = 列号-1：列2→1，列5→4）
+                            // 如果从引用中找不到值，使用当前编辑的id_product
                             if (columnValue === null && currentIdProduct) {
                                 const rowLabel = getRowLabelFromProcessValue(processValue);
                                 if (rowLabel) {
-                                    const oneBasedDataCol = match.columnNumber >= 2 ? match.columnNumber - 1 : 1;
-                                    columnValue = getCellValueByIdProductAndColumn(currentIdProduct, oneBasedDataCol, rowLabel);
+                                    const dataColumnIndex = match.columnNumber - 1;
+                                    columnValue = getCellValueByIdProductAndColumn(currentIdProduct, dataColumnIndex, rowLabel);
                                     console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
                                 }
                             }
@@ -5889,25 +5882,18 @@ function getCurrentProcessId() {
                         
                         // 检查公式是否已经包含新格式 [id_product,数字]
                         const hasNewFormat = /\[[^,\]]+,\d+\]/.test(formulaValueToSet);
-                        const processValue = (document.getElementById('process')?.value || data.processValue || '').toString().trim();
+                        const processValue = document.getElementById('process')?.value;
                         
                         if (hasNewFormat && processValue) {
-                            // 将当前行的 [id_product,列号] 转为 $列号 显示（含 CKZ/SUBTOTAL 等价）
+                            // 将当前行的 [id_product,列号] 转为 $列号 显示，与第二张图一致
                             const currentIdProduct = processValue.trim();
-                            const sameSubTotalRow = (a, b) => {
-                                const u = (v) => (v || '').trim().toUpperCase().replace(/\s+/g, '');
-                                const x = u(a), y = u(b);
-                                return (x === 'CKZ' && (y === 'SUBTOTAL' || y === 'SUB TOTAL')) || (y === 'CKZ' && (x === 'SUBTOTAL' || x === 'SUB TOTAL'));
-                            };
                             const bracketPattern = /\[([^,\]]+),(\d+)\]/g;
                             formulaValueToSet = formulaValueToSet.replace(bracketPattern, function(match, idProduct, colNum) {
                                 const refId = (idProduct || '').trim();
-                                const normRef = typeof normalizeIdProductText === 'function' ? normalizeIdProductText(refId) : refId;
-                                const normCur = typeof normalizeIdProductText === 'function' ? normalizeIdProductText(currentIdProduct) : currentIdProduct;
                                 const isCurrentRow = currentIdProduct && (
                                     (typeof isFullIdProduct === 'function' && isFullIdProduct(refId))
-                                        ? (refId === currentIdProduct || sameSubTotalRow(refId, currentIdProduct))
-                                        : (normRef === normCur || sameSubTotalRow(refId, currentIdProduct))
+                                        ? (refId === currentIdProduct)
+                                        : (typeof normalizeIdProductText === 'function' && normalizeIdProductText(refId) === normalizeIdProductText(currentIdProduct))
                                 );
                                 return isCurrentRow ? '$' + colNum : match;
                             });
@@ -7539,20 +7525,7 @@ function getCurrentProcessId() {
                 } catch (e) { return shortId; }
             }
             if (parsedTableData && parsedTableData.rows) {
-                const replaceToR = getCurrentReplaceWordTo();
-                const isCurrentReplaceWordR = replaceToR && (shortTrim === replaceToR || shortTrim.toUpperCase() === replaceToR.toUpperCase());
                 if (extractedRowLabel) {
-                    const rowIndexFromLabel = rowLabelToZeroBasedIndex(extractedRowLabel);
-                    if (rowIndexFromLabel >= 0 && rowIndexFromLabel < parsedTableData.rows.length) {
-                        const rowByLabel = parsedTableData.rows[rowIndexFromLabel];
-                        if (rowByLabel && rowByLabel.length > 1 && rowByLabel[1].type === 'data') {
-                            const fullByLabel = (rowByLabel[1].value || '').trim();
-                            if (fullByLabel) {
-                                console.log('resolveToFullIdProduct: resolved by row label (index)', extractedRowLabel, shortTrim, '->', fullByLabel);
-                                return fullByLabel;
-                            }
-                        }
-                    }
                     const nSpLabel = (s) => (s || '').trim().replace(/\s+/g, '');
                     const shortNormLabel = nSpLabel(shortTrim);
                     for (let i = 0; i < parsedTableData.rows.length; i++) {
@@ -7561,16 +7534,11 @@ function getCurrentProcessId() {
                             const headerVal = (row[0] && (row[0].value != null)) ? String(row[0].value).trim() : '';
                             if (headerVal !== extractedRowLabel) continue;
                             const full = (row[1].value || '').trim();
-                            if (full === shortTrim) {
-                                console.log('resolveToFullIdProduct: resolved', shortTrim, 'with rowLabel', extractedRowLabel, '->', full);
-                                return full;
-                            }
-                            if (!isCurrentReplaceWordR && full.endsWith(shortTrim)) {
+                            if (full === shortTrim || full.endsWith(shortTrim)) {
                                 console.log('resolveToFullIdProduct: resolved', shortTrim, 'with rowLabel', extractedRowLabel, '->', full);
                                 return full;
                             }
                             if (shortNormLabel && nSpLabel(full).indexOf(shortNormLabel) === 0) {
-                                if (isCurrentReplaceWordR && full !== shortTrim) continue;
                                 console.log('resolveToFullIdProduct: resolved (prefix) with rowLabel', extractedRowLabel, shortTrim, '->', full);
                                 return full;
                             }
@@ -7588,13 +7556,13 @@ function getCurrentProcessId() {
                             }
                         }
                     }
-                    // 行标签未匹配时：将行标签转为行索引再取该行 id_product（rowIndexFromLabel 已在上方声明）
-                    const idxByLabel = rowLabelToZeroBasedIndex(extractedRowLabel);
-                    if (idxByLabel >= 0 && idxByLabel < parsedTableData.rows.length) {
-                        const row = parsedTableData.rows[idxByLabel];
+                    // 行标签未匹配时：将行标签转为行索引（A=0, B=1, ..., Z=25, AA=26, ..., AF=31）再取该行 id_product
+                    const rowIndexFromLabel = rowLabelToZeroBasedIndex(extractedRowLabel);
+                    if (rowIndexFromLabel >= 0 && rowIndexFromLabel < parsedTableData.rows.length) {
+                        const row = parsedTableData.rows[rowIndexFromLabel];
                         if (row && row.length > 1 && row[1].type === 'data') {
                             const full = (row[1].value || '').trim();
-                            if (full && (full === shortTrim || (!isCurrentReplaceWordR && full.endsWith(shortTrim)) || full.indexOf(' - ') >= 0)) {
+                            if (full && (full === shortTrim || full.endsWith(shortTrim) || full.indexOf(' - ') >= 0)) {
                                 console.log('resolveToFullIdProduct: resolved by row index', extractedRowLabel, '->', full);
                                 return full;
                             }
@@ -7607,16 +7575,11 @@ function getCurrentProcessId() {
                     const row = parsedTableData.rows[i];
                     if (row && row.length > 1 && row[1].type === 'data') {
                         const full = (row[1].value || '').trim();
-                        if (full === shortTrim) {
-                            console.log('resolveToFullIdProduct: resolved', shortTrim, '->', full);
-                            return full;
-                        }
-                        if (!isCurrentReplaceWordR && full.endsWith(shortTrim)) {
+                        if (full === shortTrim || full.endsWith(shortTrim)) {
                             console.log('resolveToFullIdProduct: resolved', shortTrim, '->', full);
                             return full;
                         }
                         if (shortNorm && nSp(full).indexOf(shortNorm) === 0) {
-                            if (isCurrentReplaceWordR && full !== shortTrim) continue;
                             console.log('resolveToFullIdProduct: resolved (prefix match)', shortTrim, '->', full);
                             return full;
                         }
@@ -7663,12 +7626,9 @@ function getCurrentProcessId() {
         function findProcessRow(tableData, processValue, rowIndex = null) {
             if (!tableData.rows) return null;
 
-            const trimmed = (processValue || '').trim();
-            const replaceTo = getCurrentReplaceWordTo();
-            const isCurrentReplaceWord = replaceTo && (trimmed === replaceTo || trimmed.toUpperCase() === replaceTo.toUpperCase());
-            const processValueResolved = (isCurrentReplaceWord || !(typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(processValue)))
-                ? trimmed
-                : resolveToFullIdProduct(processValue);
+            // 仅当传入的是截断 id（如 "(T07)"、"KZAWCMS(SV)"）时才解析为完整 id_product，完整 id（如 KZAWCMS (SV) MYR）直接使用，避免 (SV) 被错误解析成 (KM)
+            const processValueResolved = (typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(processValue))
+                ? resolveToFullIdProduct(processValue) : (processValue || '').trim();
 
             // Normalize the process value for comparison (only used when not full id)
             const normalizedProcessValue = normalizeIdProductText(processValueResolved);
@@ -7698,45 +7658,31 @@ function getCurrentProcessId() {
 
             // 完整 id_product（ALLBET95MS(SV)MYR / (KM) / (SEXY) 等）只做精确或去空格匹配，不归一成同一 base
             const normalizeSpaces = (s) => (s || '').trim().replace(/\s+/g, '');
-            const replaceToForSub = getCurrentReplaceWordTo();
-            const isSubTotalRow = (r) => {
-                const h = (r[0] && r[0].value) ? String(r[0].value).trim().toUpperCase() : '';
-                const v = (r[1] && r[1].value) ? String(r[1].value).trim() : '';
-                const vUpper = v.toUpperCase();
-                const isReplaceWordCell = replaceToForSub && (v === replaceToForSub || vUpper === replaceToForSub.toUpperCase());
-                return h.includes('SUB TOTAL') || h.includes('SUBTOTAL') || vUpper.includes('SUB TOTAL') || vUpper.includes('SUBTOTAL') || isReplaceWordCell;
-            };
             console.log('findProcessRow: Searching all rows for id_product:', processValueResolved);
-            let matchedRows = [];
             for (let i = 0; i < tableData.rows.length; i++) {
                 const row = tableData.rows[i];
                 if (row.length > 1 && row[1].type === 'data') {
                     const rowValue = row[1].value;
-                    let matched = false;
-                    if (rowValue === processValueResolved) matched = true;
-                    else if (useExactOnly && normalizeSpaces(rowValue) === normalizeSpaces(processValueResolved)) matched = true;
-                    else if (!useExactOnly) {
-                        const normalizedRowValue = normalizeIdProductText(rowValue);
-                        if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) matched = true;
+                    if (rowValue === processValueResolved) {
+                        console.log('findProcessRow: Found row at index:', i, 'by exact match');
+                        return row;
                     }
-                    if (matched) matchedRows.push({ row, index: i });
+                    if (useExactOnly && normalizeSpaces(rowValue) === normalizeSpaces(processValueResolved)) {
+                        console.log('findProcessRow: Found row at index:', i, 'by normalize-spaces match');
+                        return row;
+                    }
+                    if (!useExactOnly) {
+                        const normalizedRowValue = normalizeIdProductText(rowValue);
+                        if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
+                            console.log('findProcessRow: Found row at index:', i, 'by normalized match');
+                            return row;
+                        }
+                    }
                 }
             }
-            if (matchedRows.length === 0) {
-                console.error('findProcessRow: No row found for processValue:', processValueResolved, 'rowIndex:', rowIndex);
-                return null;
-            }
-            // 多行同 id_product 时优先取 SUB TOTAL 行（CKZ 为 Replace Word 来自 SUBTOTAL，取最后一行即 Sub Total 行）
-            if (matchedRows.length > 1) {
-                const subTotalCandidates = matchedRows.filter(m => isSubTotalRow(m.row));
-                const subTotal = subTotalCandidates.length > 0 ? subTotalCandidates[subTotalCandidates.length - 1] : null;
-                if (subTotal) {
-                    console.log('findProcessRow: Multiple rows for id_product, using SUB TOTAL row at index:', subTotal.index);
-                    return subTotal.row;
-                }
-            }
-            console.log('findProcessRow: Found row at index:', matchedRows[0].index, 'by id_product match');
-            return matchedRows[0].row;
+            
+            console.error('findProcessRow: No row found for processValue:', processValueResolved, 'rowIndex:', rowIndex);
+            return null;
         }
 
         // Get column value by id_product and column_number (for reference format [id_product : column])
@@ -11358,7 +11304,6 @@ function getCurrentProcessId() {
             
             // Show the Edit Formula form with pre-populated data
             showEditFormulaForm(processValue, false, {
-                processValue: processValue,
                 account: accountValue,
                 accountDbId: accountDbId,
                 currency: currencyValue,

@@ -116,8 +116,13 @@ $userData = [
 // 权限检查
 $canViewAnalytics = ($role === 'admin'); // 只有admin可以查看分析
 
-// 语言：由 Cookie 决定（?lang= 已在 config 中统一处理并重定向）
-$langCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
+// 语言：默认英语，支持 ?lang=zh 切换并写入 Cookie
+$langCode = isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'zh'], true) ? $_GET['lang'] : (isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en');
+if (isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'zh'], true)) {
+    setcookie('lang', $_GET['lang'], time() + 86400 * 365, '/', '', false, true);
+    header('Location: dashboard.php');
+    exit;
+}
 $lang = require __DIR__ . '/lang/' . $langCode . '.php';
 if (!is_array($lang)) {
     $lang = [];
@@ -153,14 +158,21 @@ function __($key) {
         window.__LANG = <?php echo json_encode($lang); ?>;
         window.__LOCALE = <?php echo json_encode($langCode); ?>;
     </script>
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <script src="js/dashboard.js?v=<?php echo $assetVer('js/dashboard.js'); ?>"></script>
 </head>
 <body class="dashboard-page">
     <?php include 'sidebar.php'; ?>
     
     <div class="dashboard-container">
-        <h1 class="dashboard-title"><?php echo htmlspecialchars(__('dashboard.title')); ?></h1>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <h1 class="dashboard-title"><?php echo htmlspecialchars(__('dashboard.title')); ?></h1>
+            <span class="dashboard-lang-switcher" style="font-size: 14px; color: #6b7280;">
+                <a href="dashboard.php?lang=en" style="color: inherit; text-decoration: none; padding: 4px 8px; border-radius: 4px;" <?php if ($langCode === 'en') echo ' class="active" style="font-weight:600;color:#3b82f6;"'; ?>><?php echo htmlspecialchars(__('lang.english')); ?></a>
+                <span style="margin: 0 4px;">|</span>
+                <a href="dashboard.php?lang=zh" style="color: inherit; text-decoration: none; padding: 4px 8px; border-radius: 4px;" <?php if ($langCode === 'zh') echo ' class="active" style="font-weight:600;color:#3b82f6;"'; ?>><?php echo htmlspecialchars(__('lang.zh')); ?></a>
+            </span>
+        </div>
         
         <div id="app" class="dashboard-content">
             <!-- Date Controls -->

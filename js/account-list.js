@@ -1,5 +1,4 @@
-/* account-list.js - 依赖 PHP 中 window.__LANG 与 ACCOUNT_LIST_* 变量 */
-function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
+/* account-list.js - 依赖 PHP 中最小化 script 输出的 window.ACCOUNT_LIST_* 变量 */
 (function() {
     if (typeof window.ACCOUNT_LIST_SHOW_INACTIVE === 'undefined') window.ACCOUNT_LIST_SHOW_INACTIVE = false;
     if (typeof window.ACCOUNT_LIST_SHOW_ALL === 'undefined') window.ACCOUNT_LIST_SHOW_ALL = false;
@@ -189,27 +188,27 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                         </span>
                     </div>
                     <div class="account-card-item">
-                        <span class="account-role-badge ${alertClass} account-status-clickable" onclick="togglePaymentAlert(${account.id}, ${hasPaymentAlert ? 1 : 0})" title="' + (__('account.click_toggle_alert')).replace(/"/g, '&quot;') + '">
+                        <span class="account-role-badge ${alertClass} account-status-clickable" onclick="togglePaymentAlert(${account.id}, ${hasPaymentAlert ? 1 : 0})" title="Click to toggle payment alert">
                             ${alertText}
                         </span>
                     </div>
                     <div class="account-card-item">
-                        <span class="account-role-badge ${statusClass} account-status-clickable" onclick="toggleAccountStatus(${account.id}, '${account.status}')" title="' + (__('account.click_toggle_status')).replace(/"/g, '&quot;') + '">
+                        <span class="account-role-badge ${statusClass} account-status-clickable" onclick="toggleAccountStatus(${account.id}, '${account.status}')" title="Click to toggle status">
                             ${escapeHtml((account.status || '').toUpperCase())}
                         </span>
                     </div>
                     <div class="account-card-item">${escapeHtml((account.last_login || '').toUpperCase())}</div>
                     <div class="account-card-item">${escapeHtml((account.remark || '').toUpperCase())}</div>
                     <div class="account-card-item">
-                        <button class="account-edit-btn" onclick="editAccount(${account.id})" aria-label="' + __('account.edit').replace(/"/g, '&quot;') + '" title="' + __('account.edit').replace(/"/g, '&quot;') + '">
+                        <button class="account-edit-btn" onclick="editAccount(${account.id})" aria-label="Edit" title="Edit">
                             <img src="images/edit.svg" alt="Edit" />
                         </button>
-                        <button class="account-edit-btn" onclick="linkAccount(${account.id})" aria-label="' + __('account.link_account').replace(/"/g, '&quot;') + '" title="' + __('account.link_account').replace(/"/g, '&quot;') + '" style="margin-left: 5px;">
+                        <button class="account-edit-btn" onclick="linkAccount(${account.id})" aria-label="Link Account" title="Link Account" style="margin-left: 5px;">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             </svg>
                         </button>
-                        ${account.status === 'active' ? '' : `<input type="checkbox" class="account-row-checkbox" data-id="${account.id}" title="' + (__('account.select_for_deletion')).replace(/"/g, '&quot;') + '" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
+                        ${account.status === 'active' ? '' : `<input type="checkbox" class="account-row-checkbox" data-id="${account.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
                     </div>
                 `;
                 container.appendChild(card);
@@ -230,8 +229,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             const totalPages = Math.max(1, Math.ceil(accounts.length / PAGE_SIZE));
             
             // 更新分页控件信息
-            const paginationFmt = __('account.pagination_of');
-            document.getElementById('paginationInfo').textContent = paginationFmt.replace(/%d/, String(currentPage)).replace(/%d/, String(totalPages));
+            document.getElementById('paginationInfo').textContent = `${currentPage} of ${totalPages}`;
 
             // 更新按钮状态
             const isPrevDisabled = currentPage <= 1;
@@ -445,7 +443,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             if (!selectElement) return;
             const orderedRoles = getOrderedRoles(includeStaff);
             const selectedUpper = (selectedRole || '').toUpperCase();
-            selectElement.innerHTML = '<option value="">' + __('account.select_role') + '</option>';
+            selectElement.innerHTML = '<option value="">Select Role</option>';
 
             orderedRoles.forEach(role => {
                 const option = document.createElement('option');
@@ -557,7 +555,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 const result = await response.json();
 
                 if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
-                    listElement.innerHTML = '<div class="currency-toggle-note">' + __('account.no_currencies') + '</div>';
+                    listElement.innerHTML = '<div class="currency-toggle-note">No currencies available.</div>';
                     return;
                 }
 
@@ -602,7 +600,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                     deleteBtn.className = 'currency-delete-btn';
                     deleteBtn.innerHTML = '×';
                     deleteBtn.setAttribute('type', 'button');
-                    deleteBtn.setAttribute('title', __('account.delete_currency_title'));
+                    deleteBtn.setAttribute('title', 'Delete currency permanently');
                     deleteBtn.addEventListener('click', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -654,14 +652,14 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 });
             } catch (error) {
                 console.error('Error loading account currencies:', error);
-                listElement.innerHTML = '<div class="currency-toggle-note">' + __('account.load_currencies_failed') + '</div>';
+                listElement.innerHTML = '<div class="currency-toggle-note">Failed to load currencies.</div>';
             }
         }
         
         // 姘镐箙鍒犻櫎璐у竵锛堜粠绯荤粺涓畬鍏ㄥ垹闄わ級
         async function deleteCurrencyPermanently(currencyId, currencyCode, itemElement) {
             console.log('deleteCurrencyPermanently called:', { currencyId, currencyCode });
-            if (!confirm(__('account.delete_currency_confirm').replace(/%s/, currencyCode))) {
+            if (!confirm(`Are you sure you want to permanently delete currency ${currencyCode}? This action cannot be undone.`)) {
                 console.log('User cancelled currency deletion');
                 return;
             }
@@ -894,7 +892,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 const result = await response.json();
 
                 if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
-                    listElement.innerHTML = '<div class="currency-toggle-note">' + __('account.no_companies') + '</div>';
+                    listElement.innerHTML = '<div class="currency-toggle-note">No companies available.</div>';
                     return;
                 }
 
@@ -943,7 +941,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 });
             } catch (error) {
                 console.error('Error loading account companies:', error);
-                listElement.innerHTML = '<div class="currency-toggle-note">' + __('account.load_companies_failed') + '</div>';
+                listElement.innerHTML = '<div class="currency-toggle-note">Failed to load companies.</div>';
             }
         }
         
@@ -1021,7 +1019,9 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             const descEl = document.getElementById('linkTypeDescription');
             if (!descEl) return;
             const isBidi = document.getElementById('linkTypeBidirectional') && document.getElementById('linkTypeBidirectional').checked;
-            descEl.textContent = isBidi ? __('account.link_desc_bidi') : __('account.link_desc_uni');
+            descEl.textContent = isBidi
+                ? 'Bidirectional: Data syncs both ways.'
+                : 'Unidirectional flows from A to B.';
         }
         
         // 淇濆瓨璐︽埛鍏宠仈
@@ -1158,7 +1158,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             if (searchInput) searchInput.value = '';
 
             if (!accountId) {
-                listElement.innerHTML = '<div class="currency-toggle-note">' + __('account.invalid_account_id') + '</div>';
+                listElement.innerHTML = '<div class="currency-toggle-note">Invalid account ID</div>';
                 return;
             }
 
@@ -1166,7 +1166,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 // 鑾峰彇褰撳墠鍏徃ID
                 const currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID;
                 if (!currentCompanyId) {
-                    listElement.innerHTML = '<div class="currency-toggle-note">' + __('account.please_select_company') + '</div>';
+                    listElement.innerHTML = '<div class="currency-toggle-note">璇峰厛閫夋嫨鍏徃</div>';
                     return;
                 }
 
@@ -1177,7 +1177,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 const accountList = result.data && result.data.accounts ? result.data.accounts : (result.data || []);
 
                 if (!result.success || !Array.isArray(accountList) || accountList.length === 0) {
-                    listElement.innerHTML = '<div class="currency-toggle-note">' + __('account.no_other_accounts') + '</div>';
+                    listElement.innerHTML = '<div class="currency-toggle-note">褰撳墠鍏徃涓嬫病鏈夊叾浠栬处鎴?/div>';
                     return;
                 }
 
@@ -1185,7 +1185,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 const availableAccounts = accountList.filter(acc => acc.id != accountId);
                 
                 if (availableAccounts.length === 0) {
-                    listElement.innerHTML = '<div class="currency-toggle-note">' + __('account.no_accounts_to_link') + '</div>';
+                    listElement.innerHTML = '<div class="currency-toggle-note">褰撳墠鍏徃涓嬫病鏈夊叾浠栬处鎴峰彲鍏宠仈</div>';
                     return;
                 }
 
@@ -1281,7 +1281,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                 });
             } catch (error) {
                 console.error('Error loading account links:', error);
-                listElement.innerHTML = '<div class="currency-toggle-note">' + __('account.load_links_failed') + '</div>';
+                listElement.innerHTML = '<div class="currency-toggle-note">鍔犺浇鍏宠仈璐︽埛澶辫触</div>';
             }
         }
         
@@ -1439,18 +1439,18 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                             // Alert 鏄 4 鍒楋紙绱㈠紩 4锛?
                             const alertClass = result.newPaymentAlert == 1 ? 'account-status-active' : 'account-status-inactive';
                             const alertText = result.newPaymentAlert == 1 ? 'ON' : 'OFF';
-                            items[4].innerHTML = '<span class="account-role-badge ' + alertClass + ' account-status-clickable" onclick="togglePaymentAlert(' + accountId + ', ' + result.newPaymentAlert + ')" title="' + (__('account.click_toggle_alert')).replace(/"/g, '&quot;') + '">' + alertText + '</span>';
+                            items[4].innerHTML = `<span class="account-role-badge ${alertClass} account-status-clickable" onclick="togglePaymentAlert(${accountId}, ${result.newPaymentAlert})" title="Click to toggle payment alert">${alertText}</span>`;
                         }
                     }
                     
-                    const alertText = result.newPaymentAlert == 1 ? __('account.payment_alert_enabled') : __('account.payment_alert_disabled');
-                    showNotification(alertText, 'success');
+                    const alertText = result.newPaymentAlert == 1 ? 'enabled' : 'disabled';
+                    showNotification(`Payment alert ${alertText}`, 'success');
                 } else {
-                    showNotification(result.error || __('account.payment_alert_toggle_failed'), 'danger');
+                    showNotification(result.error || 'Payment alert toggle failed', 'danger');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showNotification(__('account.payment_alert_toggle_failed'), 'danger');
+                showNotification('Payment alert toggle failed', 'danger');
             }
         }
 
@@ -1482,7 +1482,7 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
                         if (items.length > 5) {
                             const statusClass = (result.newStatus || (result.data && result.data.newStatus)) === 'active' ? 'account-status-active' : 'account-status-inactive';
                             // Status 鏄 5 鍒楋紙绱㈠紩 5锛夛紝Alert 鏄 4 鍒楋紙绱㈠紩 4锛?
-                            items[5].innerHTML = '<span class="account-role-badge ' + statusClass + ' account-status-clickable" onclick="toggleAccountStatus(' + accountId + ', \'' + (result.newStatus || (result.data && result.data.newStatus)) + '\')" title="' + (__('account.click_toggle_status')).replace(/"/g, '&quot;') + '">' + ((result.newStatus || (result.data && result.data.newStatus)) || '').toUpperCase() + '</span>';
+                            items[5].innerHTML = `<span class="account-role-badge ${statusClass} account-status-clickable" onclick="toggleAccountStatus(${accountId}, '${result.newStatus || (result.data && result.data.newStatus)}')" title="Click to toggle status">${((result.newStatus || (result.data && result.data.newStatus)) || '').toUpperCase()}</span>`;
                             // 更新删除复选框显示：ACTIVE 不显示，INACTIVE 才显示
                             const actionCell = items[8]; // Action 鍒?
                             if (actionCell) {
@@ -1583,13 +1583,13 @@ function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
             }
             
             if (selectedCheckboxes.length > 0) {
-                deleteBtn.textContent = __('account.delete') + ' (' + selectedCheckboxes.length + ')';
+                deleteBtn.textContent = `Delete (${selectedCheckboxes.length})`;
                 deleteBtn.disabled = false;
             } else {
-deleteBtn.textContent = __('account.delete');
-        deleteBtn.disabled = true;
-    }
-}
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.disabled = true;
+            }
+        }
 
         function deleteSelected() {
             const checkboxes = document.querySelectorAll('.account-row-checkbox:checked');
@@ -1598,7 +1598,7 @@ deleteBtn.textContent = __('account.delete');
                 .filter(id => !isNaN(id));
             
             if (idsToDelete.length === 0) {
-                showNotification(__('account.select_to_delete'), 'danger');
+                showNotification('Please select accounts to delete.', 'danger');
                 return;
             }
             
@@ -1619,18 +1619,18 @@ deleteBtn.textContent = __('account.delete');
             
             // Show error if any active accounts are selected
             if (activeAccounts.length > 0) {
-                showNotification(__('account.cannot_delete_active').replace(/%s/, activeAccounts.join(', ')), 'danger');
+                showNotification(`Cannot delete active accounts: ${activeAccounts.join(', ')}. Only inactive accounts can be deleted.`, 'danger');
                 return;
             }
             
             showConfirmDelete(
-                __('account.confirm_delete_count').replace(/%d/, idsToDelete.length),
+                `Are you sure you want to delete ${idsToDelete.length} selected inactive account(s)? This action cannot be undone.`,
                 async function() {
                     closeConfirmDeleteModal();
                     const deleteBtn = document.getElementById('accountDeleteSelectedBtn');
                     if (deleteBtn) {
                         deleteBtn.disabled = true;
-                        deleteBtn.textContent = __('account.deleting');
+                        deleteBtn.textContent = 'Deleting...';
                     }
                     try {
                         const response = await fetch('/api/accounts/delete_accounts_api.php', {
@@ -1645,16 +1645,16 @@ deleteBtn.textContent = __('account.delete');
                             renderTable();
                             renderPagination();
                             updateDeleteButton();
-                            showNotification(deletedCount === 1 ? __('account.one_deleted') : __('account.many_deleted').replace(/%d/, deletedCount), 'success');
+                            showNotification(deletedCount === 1 ? '1 account deleted successfully' : deletedCount + ' accounts deleted successfully', 'success');
                         } else {
-                            showNotification(result.message || result.error || __('account.delete_failed'), 'danger');
+                            showNotification(result.message || result.error || 'Failed to delete accounts', 'danger');
                         }
                     } catch (err) {
-                        showNotification(__('account.delete_failed') + ': ' + (err.message || 'Network error'), 'danger');
+                        showNotification('Failed to delete accounts: ' + (err.message || 'Network error'), 'danger');
                     } finally {
                         if (deleteBtn) {
                             deleteBtn.disabled = false;
-                            deleteBtn.textContent = __('account.delete');
+                            deleteBtn.textContent = 'Delete';
                         }
                     }
                 }

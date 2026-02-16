@@ -108,22 +108,10 @@ if ($current_user_id && count($user_companies) > 0) {
     // If no associated company, use session's company_id
     $company_id = $_SESSION['company_id'] ?? null;
 }
-
-$dcLangCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
-$dcLang = require __DIR__ . '/lang/' . $dcLangCode . '.php';
-if (!function_exists('__')) {
-    $lang = $dcLang;
-    function __($key) {
-        global $lang;
-        return $lang[$key] ?? $key;
-    }
-} else {
-    $lang = $dcLang;
-}
 ?>
 
 <!DOCTYPE html>
-<html lang="<?php echo $dcLangCode === 'zh' ? 'zh' : 'en'; ?>">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -134,7 +122,7 @@ if (!function_exists('__')) {
     };
     ?>
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
-    <title><?php echo htmlspecialchars(__('dc.title_page')); ?></title>
+    <title>Data Capture</title>
     <link rel="stylesheet" href="css/datacapture.css?v=<?php echo $assetVer('css/datacapture.css'); ?>">
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
@@ -143,10 +131,10 @@ if (!function_exists('__')) {
 <body>
     <div class="container">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
-            <h1 style="margin: 0;"><?php echo htmlspecialchars(__('dc.title')); ?></h1>
+            <h1 style="margin: 0;">Data Capture</h1>
             <!-- Permission Filter -->
             <div id="data-capture-permission-filter" class="data-capture-company-filter data-capture-permission-filter-header" style="display: none;">
-                <span class="data-capture-company-label"><?php echo htmlspecialchars(__('dc.category')); ?></span>
+                <span class="data-capture-company-label">Category:</span>
                 <div id="data-capture-permission-buttons" class="data-capture-company-buttons">
                     <!-- Permission buttons will be loaded dynamically -->
                 </div>
@@ -160,7 +148,7 @@ if (!function_exists('__')) {
                     <div class="form-container">
                         <?php if (count($user_companies) > 1): ?>
                         <div id="data-capture-company-filter" class="data-capture-company-filter" style="display: flex; margin-bottom: clamp(10px, 1.04vw, 20px);">
-                            <span class="data-capture-company-label"><?php echo htmlspecialchars(__('dc.company')); ?></span>
+                            <span class="data-capture-company-label">Company:</span>
                             <div id="data-capture-company-buttons" class="data-capture-company-buttons">
                                 <?php foreach($user_companies as $comp): ?>
                                     <button type="button" 
@@ -175,20 +163,20 @@ if (!function_exists('__')) {
                         <?php endif; ?>
                         <form id="dataCaptureForm" class="process-form" method="POST">
                             <div class="form-group">
-                                <label for="capture_date"><?php echo htmlspecialchars(__('dc.date')); ?></label>
+                                <label for="capture_date">Date</label>
                                 <select style id="capture_date" name="capture_date" required>
-                                    <option value=""><?php echo htmlspecialchars(__('dc.select_date')); ?></option>
+                                    <option value="">Select Date</option>
                                     <!-- Date options will be loaded here via JavaScript -->
                                 </select>
                             </div>
                             
                             <div class="form-group">
-                                <label for="capture_process"><?php echo htmlspecialchars(__('dc.process')); ?></label>
+                                <label for="capture_process">Process</label>
                                 <div class="custom-select-wrapper">
-                                    <button type="button" class="custom-select-button" id="capture_process" data-placeholder="<?php echo htmlspecialchars(__('dc.select_process')); ?>" name="process"><?php echo htmlspecialchars(__('dc.select_process')); ?></button>
+                                    <button type="button" class="custom-select-button" id="capture_process" data-placeholder="Select Process" name="process">Select Process</button>
                                     <div class="custom-select-dropdown" id="capture_process_dropdown">
                                         <div class="custom-select-search">
-                                            <input type="text" placeholder="<?php echo htmlspecialchars(__('dc.search_process')); ?>" autocomplete="off">
+                                            <input type="text" placeholder="Search process..." autocomplete="off">
                                         </div>
                                         <div class="custom-select-options"></div>
                                     </div>
@@ -196,40 +184,40 @@ if (!function_exists('__')) {
                             </div>
                             
                             <div class="form-group">
-                                <label for="capture_description"><?php echo htmlspecialchars(__('dc.description')); ?></label>
+                                <label for="capture_description">Description</label>
                                 <div class="input-with-icon">
-                                    <input type="text" id="capture_description" name="description" required readonly placeholder="<?php echo htmlspecialchars(__('process.click_to_select_descriptions')); ?>">
+                                    <input type="text" id="capture_description" name="description" required readonly placeholder="Click + to select descriptions">
                                     <button type="button" class="add-icon" onclick="expandDescription()">+</button>
                                 </div>
                             </div>
                             
                             
                             <div class="form-group">
-                                <label for="capture_currency"><?php echo htmlspecialchars(__('process.currency')); ?></label>
+                                <label for="capture_currency">Currency</label>
                                 <select id="capture_currency" name="currency">
-                                    <option value=""><?php echo htmlspecialchars(__('process.select_currency')); ?></option>
+                                    <option value="">Select Currency</option>
                                     <!-- Currency options will be loaded here via JavaScript -->
                                 </select>
                             </div>
                             
                             <div class="form-group">
-                                <label for="capture_remove_word"><?php echo htmlspecialchars(__('process.remove_words')); ?></label>
-                                <input type="text" id="capture_remove_word" name="remove_word" placeholder="<?php echo htmlspecialchars(__('process.remove_words_placeholder')); ?>">
-                                <small class="field-help" style="display: block; margin-top: 0px; font-style: italic; color: #666;"><?php echo htmlspecialchars(__('process.remove_words_help')); ?></small>
+                                <label for="capture_remove_word">Remove Word</label>
+                                <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove">
+                                <small class="field-help" style="display: block; margin-top: 0px; font-style: italic; color: #666;">(Use semicolon to separate multiple words, e.g. abc;cde;efg)</small>
                             </div>
                             
                             <div class="form-group replace-word-group">
-                                <label for="capture_replace_word_from"><?php echo htmlspecialchars(__('process.replace_from')); ?> / <?php echo htmlspecialchars(__('process.replace_to')); ?></label>
+                                <label for="capture_replace_word_from">Replace Word</label>
                                 <div class="replace-word-fields">
-                                    <input type="text" id="capture_replace_word_from" name="replace_word_from" placeholder="<?php echo htmlspecialchars(__('process.old_word')); ?>">
+                                    <input type="text" id="capture_replace_word_from" name="replace_word_from" placeholder="Old word">
                                     <span class="replace-arrow">→</span>
-                                    <input type="text" id="capture_replace_word_to" name="replace_word_to" placeholder="<?php echo htmlspecialchars(__('process.new_word')); ?>">
+                                    <input type="text" id="capture_replace_word_to" name="replace_word_to" placeholder="New word">
                                 </div>
                             </div>
                             
                             <div class="form-group">
-                                <label for="capture_remark"><?php echo htmlspecialchars(__('dc.remark')); ?></label>
-                                <input type="text" id="capture_remark" name="remark" placeholder="<?php echo htmlspecialchars(__('dc.enter_remark')); ?>">
+                                <label for="capture_remark">Remark</label>
+                                <input type="text" id="capture_remark" name="remark" placeholder="Enter remark">
                             </div>
 
                         </form>
@@ -239,10 +227,10 @@ if (!function_exists('__')) {
                 <!-- Right Column - Submitted Processes -->
                 <div class="submitted-column">
                     <div class="submitted-container">
-                        <h2 class="submitted-title"><?php echo htmlspecialchars(__('dc.submitted_processes')); ?></h2>
+                        <h2 class="submitted-title">Submitted Processes</h2>
                         <div class="submitted-list" id="submittedProcessesList">
                             <div class="no-data">
-                                <?php echo htmlspecialchars(__('dc.no_processes_submitted')); ?>
+                                No processes submitted yet
                             </div>
                         </div>
                     </div>
@@ -253,7 +241,7 @@ if (!function_exists('__')) {
             <div class="bottom-section">
                 <div class="excel-table-container">
                     <div class="excel-table-header">
-                        <span><?php echo htmlspecialchars(__('dc.data_capture_table')); ?></span>
+                        <span>Data Capture Table</span>
                         <!-- Data Capture Type Selector -->
                         <select id="dataCaptureTypeSelector" class="data-capture-type-selector">
                             <option value="1.Text">1.TEXT</option>
@@ -272,7 +260,7 @@ if (!function_exists('__')) {
                             <!-- <option value="WBET_API">WBET_API</option> -->
                             <!-- <option value="INVOICE">INVOICE</option> -->
                         </select>
-                        <button type="button" class="btn btn-cancel" onclick="resetForm()"><?php echo htmlspecialchars(__('dc.reset')); ?></button>
+                        <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
                     </div>
                     <table class="excel-table" id="dataTable">
                         <thead id="tableHeader">
@@ -290,12 +278,12 @@ if (!function_exists('__')) {
                         <iframe id="tablePreviewFrameFormat" class="table-preview-frame-format" title="Format Table Preview"></iframe>
                     </div>
                     <!-- 2.Format模式：空白粘贴区域（支持直接粘贴整张表格HTML/样式） -->
-                    <div id="pasteAreaFormat" class="paste-area-format" style="display: none;" contenteditable="true" data-placeholder="<?php echo htmlspecialchars(__('dc.paste_placeholder')); ?>"></div>
+                    <div id="pasteAreaFormat" class="paste-area-format" style="display: none;" contenteditable="true" data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."></div>
                 </div>
                 
                 <!-- Form Actions Below Table -->
                 <div class="form-actions">
-                    <button id="dataCaptureSubmitBtn" type="submit" class="btn btn-save" onclick="submitDataCaptureForm()"><?php echo htmlspecialchars(__('dc.submit')); ?></button>
+                    <button id="dataCaptureSubmitBtn" type="submit" class="btn btn-save" onclick="submitDataCaptureForm()">Submit</button>
                 </div>
             </div>
     </div>
@@ -304,14 +292,14 @@ if (!function_exists('__')) {
     <div id="descriptionSelectionModal" class="modal" style="display: none;">
         <div class="modal-content description-selection-modal">
             <div class="modal-header">
-                <h2><?php echo htmlspecialchars(__('dc.select_or_add_description')); ?></h2>
+                <h2>Select or Add Description</h2>
                 <span class="close" onclick="closeDescriptionSelectionModal()">&times;</span>
             </div>
             <div class="modal-body">
                 <div class="description-selection-container">
                     <!-- Left side - Selected descriptions -->
                     <div class="selected-descriptions-section">
-                        <h3><?php echo htmlspecialchars(__('process.selected_descriptions')); ?></h3>
+                        <h3>Selected Descriptions</h3>
                         <div class="selected-descriptions-list" id="selectedDescriptionsInModal">
                             <!-- Selected descriptions will be displayed here -->
                         </div>
@@ -321,18 +309,18 @@ if (!function_exists('__')) {
                     <div class="available-descriptions-section">
                         <!-- Add new description section -->
                         <div class="add-description-bar">
-                            <h3><?php echo htmlspecialchars(__('dc.add_new_description')); ?></h3>
+                            <h3>Add New Description</h3>
                             <form id="addDescriptionForm" class="add-description-form">
                                 <div class="add-description-input-group">
-                                    <input type="text" id="new_description_name" name="description_name" placeholder="<?php echo htmlspecialchars(__('dc.enter_new_description_name')); ?>" required>
-                                    <button type="submit" class="btn btn-save"><?php echo htmlspecialchars(__('dc.add')); ?></button>
+                                    <input type="text" id="new_description_name" name="description_name" placeholder="Enter new description name..." required>
+                                    <button type="submit" class="btn btn-save">Add</button>
                                 </div>
                             </form>
                         </div>
                         
-                        <h3><?php echo htmlspecialchars(__('dc.available_descriptions')); ?></h3>
+                        <h3>Available Descriptions</h3>
                         <div class="description-search">
-                            <input type="text" id="descriptionSearch" placeholder="<?php echo htmlspecialchars(__('dc.search_descriptions')); ?>" onkeyup="filterDescriptions()">
+                            <input type="text" id="descriptionSearch" placeholder="Search descriptions..." onkeyup="filterDescriptions()">
                         </div>
                         <div class="description-list" id="existingDescriptions">
                             <!-- Available descriptions will be loaded here -->
@@ -341,8 +329,8 @@ if (!function_exists('__')) {
                 </div>
                 
                 <div class="modal-footer">
-                <button type="button" class="btn btn-save" id="confirmDescriptionsBtn" onclick="confirmDescriptions()"><?php echo htmlspecialchars(__('dc.confirm')); ?></button>
-                    <button type="button" class="btn btn-cancel" onclick="closeDescriptionSelectionModal()"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+                <button type="button" class="btn btn-save" id="confirmDescriptionsBtn" onclick="confirmDescriptions()">Confirm</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeDescriptionSelectionModal()">Cancel</button>
                 </div>
             </div>
         </div>
@@ -354,51 +342,51 @@ if (!function_exists('__')) {
     <!-- Context Menu -->
     <div id="contextMenu" class="context-menu" style="display: none;">
         <div class="context-menu-item" onclick="copySelectedCells(); event.stopPropagation();">
-            <span>📋 <?php echo htmlspecialchars(__('dc.copy')); ?></span>
+            <span>📋 Copy</span>
         </div>
         <div class="context-menu-item" onclick="pasteToSelectedCells(); event.stopPropagation();">
-            <span>📄 <?php echo htmlspecialchars(__('dc.paste')); ?></span>
+            <span>📄 Paste</span>
         </div>
         <div class="context-menu-item" onclick="clearSelectedCells(); event.stopPropagation();">
-            <span>🗑️ <?php echo htmlspecialchars(__('dc.clear')); ?></span>
+            <span>🗑️ Clear</span>
         </div>
         <div class="context-menu-item" onclick="showDeleteDialog(event); event.stopPropagation();">
-            <span>🗑️ <?php echo htmlspecialchars(__('dc.delete')); ?></span>
+            <span>🗑️ Delete</span>
         </div>
         <div class="context-menu-item" onclick="selectAllCells(event)">
-            <span>☑️ <?php echo htmlspecialchars(__('dc.select_all')); ?></span>
+            <span>☑️ Select All</span>
         </div>
     </div>
 
     <!-- Column Header Context Menu -->
     <div id="columnContextMenu" class="context-menu" style="display: none;">
         <div class="context-menu-item" onclick="insertColumnLeft()">
-            <span>➕ <?php echo htmlspecialchars(__('dc.insert_column_left')); ?></span>
+            <span>➕ Insert 1 column left</span>
         </div>
         <div class="context-menu-item" onclick="insertColumnRight()">
-            <span>➕ <?php echo htmlspecialchars(__('dc.insert_column_right')); ?></span>
+            <span>➕ Insert 1 column right</span>
         </div>
         <div class="context-menu-item" onclick="deleteColumn()">
-            <span>🗑️ <?php echo htmlspecialchars(__('dc.delete_column')); ?></span>
+            <span>🗑️ Delete column</span>
         </div>
         <div class="context-menu-item" onclick="clearColumn()">
-            <span>❌ <?php echo htmlspecialchars(__('dc.clear_column')); ?></span>
+            <span>❌ Clear column</span>
         </div>
     </div>
 
     <!-- Row Header Context Menu -->
     <div id="rowContextMenu" class="context-menu" style="display: none;">
         <div class="context-menu-item" onclick="insertRowAbove()">
-            <span>➕ <?php echo htmlspecialchars(__('dc.insert_row_above')); ?></span>
+            <span>➕ Insert 1 row above</span>
         </div>
         <div class="context-menu-item" onclick="insertRowBelow()">
-            <span>➕ <?php echo htmlspecialchars(__('dc.insert_row_below')); ?></span>
+            <span>➕ Insert 1 row below</span>
         </div>
         <div class="context-menu-item" onclick="deleteRow()">
-            <span>🗑️ <?php echo htmlspecialchars(__('dc.delete_row')); ?></span>
+            <span>🗑️ Delete row</span>
         </div>
         <div class="context-menu-item" onclick="clearRow()">
-            <span>❌ <?php echo htmlspecialchars(__('dc.clear_row')); ?></span>
+            <span>❌ Clear row</span>
         </div>
     </div>
 
@@ -406,33 +394,33 @@ if (!function_exists('__')) {
     <div id="deleteDialog" class="delete-dialog" style="display: none;">
         <div class="delete-dialog-content">
             <div class="delete-dialog-header">
-                <span><?php echo htmlspecialchars(__('dc.delete')); ?></span>
+                <span>Delete</span>
                 <span class="delete-dialog-close" onclick="closeDeleteDialog()">&times;</span>
             </div>
             <div class="delete-dialog-body">
-                <div class="delete-dialog-title"><?php echo htmlspecialchars(__('dc.delete')); ?></div>
+                <div class="delete-dialog-title">Delete</div>
                 <div class="delete-options">
                     <label class="delete-option">
                         <input type="radio" name="deleteOption" value="shiftLeft" checked>
-                        <span><?php echo htmlspecialchars(__('dc.shift_cells_left')); ?></span>
+                        <span>Shift cells left</span>
                     </label>
                     <label class="delete-option">
                         <input type="radio" name="deleteOption" value="shiftUp">
-                        <span><?php echo htmlspecialchars(__('dc.shift_cells_up')); ?></span>
+                        <span>Shift cells up</span>
                     </label>
                     <label class="delete-option">
                         <input type="radio" name="deleteOption" value="entireRow">
-                        <span><?php echo htmlspecialchars(__('dc.entire_row')); ?></span>
+                        <span>Entire row</span>
                     </label>
                     <label class="delete-option">
                         <input type="radio" name="deleteOption" value="entireColumn">
-                        <span><?php echo htmlspecialchars(__('dc.entire_column')); ?></span>
+                        <span>Entire column</span>
                     </label>
                 </div>
             </div>
             <div class="delete-dialog-footer">
-            <button type="button" class="btn btn-save" onclick="confirmDelete(); event.stopPropagation();"><?php echo htmlspecialchars(__('dc.ok')); ?></button>
-                <button type="button" class="btn btn-cancel" onclick="closeDeleteDialog(); event.stopPropagation();"><?php echo htmlspecialchars(__('process.cancel')); ?></button>
+            <button type="button" class="btn btn-save" onclick="confirmDelete(); event.stopPropagation();">OK</button>
+                <button type="button" class="btn btn-cancel" onclick="closeDeleteDialog(); event.stopPropagation();">Cancel</button>
             </div>
         </div>
     </div>
@@ -440,7 +428,6 @@ if (!function_exists('__')) {
     <script>
         window.DATACAPTURE_COMPANY_ID = <?php echo json_encode($company_id); ?>;
         window.DATACAPTURE_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
-        window.__LANG = <?php echo json_encode($dcLang); ?>;
     </script>
     <script src="js/datacapture.js?v=<?php echo $assetVer('js/datacapture.js'); ?>"></script>
 

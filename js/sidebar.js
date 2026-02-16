@@ -149,14 +149,20 @@
     }
 
     function selectLanguage(lang) {
-        if (lang !== 'en' && lang !== 'zh') return;
         var dropdown = document.getElementById('languageDropdown');
         var button = document.querySelector('.language-btn');
+        var currentFlag = document.getElementById('current-flag');
+        var currentLang = document.getElementById('current-lang');
+        if (lang === 'en') {
+            if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
+            if (currentLang) currentLang.textContent = 'English';
+        } else if (lang === 'zh') {
+            if (currentFlag) { currentFlag.src = 'images/china.png'; currentFlag.alt = '中文'; }
+            if (currentLang) currentLang.textContent = '中文';
+        }
         if (dropdown) dropdown.classList.remove('show');
         if (button) button.classList.remove('active');
-        var url = window.location.pathname + (window.location.search ? window.location.search + '&' : '?') + 'lang=' + lang;
-        console.log('[Sidebar 语言] 选择:', lang, '| 当前 Cookie:', document.cookie, '| 即将跳转:', url);
-        window.location.href = url;
+        try { localStorage.setItem('selectedLanguage', lang); } catch (e) {}
     }
 
     function toggleNotificationPanel(event) {
@@ -458,16 +464,17 @@
             }
         });
 
-        // 与 config/dashboard 一致：以 Cookie lang 为准；按钮文案用 PHP 注入的 window.__LANG
-        function __ (key) { return (window.__LANG && window.__LANG[key]) || key; }
-        var langMatch = document.cookie.match(/(?:^|;\s*)lang=([^;]*)/);
-        var currentLang = (langMatch && langMatch[1] === 'zh') ? 'zh' : 'en';
+        var currentLang = window.location.pathname.indexOf('/cn/') !== -1 ? 'zh' : 'en';
         var currentFlag = document.getElementById('current-flag');
         var currentLangText = document.getElementById('current-lang');
-        var langLabel = currentLang === 'zh' ? __('lang.zh') : __('lang.english');
-        if (currentFlag) { currentFlag.src = currentLang === 'zh' ? 'images/china.png' : 'images/uk.png'; currentFlag.alt = langLabel; }
-        if (currentLangText) currentLangText.textContent = langLabel;
-        console.log('[Sidebar 语言] 页面加载 | Cookie lang:', (langMatch ? langMatch[1] : '无'), '| 按钮显示:', langLabel);
+        if (currentLang === 'zh') {
+            if (currentFlag) { currentFlag.src = 'images/china.png'; currentFlag.alt = '中文'; }
+            if (currentLangText) currentLangText.textContent = '中文';
+        } else {
+            if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
+            if (currentLangText) currentLangText.textContent = 'English';
+        }
+        try { localStorage.setItem('selectedLanguage', currentLang); } catch (e) {}
 
         var savedAvatar = null;
         try { savedAvatar = localStorage.getItem('selectedAvatar'); } catch (e) {}

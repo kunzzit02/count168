@@ -1,4 +1,3 @@
-        function __(key) { return (window.__LANG && window.__LANG[key]) || key; }
         // 全局变量
         let processes = [];
         let showInactive = (typeof window.PROCESSLIST_SHOW_INACTIVE !== 'undefined' ? window.PROCESSLIST_SHOW_INACTIVE : false);
@@ -119,7 +118,7 @@
             if (processes.length === 0) {
                 const emptyCard = document.createElement('div');
                 emptyCard.className = 'process-card';
-                emptyCard.innerHTML = '<div class="card-item" style="text-align: left; padding: 20px; grid-column: 1 / -1;">' + __('process.no_process_data') + '</div>';
+                emptyCard.innerHTML = `<div class="card-item" style="text-align: left; padding: 20px; grid-column: 1 / -1;">No process data found</div>`;
                 container.appendChild(emptyCard);
                 return;
             }
@@ -153,17 +152,17 @@
                         <div class="card-item">${escapeHtml((process.process_name || '').toUpperCase())}</div>
                         <div class="card-item">${escapeHtml((process.description || '').toUpperCase())}</div>
                         <div class="card-item">
-                            <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="' + (__('process.click_toggle_status')).replace(/"/g, '&quot;') + '" style="cursor: pointer;">
+                            <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="Click to toggle status" style="cursor: pointer;">
                                 ${escapeHtml((process.status || '').toUpperCase())}
                             </span>
                         </div>
                         <div class="card-item">${escapeHtml(process.currency || '')}</div>
                         <div class="card-item">${escapeHtml(process.day_use || process.day_name || '')}</div>
                         <div class="card-item">
-                            <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="' + __('process.edit').replace(/"/g, '&quot;') + '" title="' + __('process.edit').replace(/"/g, '&quot;') + '">
+                            <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
                                 <img src="images/edit.svg" alt="Edit" />
                             </button>
-                            ${process.status === 'active' ? '' : (process.has_transactions ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="' + (__('process.select_for_deletion')).replace(/"/g, '&quot;') + '" onchange="updateDeleteButton()" style="margin-left: 10px;">`)}
+                            ${process.status === 'active' ? '' : (process.has_transactions ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`)}
                         </div>
                     `;
                     container.appendChild(card);
@@ -179,22 +178,16 @@
             const tbody = document.getElementById('bankTableBody');
             if (!headRow || !tbody) return;
 
-            const thLabels = [
-                __('process.no'), __('process.bank_supplier'), __('process.bank_country_currency'), __('process.bank_bank'), __('process.bank_types'),
-                __('process.bank_card_owner'), __('process.bank_contract'), __('process.bank_insurance'), __('process.bank_customer'),
-                __('process.bank_cost'), __('process.bank_price'), __('process.bank_profit'), __('process.status'), __('process.bank_date'), __('process.action')
-            ];
-            const thKeys = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
+            const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
             headRow.innerHTML = thLabels.map((label, i) => {
-                const key = thKeys[i];
-                if (key === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
-                if (key === 'Country') return '<th class="bank-th-country">' + escapeHtml(label) + '</th>';
-                if (key === 'Types') return '<th class="bank-th-types">' + escapeHtml(label) + '</th>';
-                if (key === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
-                if (key === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
-                if (key === 'Action') {
+                if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
+                if (label === 'Country') return '<th class="bank-th-country">' + escapeHtml(label) + '</th>';
+                if (label === 'Types') return '<th class="bank-th-types">' + escapeHtml(label) + '</th>';
+                if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
+                if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
+                if (label === 'Action') {
                     const showActionCheckbox = showInactive || showAll;
-                    return '<th class="bank-th-action">' + label + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="' + (__('process.select_all')).replace(/"/g, '&quot;') + '" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
+                    return '<th class="bank-th-action">Action' + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
                 }
                 return '<th>' + escapeHtml(label) + '</th>';
             }).join('');
@@ -221,7 +214,7 @@
             window.__bankFilteredLength = waiting ? listToShow.length : null;
 
             if (listToShow.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="15" class="bank-empty-cell">' + __('process.no_process_data') + '</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="15" class="bank-empty-cell">No process data found</td></tr>';
                 renderPagination();
                 updateSelectAllProcessesVisibility();
                 return;
@@ -259,9 +252,9 @@
                 const price = dashIfEmpty(process.price);
                 const profit = dashIfEmpty(process.profit);
                 // 状态徽章：Bank 现在允许 INACTIVE ↔ ACTIVE 自由切换，前端只做确认弹窗，不再禁止点击
-                const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="' + (__('process.click_toggle_status')).replace(/"/g, '&quot;') + '" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
-                const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="' + __('process.edit').replace(/"/g, '&quot;') + '" title="' + __('process.edit').replace(/"/g, '&quot;') + '"><img src="images/edit.svg" alt="Edit" /></button>' +
-                    (process.status === 'active' ? '' : (process.has_transactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="' + (__('process.select_for_deletion')).replace(/"/g, '&quot;') + '" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
+                const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
+                const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
+                    (process.status === 'active' ? '' : (process.has_transactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.setAttribute('data-status', process.status || '');
@@ -314,8 +307,7 @@
             const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
             // 更新分页控件信息
-            const paginationFmt = __('process.pagination_of');
-            document.getElementById('paginationInfo').textContent = paginationFmt.replace(/%d/, String(currentPage)).replace(/%d/, String(totalPages));
+            document.getElementById('paginationInfo').textContent = `${currentPage} of ${totalPages}`;
 
             // 更新按钮状态
             const isPrevDisabled = currentPage <= 1;
@@ -441,8 +433,8 @@
             window.selectedProfitSharingEntries = [];
             const titleEl = document.getElementById('bankModalTitle');
             const submitBtn = document.getElementById('bankSubmitBtn');
-            if (titleEl) titleEl.textContent = __('process.add_process');
-            if (submitBtn) submitBtn.textContent = __('process.add_process');
+            if (titleEl) titleEl.textContent = 'Add Process';
+            if (submitBtn) submitBtn.textContent = 'Add Process';
             document.getElementById('addBankProcessForm').reset();
             document.getElementById('bank_edit_id').value = '';
             const profitInput = document.getElementById('bank_profit');
@@ -450,16 +442,16 @@
             const cardMerchantBtn = document.getElementById('bank_card_merchant');
             const customerBtn = document.getElementById('bank_customer');
             if (cardMerchantBtn) {
-                cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || __('process.select_account');
+                cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
                 cardMerchantBtn.removeAttribute('data-value');
             }
             if (customerBtn) {
-                customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || __('process.select_account');
+                customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
                 customerBtn.removeAttribute('data-value');
             }
             const profitAccountBtn = document.getElementById('bank_profit_account');
             if (profitAccountBtn) {
-                profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || __('process.select_account');
+                profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
                 profitAccountBtn.removeAttribute('data-value');
             }
         }
@@ -547,8 +539,8 @@
                 const process = result.data;
                 await loadAddBankProcessData();
                 document.getElementById('bank_edit_id').value = process.id;
-                document.getElementById('bankModalTitle').textContent = __('process.edit_process');
-                document.getElementById('bankSubmitBtn').textContent = __('process.update_process');
+                document.getElementById('bankModalTitle').textContent = 'Edit Process';
+                document.getElementById('bankSubmitBtn').textContent = 'Update Process';
                 const countrySelect = document.getElementById('bank_country');
                 const bankSelect = document.getElementById('bank_bank');
                 if (process.country) {
@@ -586,25 +578,25 @@
                     cardMerchantBtn.setAttribute('data-value', process.card_merchant_id);
                     const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
                     const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
-                    cardMerchantBtn.textContent = cmCode !== '' ? cmCode : (cmName || process.card_merchant_account_id || process.card_merchant_id || __('process.select_account'));
+                    cardMerchantBtn.textContent = cmCode !== '' ? cmCode : (cmName || process.card_merchant_account_id || process.card_merchant_id || 'Select Account');
                 } else if (cardMerchantBtn) {
                     cardMerchantBtn.removeAttribute('data-value');
-                    cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || __('process.select_account');
+                    cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
                 }
                 if (customerBtn && process.customer_id) {
                     customerBtn.setAttribute('data-value', process.customer_id);
-                    customerBtn.textContent = (process.customer_account || process.customer_name || process.customer_id) || __('process.select_account');
+                    customerBtn.textContent = (process.customer_account || process.customer_name || process.customer_id) || 'Select Account';
                 } else if (customerBtn) {
                     customerBtn.removeAttribute('data-value');
-                    customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || __('process.select_account');
+                    customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
                 }
                 const profitAccountBtn = document.getElementById('bank_profit_account');
                 if (profitAccountBtn && process.profit_account_id) {
                     profitAccountBtn.setAttribute('data-value', process.profit_account_id);
-                    profitAccountBtn.textContent = (process.profit_account_name || process.profit_account_id) || __('process.select_account');
+                    profitAccountBtn.textContent = (process.profit_account_name || process.profit_account_id) || 'Select Account';
                 } else if (profitAccountBtn) {
                     profitAccountBtn.removeAttribute('data-value');
-                    profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || __('process.select_account');
+                    profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
                 }
                 document.getElementById('bank_contract').value = process.contract || '';
                 document.getElementById('bank_insurance').value = process.insurance != null && process.insurance !== '' ? process.insurance : '';
@@ -918,10 +910,10 @@
             }
 
             if (selectedCheckboxes.length > 0) {
-                deleteBtn.textContent = __('process.delete') + ' (' + selectedCheckboxes.length + ')';
+                deleteBtn.textContent = `Delete (${selectedCheckboxes.length})`;
                 deleteBtn.disabled = !deleteEnabled;
             } else {
-                deleteBtn.textContent = __('process.delete');
+                deleteBtn.textContent = 'Delete';
                 deleteBtn.disabled = true;
             }
 
@@ -942,7 +934,7 @@
                 return row && row.getAttribute('data-status') === 'active';
             }).map(cb => cb.dataset.id);
             postBtn.disabled = activeSelectedIds.length === 0;
-            postBtn.textContent = activeSelectedIds.length > 0 ? __('process.transaction') + ' (' + activeSelectedIds.length + ')' : __('process.transaction');
+            postBtn.textContent = activeSelectedIds.length > 0 ? `Transaction (${activeSelectedIds.length})` : 'Transaction';
         }
 
         window.__accountingInboxList = [];
@@ -975,7 +967,7 @@
             if (countModal) countModal.textContent = String(postableCount);
             if (selectAllCb) { selectAllCb.checked = postableCount > 0; selectAllCb.disabled = postableCount === 0; }
             if (count === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="padding:10px 8px; color:#6b7280;">' + __('process.no_due_today') + '</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
                 if (postBtn) postBtn.disabled = true;
                 const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
                 if (deleteBtn) deleteBtn.disabled = true;
@@ -1152,8 +1144,8 @@
             closeConfirmAccountingDueDeleteModal();
             const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
             const confirmBtn = document.getElementById('confirmAccountingDueDeleteBtn');
-            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = __('process.removing'); }
-            if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = __('process.removing'); }
+            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Removing...'; }
+            if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Removing...'; }
             try {
                 const formData = new FormData();
                 pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
@@ -1169,8 +1161,8 @@
                 console.error('Dismiss error:', err);
                 showNotification('Request failed: ' + (err.message || 'Network error'), 'danger');
             } finally {
-                if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = __('process.delete'); updateAccountingInboxDeleteButton(); }
-                if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = __('process.delete'); }
+                if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = 'Delete'; updateAccountingInboxDeleteButton(); }
+                if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Delete'; }
             }
         }
 
@@ -1241,13 +1233,13 @@
                 } else {
                     const statusClass = newStatus === 'active' ? 'status-active' : (newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
                     const process = processes.find(p => p.id === processId);
-                    const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="' + (__('process.click_toggle_status')).replace(/"/g, '&quot;') + '" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
+                    const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
 
                     if (selectedPermission === 'Bank') {
                         const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                         const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
-                        const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="' + __('process.edit').replace(/"/g, '&quot;') + '" title="' + __('process.edit').replace(/"/g, '&quot;') + '"><img src="images/edit.svg" alt="Edit" /></button>' +
-                            (newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="' + (__('process.select_for_deletion')).replace(/"/g, '&quot;') + '" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
+                        const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
+                            (newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                         if (row) {
                             row.setAttribute('data-status', newStatus || '');
                             const cells = row.querySelectorAll('td');
@@ -1342,13 +1334,13 @@
             const confirmBtn = document.getElementById('confirmInactiveBtn');
 
             if (pendingToggleNewStatus === 'inactive') {
-                if (titleEl) titleEl.textContent = __('process.switch_to_inactive');
-                if (messageEl) messageEl.textContent = __('process.confirm_switch_inactive');
-                if (confirmBtn) confirmBtn.textContent = __('process.inactive');
+                if (titleEl) titleEl.textContent = 'Switch to Inactive';
+                if (messageEl) messageEl.textContent = 'Confirm switching this Bank Process to Inactive?';
+                if (confirmBtn) confirmBtn.textContent = 'Inactive';
             } else {
-                if (titleEl) titleEl.textContent = __('process.switch_to_active');
-                if (messageEl) messageEl.textContent = __('process.confirm_switch_active');
-                if (confirmBtn) confirmBtn.textContent = __('process.active');
+                if (titleEl) titleEl.textContent = 'Switch to Active';
+                if (messageEl) messageEl.textContent = 'Confirm switching this Bank Process to Active?';
+                if (confirmBtn) confirmBtn.textContent = 'Active';
             }
 
             if (modal) modal.style.display = 'block';
@@ -1484,7 +1476,7 @@
                     selectedList.appendChild(div);
                 });
             } else {
-                selectedList.innerHTML = '<div class="no-descriptions">' + __('process.no_descriptions_selected') + '</div>';
+                selectedList.innerHTML = '<div class="no-descriptions">No descriptions selected</div>';
             }
         }
 
@@ -1535,7 +1527,7 @@
             if (!selectedList.querySelector('.selected-description-modal-item')) {
                 const empty = document.createElement('div');
                 empty.className = 'no-descriptions';
-                empty.textContent = __('process.no_descriptions_selected');
+                empty.textContent = 'No descriptions selected';
                 selectedList.appendChild(empty);
             }
         }
@@ -1553,7 +1545,7 @@
             if (!selectedList.querySelector('.selected-description-modal-item')) {
                 const empty = document.createElement('div');
                 empty.className = 'no-descriptions';
-                empty.textContent = __('process.no_descriptions_selected');
+                empty.textContent = 'No descriptions selected';
                 selectedList.appendChild(empty);
             }
             // add back to available list
@@ -1676,7 +1668,7 @@
                 if (result.success) {
                     // 填充 currency 下拉列表
                     const currencySelect = document.getElementById('add_currency');
-                    currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
+                    currencySelect.innerHTML = '<option value="">Select Currency</option>';
                     result.currencies.forEach(currency => {
                         const option = document.createElement('option');
                         option.value = currency.id;
@@ -1686,7 +1678,7 @@
 
                     // 填充 copy from 下拉列表
                     const copyFromSelect = document.getElementById('add_copy_from');
-                    copyFromSelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_process_to_copy') : 'Select Process to Copy From') + '</option>';
+                    copyFromSelect.innerHTML = '<option value="">Select Process to Copy From</option>';
                     if (result.existingProcesses && result.existingProcesses.length > 0) {
                         // 按 A-Z 排序：先按 process_name 排序，如果相同则按 description_name 排序
                         const sortedProcesses = [...result.existingProcesses].sort((a, b) => {
@@ -1742,10 +1734,9 @@
                         result.days.forEach(day => {
                             const checkboxItem = document.createElement('div');
                             checkboxItem.className = 'checkbox-item';
-                            const dayLabel = (typeof __ !== 'undefined' ? __('process.day_' + (day.day_name || '').toLowerCase()) : day.day_name) || day.day_name;
                             checkboxItem.innerHTML = `
                                 <input type="checkbox" id="add_day_${day.id}" name="day_use[]" value="${day.id}">
-                                <label for="add_day_${day.id}">${dayLabel}</label>
+                                <label for="add_day_${day.id}">${day.day_name}</label>
                             `;
                             dayCheckboxes.appendChild(checkboxItem);
                         });
@@ -1786,7 +1777,7 @@
                 if (result.success) {
                     // Populate currency dropdown
                     const currencySelect = document.getElementById('edit_currency');
-                    currencySelect.innerHTML = '<option value="">' + (typeof __ !== 'undefined' ? __('process.select_currency') : 'Select Currency') + '</option>';
+                    currencySelect.innerHTML = '<option value="">Select Currency</option>';
                     result.currencies.forEach(currency => {
                         const option = document.createElement('option');
                         option.value = currency.id;
@@ -1801,10 +1792,9 @@
                         result.days.forEach(day => {
                             const checkboxItem = document.createElement('div');
                             checkboxItem.className = 'checkbox-item';
-                            const dayLabel = (typeof __ !== 'undefined' ? __('process.day_' + (day.day_name || '').toLowerCase()) : day.day_name) || day.day_name;
                             checkboxItem.innerHTML = `
                                 <input type="checkbox" id="edit_day_${day.id}" name="edit_day_use[]" value="${day.id}">
-                                <label for="edit_day_${day.id}">${dayLabel}</label>
+                                <label for="edit_day_${day.id}">${day.day_name}</label>
                             `;
                             dayCheckboxes.appendChild(checkboxItem);
                         });
@@ -3379,7 +3369,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             accountDropdown._bankAccountClose = closeThisDropdown;
 
             // Load accounts into dropdown（API 返回该公司下全部账户，四类下拉共用同一列表）
-            const placeholderText = accountButton.getAttribute('data-placeholder') || __('process.select_account');
+            const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
             function loadAccounts() {
                 optionsContainer.innerHTML = '';
                 // Always read filter from this dropdown's search input so search matches what user sees
@@ -3391,7 +3381,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     const selectOpt = document.createElement('div');
                     selectOpt.className = 'custom-select-option';
                     selectOpt.setAttribute('data-value', '');
-                    selectOpt.textContent = __('process.select_account');
+                    selectOpt.textContent = 'Select Account';
                     selectOpt.addEventListener('click', () => {
                         accountButton.textContent = placeholderText;
                         accountButton.setAttribute('data-value', '');
@@ -3512,7 +3502,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
             if (!accountButton || !accountDropdown || !hiddenInput || !searchInput || !optionsContainer) return;
             let isOpen = false;
-            const placeholderText = accountButton.getAttribute('data-placeholder') || __('process.select_account');
+            const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
             const isInProfitSharingModal = accountDropdown.closest('#profitSharingModal');
             let dropdownOriginalParent = null;
             let dropdownOriginalNextSibling = null;
@@ -3550,7 +3540,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const selectOpt = document.createElement('div');
                 selectOpt.className = 'custom-select-option';
                 selectOpt.setAttribute('data-value', '');
-                selectOpt.textContent = __('process.select_account');
+                selectOpt.textContent = 'Select Account';
                 selectOpt.addEventListener('click', () => {
                     accountButton.textContent = placeholderText;
                     accountButton.setAttribute('data-value', '');
@@ -4402,7 +4392,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const amountId = 'profit_sharing_amount_' + ts;
             const row = document.createElement('div');
             row.className = 'form-row bank-row-two-cols profit-sharing-row';
-            row.innerHTML = '<div class="form-group"><label for="' + btnId + '">' + __('dcs.account') + '</label><input type="hidden" id="' + hiddenId + '" class="profit-sharing-account-id" name="account_id" value=""><div class="account-select-with-buttons"><div class="custom-select-wrapper"><button type="button" class="custom-select-button profit-sharing-account-btn" id="' + btnId + '" data-placeholder="' + __('process.select_account').replace(/"/g, '&quot;') + '">' + __('process.select_account') + '</button><div class="custom-select-dropdown" id="' + dropdownId + '"><div class="custom-select-search"><input type="text" placeholder="' + __('process.search_account').replace(/"/g, '&quot;') + '" autocomplete="off"></div><div class="custom-select-options"></div></div></div><button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick(\'' + btnId + '\', \'' + hiddenId + '\')" title="' + __('process.add_new_account').replace(/"/g, '&quot;') + '">+</button></div></div><div class="form-group"><label for="' + amountId + '">' + __('process.amount') + '</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="' + __('process.enter_amount').replace(/"/g, '&quot;') + '" step="0.01" min="0"></div>';
+            row.innerHTML = '<div class="form-group"><label for="' + btnId + '">Account</label><input type="hidden" id="' + hiddenId + '" class="profit-sharing-account-id" name="account_id" value=""><div class="account-select-with-buttons"><div class="custom-select-wrapper"><button type="button" class="custom-select-button profit-sharing-account-btn" id="' + btnId + '" data-placeholder="Select Account">Select Account</button><div class="custom-select-dropdown" id="' + dropdownId + '"><div class="custom-select-search"><input type="text" placeholder="Search account..." autocomplete="off"></div><div class="custom-select-options"></div></div></div><button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick(\'' + btnId + '\', \'' + hiddenId + '\')" title="Add New Account">+</button></div></div><div class="form-group"><label for="' + amountId + '">Amount</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0"></div>';
             container.appendChild(row);
             if (typeof initProfitSharingAccountSelect === 'function') {
                 initProfitSharingAccountSelect(btnId, dropdownId, hiddenId);
@@ -4435,7 +4425,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const accountBtn = document.getElementById('profit_sharing_account_btn');
             const accountHidden = document.getElementById('profit_sharing_account_id');
             if (accountBtn) {
-                accountBtn.textContent = accountBtn.getAttribute('data-placeholder') || __('process.select_account');
+                accountBtn.textContent = accountBtn.getAttribute('data-placeholder') || 'Select Account';
                 accountBtn.setAttribute('data-value', '');
             }
             if (accountHidden) accountHidden.value = '';

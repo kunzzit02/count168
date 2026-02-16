@@ -162,24 +162,10 @@ try {
     error_log("Process query failed: " . $e->getMessage());
     $processes = [];
 }
-
-// 语言：与 sidebar 一致，按 Cookie 加载
-$adminLangCode = isset($_COOKIE['lang']) && $_COOKIE['lang'] === 'zh' ? 'zh' : 'en';
-$adminLang = require __DIR__ . '/lang/' . $adminLangCode . '.php';
-if (!is_array($adminLang)) {
-    $adminLang = [];
-}
-if (!function_exists('__')) {
-    $lang = $adminLang;
-    function __($key) {
-        global $lang;
-        return $lang[$key] ?? $key;
-    }
-}
 ?>
 
 <!DOCTYPE html>
-<html lang="<?php echo $adminLangCode === 'zh' ? 'zh' : 'en'; ?>">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -190,7 +176,7 @@ if (!function_exists('__')) {
     };
     ?>
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
-    <title><?php echo htmlspecialchars(__('admin.title_page')); ?></title>
+    <title>User List</title>
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <?php include 'sidebar.php'; ?>
@@ -199,34 +185,34 @@ if (!function_exists('__')) {
 <body>
     <div id="notificationContainer" class="notification-container"></div>
     <div class="container">
-        <h1><?php echo htmlspecialchars(__('admin.title')); ?></h1>
+        <h1>User List</h1>
         
         <div class="separator-line"></div>
 
         <div class="action-buttons-container" style="margin-bottom: 20px;">
             <div class="action-buttons" style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <button class="btn btn-add" onclick="openAddModal()"><?php echo htmlspecialchars(__('admin.add_user')); ?></button>
+                    <button class="btn btn-add" onclick="openAddModal()">Add User</button>
                     <div class="search-container">
                         <svg class="search-icon" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                             </svg>
-                        <input type="text" id="searchInput" placeholder="<?php echo htmlspecialchars(__('admin.search_placeholder')); ?>" class="search-input">
+                        <input type="text" id="searchInput" placeholder="Search by Login Id or Name" class="search-input">
                     </div>
                     <div class="checkbox-section">
                         <input type="checkbox" id="showInactive" name="showInactive">
-                        <label for="showInactive"><?php echo htmlspecialchars(__('admin.show_inactive')); ?></label>
+                        <label for="showInactive">Show Inactive</label>
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <button class="btn btn-delete" id="deleteSelectedBtn" onclick="deleteSelected()"><?php echo htmlspecialchars(__('admin.delete')); ?></button>
+                    <button class="btn btn-delete" id="deleteSelectedBtn" onclick="deleteSelected()">Delete</button>
                 </div>
             </div>
             
             <!-- Company Buttons (显示多个 company 时) -->
             <?php if (count($user_companies) > 1): ?>
             <div id="user-list-company-filter" class="transaction-company-filter" style="display: flex; padding: 0 20px 15px 20px;">
-                <span class="transaction-company-label"><?php echo htmlspecialchars(__('admin.company')); ?></span>
+                <span class="transaction-company-label">Company:</span>
                 <div id="user-list-company-buttons" class="transaction-company-buttons">
                     <?php foreach($user_companies as $comp): ?>
                         <button type="button" 
@@ -243,22 +229,22 @@ if (!function_exists('__')) {
         
         <!-- 表头 -->
         <div class="table-header">
-            <div class="header-item"><?php echo htmlspecialchars(__('admin.no')); ?></div>
+            <div class="header-item">No</div>
             <div class="header-item header-sortable" onclick="sortByLoginId()">
-                <?php echo htmlspecialchars(__('admin.login_id')); ?>
+                Login Id
                 <span class="sort-indicator" id="sortLoginIdIndicator">▲</span>
             </div>
-            <div class="header-item"><?php echo htmlspecialchars(__('admin.name')); ?></div>
-            <div class="header-item"><?php echo htmlspecialchars(__('admin.email')); ?></div>
+            <div class="header-item">Name</div>
+            <div class="header-item">Email</div>
             <div class="header-item header-sortable" onclick="sortByRole()">
-                <?php echo htmlspecialchars(__('admin.role')); ?>
+                Role
                 <span class="sort-indicator" id="sortRoleIndicator"></span>
             </div>
-            <div class="header-item"><?php echo htmlspecialchars(__('admin.status')); ?></div>
-            <div class="header-item"><?php echo htmlspecialchars(__('admin.last_login')); ?></div>
-            <div class="header-item"><?php echo htmlspecialchars(__('admin.created_by')); ?></div>
-            <div class="header-item"><?php echo htmlspecialchars(__('admin.action')); ?>
-                <input type="checkbox" id="selectAllUsers" title="<?php echo htmlspecialchars(__('admin.select_all')); ?>" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllUsers()">
+            <div class="header-item">Status</div>
+            <div class="header-item">Last Login</div>
+            <div class="header-item">Created By</div>
+            <div class="header-item">Action
+                <input type="checkbox" id="selectAllUsers" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllUsers()">
             </div>
         </div>
         
@@ -346,11 +332,11 @@ if (!function_exists('__')) {
                         <?php 
                         if ($can_toggle_status && !$is_self): 
                         ?>
-                            <span class="role-badge <?php echo $user['status'] == 'active' ? 'status-active' : 'status-inactive'; ?> status-clickable" onclick="toggleUserStatus(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['status']); ?>', <?php echo $is_owner_shadow ? 'true' : 'false'; ?>)" title="<?php echo htmlspecialchars(__('admin.click_toggle_status')); ?>" style="cursor: pointer;">
+                            <span class="role-badge <?php echo $user['status'] == 'active' ? 'status-active' : 'status-inactive'; ?> status-clickable" onclick="toggleUserStatus(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['status']); ?>', <?php echo $is_owner_shadow ? 'true' : 'false'; ?>)" title="Click to toggle status" style="cursor: pointer;">
                                 <?php echo strtoupper(htmlspecialchars($user['status'])); ?>
                             </span>
                         <?php else: ?>
-                            <span class="role-badge <?php echo $user['status'] == 'active' ? 'status-active' : 'status-inactive'; ?>" style="cursor: not-allowed; opacity: 0.6;" title="<?php echo htmlspecialchars($is_self ? __('admin.cannot_toggle_own') : __('admin.no_permission_toggle')); ?>">
+                            <span class="role-badge <?php echo $user['status'] == 'active' ? 'status-active' : 'status-inactive'; ?>" style="cursor: not-allowed; opacity: 0.6;" title="<?php echo $is_self ? 'You cannot toggle your own status' : 'No permission to toggle status'; ?>">
                                 <?php echo strtoupper(htmlspecialchars($user['status'])); ?>
                             </span>
                         <?php endif; ?>
@@ -359,12 +345,12 @@ if (!function_exists('__')) {
                     <div class="card-item uppercase-text"><?php echo strtoupper(htmlspecialchars($user['created_by'] ?? '-')); ?></div>
                     <div class="card-item">
                         <?php if ($can_edit_delete): ?>
-                            <button class="btn btn-edit edit-btn" onclick="editUser(<?php echo $user['id']; ?>, <?php echo $is_owner_shadow ? 'true' : 'false'; ?>)" aria-label="<?php echo htmlspecialchars(__('admin.edit')); ?>">
-                                <img src="images/edit.svg" alt="<?php echo htmlspecialchars(__('admin.edit')); ?>">
+                            <button class="btn btn-edit edit-btn" onclick="editUser(<?php echo $user['id']; ?>, <?php echo $is_owner_shadow ? 'true' : 'false'; ?>)" aria-label="Edit">
+                                <img src="images/edit.svg" alt="Edit">
                             </button>
                         <?php else: ?>
-                            <button class="btn btn-edit edit-btn" disabled style="opacity: 0.3; cursor: not-allowed;" aria-label="<?php echo htmlspecialchars(__('admin.edit_disabled')); ?>">
-                                <img src="images/edit.svg" alt="<?php echo htmlspecialchars(__('admin.edit_disabled')); ?>">
+                            <button class="btn btn-edit edit-btn" disabled style="opacity: 0.3; cursor: not-allowed;" aria-label="Edit Disabled">
+                                <img src="images/edit.svg" alt="Edit Disabled">
                             </button>
                         <?php endif; ?>
                         <?php $is_active_status = strtolower($user['status'] ?? '') === 'active'; ?>
@@ -374,13 +360,13 @@ if (!function_exists('__')) {
                             <?php else: ?>
                                 <input type="checkbox" class="user-checkbox" disabled style="opacity: 0.3; cursor: not-allowed;" title="<?php 
                                     if ($is_self) {
-                                        echo htmlspecialchars(__('admin.cannot_delete_own'));
+                                        echo 'You cannot delete your own account';
                                     } elseif ($is_same_level) {
-                                        echo htmlspecialchars(__('admin.cannot_delete_same_level'));
+                                        echo 'You cannot delete accounts with the same role level';
                                     } elseif ($is_higher_level) {
-                                        echo htmlspecialchars(__('admin.cannot_delete_higher'));
+                                        echo 'You cannot delete accounts with higher role level';
                                     } else {
-                                        echo htmlspecialchars(__('admin.no_permission_delete'));
+                                        echo 'No permission to delete';
                                     }
                                 ?>">
                             <?php endif; ?>
@@ -406,11 +392,11 @@ if (!function_exists('__')) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
             </div>
-            <h2 class="confirm-title"><?php echo htmlspecialchars(__('admin.confirm_delete')); ?></h2>
+            <h2 class="confirm-title">Confirm Delete</h2>
             <p id="confirmMessage" class="confirm-message"></p>
             <div class="confirm-actions">
-                <button type="button" class="btn btn-cancel confirm-cancel" onclick="closeConfirmModal()"><?php echo htmlspecialchars(__('admin.cancel')); ?></button>
-                <button type="button" class="btn btn-delete confirm-delete" id="confirmDeleteBtn"><?php echo htmlspecialchars(__('admin.delete')); ?></button>
+                <button type="button" class="btn btn-cancel confirm-cancel" onclick="closeConfirmModal()">Cancel</button>
+                <button type="button" class="btn btn-delete confirm-delete" id="confirmDeleteBtn">Delete</button>
             </div>
         </div>
     </div>
@@ -455,12 +441,12 @@ if (!function_exists('__')) {
                             <!-- C168公司：密码和二级密码在同一行左右排版 -->
                             <div class="form-group user-info-field password-row-container" id="passwordRowContainer">
                                 <div class="password-field-wrapper" id="passwordGroup">
-                                    <label for="password"><?php echo htmlspecialchars(__('admin.password_required')); ?></label>
+                                    <label for="password">Password *</label>
                                     <input type="password" id="password" name="password">
                                 </div>
                                 <div class="password-field-wrapper" id="secondaryPasswordGroup">
-                                    <label for="secondary_password"><?php echo htmlspecialchars(__('admin.secondary_password')); ?></label>
-                                    <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="<?php echo htmlspecialchars(__('admin.secondary_password_placeholder')); ?>">
+                                    <label for="secondary_password">Secondary Password (6 digits)</label>
+                                    <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit password">
                                 </div>
                             </div>
                             <div class="form-group user-info-field" style="margin-top: -10px; margin-bottom: 10px;">
@@ -469,36 +455,36 @@ if (!function_exists('__')) {
                             <?php else: ?>
                             <!-- 非C168公司：只显示密码字段 -->
                             <div class="form-group user-info-field" id="passwordGroup">
-                                <label for="password"><?php echo htmlspecialchars(__('admin.password_required')); ?></label>
+                                <label for="password">Password *</label>
                                 <input type="password" id="password" name="password">
                             </div>
                             <?php endif; ?>
 
                             <div class="form-group user-info-field">
-                                <label for="name"><?php echo htmlspecialchars(__('admin.name_required')); ?></label>
+                                <label for="name">Name *</label>
                                 <input type="text" id="name" name="name" required>
                             </div>
 
                              <div class="form-group user-info-field">
-                                 <label for="role"><?php echo htmlspecialchars(__('admin.role_required')); ?></label>
+                                 <label for="role">Role *</label>
                                  <select id="role" name="role" required>
-                                     <option value=""><?php echo htmlspecialchars(__('admin.select_role')); ?></option>
-                                     <option value="admin"><?php echo htmlspecialchars(__('admin.role_admin')); ?></option>
-                                     <option value="manager"><?php echo htmlspecialchars(__('admin.role_manager')); ?></option>
-                                     <option value="supervisor"><?php echo htmlspecialchars(__('admin.role_supervisor')); ?></option>
-                                     <option value="accountant"><?php echo htmlspecialchars(__('admin.role_accountant')); ?></option>
-                                     <option value="audit"><?php echo htmlspecialchars(__('admin.role_audit')); ?></option>
-                                     <option value="customer service"><?php echo htmlspecialchars(__('admin.role_customer_service')); ?></option>
+                                     <option value="">Select Role</option>
+                                     <option value="admin">Admin</option>
+                                     <option value="manager">Manager</option>
+                                     <option value="supervisor">Supervisor</option>
+                                     <option value="accountant">Accountant</option>
+                                     <option value="audit">Audit</option>
+                                     <option value="customer service">Customer Service</option>
                                  </select>
                              </div>
 
                              <div class="form-group user-info-field">
-                                 <label for="email"><?php echo htmlspecialchars(__('admin.email_required')); ?></label>
+                                 <label for="email">Email *</label>
                                  <input type="email" id="email" name="email" required>
                              </div>
 
                             <div class="form-group user-info-field company-field-group">
-                                <label><?php echo htmlspecialchars(__('admin.company_required')); ?></label>
+                                <label>Company *</label>
                                 <div id="user-company-buttons-container" class="transaction-company-buttons" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
                                     <!-- Company buttons will be dynamically added here -->
                                 </div>
@@ -506,15 +492,15 @@ if (!function_exists('__')) {
                          </div>
 
                           <div class="form-actions">
-                              <button type="submit" class="btn btn-save"><?php echo htmlspecialchars(__('admin.save')); ?></button>
-                              <button type="button" class="btn btn-cancel" onclick="closeModal()"><?php echo htmlspecialchars(__('admin.cancel')); ?></button>
+                              <button type="submit" class="btn btn-save">Save</button>
+                              <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
                           </div>
                      </form>
                  </div>
 
             <!-- Right Panel - Permissions -->
             <div class="permissions-panel" style="flex: 1;">
-                <h3><?php echo htmlspecialchars(__('admin.permissions')); ?></h3>
+                <h3>Permissions</h3>
                 <div class="permissions-panel-wrapper">
                      <!-- Left Part - General Permissions Container -->
                      <div id="sidebarPermissionsWrapper" class="permissions-container-wrapper" style="display: flex; flex-direction: column;">
@@ -526,7 +512,7 @@ if (!function_exists('__')) {
                                         <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                                         </svg>
-                                        <?php echo htmlspecialchars(__('sidebar.home')); ?>
+                                        Home
                                     </span>
                                 </label>
                             </div>
@@ -538,7 +524,7 @@ if (!function_exists('__')) {
                                         <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
                                         </svg>
-                                        <?php echo htmlspecialchars(__('sidebar.admin')); ?>
+                                        Admin
                                     </span>
                                 </label>
                             </div>
@@ -550,7 +536,7 @@ if (!function_exists('__')) {
                                         <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                                         </svg>
-                                        <?php echo htmlspecialchars(__('sidebar.account')); ?>
+                                        Account
                                     </span>
                                 </label>
                             </div>
@@ -562,7 +548,7 @@ if (!function_exists('__')) {
                                         <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                                         </svg>
-                                        <?php echo htmlspecialchars(__('sidebar.process')); ?>
+                                        Process
                                     </span>
                                 </label>
                             </div>
@@ -574,7 +560,7 @@ if (!function_exists('__')) {
                                         <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
                                         </svg>
-                                        <?php echo htmlspecialchars(__('sidebar.data_capture')); ?>
+                                        Data Capture
                                     </span>
                                 </label>
                             </div>
@@ -586,7 +572,7 @@ if (!function_exists('__')) {
                                         <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
                                         </svg>
-                                        <?php echo htmlspecialchars(__('sidebar.transaction_payment')); ?>
+                                        Transaction Payment
                                     </span>
                                 </label>
                             </div>
@@ -598,7 +584,7 @@ if (!function_exists('__')) {
                                         <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
                                         </svg>
-                                        <?php echo htmlspecialchars(__('sidebar.report')); ?>
+                                        Report
                                     </span>
                                 </label>
                             </div>
@@ -610,14 +596,14 @@ if (!function_exists('__')) {
                                         <svg class="permission-icon" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
                                         </svg>
-                                        <?php echo htmlspecialchars(__('sidebar.maintenance')); ?>
+                                        Maintenance
                                     </span>
                                 </label>
                             </div>
                         </div>
                         <div class="permissions-actions">
-                            <button type="button" class="btn btn-secondary" onclick="selectAllPermissions()"><?php echo htmlspecialchars(__('admin.select_all_btn')); ?></button>
-                            <button type="button" class="btn btn-clearall" onclick="clearAllPermissions()"><?php echo htmlspecialchars(__('admin.clear_all')); ?></button>
+                            <button type="button" class="btn btn-secondary" onclick="selectAllPermissions()">Select All</button>
+                            <button type="button" class="btn btn-clearall" onclick="clearAllPermissions()">Clear All</button>
                         </div>
                     </div>
                     
@@ -625,7 +611,7 @@ if (!function_exists('__')) {
                     <div id="accountProcessPermissionsSection" style="display: none; flex-direction: row; gap: clamp(12px, 1.25vw, 24px); min-width: 0; overflow-y: auto; max-height: calc(98vh - clamp(120px, 12.5vw, 200px)); min-height: clamp(400px, 36.46vw, 700px);">
                     <!-- Account Permissions -->
                     <div class="form-group" style="flex: 1; margin-bottom: 0; margin-top: 0; display: flex; flex-direction: column;">
-                        <label style="font-size: clamp(12px, 0.94vw, 18px); font-weight: bold; color: #1a237e; margin-bottom: clamp(4px, 0.52vw, 10px); display: block;"><?php echo htmlspecialchars(__('sidebar.account')); ?></label>
+                        <label style="font-size: clamp(12px, 0.94vw, 18px); font-weight: bold; color: #1a237e; margin-bottom: clamp(4px, 0.52vw, 10px); display: block;">Account</label>
                         <div class="account-grid" id="accountGrid" style="display: flex; flex-direction: column; gap: 0px; max-height: clamp(400px, 40vw, 600px); overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background-color: #ffffffff; padding: clamp(8px, 0.78vw, 15px);">
                             <?php 
                             $colCount = 0;
@@ -653,14 +639,14 @@ if (!function_exists('__')) {
                             ?>
                         </div>
                         <div class="account-control-buttons" style="display: flex; gap: 10px; justify-content: center; margin: clamp(8px, 0.73vw, 14px) 0px 0px;">
-                            <button type="button" class="btn-account-control" onclick="selectAllAccounts()" style="background: linear-gradient(180deg, #44e44d 0%, #227426 100%); color: white; font-family: 'Amaranth'; width: clamp(80px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 0px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3); cursor: pointer;"><?php echo htmlspecialchars(__('admin.select_all_btn')); ?></button>
-                            <button type="button" class="btn-clearall" onclick="clearAllAccounts()" style="background: linear-gradient(180deg, #F30E12 0%, #A91215 100%); color: white; font-family: 'Amaranth'; width: clamp(90px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 20px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3); cursor: pointer;"><?php echo htmlspecialchars(__('admin.clear_all')); ?></button>
+                            <button type="button" class="btn-account-control" onclick="selectAllAccounts()" style="background: linear-gradient(180deg, #44e44d 0%, #227426 100%); color: white; font-family: 'Amaranth'; width: clamp(80px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 0px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3); cursor: pointer;">Select All</button>
+                            <button type="button" class="btn-clearall" onclick="clearAllAccounts()" style="background: linear-gradient(180deg, #F30E12 0%, #A91215 100%); color: white; font-family: 'Amaranth'; width: clamp(90px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 20px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3); cursor: pointer;">Clear All</button>
                         </div>
                     </div>
                     
                     <!-- Process Permissions -->
                     <div class="form-group" style="flex: 1; margin-bottom: 0; margin-top: 0; display: flex; flex-direction: column;">
-                        <label style="font-size: clamp(12px, 0.94vw, 18px); font-weight: bold; color: #1a237e; margin-bottom: clamp(4px, 0.52vw, 10px); display: block;"><?php echo htmlspecialchars(__('sidebar.process')); ?></label>
+                        <label style="font-size: clamp(12px, 0.94vw, 18px); font-weight: bold; color: #1a237e; margin-bottom: clamp(4px, 0.52vw, 10px); display: block;">Process</label>
                         <div class="account-grid" id="processGrid" style="display: flex; flex-direction: column; gap: 0px; max-height: clamp(400px, 40vw, 600px); overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background-color: #ffffffff; padding: clamp(8px, 0.78vw, 15px);">
                             <?php 
                             $colCount = 0;
@@ -693,8 +679,8 @@ if (!function_exists('__')) {
                             ?>
                         </div>
                         <div class="account-control-buttons" style="display: flex; gap: 10px; justify-content: center; margin: clamp(8px, 0.73vw, 14px) 0px 0px;">
-                            <button type="button" class="btn-account-control" onclick="selectAllProcesses()" style="background: linear-gradient(180deg, #44e44d 0%, #227426 100%); color: white; font-family: 'Amaranth'; width: clamp(80px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 0px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3); cursor: pointer;"><?php echo htmlspecialchars(__('admin.select_all_btn')); ?></button>
-                            <button type="button" class="btn-clearall" onclick="clearAllProcesses()" style="background: linear-gradient(180deg, #F30E12 0%, #A91215 100%); color: white; font-family: 'Amaranth'; width: clamp(90px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 20px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3); cursor: pointer;"><?php echo htmlspecialchars(__('admin.clear_all')); ?></button>
+                            <button type="button" class="btn-account-control" onclick="selectAllProcesses()" style="background: linear-gradient(180deg, #44e44d 0%, #227426 100%); color: white; font-family: 'Amaranth'; width: clamp(80px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 0px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3); cursor: pointer;">Select All</button>
+                            <button type="button" class="btn-clearall" onclick="clearAllProcesses()" style="background: linear-gradient(180deg, #F30E12 0%, #A91215 100%); color: white; font-family: 'Amaranth'; width: clamp(90px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 20px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3); cursor: pointer;">Clear All</button>
                         </div>
                     </div>
                 </div>
@@ -703,7 +689,6 @@ if (!function_exists('__')) {
     </div>
 
     <script>
-        window.__LANG = <?php echo json_encode($adminLang); ?>;
         window.USERLIST_CURRENT_USER_ID = <?php echo json_encode($current_user_id); ?>;
         window.USERLIST_CURRENT_USER_ROLE = '<?php echo strtolower($current_user_role); ?>';
         window.USERLIST_CURRENT_COMPANY_ID = <?php echo json_encode($_SESSION['company_id'] ?? null); ?>;
