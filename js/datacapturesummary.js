@@ -7667,9 +7667,17 @@ function getCurrentProcessId() {
         function findProcessRow(tableData, processValue, rowIndex = null) {
             if (!tableData.rows) return null;
 
-            // 仅当传入的是截断 id（如 "(T07)"、"KZAWCMS(SV)"）时才解析为完整 id_product，完整 id（如 KZAWCMS (SV) MYR）直接使用，避免 (SV) 被错误解析成 (KM)
-            const processValueResolved = (typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(processValue))
-                ? resolveToFullIdProduct(processValue) : (processValue || '').trim();
+            // 仅当传入的是截断 id 时才解析。有 rowIndex 时用该行的 row_label 解析，避免 SZ 被解析成 SZT 导致本行判为不匹配
+            let processValueResolved;
+            if (typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(processValue)) {
+                const row = (rowIndex !== null && rowIndex >= 0 && rowIndex < tableData.rows.length) ? tableData.rows[rowIndex] : null;
+                const rowLabelForResolve = (row && row[0] && row[0].value != null) ? String(row[0].value).trim() : null;
+                processValueResolved = (rowLabelForResolve != null && rowLabelForResolve !== '')
+                    ? resolveToFullIdProduct(processValue, rowLabelForResolve)
+                    : resolveToFullIdProduct(processValue);
+            } else {
+                processValueResolved = (processValue || '').trim();
+            }
 
             // Normalize the process value for comparison (only used when not full id)
             const normalizedProcessValue = normalizeIdProductText(processValueResolved);
