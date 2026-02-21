@@ -15115,8 +15115,9 @@ function reorderSummaryRowsByRowIndex() {
             // Primary sort: by normalizedMain (id_product) to group same id_product together
             // 首先按 normalizedMain（id_product）分组，确保同一个 id_product 的所有行在一起
             if (a.normalizedMain !== b.normalizedMain) {
-                // Different id_product: sort by Data Capture Table position
-                // 不同的 id_product：按 Data Capture Table 位置排序
+                // Different id_product: prefer preserved row_index (matches console/Data Capture order), fallback to dataCapturePosition
+                // 不同的 id_product：优先按保留的 row_index 排序（与 console 一致），否则用 dataCapturePosition
+                if (a.rowIndex != null && b.rowIndex != null) return a.rowIndex - b.rowIndex;
                 return a.dataCapturePosition - b.dataCapturePosition;
             }
             
