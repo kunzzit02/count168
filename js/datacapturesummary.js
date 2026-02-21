@@ -2858,23 +2858,19 @@ function getCurrentProcessId() {
             });
 
             // Add options to select box
-            // Format: "id_product" if unique, or "id_product (row_label)" if duplicate
+            // Replace Word 进 summary 的 id_product 为独立 main：有 rowLabel 时 value 一律用 id_product:row_label，只显示同行数据
             idProductRows.forEach(item => {
                 const option = document.createElement('option');
                 const count = idProductCount.get(item.idProduct);
-                
-                // If id_product appears multiple times, include row label to distinguish
-                if (count > 1 && item.rowLabel) {
-                    option.value = `${item.idProduct}:${item.rowLabel}`; // Store id_product:row_label as value
-                    option.textContent = `${item.idProduct} (${item.rowLabel})`; // Display: "M99M06 (B)"
+                const useRowLabel = !!item.rowLabel;
+                if (useRowLabel) {
+                    option.value = `${item.idProduct}:${item.rowLabel}`;
+                    option.textContent = (count > 1) ? `${item.idProduct} (${item.rowLabel})` : item.idProduct;
                 } else {
-                    option.value = item.idProduct; // Store just id_product if unique
-                    option.textContent = item.idProduct; // Display: "OVERALL"
+                    option.value = item.idProduct;
+                    option.textContent = item.idProduct;
                 }
-                
-                // Store row index in data attribute for reference
                 option.setAttribute('data-row-index', String(item.rowIndex));
-                
                 descriptionSelect1.appendChild(option);
             });
 
@@ -2898,12 +2894,12 @@ function getCurrentProcessId() {
                 }
                 if (valueToSelect == null) {
                     const firstItem = idProductRows[0];
-                    const firstCount = idProductCount.get(firstItem.idProduct);
-                    valueToSelect = (firstCount > 1 && firstItem.rowLabel)
+                    valueToSelect = firstItem.rowLabel
                         ? `${firstItem.idProduct}:${firstItem.rowLabel}`
                         : firstItem.idProduct;
                 }
                 descriptionSelect1.value = valueToSelect;
+                if (processInput && valueToSelect) processInput.value = valueToSelect; // 与 id_product:row_label 一致，后续只显示同行数据
                 updateIdProductRowData(valueToSelect);
             }
         }
