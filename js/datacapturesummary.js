@@ -5921,15 +5921,17 @@ function getCurrentProcessId() {
                         const processValue = document.getElementById('process')?.value;
                         
                         if (hasNewFormat && processValue) {
-                            // 将当前行的 [id_product,列号] 转为 $列号 显示，与第二张图一致
-                            const currentIdProduct = processValue.trim();
+                            // 将当前行的 [id_product,列号] 转为 $列号 显示；process 可能为 SZ:C，比较时只用 id 部分
+                            const currentIdProductRaw = processValue.trim();
+                            const currentIdProductForMatch = currentIdProductRaw.indexOf(':') >= 0
+                                ? currentIdProductRaw.substring(0, currentIdProductRaw.lastIndexOf(':')).trim() : currentIdProductRaw;
                             const bracketPattern = /\[([^,\]]+),(\d+)\]/g;
                             formulaValueToSet = formulaValueToSet.replace(bracketPattern, function(match, idProduct, colNum) {
                                 const refId = (idProduct || '').trim();
-                                const isCurrentRow = currentIdProduct && (
+                                const isCurrentRow = currentIdProductForMatch && (
                                     (typeof isFullIdProduct === 'function' && isFullIdProduct(refId))
-                                        ? (refId === currentIdProduct)
-                                        : (typeof normalizeIdProductText === 'function' && normalizeIdProductText(refId) === normalizeIdProductText(currentIdProduct))
+                                        ? (refId === currentIdProductForMatch)
+                                        : (typeof normalizeIdProductText === 'function' && normalizeIdProductText(refId) === normalizeIdProductText(currentIdProductForMatch))
                                 );
                                 return isCurrentRow ? '$' + colNum : match;
                             });
