@@ -5656,7 +5656,6 @@ function getCurrentProcessId() {
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             
             // Get current editing id_product from process field（可能为 id_product:row_label 如 SZ:C）
-            const processInput = document.getElementById('process');
             const currentIdProduct = processInput ? processInput.value.trim() : null;
             const currentIdProductForMatch = currentIdProduct && currentIdProduct.indexOf(':') >= 0
                 ? currentIdProduct.substring(0, currentIdProduct.lastIndexOf(':')).trim() : currentIdProduct;
