@@ -3100,10 +3100,13 @@ function getCurrentProcessId() {
             const processInput = document.getElementById('process');
             if (!processInput) return;
 
-            const idProduct = processInput.value.trim();
-            if (!idProduct || idProduct === '') {
+            const idProductRaw = processInput.value.trim();
+            if (!idProductRaw || idProductRaw === '') {
                 return;
             }
+            // process 可能为 id_product:row_label（如 SZ:C），匹配行时只用 id 部分
+            const idProduct = idProductRaw.indexOf(':') >= 0
+                ? idProductRaw.substring(0, idProductRaw.lastIndexOf(':')).trim() : idProductRaw;
 
             // Get table data
             let parsedTableData;
@@ -3147,7 +3150,7 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // 方案 B：收紧匹配规则，按「完整 id_product」匹配（trim + 忽略大小写），避免不同子项（如 4DDMYMYR (T07) 与 AB4D55MYR (T38)）被当作同一行导致显示两行数据
+                // 方案 B：收紧匹配规则，按「完整 id_product」匹配（trim + 忽略大小写）；process 为 id:row_label 时已只取 id 部分
                 const normalizedRowIdProduct = (rowIdProduct || '').trim().toUpperCase();
                 const normalizedIdProduct = (idProduct || '').trim().toUpperCase();
                 
