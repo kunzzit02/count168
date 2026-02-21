@@ -7598,8 +7598,11 @@ function getCurrentProcessId() {
                                 return full;
                             }
                             if (shortNormLabel && nSpLabel(full).indexOf(shortNormLabel) === 0) {
-                                console.log('resolveToFullIdProduct: resolved (prefix) with rowLabel', extractedRowLabel, shortTrim, '->', full);
-                                return full;
+                                const rest = nSpLabel(full).substring(shortNormLabel.length);
+                                if (rest.length === 0 || !/^[a-zA-Z0-9]/.test(rest)) {
+                                    console.log('resolveToFullIdProduct: resolved (prefix) with rowLabel', extractedRowLabel, shortTrim, '->', full);
+                                    return full;
+                                }
                             }
                         }
                     }
@@ -7644,8 +7647,11 @@ function getCurrentProcessId() {
                             return full;
                         }
                         if (shortNorm && nSp(full).indexOf(shortNorm) === 0) {
-                            console.log('resolveToFullIdProduct: resolved (prefix match)', shortTrim, '->', full);
-                            return full;
+                            const rest = nSp(full).substring(shortNorm.length);
+                            if (rest.length === 0 || !/^[a-zA-Z0-9]/.test(rest)) {
+                                console.log('resolveToFullIdProduct: resolved (prefix match)', shortTrim, '->', full);
+                                return full;
+                            }
                         }
                     }
                 }
