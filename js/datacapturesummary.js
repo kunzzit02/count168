@@ -1117,11 +1117,20 @@ function getCurrentProcessId() {
                                 rowIndex = i;
                                 console.log('getCellValueByIdProductAndColumn: Found row by row_label! rowIndex:', rowIndex, 'rowLabel:', rowLabel);
                                 
+                                // 有 rowLabel 时用表数据该行的 id 做匹配，与 resolveToFullIdProduct 一致（Replace 后 DOM 可能显示 SZ 而数据仍是 SUB TOTAL）
+                                let cellIdProductText = '';
+                                if (parsedTableData.rows && rowIndex >= 0 && rowIndex < parsedTableData.rows.length) {
+                                    const dataRow = parsedTableData.rows[rowIndex];
+                                    if (dataRow && dataRow.length > 1 && dataRow[1].type === 'data' && dataRow[1].value != null)
+                                        cellIdProductText = String(dataRow[1].value).trim();
+                                }
+                                if (!cellIdProductText) {
+                                    const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
+                                    if (idProductCell) cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                }
                                 // CRITICAL: Verify id_product matches - if not, ignore this rowIndex
                                 // 完整 id_product（如含 RSLOTS、(T07)）必须精确匹配，避免 4DDMYMYR (T07) 与 AB4D55MYR (T38) 串行
-                                const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
-                                if (idProductCell) {
-                                    const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                if (cellIdProductText) {
                                     const idProductTrimmed = (idProductResolved || '').trim();
                                     if (typeof isFullIdProduct === 'function' && isFullIdProduct(idProductResolved)) {
                                         rowIndexIdProductMatches = (cellIdProductText === idProductTrimmed);
@@ -1131,16 +1140,15 @@ function getCurrentProcessId() {
                                         rowIndexIdProductMatches = (cellIdProduct === normalizedIdProduct);
                                     }
                                     console.log('getCellValueByIdProductAndColumn: Verified id_product - match:', rowIndexIdProductMatches);
-                                    
                                     if (!rowIndexIdProductMatches) {
-                                        idProductMismatchForRowLabel = true; // 只显示自己的：不 fallback 到同 id_product 的其他行
+                                        idProductMismatchForRowLabel = true;
                                         console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch! rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected:', idProductTrimmed, 'found:', cellIdProductText, '. Only own row - no cross-row fetch.');
-                                        rowIndex = null; // Reset rowIndex if id_product doesn't match
+                                        rowIndex = null;
                                     }
                                 } else {
                                     idProductMismatchForRowLabel = true;
-                                    console.warn('getCellValueByIdProductAndColumn: idProductCell not found for row_label:', rowLabel, '. Only own row - no cross-row fetch.');
-                                    rowIndex = null; // Reset rowIndex if id_product cell not found
+                                    console.warn('getCellValueByIdProductAndColumn: id_product not found for row_label:', rowLabel, '. Only own row - no cross-row fetch.');
+                                    rowIndex = null;
                                 }
                                 break;
                             }
@@ -7583,6 +7591,11 @@ function getCurrentProcessId() {
                             const full = (row[1].value || '').trim();
                             if (full && (full === shortTrim || full.endsWith(shortTrim) || full.indexOf(' - ') >= 0)) {
                                 console.log('resolveToFullIdProduct: resolved by row index', extractedRowLabel, '->', full);
+                                return full;
+                            }
+                            // 有 rowLabel 时只显示自己行：该行 id 与 shortTrim 未匹配（如 SUB TOTAL 行显示为 SZ）也返回该行 id，避免落到全表前缀匹配拿到别行（如 SZT）
+                            if (full) {
+                                console.log('resolveToFullIdProduct: use row at rowLabel (own row only)', extractedRowLabel, shortTrim, '->', full);
                                 return full;
                             }
                         }
