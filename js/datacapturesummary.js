@@ -1676,10 +1676,14 @@ function getCurrentProcessId() {
                 const descriptionSelect1 = document.getElementById('descriptionSelect1');
                 if (descriptionSelect1) {
                     descriptionSelect1.addEventListener('change', function() {
-                        updateIdProductRowData(this.value);
+                        const val = this.value;
+                        if (val) {
+                            const processInput = document.getElementById('process');
+                            if (processInput) processInput.value = val; // 与左侧选择一致，选同行数据时 formula 用 $列号
+                        }
+                        updateIdProductRowData(val);
                     });
                 }
-                
             }, 100);
             
             // Add input validation for Source Percent
