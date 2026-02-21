@@ -5660,7 +5660,19 @@ function getCurrentProcessId() {
             const currentIdProductForMatch = currentIdProduct && currentIdProduct.indexOf(':') >= 0
                 ? currentIdProduct.substring(0, currentIdProduct.lastIndexOf(':')).trim() : currentIdProduct;
             
-            const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
+            let currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
+            // process 无 : 时 getRowLabelFromProcessValue 可能解析到类似 id（如 SZ->SZT）取错行；从左侧下拉选中项取 row_label 保证 id_product main 独立
+            if (descriptionSelect1 && descriptionSelect1.selectedIndex >= 0 && currentIdProductForMatch) {
+                const selOpt = descriptionSelect1.options[descriptionSelect1.selectedIndex];
+                const selVal = (selOpt && selOpt.value || '').trim();
+                if (selVal.indexOf(':') >= 0) {
+                    const selIdPart = selVal.substring(0, selVal.lastIndexOf(':')).trim();
+                    const selRowPart = selVal.substring(selVal.lastIndexOf(':') + 1).trim();
+                    if (selIdPart && (selIdPart === currentIdProductForMatch || (typeof normalizeIdProductText === 'function' && normalizeIdProductText(selIdPart) === normalizeIdProductText(currentIdProductForMatch)))) {
+                        currentRowLabel = selRowPart;
+                    }
+                }
+            }
             
             let clickedRowLabel = cell.getAttribute('data-row-label');
             if (!clickedRowLabel && row) {
@@ -5682,14 +5694,12 @@ function getCurrentProcessId() {
                     : normalizeIdProductText(currentIdProductForMatch) === normalizeIdProductText(idProduct)
             );
             
-            // 当前编辑行无 row_label（如 ALLBET95MS(KM)MYR）时，只要 id_product 一致就视为「本行」，用 $列号
             let rowLabelMatches = true;
             if (currentRowLabel && clickedRowLabel) {
                 rowLabelMatches = currentRowLabel === clickedRowLabel;
             } else if (currentRowLabel && !clickedRowLabel) {
                 rowLabelMatches = false;
             }
-            // currentRowLabel 为空、clickedRowLabel 有值（如 B）：仍视为本行，用 $ 格式，方便在「本账号」选金额显示 $6 而非 [id,6]
             
             const isCurrentRow = idProductMatches && rowLabelMatches;
             
