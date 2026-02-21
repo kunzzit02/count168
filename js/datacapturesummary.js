@@ -4369,7 +4369,6 @@ function getCurrentProcessId() {
                             const displayColumnIndex = match.columnNumber;
                             const dataColumnIndex = displayColumnIndex - 1;
                             
-                            // 尝试从引用中获取 row_label（用 parseIdProductColumnRef 保留完整 id_product）
                             let rowLabel = null;
                             if (refIndex < refs.length) {
                                 const ref = refs[refIndex];
@@ -4379,11 +4378,17 @@ function getCurrentProcessId() {
                                     refIndex++;
                                 }
                             }
-                            
-                            // 使用id_product和列号获取值
+                            // [SZ.2] 等与当前编辑行同 id 时，用当前行 rowLabel 取值，避免抓到 SZT 等别行
+                            if (rowLabel == null && currentIdProduct) {
+                                const currentIdPart = currentIdProduct.indexOf(':') >= 0
+                                    ? currentIdProduct.substring(0, currentIdProduct.lastIndexOf(':')).trim() : currentIdProduct;
+                                if (currentIdPart && normalizeIdProductText(idProduct) === normalizeIdProductText(currentIdPart)) {
+                                    rowLabel = getRowLabelFromProcessValue(processValue);
+                                }
+                            }
                             if (dataColumnIndex > 0) {
                                 columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
-                                console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], value:', columnValue);
+                                console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], rowLabel:', rowLabel, ', value:', columnValue);
                             }
                         } else {
                             // 当前row格式 $数字：从引用中按顺序获取（parseIdProductColumnRef 保留完整 id_product）
