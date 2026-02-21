@@ -1657,7 +1657,6 @@ function getCurrentProcessId() {
                 if (descriptionSelect1) {
                     descriptionSelect1.addEventListener('change', function() {
                         updateIdProductRowData(this.value);
-                        updateFormulaDataGrid();
                     });
                 }
                 
@@ -2860,13 +2859,10 @@ function getCurrentProcessId() {
             });
 
             // 优先选中当前编辑的 Id Product（#process），避免选 (KM) 却显示 (SV) 的数据
-            // 当有多个相同 id_product 时，按当前行的 data-row-index 选中对应那一行，只显示同行数据
             if (idProductRows.length > 0) {
                 const processInput = document.getElementById('process');
                 const currentProduct = processInput ? (processInput.value || '').trim() : '';
                 const normalizeSpaces = function(s) { return (s || '').trim().replace(/\s+/g, ''); };
-                const currentEditRow = window.currentEditRow;
-                const editRowIndex = currentEditRow ? (currentEditRow.getAttribute('data-row-index') || '').trim() : '';
                 let valueToSelect = null;
                 if (currentProduct) {
                     for (let i = 0; i < descriptionSelect1.options.length; i++) {
@@ -2875,11 +2871,8 @@ function getCurrentProcessId() {
                         if (!optVal) continue;
                         const optId = optVal.indexOf(':') >= 0 ? optVal.substring(0, optVal.lastIndexOf(':')).trim() : optVal;
                         if (normalizeSpaces(optId) === normalizeSpaces(currentProduct)) {
-                            if (editRowIndex !== '' && opt.getAttribute('data-row-index') === editRowIndex) {
-                                valueToSelect = opt.value;
-                                break;
-                            }
-                            if (valueToSelect == null) valueToSelect = opt.value;
+                            valueToSelect = opt.value;
+                            break;
                         }
                     }
                 }
@@ -3087,21 +3080,11 @@ function getCurrentProcessId() {
             // Clear existing grid items
             formulaDataGrid.innerHTML = '';
 
-            // Get current editing id product from process input；若 Id Product 下拉选了「id_product (row_label)」，则只显示该行数据
+            // Get current editing id product from process input
             const processInput = document.getElementById('process');
             if (!processInput) return;
-            const descriptionSelect1 = document.getElementById('descriptionSelect1');
-            const idProductValue = descriptionSelect1 && descriptionSelect1.value ? descriptionSelect1.value.trim() : (processInput.value || '').trim();
-            let idProduct = idProductValue;
-            let rowLabel = null;
-            const lastColonIndex = idProductValue.lastIndexOf(':');
-            if (lastColonIndex > 0 && lastColonIndex < idProductValue.length - 1) {
-                const afterColon = idProductValue.substring(lastColonIndex + 1).trim();
-                if (/^[A-Z]$/i.test(afterColon) || afterColon.length <= 3) {
-                    idProduct = idProductValue.substring(0, lastColonIndex).trim();
-                    rowLabel = afterColon;
-                }
-            }
+
+            const idProduct = processInput.value.trim();
             if (!idProduct || idProduct === '') {
                 return;
             }
@@ -3124,13 +3107,6 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
-                // 当有 row_label 时只显示同行：检查行头是否匹配
-                if (rowLabel) {
-                    const rowHeaderCell = row.querySelector('.row-header') || row.querySelector('td:first-child');
-                    const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                    if (rowHeaderLabel !== rowLabel) return;
-                }
-
                 // Try to get id_product from data-id-product attribute first
                 let rowIdProduct = row.getAttribute('data-id-product');
                 
