@@ -2858,19 +2858,23 @@ function getCurrentProcessId() {
             });
 
             // Add options to select box
-            // Replace Word 进 summary 的 id_product 为独立 main：有 rowLabel 时 value 一律用 id_product:row_label，只显示同行数据
+            // Format: "id_product" if unique, or "id_product (row_label)" if duplicate
             idProductRows.forEach(item => {
                 const option = document.createElement('option');
                 const count = idProductCount.get(item.idProduct);
-                const useRowLabel = !!item.rowLabel;
-                if (useRowLabel) {
-                    option.value = `${item.idProduct}:${item.rowLabel}`;
-                    option.textContent = (count > 1) ? `${item.idProduct} (${item.rowLabel})` : item.idProduct;
+                
+                // If id_product appears multiple times, include row label to distinguish
+                if (count > 1 && item.rowLabel) {
+                    option.value = `${item.idProduct}:${item.rowLabel}`; // Store id_product:row_label as value
+                    option.textContent = `${item.idProduct} (${item.rowLabel})`; // Display: "M99M06 (B)"
                 } else {
-                    option.value = item.idProduct;
-                    option.textContent = item.idProduct;
+                    option.value = item.idProduct; // Store just id_product if unique
+                    option.textContent = item.idProduct; // Display: "OVERALL"
                 }
+                
+                // Store row index in data attribute for reference
                 option.setAttribute('data-row-index', String(item.rowIndex));
+                
                 descriptionSelect1.appendChild(option);
             });
 
@@ -2894,12 +2898,12 @@ function getCurrentProcessId() {
                 }
                 if (valueToSelect == null) {
                     const firstItem = idProductRows[0];
-                    valueToSelect = firstItem.rowLabel
+                    const firstCount = idProductCount.get(firstItem.idProduct);
+                    valueToSelect = (firstCount > 1 && firstItem.rowLabel)
                         ? `${firstItem.idProduct}:${firstItem.rowLabel}`
                         : firstItem.idProduct;
                 }
                 descriptionSelect1.value = valueToSelect;
-                if (processInput && valueToSelect) processInput.value = valueToSelect; // 与 id_product:row_label 一致，后续只显示同行数据
                 updateIdProductRowData(valueToSelect);
             }
         }
@@ -3100,13 +3104,10 @@ function getCurrentProcessId() {
             const processInput = document.getElementById('process');
             if (!processInput) return;
 
-            const idProductRaw = processInput.value.trim();
-            if (!idProductRaw || idProductRaw === '') {
+            const idProduct = processInput.value.trim();
+            if (!idProduct || idProduct === '') {
                 return;
             }
-            // process 可能为 id_product:row_label（如 SZ:C），匹配行时只用 id 部分
-            const idProduct = idProductRaw.indexOf(':') >= 0
-                ? idProductRaw.substring(0, idProductRaw.lastIndexOf(':')).trim() : idProductRaw;
 
             // Get table data
             let parsedTableData;
@@ -3150,7 +3151,7 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // 方案 B：收紧匹配规则，按「完整 id_product」匹配（trim + 忽略大小写）；process 为 id:row_label 时已只取 id 部分
+                // 方案 B：收紧匹配规则，按「完整 id_product」匹配（trim + 忽略大小写），避免不同子项（如 4DDMYMYR (T07) 与 AB4D55MYR (T38)）被当作同一行导致显示两行数据
                 const normalizedRowIdProduct = (rowIdProduct || '').trim().toUpperCase();
                 const normalizedIdProduct = (idProduct || '').trim().toUpperCase();
                 
