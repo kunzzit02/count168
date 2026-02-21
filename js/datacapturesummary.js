@@ -1359,7 +1359,7 @@ function getCurrentProcessId() {
             // 从 Add button 进入，一律视为“新增”，不带任何预填数据
             console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct);
             
-            // 打开空白表单（edit 按钮才负责加载旧数据）
+            // 打开空白表单（edit 按钮才负责加载旧数据）；传入 row 以便 Formula 下方只显示同行数据
             showEditFormulaForm(productValue, isSubIdProduct, {
                 account: '',
                 currency: '',
@@ -1372,11 +1372,12 @@ function getCurrentProcessId() {
                 enableInputMethod: false,
                 enableSourcePercent: true,
                 clickedColumns: ''
-            });
+            }, row);
         }
 
         // Show Edit Formula Form as modal positioned slightly towards top
-        function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
+        // contextSummaryRow: 当前编辑的 summary 行，用于 Formula 下方只展示同行 Data Capture 数据（同 id product 多行时）
+        function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null, contextSummaryRow = null) {
             // 规格：非编辑已有行时（新增）不沿用上次编辑的行货币
             if (!prePopulatedData || !prePopulatedData.accountDbId) {
                 window._editFormulaRowCurrency = null;
@@ -1397,8 +1398,13 @@ function getCurrentProcessId() {
                 modalContent = document.getElementById('editFormulaModalContent');
             }
             
-            // Find and store the current row for calculator keypad
-            if (productValue) {
+            // Find and store the current row for calculator keypad; 有 contextSummaryRow 则用其 data-row-index 控制 Formula 下方只显示同行
+            if (contextSummaryRow) {
+                currentSelectedRowForCalculator = contextSummaryRow;
+                const ri = contextSummaryRow.getAttribute('data-row-index');
+                window._editFormulaDataCaptureRowIndex = (ri !== null && ri !== '' && !Number.isNaN(Number(ri))) ? ri : null;
+            } else if (productValue) {
+                window._editFormulaDataCaptureRowIndex = null;
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
                     const rows = summaryTableBody.querySelectorAll('tr');
@@ -1406,10 +1412,14 @@ function getCurrentProcessId() {
                         const rowProcessValue = getProcessValueFromRow(row);
                         if (rowProcessValue === productValue) {
                             currentSelectedRowForCalculator = row;
+                            const ri = row.getAttribute('data-row-index');
+                            if (ri !== null && ri !== '' && !Number.isNaN(Number(ri))) window._editFormulaDataCaptureRowIndex = ri;
                             break;
                         }
                     }
                 }
+            } else {
+                window._editFormulaDataCaptureRowIndex = null;
             }
             
             // Helper function to escape HTML for use in attribute values
@@ -3105,8 +3115,15 @@ function getCurrentProcessId() {
             const capturedTableBody = document.getElementById('capturedTableBody');
             if (!capturedTableBody) return;
 
+            // 同 id product 多行时只显示「当前编辑行」对应的 Data Capture 行（不用 edit 里 Data 下拉，直接展示）
+            const contextRowIndex = window._editFormulaDataCaptureRowIndex;
+            const filterByRowIndex = (contextRowIndex !== null && contextRowIndex !== '' && !Number.isNaN(parseInt(contextRowIndex, 10)))
+                ? parseInt(contextRowIndex, 10) : null;
+
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
+                if (filterByRowIndex !== null && rowIndex !== filterByRowIndex) return;
+
                 // Try to get id_product from data-id-product attribute first
                 let rowIdProduct = row.getAttribute('data-id-product');
                 
@@ -11302,7 +11319,7 @@ function getCurrentProcessId() {
                 sourcePercent: sourcePercentValue
             });
             
-            // Show the Edit Formula form with pre-populated data
+            // Show the Edit Formula form with pre-populated data；传入 row 以便 Formula 下方只显示同行数据
             showEditFormulaForm(processValue, false, {
                 account: accountValue,
                 accountDbId: accountDbId,
@@ -11317,7 +11334,7 @@ function getCurrentProcessId() {
                 enableInputMethod: enableInputMethodValue,
                 enableSourcePercent: enableSourcePercentValue,
                 clickedColumns: clickedColumns // Pass clicked columns for restoration
-            });
+            }, row);
         }
         
         // Helper function to get process value from row
