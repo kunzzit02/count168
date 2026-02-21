@@ -7667,11 +7667,13 @@ function getCurrentProcessId() {
                         console.log('findProcessRow: Found row by rowIndex:', rowIndex, 'id_product matches:', processValueResolved);
                         return row;
                     } else {
-                        // CRITICAL: If id_product doesn't match, DO NOT use this row
-                        console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValueResolved, 'Found:', rowValue, '. Falling back to id_product search.');
+                        // 只显示自己的：rowIndex 指定了行但 id 不一致（如 SZ 行 vs 解析后的 SZT）时不搜别行，直接返回 null
+                        console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValueResolved, 'Found:', rowValue, '. Only own row - return null.');
+                        return null;
                     }
                 } else {
-                    console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but row is invalid. Falling back to id_product search.');
+                    console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but row is invalid. Only own row - return null.');
+                    return null;
                 }
             }
 
