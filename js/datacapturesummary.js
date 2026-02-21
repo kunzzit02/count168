@@ -5472,18 +5472,30 @@ function getCurrentProcessId() {
         function insertCellValueToFormula(cell) {
             const formulaInput = document.getElementById('formula');
             if (!formulaInput) {
-                // Formula input not found - maybe form is not open
                 showNotification('Info', 'Please Open Edit Formula', 'info');
                 return;
             }
-            
-            // Check if formula input is visible (form is open)
             const editFormulaModal = document.getElementById('editFormulaModal');
             if (!editFormulaModal || (editFormulaModal.style.display !== 'flex' && editFormulaModal.style.display !== 'block')) {
                 showNotification('Info', 'Please Open Edit Formula', 'info');
                 return;
             }
-            
+            // process 无 row_label 时从左侧下拉同步为 id:rowLabel，避免 getRowLabelFromProcessValue 取错行导致插入 [id,列] 而非 $列
+            const processInput = document.getElementById('process');
+            const descriptionSelect1 = document.getElementById('descriptionSelect1');
+            if (processInput && descriptionSelect1 && processInput.value && processInput.value.indexOf(':') < 0) {
+                const cur = processInput.value.trim();
+                for (let i = 0; i < descriptionSelect1.options.length; i++) {
+                    const opt = descriptionSelect1.options[i];
+                    const val = (opt.value || '').trim();
+                    if (!val || val.indexOf(':') < 0) continue;
+                    const idPart = val.substring(0, val.lastIndexOf(':')).trim();
+                    if (idPart && (idPart === cur || (typeof normalizeIdProductText === 'function' && normalizeIdProductText(idPart) === normalizeIdProductText(cur)))) {
+                        processInput.value = val;
+                        break;
+                    }
+                }
+            }
             // Don't update currentSelectedRowForCalculator when clicking cells
             // This ensures that clicking cells from other id product rows directly uses the clicked cell's value
             // instead of looking up values from the current edit row based on column
