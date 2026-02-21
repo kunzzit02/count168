@@ -1092,6 +1092,7 @@ function getCurrentProcessId() {
                 let processRow = null;
                 let rowIndex = null;
                 let rowIndexIdProductMatches = false;
+                let idProductMismatchForRowLabel = false; // 有 rowLabel 且当前行 id_product 与公式请求不一致时不抓别行，只显示自己的
                 
                 if (rowLabel) {
                     // Find row by row_label first, then verify id_product matches
@@ -1132,11 +1133,13 @@ function getCurrentProcessId() {
                                     console.log('getCellValueByIdProductAndColumn: Verified id_product - match:', rowIndexIdProductMatches);
                                     
                                     if (!rowIndexIdProductMatches) {
-                                        console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch! rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected:', idProductTrimmed, 'found:', cellIdProductText, 'Will fallback to id_product search');
+                                        idProductMismatchForRowLabel = true; // 只显示自己的：不 fallback 到同 id_product 的其他行
+                                        console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch! rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected:', idProductTrimmed, 'found:', cellIdProductText, '. Only own row - no cross-row fetch.');
                                         rowIndex = null; // Reset rowIndex if id_product doesn't match
                                     }
                                 } else {
-                                    console.warn('getCellValueByIdProductAndColumn: idProductCell not found for row_label:', rowLabel, 'Will fallback to id_product search');
+                                    idProductMismatchForRowLabel = true;
+                                    console.warn('getCellValueByIdProductAndColumn: idProductCell not found for row_label:', rowLabel, '. Only own row - no cross-row fetch.');
                                     rowIndex = null; // Reset rowIndex if id_product cell not found
                                 }
                                 break;
@@ -1154,12 +1157,11 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // CRITICAL: Always fallback to id_product search if row_label didn't yield a valid match
-                // This ensures correct data is read even when row positions change
-                if (!processRow) {
+                // 有 rowLabel 且 id_product 不匹配时不再按 id_product 搜别行，只显示当前行自己的数据（不匹配则返回 null）
+                if (!processRow && !idProductMismatchForRowLabel) {
                     processRow = findProcessRow(parsedTableData, idProductResolved);
                     if (rowLabel) {
-                        console.warn('getCellValueByIdProductAndColumn: Row not found by row_label or id_product mismatch, falling back to first matching row for id_product:', idProductResolved);
+                        console.warn('getCellValueByIdProductAndColumn: Row not found by row_label, falling back to first matching row for id_product:', idProductResolved);
                     }
                 }
                 
