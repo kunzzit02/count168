@@ -5643,14 +5643,14 @@ function getCurrentProcessId() {
             // Get cursor position
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             
-            // Get current editing id_product from process field
+            // Get current editing id_product from process field（可能为 id_product:row_label 如 SZ:C）
             const processInput = document.getElementById('process');
             const currentIdProduct = processInput ? processInput.value.trim() : null;
+            const currentIdProductForMatch = currentIdProduct && currentIdProduct.indexOf(':') >= 0
+                ? currentIdProduct.substring(0, currentIdProduct.lastIndexOf(':')).trim() : currentIdProduct;
             
-            // Get current editing row_label (to distinguish between rows with same id_product)
             const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
             
-            // Get clicked cell's row_label
             let clickedRowLabel = cell.getAttribute('data-row-label');
             if (!clickedRowLabel && row) {
                 const rowHeaderCell = row.querySelector('.row-header');
@@ -5660,15 +5660,15 @@ function getCurrentProcessId() {
                 }
             }
             
-            // 每个都是独立 main，不归一。表里可能是截断显示（如 KZAWCMS(SV)），编辑行为完整（如 KZAWCMS(SV)MYR），需视为同一行用 $列号
+            // Replace 后 id 独立：process 为 SZ:C 时用 id 部分 SZ 与单元格 id 比较，一致则本行用 $列号
             const normalizeSpacesForRow = (s) => (s || '').trim().replace(/\s+/g, '');
-            const curNorm = normalizeSpacesForRow(currentIdProduct);
+            const curNorm = normalizeSpacesForRow(currentIdProductForMatch);
             const clickNorm = normalizeSpacesForRow(idProduct);
-            const bothFull = typeof isFullIdProduct === 'function' && isFullIdProduct(currentIdProduct) && isFullIdProduct(idProduct);
-            const idProductMatches = currentIdProduct && idProduct && (
+            const bothFull = typeof isFullIdProduct === 'function' && isFullIdProduct(currentIdProductForMatch) && isFullIdProduct(idProduct);
+            const idProductMatches = currentIdProductForMatch && idProduct && (
                 bothFull
                     ? (curNorm === clickNorm || curNorm.indexOf(clickNorm) === 0 || clickNorm.indexOf(curNorm) === 0)
-                    : normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct)
+                    : normalizeIdProductText(currentIdProductForMatch) === normalizeIdProductText(idProduct)
             );
             
             // 当前编辑行无 row_label（如 ALLBET95MS(KM)MYR）时，只要 id_product 一致就视为「本行」，用 $列号
