@@ -326,7 +326,7 @@
                         if (data.data.length === 0) {
                             document.getElementById('emptyState').style.display = 'block';
                             document.getElementById('tableContainer').style.display = 'none';
-                            showNotification(__('bm.no_data_found'), 'info');
+                            showNotification((typeof __ !== 'undefined' && __('bm.no_data_found') !== 'bm.no_data_found') ? __('bm.no_data_found') : 'No data found', 'info');
                         } else {
                             showNotification(__('pm.found_records').replace('%d', data.data.length), 'success');
                         }
