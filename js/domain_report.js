@@ -159,7 +159,18 @@ function showNotification(message, type = 'success') {
                     params.append('company_id', currentCompanyId);
                 }
                 const response = await fetch(`api/reports/domain_report_api.php?${params.toString()}`);
-                const data = await response.json();
+                const text = await response.text();
+                let data;
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch (_) {
+                    console.error('Error loading processes:', response.status, text?.slice(0, 200));
+                    return;
+                }
+                if (!response.ok) {
+                    console.error('Error loading processes:', data.message || response.statusText);
+                    return;
+                }
                 if (data.success) {
                     const processButton = document.getElementById('processSelect');
                     const dropdown = document.getElementById('processSelect_dropdown');
@@ -429,8 +440,21 @@ function showNotification(message, type = 'success') {
                 }
 
                 const response = await fetch(`api/reports/domain_report_api.php?${params.toString()}`);
-                const result = await response.json();
-
+                const text = await response.text();
+                let result;
+                try {
+                    result = text ? JSON.parse(text) : {};
+                } catch (_) {
+                    showNotification('Network connection failed', 'danger');
+                    renderError('Server returned invalid response');
+                    return;
+                }
+                if (!response.ok) {
+                    const msg = result.message || result.error || response.statusText || 'Request failed';
+                    showNotification(msg, 'danger');
+                    renderError(msg);
+                    return;
+                }
                 if (result.success) {
                     renderReport(result.data, result.totals);
                 } else {

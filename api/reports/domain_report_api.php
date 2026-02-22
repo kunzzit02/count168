@@ -1,165 +1,154 @@
 <?php
-// 使用统一的 session 检查
-require_once 'session_check.php';
+/**
+ * Domain Report API: process list + report by process (turnover, win, lose)
+ * Path: api/reports/domain_report_api.php
+ */
+header('Content-Type: application/json; charset=utf-8');
+require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../permissions.php';
+session_start();
 
-// 获取 company_id（session_check.php 已确保用户已登录）
-$company_id = $_SESSION['company_id'];
-$userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-$isOwner = ($userRole === 'owner');
-?>
+function resolveCompanyId(PDO $pdo): int {
+    if (!isset($_SESSION['user_id']) && !isset($_SESSION['login_id'])) {
+        throw new Exception('User not logged in');
+    }
+    if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
+        $requested = (int) $_GET['company_id'];
+        $role = strtolower($_SESSION['role'] ?? '');
+        if ($role === 'owner') {
+            $ownerId = $_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? null;
+            if ($ownerId !== null) {
+                $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ?');
+                $stmt->execute([$requested, $ownerId]);
+                if ($stmt->fetchColumn()) {
+                    return $requested;
+                }
+            }
+            throw new Exception('No access to this company');
+        }
+        if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requested) {
+            return $requested;
+        }
+        throw new Exception('No access to this company');
+    }
+    if (!isset($_SESSION['company_id'])) {
+        throw new Exception('Company is required');
+    }
+    return (int) $_SESSION['company_id'];
+}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
-    <title>Domain Report</title>
-    <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
-    <link rel="stylesheet" href="css/transaction.css?v=<?php echo time(); ?>" />
-    <link rel="stylesheet" href="css/sidebar.css?v=<?php echo time(); ?>">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
-    <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
-    <?php include 'sidebar.php'; ?>
-    <link rel="stylesheet" href="css/domain_report.css?v=<?php echo time(); ?>">
+function jsonOut(bool $success, $data = null, string $message = '', array $extra = []): void {
+    $out = ['success' => $success, 'message' => $message];
+    if ($data !== null) {
+        $out['data'] = $data;
+    }
+    foreach ($extra as $k => $v) {
+        $out[$k] = $v;
+    }
+    echo json_encode($out);
+}
 
-</head>
-<body class="report-page">
-    <div class="container">
-        <div class="content">
-            <div class="report-header">
-                <h1 class="account-page-title">Domain Report</h1>
-            </div>
-            <div class="account-separator-line"></div>
+try {
+    $companyId = resolveCompanyId($pdo);
+    $action = isset($_GET['action']) ? trim($_GET['action']) : '';
 
-            <div class="domain-report-filter-container">
-                <div class="domain-report-filters">
-                    <div class="domain-report-filter-group">
-                        <label for="processSelect">Process</label>
-                        <div class="custom-select-wrapper">
-                            <button type="button" class="custom-select-button" id="processSelect" data-placeholder="All Process">All Process</button>
-                            <div class="custom-select-dropdown" id="processSelect_dropdown">
-                                <div class="custom-select-search">
-                                    <input type="text" placeholder="Search process..." autocomplete="off">
-                                </div>
-                                <div class="custom-select-options"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="domain-report-filter-group report-date-range-group">
-                        <label for="date-range-picker">Date Range</label>
-                        <div class="date-range-picker" id="date-range-picker">
-                            <i class="fas fa-calendar-alt"></i>
-                            <span id="date-range-display">Select date range</span>
-                        </div>
-                        <input type="hidden" id="date_from" value="<?php echo date('d/m/Y'); ?>">
-                        <input type="hidden" id="date_to" value="<?php echo date('d/m/Y'); ?>">
-                    </div>
-                    <div class="domain-report-filter-group quick-select-wrap">
-                        <label class="form-label"><i class="fas fa-clock"></i> Quick Select</label>
-                        <div class="quick-select-dropdown quick-select-dropdown-toggle">
-                            <button type="button" class="dropdown-toggle" onclick="event.stopPropagation(); window.toggleQuickSelectDropdown();">
-                                <i class="fas fa-calendar-alt"></i>
-                                <span id="quick-select-text">Period</span>
-                                <i class="fas fa-chevron-down"></i>
-                            </button>
-                            <div class="dropdown-menu" id="quick-select-dropdown">
-                                <button type="button" class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
-                                <button type="button" class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
-                                <button type="button" class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
-                                <button type="button" class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
-                                <button type="button" class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
-                                <button type="button" class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
-                                <button type="button" class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
-                                <button type="button" class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    if ($action === 'processes') {
+        $sql = "SELECT p.id, p.process_id, d.name AS description_name
+                FROM process p
+                LEFT JOIN description d ON p.description_id = d.id
+                WHERE p.company_id = ? AND p.status = 'active'";
+        $params = [$companyId];
+        list($sql, $params) = filterProcessesByPermissions($pdo, $sql, $params);
+        $sql .= " ORDER BY p.process_id ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $data = [];
+        foreach ($rows as $r) {
+            $data[] = [
+                'id' => (string) $r['id'],
+                'display_text' => $r['description_name']
+                ? $r['process_id'] . ' (' . $r['description_name'] . ')'
+                : $r['process_id']
+            ];
+        }
+        jsonOut(true, $data);
+        return;
+    }
 
-                <div id="company-buttons-wrapper" class="transaction-company-filter" style="display: none;">
-                    <span class="transaction-company-label">Company:</span>
-                    <div id="company-buttons-container" class="transaction-company-buttons"></div>
-                </div>
-            </div>
+    $dateFrom = trim($_GET['date_from'] ?? '');
+    $dateTo = trim($_GET['date_to'] ?? '');
+    if ($dateFrom === '' || $dateTo === '') {
+        http_response_code(400);
+        jsonOut(false, null, 'date_from and date_to are required');
+        return;
+    }
+    $dateFromObj = DateTime::createFromFormat('Y-m-d', $dateFrom);
+    $dateToObj = DateTime::createFromFormat('Y-m-d', $dateTo);
+    if (!$dateFromObj || !$dateToObj) {
+        http_response_code(400);
+        jsonOut(false, null, 'Invalid date format (use Y-m-d)');
+        return;
+    }
+    if ($dateFromObj > $dateToObj) {
+        http_response_code(400);
+        jsonOut(false, null, 'date_from must not be after date_to');
+        return;
+    }
 
-            <div class="domain-report-list-container">
-                <div class="domain-report-table-header">
-                    <div>Process</div>
-                    <div>Turnover</div>
-                    <div>Win</div>
-                    <div>Lose</div>
-                    <div>Win/Lose</div>
-                </div>
+    $processIdFilter = isset($_GET['process_id']) && $_GET['process_id'] !== '' ? (int) $_GET['process_id'] : null;
 
-                <div class="domain-report-cards" id="domainReportBody">
-                    <div class="domain-report-card">
-                        <div class="domain-report-card-item" style="grid-column: 1 / -1; text-align: center; justify-content: center; padding: 20px;">
-                            Loading...
-                        </div>
-                    </div>
-                </div>
+    $sql = "SELECT
+                dc.process_id,
+                p.process_id AS process_code,
+                d.name AS description_name,
+                COALESCE(SUM(ABS(dcd.processed_amount)), 0) AS turnover,
+                COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win,
+                COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN dcd.processed_amount ELSE 0 END), 0) AS lose
+            FROM data_captures dc
+            JOIN data_capture_details dcd ON dcd.capture_id = dc.id
+            JOIN process p ON p.id = dc.process_id
+            LEFT JOIN description d ON p.description_id = d.id
+            WHERE dc.company_id = ? AND dc.capture_date BETWEEN ? AND ?";
+    $params = [$companyId, $dateFrom, $dateTo];
+    if ($processIdFilter !== null) {
+        $sql .= " AND dc.process_id = ?";
+        $params[] = $processIdFilter;
+    }
+    $sql .= " GROUP BY dc.process_id, p.process_id, d.name ORDER BY p.process_id ASC";
 
-                <div class="domain-report-total" id="domainReportTotal" style="display: none;">
-                    <div class="domain-report-total-label">Total</div>
-                    <div class="domain-report-amount" id="totalTurnover">0.00</div>
-                    <div class="domain-report-amount" id="totalWin">0.00</div>
-                    <div class="domain-report-amount" id="totalLose">0.00</div>
-                    <div class="domain-report-amount" id="totalWinLose">0.00</div>
-                </div>
-            </div>
-        </div>
-    </div>
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    <div id="domainReportNotificationContainer" class="account-notification-container"></div>
+    $list = [];
+    $totals = ['turnover' => 0, 'win' => 0, 'lose' => 0, 'win_lose' => 0];
+    foreach ($rows as $r) {
+        $win = (float) $r['win'];
+        $lose = (float) $r['lose'];
+        $turnover = (float) $r['turnover'];
+        $winLose = $win + $lose;
+        $totals['turnover'] += $turnover;
+        $totals['win'] += $win;
+        $totals['lose'] += $lose;
+        $totals['win_lose'] += $winLose;
+        $list[] = [
+            'process' => $r['process_code'],
+            'description' => $r['description_name'],
+            'turnover' => $turnover,
+            'win' => $win,
+            'lose' => $lose,
+            'win_lose' => $winLose
+        ];
+    }
 
-    <!-- Calendar popup (same as dashboard) -->
-    <div class="calendar-popup" id="calendar-popup" style="display: none;">
-        <div class="calendar-header">
-            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(-1)">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <div class="calendar-month-year" onclick="event.stopPropagation();">
-                <select id="calendar-month-select">
-                    <option value="0">Jan</option>
-                    <option value="1">Feb</option>
-                    <option value="2">Mar</option>
-                    <option value="3">Apr</option>
-                    <option value="4">May</option>
-                    <option value="5">Jun</option>
-                    <option value="6">Jul</option>
-                    <option value="7">Aug</option>
-                    <option value="8">Sep</option>
-                    <option value="9">Oct</option>
-                    <option value="10">Nov</option>
-                    <option value="11">Dec</option>
-                </select>
-                <select id="calendar-year-select"></select>
-            </div>
-            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(1)">
-                <i class="fas fa-chevron-right"></i>
-            </button>
-        </div>
-        <div class="calendar-weekdays">
-            <div class="calendar-weekday">Sun</div>
-            <div class="calendar-weekday">Mon</div>
-            <div class="calendar-weekday">Tue</div>
-            <div class="calendar-weekday">Wed</div>
-            <div class="calendar-weekday">Thu</div>
-            <div class="calendar-weekday">Fri</div>
-            <div class="calendar-weekday">Sat</div>
-        </div>
-        <div class="calendar-days" id="calendar-days"></div>
-    </div>
+    jsonOut(true, $list, '', ['totals' => $totals]);
 
-    <script>
-        window.DOMAIN_REPORT_COMPANY_ID = <?php echo $company_id; ?>;
-    </script>
-    <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
-    <script src="js/domain_report.js?v=<?php echo time(); ?>"></script>
-</body>
-</html>
+} catch (Exception $e) {
+    http_response_code(400);
+    jsonOut(false, null, $e->getMessage());
+} catch (PDOException $e) {
+    error_log('Domain Report API: ' . $e->getMessage());
+    http_response_code(500);
+    jsonOut(false, null, 'Database error');
+}
