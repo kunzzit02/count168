@@ -101,15 +101,14 @@ function getDays(PDO $pdo): array {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function getExistingProcessesForCopy(PDO $pdo, int $companyId, int $limit = 50): array {
+function getExistingProcessesForCopy(PDO $pdo, int $companyId): array {
     $stmt = $pdo->prepare("
         SELECT p.id as process_id, p.process_id as process_name, d.name as description_name
         FROM process p
         LEFT JOIN description d ON p.description_id = d.id
         WHERE p.company_id = ?
-        ORDER BY p.dts_created DESC
-        LIMIT " . (int)$limit
-    );
+        ORDER BY p.process_id, p.dts_created DESC
+    ");
     $stmt->execute([$companyId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
