@@ -7513,6 +7513,19 @@ function resolveToFullIdProduct(shortId, rowLabel) {
             if (!shortTrim) return shortId;
         }
     }
+    // Replace Word 转换得到的产品 ID 视为独立 MAIN，不参与前缀/截断解析，避免 SZ 被解析成 SZT
+    const processData = window.capturedProcessData || (function () {
+        try {
+            const raw = localStorage.getItem('capturedProcessData');
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) { return null; }
+    })();
+    if (processData) {
+        const rwTo = (processData.replaceWordTo ?? processData.replace_word_to ?? '').toString().trim();
+        if (rwTo && (shortTrim === rwTo || (typeof normalizeIdProductText === 'function' && normalizeIdProductText(shortTrim) === normalizeIdProductText(rwTo)))) {
+            return shortId;
+        }
+    }
     if (!isTruncatedIdProduct(shortTrim)) return shortId;
     let parsedTableData;
     if (window.transformedTableData) {
