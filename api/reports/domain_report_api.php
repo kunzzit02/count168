@@ -1,154 +1,226 @@
 <?php
 /**
- * Domain Report API: process list + report by process (turnover, win, lose)
- * Path: api/reports/domain_report_api.php
+ * Domain Report API - 按 Process 汇总 Domain 报表（Turnover / Win / Lose）
+ * 路径: api/reports/domain_report_api.php
  */
-header('Content-Type: application/json; charset=utf-8');
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../permissions.php';
+
 session_start();
+header('Content-Type: application/json');
+require_once __DIR__ . '/../../config.php';
 
-function resolveCompanyId(PDO $pdo): int {
-    if (!isset($_SESSION['user_id']) && !isset($_SESSION['login_id'])) {
-        throw new Exception('User not logged in');
+/**
+ * 标准 JSON 响应：success, message, data
+ */
+function jsonResponse($success, $message, $data = null, $httpCode = null) {
+    if ($httpCode !== null) {
+        http_response_code($httpCode);
     }
+    echo json_encode([
+        'success' => (bool) $success,
+        'message' => $message,
+        'data' => $data
+    ], JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * 解析并验证请求中的 company_id
+ */
+function getCompanyIdForRequest(PDO $pdo) {
     if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
-        $requested = (int) $_GET['company_id'];
-        $role = strtolower($_SESSION['role'] ?? '');
-        if ($role === 'owner') {
+        $requestedCompanyId = (int)$_GET['company_id'];
+        $userRole = strtolower($_SESSION['role'] ?? '');
+
+        if ($userRole === 'owner') {
             $ownerId = $_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? null;
-            if ($ownerId !== null) {
-                $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ?');
-                $stmt->execute([$requested, $ownerId]);
-                if ($stmt->fetchColumn()) {
-                    return $requested;
-                }
+            if (!$ownerId) {
+                throw new Exception('缺少 Owner 信息');
             }
-            throw new Exception('No access to this company');
+            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ? LIMIT 1");
+            $stmt->execute([$requestedCompanyId, $ownerId]);
+            if (!$stmt->fetchColumn()) {
+                throw new Exception('无权访问该公司');
+            }
+            return $requestedCompanyId;
         }
-        if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requested) {
-            return $requested;
+
+        if (!isset($_SESSION['company_id'])) {
+            throw new Exception('缺少公司信息');
         }
-        throw new Exception('No access to this company');
+        if ((int)$_SESSION['company_id'] !== $requestedCompanyId) {
+            throw new Exception('无权访问该公司');
+        }
+        return $requestedCompanyId;
     }
+
     if (!isset($_SESSION['company_id'])) {
-        throw new Exception('Company is required');
+        throw new Exception('缺少公司信息');
     }
-    return (int) $_SESSION['company_id'];
+    return (int)$_SESSION['company_id'];
 }
 
-function jsonOut(bool $success, $data = null, string $message = '', array $extra = []): void {
-    $out = ['success' => $success, 'message' => $message];
-    if ($data !== null) {
-        $out['data'] = $data;
-    }
-    foreach ($extra as $k => $v) {
-        $out[$k] = $v;
-    }
-    echo json_encode($out);
+/**
+ * 查询 Process 列表（id, process_id, description）
+ */
+function fetchProcesses(PDO $pdo, int $company_id) {
+    $stmt = $pdo->prepare("
+        SELECT p.id, p.process_id, d.name AS description
+        FROM process p
+        LEFT JOIN description d ON p.description_id = d.id
+        WHERE p.company_id = ?
+        ORDER BY p.process_id ASC
+    ");
+    $stmt->execute([$company_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-try {
-    $companyId = resolveCompanyId($pdo);
-    $action = isset($_GET['action']) ? trim($_GET['action']) : '';
-
-    if ($action === 'processes') {
-        $sql = "SELECT p.id, p.process_id, d.name AS description_name
-                FROM process p
-                LEFT JOIN description d ON p.description_id = d.id
-                WHERE p.company_id = ? AND p.status = 'active'";
-        $params = [$companyId];
-        list($sql, $params) = filterProcessesByPermissions($pdo, $sql, $params);
-        $sql .= " ORDER BY p.process_id ASC";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $data = [];
-        foreach ($rows as $r) {
-            $data[] = [
-                'id' => (string) $r['id'],
-                'display_text' => $r['description_name']
-                ? $r['process_id'] . ' (' . $r['description_name'] . ')'
-                : $r['process_id']
-            ];
+/**
+ * 格式化为前端下拉所需结构
+ */
+function formatProcesses(array $processes) {
+    return array_map(function ($row) {
+        $label = $row['process_id'];
+        if (!empty($row['description'])) {
+            $label .= ' (' . $row['description'] . ')';
         }
-        jsonOut(true, $data);
-        return;
-    }
+        return [
+            'id' => (int)$row['id'],
+            'process' => $row['process_id'],
+            'description' => $row['description'],
+            'display_text' => $label
+        ];
+    }, $processes);
+}
 
-    $dateFrom = trim($_GET['date_from'] ?? '');
-    $dateTo = trim($_GET['date_to'] ?? '');
-    if ($dateFrom === '' || $dateTo === '') {
-        http_response_code(400);
-        jsonOut(false, null, 'date_from and date_to are required');
-        return;
+/**
+ * 查询 Domain 报表原始行（按 Process 汇总 Turnover / Win / Lose）
+ */
+function fetchDomainReportRows(PDO $pdo, int $company_id, string $date_from, string $date_to, ?int $process_id) {
+    $sql = "
+        SELECT 
+            p.id AS process_pk,
+            p.process_id,
+            d.name AS description_name,
+            COALESCE(SUM(ABS(dcd.processed_amount)), 0) AS turnover_total,
+            COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win_total,
+            COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN ABS(dcd.processed_amount) ELSE 0 END), 0) AS lose_total
+        FROM data_captures dc
+        INNER JOIN process p ON dc.process_id = p.id
+        LEFT JOIN description d ON p.description_id = d.id
+        INNER JOIN data_capture_details dcd ON dc.id = dcd.capture_id
+        WHERE p.company_id = ?
+          AND dc.capture_date BETWEEN ? AND ?
+    ";
+    $params = [$company_id, $date_from, $date_to];
+    if ($process_id !== null && $process_id > 0) {
+        $sql .= " AND p.id = ? ";
+        $params[] = $process_id;
     }
-    $dateFromObj = DateTime::createFromFormat('Y-m-d', $dateFrom);
-    $dateToObj = DateTime::createFromFormat('Y-m-d', $dateTo);
-    if (!$dateFromObj || !$dateToObj) {
-        http_response_code(400);
-        jsonOut(false, null, 'Invalid date format (use Y-m-d)');
-        return;
-    }
-    if ($dateFromObj > $dateToObj) {
-        http_response_code(400);
-        jsonOut(false, null, 'date_from must not be after date_to');
-        return;
-    }
-
-    $processIdFilter = isset($_GET['process_id']) && $_GET['process_id'] !== '' ? (int) $_GET['process_id'] : null;
-
-    $sql = "SELECT
-                dc.process_id,
-                p.process_id AS process_code,
-                d.name AS description_name,
-                COALESCE(SUM(ABS(dcd.processed_amount)), 0) AS turnover,
-                COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win,
-                COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN dcd.processed_amount ELSE 0 END), 0) AS lose
-            FROM data_captures dc
-            JOIN data_capture_details dcd ON dcd.capture_id = dc.id
-            JOIN process p ON p.id = dc.process_id
-            LEFT JOIN description d ON p.description_id = d.id
-            WHERE dc.company_id = ? AND dc.capture_date BETWEEN ? AND ?";
-    $params = [$companyId, $dateFrom, $dateTo];
-    if ($processIdFilter !== null) {
-        $sql .= " AND dc.process_id = ?";
-        $params[] = $processIdFilter;
-    }
-    $sql .= " GROUP BY dc.process_id, p.process_id, d.name ORDER BY p.process_id ASC";
+    $sql .= " GROUP BY p.id, p.process_id, d.name ORDER BY p.process_id ASC ";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
-    $list = [];
-    $totals = ['turnover' => 0, 'win' => 0, 'lose' => 0, 'win_lose' => 0];
-    foreach ($rows as $r) {
-        $win = (float) $r['win'];
-        $lose = (float) $r['lose'];
-        $turnover = (float) $r['turnover'];
-        $winLose = $win + $lose;
-        $totals['turnover'] += $turnover;
-        $totals['win'] += $win;
-        $totals['lose'] += $lose;
-        $totals['win_lose'] += $winLose;
-        $list[] = [
-            'process' => $r['process_code'],
-            'description' => $r['description_name'],
+/**
+ * 将原始行转为报表数据并计算合计
+ */
+function buildReportResult(array $rows, string $date_from, string $date_to) {
+    $report_data = [];
+    $total_turnover = 0;
+    $total_win = 0;
+    $total_lose = 0;
+
+    foreach ($rows as $row) {
+        $turnover = (float)$row['turnover_total'];
+        $win = (float)$row['win_total'];
+        $lose = (float)$row['lose_total'];
+        $winLose = $win - $lose;
+
+        $report_data[] = [
+            'process_id' => (int)$row['process_pk'],
+            'process' => $row['process_id'],
+            'description' => $row['description_name'],
             'turnover' => $turnover,
             'win' => $win,
             'lose' => $lose,
             'win_lose' => $winLose
         ];
+
+        $total_turnover += $turnover;
+        $total_win += $win;
+        $total_lose += $lose;
     }
 
-    jsonOut(true, $list, '', ['totals' => $totals]);
+    return [
+        'report_data' => $report_data,
+        'totals' => [
+            'turnover' => $total_turnover,
+            'win' => $total_win,
+            'lose' => $total_lose,
+            'win_lose' => $total_win - $total_lose
+        ],
+        'date_from' => $date_from,
+        'date_to' => $date_to
+    ];
+}
 
+try {
+    $action = isset($_GET['action']) ? trim($_GET['action']) : '';
+    $company_id = getCompanyIdForRequest($pdo);
+
+    if ($action === 'processes') {
+        $processes = fetchProcesses($pdo, $company_id);
+        $formatted = formatProcesses($processes);
+        echo json_encode([
+            'success' => true,
+            'message' => 'OK',
+            'data' => $formatted
+        ]);
+        exit;
+    }
+
+    $date_from = isset($_GET['date_from']) ? trim($_GET['date_from']) : '';
+    $date_to = isset($_GET['date_to']) ? trim($_GET['date_to']) : '';
+    $process_id = isset($_GET['process_id']) ? (int)$_GET['process_id'] : null;
+
+    if (empty($date_from) || empty($date_to)) {
+        throw new Exception('开始日期和结束日期不能为空');
+    }
+
+    $date_from_obj = DateTime::createFromFormat('Y-m-d', $date_from);
+    $date_to_obj = DateTime::createFromFormat('Y-m-d', $date_to);
+    if (!$date_from_obj || !$date_to_obj) {
+        throw new Exception('日期格式不正确，请使用 YYYY-MM-DD');
+    }
+    if ($date_from_obj > $date_to_obj) {
+        throw new Exception('开始日期不能大于结束日期');
+    }
+
+    $rows = fetchDomainReportRows($pdo, $company_id, $date_from, $date_to, $process_id);
+    $result = buildReportResult($rows, $date_from, $date_to);
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'OK',
+        'data' => $result['report_data'],
+        'totals' => $result['totals'],
+        'date_from' => $result['date_from'],
+        'date_to' => $result['date_to']
+    ]);
+} catch (PDOException $e) {
+    http_response_code(500);
+    error_log('Domain Report API Error: ' . $e->getMessage());
+    echo json_encode([
+        'success' => false,
+        'message' => '数据库查询失败',
+        'data' => null
+    ]);
 } catch (Exception $e) {
     http_response_code(400);
-    jsonOut(false, null, $e->getMessage());
-} catch (PDOException $e) {
-    error_log('Domain Report API: ' . $e->getMessage());
-    http_response_code(500);
-    jsonOut(false, null, 'Database error');
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage(),
+        'data' => null
+    ]);
 }
