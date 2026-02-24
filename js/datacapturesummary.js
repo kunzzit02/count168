@@ -1092,6 +1092,7 @@ function getCurrentProcessId() {
                 let processRow = null;
                 let rowIndex = null;
                 let rowIndexIdProductMatches = false;
+                let idProductMismatchForRowLabel = false; // 有 rowLabel 且当前行 id_product 与公式请求不一致时不抓别行，只显示自己的
                 
                 if (rowLabel) {
                     // Find row by row_label first, then verify id_product matches
@@ -1116,11 +1117,20 @@ function getCurrentProcessId() {
                                 rowIndex = i;
                                 console.log('getCellValueByIdProductAndColumn: Found row by row_label! rowIndex:', rowIndex, 'rowLabel:', rowLabel);
                                 
+                                // 有 rowLabel 时用表数据该行的 id 做匹配，与 resolveToFullIdProduct 一致（Replace 后 DOM 可能显示 SZ 而数据仍是 SUB TOTAL）
+                                let cellIdProductText = '';
+                                if (parsedTableData.rows && rowIndex >= 0 && rowIndex < parsedTableData.rows.length) {
+                                    const dataRow = parsedTableData.rows[rowIndex];
+                                    if (dataRow && dataRow.length > 1 && dataRow[1].type === 'data' && dataRow[1].value != null)
+                                        cellIdProductText = String(dataRow[1].value).trim();
+                                }
+                                if (!cellIdProductText) {
+                                    const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
+                                    if (idProductCell) cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                }
                                 // CRITICAL: Verify id_product matches - if not, ignore this rowIndex
                                 // 完整 id_product（如含 RSLOTS、(T07)）必须精确匹配，避免 4DDMYMYR (T07) 与 AB4D55MYR (T38) 串行
-                                const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
-                                if (idProductCell) {
-                                    const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                if (cellIdProductText) {
                                     const idProductTrimmed = (idProductResolved || '').trim();
                                     if (typeof isFullIdProduct === 'function' && isFullIdProduct(idProductResolved)) {
                                         rowIndexIdProductMatches = (cellIdProductText === idProductTrimmed);
@@ -1130,14 +1140,15 @@ function getCurrentProcessId() {
                                         rowIndexIdProductMatches = (cellIdProduct === normalizedIdProduct);
                                     }
                                     console.log('getCellValueByIdProductAndColumn: Verified id_product - match:', rowIndexIdProductMatches);
-                                    
                                     if (!rowIndexIdProductMatches) {
-                                        console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch! rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected:', idProductTrimmed, 'found:', cellIdProductText, 'Will fallback to id_product search');
-                                        rowIndex = null; // Reset rowIndex if id_product doesn't match
+                                        idProductMismatchForRowLabel = true;
+                                        console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch! rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected:', idProductTrimmed, 'found:', cellIdProductText, '. Only own row - no cross-row fetch.');
+                                        rowIndex = null;
                                     }
                                 } else {
-                                    console.warn('getCellValueByIdProductAndColumn: idProductCell not found for row_label:', rowLabel, 'Will fallback to id_product search');
-                                    rowIndex = null; // Reset rowIndex if id_product cell not found
+                                    idProductMismatchForRowLabel = true;
+                                    console.warn('getCellValueByIdProductAndColumn: id_product not found for row_label:', rowLabel, '. Only own row - no cross-row fetch.');
+                                    rowIndex = null;
                                 }
                                 break;
                             }
@@ -1154,12 +1165,11 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // CRITICAL: Always fallback to id_product search if row_label didn't yield a valid match
-                // This ensures correct data is read even when row positions change
-                if (!processRow) {
+                // 有 rowLabel 且 id_product 不匹配时不再按 id_product 搜别行，只显示当前行自己的数据（不匹配则返回 null）
+                if (!processRow && !idProductMismatchForRowLabel) {
                     processRow = findProcessRow(parsedTableData, idProductResolved);
                     if (rowLabel) {
-                        console.warn('getCellValueByIdProductAndColumn: Row not found by row_label or id_product mismatch, falling back to first matching row for id_product:', idProductResolved);
+                        console.warn('getCellValueByIdProductAndColumn: Row not found by row_label, falling back to first matching row for id_product:', idProductResolved);
                     }
                 }
                 
@@ -1359,7 +1369,7 @@ function getCurrentProcessId() {
             // 从 Add button 进入，一律视为“新增”，不带任何预填数据
             console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct);
             
-            // 打开空白表单（edit 按钮才负责加载旧数据）
+            // 打开空白表单（edit 按钮才负责加载旧数据）；传入 row 以便 Formula 下方只显示同行数据
             showEditFormulaForm(productValue, isSubIdProduct, {
                 account: '',
                 currency: '',
@@ -1372,11 +1382,12 @@ function getCurrentProcessId() {
                 enableInputMethod: false,
                 enableSourcePercent: true,
                 clickedColumns: ''
-            });
+            }, row);
         }
 
         // Show Edit Formula Form as modal positioned slightly towards top
-        function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
+        // contextSummaryRow: 当前编辑的 summary 行，用于 Formula 下方只展示同行 Data Capture 数据（同 id product 多行时）
+        function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null, contextSummaryRow = null) {
             // 规格：非编辑已有行时（新增）不沿用上次编辑的行货币
             if (!prePopulatedData || !prePopulatedData.accountDbId) {
                 window._editFormulaRowCurrency = null;
@@ -1397,8 +1408,13 @@ function getCurrentProcessId() {
                 modalContent = document.getElementById('editFormulaModalContent');
             }
             
-            // Find and store the current row for calculator keypad
-            if (productValue) {
+            // Find and store the current row for calculator keypad; 有 contextSummaryRow 则用其 data-row-index 控制 Formula 下方只显示同行
+            if (contextSummaryRow) {
+                currentSelectedRowForCalculator = contextSummaryRow;
+                const ri = contextSummaryRow.getAttribute('data-row-index');
+                window._editFormulaDataCaptureRowIndex = (ri !== null && ri !== '' && !Number.isNaN(Number(ri))) ? ri : null;
+            } else if (productValue) {
+                window._editFormulaDataCaptureRowIndex = null;
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
                     const rows = summaryTableBody.querySelectorAll('tr');
@@ -1406,10 +1422,14 @@ function getCurrentProcessId() {
                         const rowProcessValue = getProcessValueFromRow(row);
                         if (rowProcessValue === productValue) {
                             currentSelectedRowForCalculator = row;
+                            const ri = row.getAttribute('data-row-index');
+                            if (ri !== null && ri !== '' && !Number.isNaN(Number(ri))) window._editFormulaDataCaptureRowIndex = ri;
                             break;
                         }
                     }
                 }
+            } else {
+                window._editFormulaDataCaptureRowIndex = null;
             }
             
             // Helper function to escape HTML for use in attribute values
@@ -1656,10 +1676,14 @@ function getCurrentProcessId() {
                 const descriptionSelect1 = document.getElementById('descriptionSelect1');
                 if (descriptionSelect1) {
                     descriptionSelect1.addEventListener('change', function() {
-                        updateIdProductRowData(this.value);
+                        const val = this.value;
+                        if (val) {
+                            const processInput = document.getElementById('process');
+                            if (processInput) processInput.value = val; // 与左侧选择一致，选同行数据时 formula 用 $列号
+                        }
+                        updateIdProductRowData(val);
                     });
                 }
-                
             }, 100);
             
             // Add input validation for Source Percent
@@ -3105,8 +3129,15 @@ function getCurrentProcessId() {
             const capturedTableBody = document.getElementById('capturedTableBody');
             if (!capturedTableBody) return;
 
+            // 同 id product 多行时只显示「当前编辑行」对应的 Data Capture 行（不用 edit 里 Data 下拉，直接展示）
+            const contextRowIndex = window._editFormulaDataCaptureRowIndex;
+            const filterByRowIndex = (contextRowIndex !== null && contextRowIndex !== '' && !Number.isNaN(parseInt(contextRowIndex, 10)))
+                ? parseInt(contextRowIndex, 10) : null;
+
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
+                if (filterByRowIndex !== null && rowIndex !== filterByRowIndex) return;
+
                 // Try to get id_product from data-id-product attribute first
                 let rowIdProduct = row.getAttribute('data-id-product');
                 
@@ -4338,7 +4369,6 @@ function getCurrentProcessId() {
                             const displayColumnIndex = match.columnNumber;
                             const dataColumnIndex = displayColumnIndex - 1;
                             
-                            // 尝试从引用中获取 row_label（用 parseIdProductColumnRef 保留完整 id_product）
                             let rowLabel = null;
                             if (refIndex < refs.length) {
                                 const ref = refs[refIndex];
@@ -4348,11 +4378,17 @@ function getCurrentProcessId() {
                                     refIndex++;
                                 }
                             }
-                            
-                            // 使用id_product和列号获取值
+                            // [SZ.2] 等与当前编辑行同 id 时，用当前行 rowLabel 取值，避免抓到 SZT 等别行
+                            if (rowLabel == null && currentIdProduct) {
+                                const currentIdPart = currentIdProduct.indexOf(':') >= 0
+                                    ? currentIdProduct.substring(0, currentIdProduct.lastIndexOf(':')).trim() : currentIdProduct;
+                                if (currentIdPart && normalizeIdProductText(idProduct) === normalizeIdProductText(currentIdPart)) {
+                                    rowLabel = getRowLabelFromProcessValue(processValue);
+                                }
+                            }
                             if (dataColumnIndex > 0) {
                                 columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
-                                console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], value:', columnValue);
+                                console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], rowLabel:', rowLabel, ', value:', columnValue);
                             }
                         } else {
                             // 当前row格式 $数字：从引用中按顺序获取（parseIdProductColumnRef 保留完整 id_product）
@@ -5436,18 +5472,30 @@ function getCurrentProcessId() {
         function insertCellValueToFormula(cell) {
             const formulaInput = document.getElementById('formula');
             if (!formulaInput) {
-                // Formula input not found - maybe form is not open
                 showNotification('Info', 'Please Open Edit Formula', 'info');
                 return;
             }
-            
-            // Check if formula input is visible (form is open)
             const editFormulaModal = document.getElementById('editFormulaModal');
             if (!editFormulaModal || (editFormulaModal.style.display !== 'flex' && editFormulaModal.style.display !== 'block')) {
                 showNotification('Info', 'Please Open Edit Formula', 'info');
                 return;
             }
-            
+            // process 无 row_label 时从左侧下拉同步为 id:rowLabel，避免 getRowLabelFromProcessValue 取错行导致插入 [id,列] 而非 $列
+            const processInput = document.getElementById('process');
+            const descriptionSelect1 = document.getElementById('descriptionSelect1');
+            if (processInput && descriptionSelect1 && processInput.value && processInput.value.indexOf(':') < 0) {
+                const cur = processInput.value.trim();
+                for (let i = 0; i < descriptionSelect1.options.length; i++) {
+                    const opt = descriptionSelect1.options[i];
+                    const val = (opt.value || '').trim();
+                    if (!val || val.indexOf(':') < 0) continue;
+                    const idPart = val.substring(0, val.lastIndexOf(':')).trim();
+                    if (idPart && (idPart === cur || (typeof normalizeIdProductText === 'function' && normalizeIdProductText(idPart) === normalizeIdProductText(cur)))) {
+                        processInput.value = val;
+                        break;
+                    }
+                }
+            }
             // Don't update currentSelectedRowForCalculator when clicking cells
             // This ensures that clicking cells from other id product rows directly uses the clicked cell's value
             // instead of looking up values from the current edit row based on column
@@ -5607,14 +5655,25 @@ function getCurrentProcessId() {
             // Get cursor position
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             
-            // Get current editing id_product from process field
-            const processInput = document.getElementById('process');
+            // Get current editing id_product from process field（可能为 id_product:row_label 如 SZ:C）
             const currentIdProduct = processInput ? processInput.value.trim() : null;
+            const currentIdProductForMatch = currentIdProduct && currentIdProduct.indexOf(':') >= 0
+                ? currentIdProduct.substring(0, currentIdProduct.lastIndexOf(':')).trim() : currentIdProduct;
             
-            // Get current editing row_label (to distinguish between rows with same id_product)
-            const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
+            let currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
+            // process 无 : 时 getRowLabelFromProcessValue 可能解析到类似 id（如 SZ->SZT）取错行；从左侧下拉选中项取 row_label 保证 id_product main 独立
+            if (descriptionSelect1 && descriptionSelect1.selectedIndex >= 0 && currentIdProductForMatch) {
+                const selOpt = descriptionSelect1.options[descriptionSelect1.selectedIndex];
+                const selVal = (selOpt && selOpt.value || '').trim();
+                if (selVal.indexOf(':') >= 0) {
+                    const selIdPart = selVal.substring(0, selVal.lastIndexOf(':')).trim();
+                    const selRowPart = selVal.substring(selVal.lastIndexOf(':') + 1).trim();
+                    if (selIdPart && (selIdPart === currentIdProductForMatch || (typeof normalizeIdProductText === 'function' && normalizeIdProductText(selIdPart) === normalizeIdProductText(currentIdProductForMatch)))) {
+                        currentRowLabel = selRowPart;
+                    }
+                }
+            }
             
-            // Get clicked cell's row_label
             let clickedRowLabel = cell.getAttribute('data-row-label');
             if (!clickedRowLabel && row) {
                 const rowHeaderCell = row.querySelector('.row-header');
@@ -5624,25 +5683,23 @@ function getCurrentProcessId() {
                 }
             }
             
-            // 每个都是独立 main，不归一。表里可能是截断显示（如 KZAWCMS(SV)），编辑行为完整（如 KZAWCMS(SV)MYR），需视为同一行用 $列号
+            // Replace 后 id 独立：process 为 SZ:C 时用 id 部分 SZ 与单元格 id 比较，一致则本行用 $列号
             const normalizeSpacesForRow = (s) => (s || '').trim().replace(/\s+/g, '');
-            const curNorm = normalizeSpacesForRow(currentIdProduct);
+            const curNorm = normalizeSpacesForRow(currentIdProductForMatch);
             const clickNorm = normalizeSpacesForRow(idProduct);
-            const bothFull = typeof isFullIdProduct === 'function' && isFullIdProduct(currentIdProduct) && isFullIdProduct(idProduct);
-            const idProductMatches = currentIdProduct && idProduct && (
+            const bothFull = typeof isFullIdProduct === 'function' && isFullIdProduct(currentIdProductForMatch) && isFullIdProduct(idProduct);
+            const idProductMatches = currentIdProductForMatch && idProduct && (
                 bothFull
                     ? (curNorm === clickNorm || curNorm.indexOf(clickNorm) === 0 || clickNorm.indexOf(curNorm) === 0)
-                    : normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct)
+                    : normalizeIdProductText(currentIdProductForMatch) === normalizeIdProductText(idProduct)
             );
             
-            // 当前编辑行无 row_label（如 ALLBET95MS(KM)MYR）时，只要 id_product 一致就视为「本行」，用 $列号
             let rowLabelMatches = true;
             if (currentRowLabel && clickedRowLabel) {
                 rowLabelMatches = currentRowLabel === clickedRowLabel;
             } else if (currentRowLabel && !clickedRowLabel) {
                 rowLabelMatches = false;
             }
-            // currentRowLabel 为空、clickedRowLabel 有值（如 B）：仍视为本行，用 $ 格式，方便在「本账号」选金额显示 $6 而非 [id,6]
             
             const isCurrentRow = idProductMatches && rowLabelMatches;
             
@@ -5885,15 +5942,17 @@ function getCurrentProcessId() {
                         const processValue = document.getElementById('process')?.value;
                         
                         if (hasNewFormat && processValue) {
-                            // 将当前行的 [id_product,列号] 转为 $列号 显示，与第二张图一致
-                            const currentIdProduct = processValue.trim();
+                            // 将当前行的 [id_product,列号] 转为 $列号 显示；process 可能为 SZ:C，比较时只用 id 部分
+                            const currentIdProductRaw = processValue.trim();
+                            const currentIdProductForMatch = currentIdProductRaw.indexOf(':') >= 0
+                                ? currentIdProductRaw.substring(0, currentIdProductRaw.lastIndexOf(':')).trim() : currentIdProductRaw;
                             const bracketPattern = /\[([^,\]]+),(\d+)\]/g;
                             formulaValueToSet = formulaValueToSet.replace(bracketPattern, function(match, idProduct, colNum) {
                                 const refId = (idProduct || '').trim();
-                                const isCurrentRow = currentIdProduct && (
+                                const isCurrentRow = currentIdProductForMatch && (
                                     (typeof isFullIdProduct === 'function' && isFullIdProduct(refId))
-                                        ? (refId === currentIdProduct)
-                                        : (typeof normalizeIdProductText === 'function' && normalizeIdProductText(refId) === normalizeIdProductText(currentIdProduct))
+                                        ? (refId === currentIdProductForMatch)
+                                        : (typeof normalizeIdProductText === 'function' && normalizeIdProductText(refId) === normalizeIdProductText(currentIdProductForMatch))
                                 );
                                 return isCurrentRow ? '$' + colNum : match;
                             });
@@ -7539,8 +7598,11 @@ function getCurrentProcessId() {
                                 return full;
                             }
                             if (shortNormLabel && nSpLabel(full).indexOf(shortNormLabel) === 0) {
-                                console.log('resolveToFullIdProduct: resolved (prefix) with rowLabel', extractedRowLabel, shortTrim, '->', full);
-                                return full;
+                                const rest = nSpLabel(full).substring(shortNormLabel.length);
+                                if (rest.length === 0 || !/^[a-zA-Z0-9]/.test(rest)) {
+                                    console.log('resolveToFullIdProduct: resolved (prefix) with rowLabel', extractedRowLabel, shortTrim, '->', full);
+                                    return full;
+                                }
                             }
                         }
                     }
@@ -7566,6 +7628,11 @@ function getCurrentProcessId() {
                                 console.log('resolveToFullIdProduct: resolved by row index', extractedRowLabel, '->', full);
                                 return full;
                             }
+                            // 有 rowLabel 时只显示自己行：该行 id 与 shortTrim 未匹配（如 SUB TOTAL 行显示为 SZ）也返回该行 id，避免落到全表前缀匹配拿到别行（如 SZT）
+                            if (full) {
+                                console.log('resolveToFullIdProduct: use row at rowLabel (own row only)', extractedRowLabel, shortTrim, '->', full);
+                                return full;
+                            }
                         }
                     }
                 }
@@ -7580,8 +7647,11 @@ function getCurrentProcessId() {
                             return full;
                         }
                         if (shortNorm && nSp(full).indexOf(shortNorm) === 0) {
-                            console.log('resolveToFullIdProduct: resolved (prefix match)', shortTrim, '->', full);
-                            return full;
+                            const rest = nSp(full).substring(shortNorm.length);
+                            if (rest.length === 0 || !/^[a-zA-Z0-9]/.test(rest)) {
+                                console.log('resolveToFullIdProduct: resolved (prefix match)', shortTrim, '->', full);
+                                return full;
+                            }
                         }
                     }
                 }
@@ -7626,9 +7696,17 @@ function getCurrentProcessId() {
         function findProcessRow(tableData, processValue, rowIndex = null) {
             if (!tableData.rows) return null;
 
-            // 仅当传入的是截断 id（如 "(T07)"、"KZAWCMS(SV)"）时才解析为完整 id_product，完整 id（如 KZAWCMS (SV) MYR）直接使用，避免 (SV) 被错误解析成 (KM)
-            const processValueResolved = (typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(processValue))
-                ? resolveToFullIdProduct(processValue) : (processValue || '').trim();
+            // 仅当传入的是截断 id 时才解析。有 rowIndex 时用该行的 row_label 解析，避免 SZ 被解析成 SZT 导致本行判为不匹配
+            let processValueResolved;
+            if (typeof resolveToFullIdProduct === 'function' && isTruncatedIdProduct(processValue)) {
+                const row = (rowIndex !== null && rowIndex >= 0 && rowIndex < tableData.rows.length) ? tableData.rows[rowIndex] : null;
+                const rowLabelForResolve = (row && row[0] && row[0].value != null) ? String(row[0].value).trim() : null;
+                processValueResolved = (rowLabelForResolve != null && rowLabelForResolve !== '')
+                    ? resolveToFullIdProduct(processValue, rowLabelForResolve)
+                    : resolveToFullIdProduct(processValue);
+            } else {
+                processValueResolved = (processValue || '').trim();
+            }
 
             // Normalize the process value for comparison (only used when not full id)
             const normalizedProcessValue = normalizeIdProductText(processValueResolved);
@@ -7648,11 +7726,13 @@ function getCurrentProcessId() {
                         console.log('findProcessRow: Found row by rowIndex:', rowIndex, 'id_product matches:', processValueResolved);
                         return row;
                     } else {
-                        // CRITICAL: If id_product doesn't match, DO NOT use this row
-                        console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValueResolved, 'Found:', rowValue, '. Falling back to id_product search.');
+                        // 只显示自己的：rowIndex 指定了行但 id 不一致（如 SZ 行 vs 解析后的 SZT）时不搜别行，直接返回 null
+                        console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValueResolved, 'Found:', rowValue, '. Only own row - return null.');
+                        return null;
                     }
                 } else {
-                    console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but row is invalid. Falling back to id_product search.');
+                    console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but row is invalid. Only own row - return null.');
+                    return null;
                 }
             }
 
@@ -11302,7 +11382,7 @@ function getCurrentProcessId() {
                 sourcePercent: sourcePercentValue
             });
             
-            // Show the Edit Formula form with pre-populated data
+            // Show the Edit Formula form with pre-populated data；传入 row 以便 Formula 下方只显示同行数据
             showEditFormulaForm(processValue, false, {
                 account: accountValue,
                 accountDbId: accountDbId,
@@ -11317,7 +11397,7 @@ function getCurrentProcessId() {
                 enableInputMethod: enableInputMethodValue,
                 enableSourcePercent: enableSourcePercentValue,
                 clickedColumns: clickedColumns // Pass clicked columns for restoration
-            });
+            }, row);
         }
         
         // Helper function to get process value from row
@@ -15115,8 +15195,9 @@ function reorderSummaryRowsByRowIndex() {
             // Primary sort: by normalizedMain (id_product) to group same id_product together
             // 首先按 normalizedMain（id_product）分组，确保同一个 id_product 的所有行在一起
             if (a.normalizedMain !== b.normalizedMain) {
-                // Different id_product: sort by Data Capture Table position
-                // 不同的 id_product：按 Data Capture Table 位置排序
+                // Different id_product: prefer preserved row_index (matches console/Data Capture order), fallback to dataCapturePosition
+                // 不同的 id_product：优先按保留的 row_index 排序（与 console 一致），否则用 dataCapturePosition
+                if (a.rowIndex != null && b.rowIndex != null) return a.rowIndex - b.rowIndex;
                 return a.dataCapturePosition - b.dataCapturePosition;
             }
             

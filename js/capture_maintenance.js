@@ -199,7 +199,8 @@ function __(key) { return (typeof window.__LANG !== 'undefined' && window.__LANG
                         btn.type = 'button';
                         btn.className = 'maintenance-company-btn';
                         const labelKey = 'cm.category_' + permission.toLowerCase();
-                        btn.textContent = typeof __ !== 'undefined' ? __(labelKey) : permission;
+                        const L = typeof window.__LANG !== 'undefined' ? window.__LANG : {};
+                        btn.textContent = L[labelKey] || permission;
                         btn.dataset.permission = permission;
                         btn.onclick = () => switchPermission(permission);
                         containerEl.appendChild(btn);

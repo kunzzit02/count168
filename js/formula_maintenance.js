@@ -137,7 +137,7 @@ function __(key) { return (typeof window.__LANG !== 'undefined' && window.__LANG
                         });
                         
                         // Add "All Process" option
-                        const selectAllText = typeof __ !== 'undefined' ? __('cm.select_all') : '--Select All--';
+                        const selectAllText = (typeof __ !== 'undefined' && __('cm.select_all') !== 'cm.select_all') ? __('cm.select_all') : '--Select All--';
                         const allOption = document.createElement('div');
                         allOption.className = 'custom-select-option';
                         allOption.textContent = selectAllText;
@@ -170,7 +170,7 @@ function __(key) { return (typeof window.__LANG !== 'undefined' && window.__LANG
                         
                         // If no value selected, show placeholder
                         if (!previousValue) {
-                            processButton.textContent = processButton.getAttribute('data-placeholder') || (typeof __ !== 'undefined' ? __('cm.select_all') : '--Select All--');
+                            processButton.textContent = processButton.getAttribute('data-placeholder') || ((typeof __ !== 'undefined' && __('cm.select_all') !== 'cm.select_all') ? __('cm.select_all') : '--Select All--');
                             processButton.removeAttribute('data-value');
                         }
                         
@@ -552,12 +552,10 @@ function __(key) { return (typeof window.__LANG !== 'undefined' && window.__LANG
         function loadDataCaptureList() {
             const processButton = document.getElementById('filter_process');
             const process = processButton?.getAttribute('data-value') || '';
-            // 使用展示文本进行精确匹配，避免包含相同字眼的其他 Process 也被列出
-            const selectedProcessDisplay = (processButton?.textContent || '').trim();
-            const selectAllText = typeof __ !== 'undefined' ? __('cm.select_all') : '--Select All--';
-            const selectedProcessUpper = selectedProcessDisplay && selectedProcessDisplay !== selectAllText
-                ? selectedProcessDisplay.toUpperCase()
-                : '';
+            // 仅当已选具体 Process（data-value 非空）时做前端过滤，否则不过滤，避免 __('cm.select_all') 缺 key 时误把 --Select All-- 当值过滤
+            const selectedProcessUpper = (process === '' || !process)
+                ? ''
+                : (processButton?.textContent || '').trim().toUpperCase();
             const searchFilter = document.getElementById('search_filter').value.trim();
             const dateFromEl = document.getElementById('date_from');
             const dateToEl = document.getElementById('date_to');
@@ -655,7 +653,7 @@ function __(key) { return (typeof window.__LANG !== 'undefined' && window.__LANG
                             if (container) {
                                 container.style.display = 'none';
                             }
-                            showNotification(typeof __ !== 'undefined' ? __('cm.no_data_found') : 'No data found', 'info');
+                            showNotification((typeof __ !== 'undefined' && __('cm.no_data_found') !== 'cm.no_data_found') ? __('cm.no_data_found') : 'No data found', 'info');
                         } else {
                             renderDataCaptureTable(filteredData);
                             const foundMsg = typeof __ !== 'undefined' ? (__('tm.found_records').replace('%d', filteredData.length)) : `Found ${filteredData.length} record(s)`;
