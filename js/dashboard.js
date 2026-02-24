@@ -1356,7 +1356,7 @@ function createChart(canvas, chartData) {
                         beginAtZero: false,
                         ticks: {
                             callback: function(value) {
-                                return 'RM ' + formatCurrency(value);
+                                return formatCurrency(value);
                             },
                             font: { size: axisFontSize }
                         },
