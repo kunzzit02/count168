@@ -536,10 +536,17 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="add-col">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add_copy_from">Copy From</label>
-                                <select id="add_copy_from" name="copy_from">
-                                    <option value="">Select Process to Copy</option>
-                                </select>
+                                <label for="add_copy_from_btn">Copy From</label>
+                                <div class="custom-select-wrapper">
+                                    <button type="button" class="custom-select-button" id="add_copy_from_btn" data-placeholder="Select Process to Copy From">Select Process to Copy From</button>
+                                    <div class="custom-select-dropdown" id="add_copy_from_dropdown">
+                                        <div class="custom-select-search">
+                                            <input type="text" placeholder="Search process..." autocomplete="off">
+                                        </div>
+                                        <div class="custom-select-options"></div>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="add_copy_from" name="copy_from" value="">
                             </div>
                         </div>
 

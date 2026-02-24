@@ -459,6 +459,8 @@
         function closeAddModal() {
             document.getElementById('addModal').style.display = 'none';
             document.getElementById('addProcessForm').reset();
+            const copyFromBtn = document.getElementById('add_copy_from_btn');
+            if (copyFromBtn) copyFromBtn.textContent = copyFromBtn.getAttribute('data-placeholder') || 'Select Process to Copy From';
 
             // 重置 multi-use 状态
             const multiUseCheckbox = document.getElementById('add_multi_use');
@@ -1676,28 +1678,33 @@
                         currencySelect.appendChild(option);
                     });
 
-                    // 填充 copy from 下拉列表
-                    const copyFromSelect = document.getElementById('add_copy_from');
-                    copyFromSelect.innerHTML = '<option value="">Select Process to Copy From</option>';
-                    if (result.existingProcesses && result.existingProcesses.length > 0) {
-                        // 按 A-Z 排序：先按 process_name 排序，如果相同则按 description_name 排序
-                        const sortedProcesses = [...result.existingProcesses].sort((a, b) => {
-                            const aName = (a.process_name || 'Unknown').toUpperCase();
-                            const bName = (b.process_name || 'Unknown').toUpperCase();
-                            if (aName !== bName) {
-                                return aName.localeCompare(bName);
-                            }
-                            const aDesc = (a.description_name || 'No Description').toUpperCase();
-                            const bDesc = (b.description_name || 'No Description').toUpperCase();
-                            return aDesc.localeCompare(bDesc);
-                        });
-
-                        sortedProcesses.forEach(process => {
-                            const option = document.createElement('option');
-                            option.value = process.process_id;
-                            option.textContent = `${process.process_name || 'Unknown'} - ${process.description_name || 'No Description'}`;
-                            copyFromSelect.appendChild(option);
-                        });
+                    // 填充 copy from 下拉列表（可搜索 custom select）
+                    const copyFromBtn = document.getElementById('add_copy_from_btn');
+                    const copyFromHidden = document.getElementById('add_copy_from');
+                    const copyFromDropdown = document.getElementById('add_copy_from_dropdown');
+                    const copyFromOptionsContainer = copyFromDropdown?.querySelector('.custom-select-options');
+                    const placeholder = (copyFromBtn && copyFromBtn.getAttribute('data-placeholder')) || 'Select Process to Copy From';
+                    if (copyFromBtn) copyFromBtn.textContent = placeholder;
+                    if (copyFromHidden) copyFromHidden.value = '';
+                    if (copyFromOptionsContainer) {
+                        copyFromOptionsContainer.innerHTML = '';
+                        if (result.existingProcesses && result.existingProcesses.length > 0) {
+                            const sortedProcesses = [...result.existingProcesses].sort((a, b) => {
+                                const aName = (a.process_name || 'Unknown').toUpperCase();
+                                const bName = (b.process_name || 'Unknown').toUpperCase();
+                                if (aName !== bName) return aName.localeCompare(bName);
+                                const aDesc = (a.description_name || 'No Description').toUpperCase();
+                                const bDesc = (b.description_name || 'No Description').toUpperCase();
+                                return aDesc.localeCompare(bDesc);
+                            });
+                            sortedProcesses.forEach(process => {
+                                const option = document.createElement('div');
+                                option.className = 'custom-select-option';
+                                option.textContent = `${process.process_name || 'Unknown'} - ${process.description_name || 'No Description'}`;
+                                option.setAttribute('data-value', process.process_id);
+                                copyFromOptionsContainer.appendChild(option);
+                            });
+                        }
                     }
 
                     // 填充 process 复选框（用于 multi-use）
@@ -2168,9 +2175,9 @@
                 const formData = new FormData(this);
 
                 // 显式带上 Copy From（保证同步源会写入 sync_source_process_id）
-                const copyFromSelect = document.getElementById('add_copy_from');
-                if (copyFromSelect && copyFromSelect.value && copyFromSelect.value.trim() !== '') {
-                    formData.set('copy_from', copyFromSelect.value.trim());
+                const copyFromHidden = document.getElementById('add_copy_from');
+                if (copyFromHidden && copyFromHidden.value && copyFromHidden.value.trim() !== '') {
+                    formData.set('copy_from', copyFromHidden.value.trim());
                 }
 
                 // 添加选中的 descriptions
@@ -4626,10 +4633,10 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                         processInput.style.cursor = 'not-allowed';
                         processInput.removeAttribute('required');
                         // 勾选 Multi-Process 后：若已选 Copy From，自动将 Description 与 Copy From 的账号同步（含 Data Capture Formula 在提交时由后端复制）
-                        const copyFromSelect = document.getElementById('add_copy_from');
-                        if (copyFromSelect && copyFromSelect.value) {
+                        const copyFromHidden = document.getElementById('add_copy_from');
+                        if (copyFromHidden && copyFromHidden.value) {
                             try {
-                                await syncFormFromCopyFrom(copyFromSelect.value);
+                                await syncFormFromCopyFrom(copyFromHidden.value);
                             } catch (e) {
                                 console.error('Multi-Process: sync from Copy From failed', e);
                             }
@@ -4805,10 +4812,10 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
             }
 
-            // 处理 copy-from 下拉选择变化
-            const copyFromSelect = document.getElementById('add_copy_from');
-            if (copyFromSelect) {
-                copyFromSelect.addEventListener('change', async function () {
+            // 处理 copy-from 下拉选择变化（现为 hidden input，选择时由 initCopyFromSelect 设值并 dispatch change）
+            const copyFromHidden = document.getElementById('add_copy_from');
+            if (copyFromHidden) {
+                copyFromHidden.addEventListener('change', async function () {
                     const processId = this.value;
                     if (!processId) {
                         document.getElementById('add_currency').value = '';
@@ -4832,6 +4839,78 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     }
                 });
             }
+
+            // Copy From：与 Select Process 一致的可搜索下拉（展开/搜索/选择）
+            function initCopyFromSelect() {
+                const btn = document.getElementById('add_copy_from_btn');
+                const dropdown = document.getElementById('add_copy_from_dropdown');
+                const searchInput = dropdown?.querySelector('.custom-select-search input');
+                const optionsContainer = dropdown?.querySelector('.custom-select-options');
+                const hiddenInput = document.getElementById('add_copy_from');
+                if (!btn || !dropdown || !searchInput || !optionsContainer || !hiddenInput) return;
+                let isOpen = false;
+
+                function updateCopyFromFilter(filterText) {
+                    const filterLower = (filterText || '').toLowerCase().trim();
+                    const allOptions = Array.from(optionsContainer.querySelectorAll('.custom-select-option'));
+                    allOptions.forEach(opt => {
+                        const text = (opt.textContent || '').toLowerCase();
+                        opt.style.display = !filterLower || text.includes(filterLower) ? '' : 'none';
+                    });
+                    let noResults = dropdown.querySelector('.custom-select-no-results');
+                    const visibleCount = allOptions.filter(o => o.style.display !== 'none').length;
+                    if (visibleCount === 0 && filterLower) {
+                        if (!noResults) {
+                            noResults = document.createElement('div');
+                            noResults.className = 'custom-select-no-results';
+                            noResults.textContent = 'No results found';
+                            optionsContainer.appendChild(noResults);
+                        }
+                        noResults.style.display = 'block';
+                    } else if (noResults) noResults.style.display = 'none';
+                }
+
+                function closeDropdown() {
+                    isOpen = false;
+                    dropdown.classList.remove('show');
+                    btn.classList.remove('open');
+                }
+
+                function selectCopyFromOption(option) {
+                    const value = option.getAttribute('data-value');
+                    const text = option.textContent || '';
+                    hiddenInput.value = value || '';
+                    btn.textContent = value ? text : (btn.getAttribute('data-placeholder') || 'Select Process to Copy From');
+                    optionsContainer.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                    option.classList.add('selected');
+                    hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    closeDropdown();
+                }
+
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    isOpen = !isOpen;
+                    if (isOpen) {
+                        dropdown.classList.add('show');
+                        btn.classList.add('open');
+                        searchInput.value = '';
+                        updateCopyFromFilter('');
+                        setTimeout(function () { searchInput.focus(); }, 10);
+                    } else closeDropdown();
+                });
+                searchInput.addEventListener('input', function () { updateCopyFromFilter(this.value); });
+                searchInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') closeDropdown();
+                });
+                optionsContainer.addEventListener('click', function (e) {
+                    const option = e.target.closest('.custom-select-option');
+                    if (option && option.style.display !== 'none') selectCopyFromOption(option);
+                });
+                document.addEventListener('click', function (e) {
+                    if (!btn.contains(e.target) && !dropdown.contains(e.target)) closeDropdown();
+                });
+            }
+            initCopyFromSelect();
 
             // 检查 URL 参数并显示相应的消息
             const urlParams = new URLSearchParams(window.location.search);
