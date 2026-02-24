@@ -537,7 +537,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="add_copy_from">Copy From</label>
-                                <input type="text" id="add_copy_from_search" class="copy-from-search" placeholder="Search process..." autocomplete="off">
                                 <select id="add_copy_from" name="copy_from">
                                     <option value="">Select Process to Copy</option>
                                 </select>

@@ -422,8 +422,6 @@
                     updateBankSubmitButtonState();
                 });
             } else {
-                const copyFromSearch = document.getElementById('add_copy_from_search');
-                if (copyFromSearch) copyFromSearch.value = '';
                 loadAddProcessData();
                 document.getElementById('addModal').style.display = 'block';
             }
@@ -1701,7 +1699,6 @@
                             copyFromSelect.appendChild(option);
                         });
                     }
-                    filterCopyFromBySearch();
 
                     // 填充 process 复选框（用于 multi-use）
                     const processCheckboxes = document.getElementById('process_checkboxes');
@@ -4808,36 +4805,9 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
             }
 
-            function filterCopyFromBySearch() {
-                const sel = document.getElementById('add_copy_from');
-                const searchEl = document.getElementById('add_copy_from_search');
-                if (!sel || !searchEl) return;
-                const q = (searchEl.value || '').trim().toLowerCase();
-                let firstEnabledValue = '';
-                for (let i = 0; i < sel.options.length; i++) {
-                    const opt = sel.options[i];
-                    if (opt.value === '') {
-                        opt.disabled = false;
-                        continue;
-                    }
-                    const match = !q || (opt.textContent || '').toLowerCase().indexOf(q) >= 0;
-                    opt.disabled = !match;
-                    if (match && !firstEnabledValue) firstEnabledValue = opt.value;
-                }
-                if (sel.value && sel.options[sel.selectedIndex].disabled) {
-                    sel.value = firstEnabledValue || '';
-                }
-            }
-
+            // 处理 copy-from 下拉选择变化
             const copyFromSelect = document.getElementById('add_copy_from');
             if (copyFromSelect) {
-                const copyFromSearchEl = document.getElementById('add_copy_from_search');
-                if (copyFromSearchEl) {
-                    copyFromSearchEl.addEventListener('input', filterCopyFromBySearch);
-                    copyFromSearchEl.addEventListener('keydown', function (e) {
-                        if (e.key === 'Enter') e.preventDefault();
-                    });
-                }
                 copyFromSelect.addEventListener('change', async function () {
                     const processId = this.value;
                     if (!processId) {
