@@ -191,9 +191,7 @@
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = 'maintenance-company-btn';
-                    const L = typeof window.__LANG !== 'undefined' ? window.__LANG : {};
-                    const labelKey = 'cm.category_' + permission.toLowerCase();
-                    btn.textContent = L[labelKey] || permission;
+                    btn.textContent = permission;
                     btn.dataset.permission = permission;
                     btn.onclick = () => switchPermission(permission);
                     containerEl.appendChild(btn);
@@ -329,7 +327,7 @@
             })
             .catch(error => {
                 console.error('❌ 加载Process列表失败:', error);
-                showNotification(error.message || (typeof __ !== 'undefined' ? __('tm.search_failed') : 'Failed to load process list'), 'error');
+                showNotification(error.message || 'Failed to load process list', 'error');
             });
     }
 
@@ -478,7 +476,7 @@
         const dateTo = document.getElementById('date_to').value.trim();
 
         if (!dateFrom || !dateTo) {
-            showNotification(typeof __ !== 'undefined' ? __('tm.please_select_date_range') : 'Please select date range', 'error');
+            showNotification('Please select date range', 'error');
             return;
         }
 
@@ -509,19 +507,19 @@
                     if (data.data.length === 0) {
                         document.getElementById('emptyState').style.display = 'block';
                         document.getElementById('tableContainer').style.display = 'none';
-                        showNotification(typeof __ !== 'undefined' ? __('tm.no_results_found') : 'No data found', 'info');
+                        showNotification('No data found', 'info');
                     } else {
-                        showNotification(typeof __ !== 'undefined' ? __('tm.found_records').replace('%d', String(data.data.length)) : `Found ${data.data.length} record(s)`, 'success');
+                        showNotification(`Found ${data.data.length} record(s)`, 'success');
                     }
                 } else {
-                    showNotification(data.error || (typeof __ !== 'undefined' ? __('tm.search_failed') : 'Search failed'), 'error');
+                    showNotification(data.error || 'Search failed', 'error');
                     document.getElementById('emptyState').style.display = 'block';
                     document.getElementById('tableContainer').style.display = 'none';
                 }
             })
             .catch(error => {
                 console.error('❌ 搜索失败:', error);
-                showNotification((typeof __ !== 'undefined' ? __('tm.search_failed') : 'Search failed') + ': ' + error.message, 'error');
+                showNotification('Search failed: ' + error.message, 'error');
                 document.getElementById('emptyState').style.display = 'block';
                 document.getElementById('tableContainer').style.display = 'none';
             });
@@ -661,10 +659,10 @@
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('success') === '1') {
-            showNotification(typeof __ !== 'undefined' ? __('tm.operation_success') : 'Operation completed successfully!', 'success');
+            showNotification('Operation completed successfully!', 'success');
             window.history.replaceState({}, document.title, window.location.pathname);
         } else if (urlParams.get('error') === '1') {
-            showNotification(typeof __ !== 'undefined' ? __('tm.operation_failed') : 'Operation failed. Please try again.', 'error');
+            showNotification('Operation failed. Please try again.', 'error');
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     });

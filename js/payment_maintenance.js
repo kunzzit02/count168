@@ -1,5 +1,3 @@
-        function __(key) { return (typeof window.__LANG !== 'undefined' && window.__LANG[key]) ? window.__LANG[key] : key; }
-
         // Notification functions
         function showNotification(message, type = 'success') {
             const container = document.getElementById('notificationContainer');
@@ -146,9 +144,7 @@
                         const btn = document.createElement('button');
                         btn.type = 'button';
                         btn.className = 'maintenance-company-btn';
-                        const L = typeof window.__LANG !== 'undefined' ? window.__LANG : {};
-                        const labelKey = 'cm.category_' + permission.toLowerCase();
-                        btn.textContent = L[labelKey] || permission;
+                        btn.textContent = permission;
                         btn.dataset.permission = permission;
                         btn.onclick = () => switchPermission(permission);
                         containerEl.appendChild(btn);
@@ -236,7 +232,7 @@
             const tbody = document.getElementById('dataTableBody');
             const emptyState = document.getElementById('emptyState');
             const tableContainer = document.getElementById('tableContainer');
-            tbody.innerHTML = '<tr class="maintenance-row-empty"><td class="maintenance-table-cell" colspan="11" style="text-align: center; padding: 20px;">' + __('tm.loading') + '</td></tr>';
+            tbody.innerHTML = '<tr class="maintenance-row-empty"><td class="maintenance-table-cell" colspan="11" style="text-align: center; padding: 20px;">Loading...</td></tr>';
             emptyState.style.display = 'none';
             tableContainer.style.display = 'block';
         }
@@ -328,7 +324,7 @@
             
             // 验证日期
             if (!dateFrom || !dateTo) {
-                showNotification(__('tm.please_select_date_range'), 'error');
+                showNotification('Please select date range', 'error');
                 return;
             }
             
@@ -348,7 +344,7 @@
             
             // 显示加载状态
             const tbody = document.getElementById('dataTableBody');
-            tbody.innerHTML = '<div class="maintenance-list-card"><div class="maintenance-list-card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">' + __('tm.loading') + '</div></div>';
+            tbody.innerHTML = '<div class="maintenance-list-card"><div class="maintenance-list-card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">Loading...</div></div>';
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('tableContainer').style.display = 'block';
             
@@ -373,19 +369,19 @@
                         if (data.data.length === 0) {
                             document.getElementById('emptyState').style.display = 'block';
                             document.getElementById('tableContainer').style.display = 'none';
-                            showNotification(__('cm.no_data_found'), 'info');
+                            showNotification('No data found', 'info');
                         } else {
-                            showNotification(__('pm.found_records').replace('%d', data.data.length), 'success');
+                            showNotification(`Found ${data.data.length} record(s)`, 'success');
                         }
                     } else {
-                        showNotification(data.message || __('tm.search_failed'), 'error');
+                        showNotification(data.message || 'Search failed', 'error');
                         document.getElementById('emptyState').style.display = 'block';
                         document.getElementById('tableContainer').style.display = 'none';
                     }
                 })
                 .catch(error => {
                     console.error('❌ 搜索失败:', error);
-                    showNotification(__('tm.search_failed') + ': ' + error.message, 'error');
+                    showNotification('Search failed: ' + error.message, 'error');
                     document.getElementById('emptyState').style.display = 'block';
                     document.getElementById('tableContainer').style.display = 'none';
                 });
@@ -401,7 +397,7 @@
                 emptyRow.className = 'maintenance-row-empty';
                 emptyRow.innerHTML = `
                     <td class="maintenance-table-cell" colspan="11" style="text-align: center; padding: 16px;">
-                        ` + __('tm.no_data') + `
+                        No data
                     </td>
                 `;
                 tbody.appendChild(emptyRow);
@@ -494,20 +490,21 @@
             const confirmCheckbox = document.getElementById('confirmDelete');
             
             if (!confirmCheckbox.checked) {
-                showNotification(__('pm.confirm_checkbox_required'), 'error');
+                showNotification('Please confirm deletion by checking the checkbox', 'error');
                 return;
             }
             
             // Get all checked account IDs
             const checkboxes = document.querySelectorAll('.maintenance-row-checkbox:checked');
             if (checkboxes.length === 0) {
-                showNotification(__('pm.select_at_least_one'), 'error');
+                showNotification('Please select at least one record', 'error');
                 return;
             }
             
             const transactionIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-transaction-id'));
-            const confirmMsg = __('cm.confirm_delete_records_message').replace('%d', transactionIds.length);
-            showConfirmDelete(confirmMsg,
+            
+            showConfirmDelete(
+                `Are you sure you want to delete the selected ${transactionIds.length} record(s)? This action cannot be undone.`,
                 function() {
                     fetch('api/payment_maintenance/delete_api.php', {
                         method: 'POST',
@@ -519,7 +516,7 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            showNotification(data.message || __('pm.deleted_records').replace('%d', transactionIds.length), 'success');
+                            showNotification(data.message || `Deleted ${transactionIds.length} record(s)`, 'success');
                             checkboxes.forEach(cb => cb.checked = false);
                             confirmCheckbox.checked = false;
                             // 重置 Select All 复选框
@@ -532,12 +529,12 @@
                                 searchData();
                             }, 300);
                         } else {
-                            showNotification(data.message || __('cm.delete_failed'), 'error');
+                            showNotification(data.message || 'Delete failed', 'error');
                         }
                     })
                     .catch(error => {
                         console.error('删除失败:', error);
-                        showNotification(__('cm.delete_failed') + ': ' + error.message, 'error');
+                        showNotification('Delete failed: ' + error.message, 'error');
                     });
                 }
             );

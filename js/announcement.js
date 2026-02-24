@@ -1,6 +1,6 @@
 /* announcement.js - 从 announcement.php 提取，供公告与维护内容管理使用 */
 
-// 页面切换：Announcement / Maintenance
+// 頁面切換：Announcement / Maintenance
 (function initPageTabs() {
     document.addEventListener('DOMContentLoaded', function () {
         var tabs = document.querySelectorAll('.page-tab');
