@@ -597,4 +597,3 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     return ['value' => $cr_dr, 'has_transactions' => $has_transactions];
 }
 ?>
-
