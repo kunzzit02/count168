@@ -1862,22 +1862,29 @@
             }
             
             try {
-                // 鍒涘缓鏂拌揣甯?- 鍖呭惈褰撳墠閫夋嫨鐨?company_id
-                const currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID;
-                const response = await fetch('/api/accounts/addcurrencyapi.php', {
+                // 鍒涘缓鏂拌揣甯?- company_id: 椤甸潰閫夋嫨鎴栫紪杈戞ā寮忓璐︽埛宸插叧鑱旂殑鍏徃
+                let currentCompanyId = window.ACCOUNT_LIST_COMPANY_ID;
+                if ((!currentCompanyId || currentCompanyId === null) && type === 'edit' && selectedCompanyIdsForEdit && selectedCompanyIdsForEdit.length > 0) {
+                    currentCompanyId = selectedCompanyIdsForEdit[0];
+                }
+                if (!currentCompanyId) {
+                    showNotification('Please select a company first (or switch company in the sidebar)', 'danger');
+                    return false;
+                }
+                const response = await fetch('/api/accounts/create_currency_api.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         code: currencyCode,
                         company_id: currentCompanyId
                     })
                 });
-                
+
                 const result = await response.json();
-                
-                if (result.success) {
+
+                if (result.success && result.data) {
                     const newCurrencyId = result.data.id;
                     // 娣诲姞鍒版湰鍦拌揣甯佸垪琛?
                     currencies.push({ id: newCurrencyId, code: result.data.code });
@@ -1920,14 +1927,14 @@
                     
                     input.value = '';
                 } else {
-                    showNotification(result.error || 'Failed to create currency', 'danger');
+                    showNotification(result.message || result.error || 'Failed to create currency', 'danger');
                 }
             } catch (error) {
                 console.error('Error creating currency:', error);
                 showNotification('Failed to create currency', 'danger');
             }
-            
-            return false; // 闃叉瑙﹀彂琛ㄥ崟鎻愪氦
+
+            return false; // 闃叉瑙﹀彂琛ㄥ崟鎻愪氦
         }
 
         // Payment alert validation for add modal
