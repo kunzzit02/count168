@@ -870,6 +870,25 @@
     color: #999;
     font-size: 14px;
 }
+
+/* Add Process 内 Copy From 下拉：框高不变，选项更紧凑以同屏显示更多条，文字不裁切 */
+#add_copy_from_dropdown .custom-select-options {
+  max-height: min(380px, 60vh);
+  overflow-y: auto;
+  overflow-x: auto;
+}
+#add_copy_from_dropdown .custom-select-option {
+  padding: 4px 10px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  min-height: 1.4em;
+}
+#add_copy_from_dropdown .custom-select-no-results {
+  padding: 8px;
+  font-size: 13px;
+}
  .profit-sharing-with-add {
     display: flex;
     gap: 8px;
