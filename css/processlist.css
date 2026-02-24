@@ -11,6 +11,20 @@
 #edit_remarks {
     text-transform: uppercase;
 }
+
+.copy-from-search {
+    display: block;
+    width: 100%;
+    margin-bottom: 6px;
+    padding: 6px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.copy-from-search:focus {
+    outline: none;
+    border-color: #80bdff;
+}
  /* 注意：searchInput 和 descriptionSearch 不使用 CSS text-transform，保持实际值的显示 */
  /* 描述列表删除按钮样式 */
 .description-item {
