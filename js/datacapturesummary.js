@@ -501,11 +501,18 @@ function displayProcessInfo(processData) {
     processInfoContainer.style.display = 'block';
 }
 
-// 根据 Summary 表首行货币更新页头 Currency，使 DATA CAPTURE SUMMARY 的 Currency 与行内一致（如 JPY）
+// 根据 Summary 表首行货币更新页头 Currency；若 Data Capture 已选货币则优先显示该货币（与外面选择一致）
 function updateHeaderCurrencyFromSummaryTable() {
     const currencyEl = document.getElementById('processInfoCurrency');
+    if (!currencyEl) return;
+    const processData = window.capturedProcessData;
+    const processCurrency = processData && (processData.currencyName || processData.currency);
+    if (processCurrency && String(processCurrency).trim() !== '') {
+        currencyEl.textContent = String(processCurrency).trim();
+        return;
+    }
     const summaryTableBody = document.getElementById('summaryTableBody');
-    if (!currencyEl || !summaryTableBody) return;
+    if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
     for (let i = 0; i < rows.length; i++) {
         const cells = rows[i].querySelectorAll('td');
