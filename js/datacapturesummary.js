@@ -247,30 +247,26 @@ function saveFormulaSourceForRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
-    const map = {};
+    const byIndex = [];
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
         const idProductCell = cells[0];
-        if (!idProductCell) return;
-        const idProduct = idProductCell.textContent.trim();
-        if (!idProduct) return;
+        const idProduct = idProductCell ? idProductCell.textContent.trim() : '';
         const formulaCell = cells[4];
         const formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
         const sourceCell = cells[5];
         const source = sourceCell ? sourceCell.textContent.trim() : '';
-        const sourceColumns = row.getAttribute('data-source-columns') || '';
-        const formulaOperators = row.getAttribute('data-formula-operators') || '';
-        const sourcePercent = row.getAttribute('data-source-percent') || '';
-        map[idProduct] = {
+        byIndex.push({
+            idProduct,
             formula: formula || '',
             source: source || '',
-            sourceColumns: sourceColumns || '',
-            formulaOperators: formulaOperators || '',
-            sourcePercent: sourcePercent || ''
-        };
+            sourceColumns: (row.getAttribute('data-source-columns') || ''),
+            formulaOperators: (row.getAttribute('data-formula-operators') || ''),
+            sourcePercent: (row.getAttribute('data-source-percent') || '')
+        });
     });
     try {
-        localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(map));
+        localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(byIndex));
     } catch (e) {
         console.warn('saveFormulaSourceForRefresh:', e);
     }
@@ -286,17 +282,14 @@ function restoreFormulaSourceFromRefresh() {
     } catch (e) {
         return;
     }
-    if (!saved || typeof saved !== 'object') return;
+    if (!Array.isArray(saved) || saved.length === 0) return;
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
-    rows.forEach((row) => {
-        const cells = row.querySelectorAll('td');
-        const idProductCell = cells[0];
-        if (!idProductCell) return;
-        const idProduct = idProductCell.textContent.trim();
-        const data = saved[idProduct];
+    rows.forEach((row, i) => {
+        const data = saved[i];
         if (!data) return;
+        const cells = row.querySelectorAll('td');
         const formula = data.formula != null ? String(data.formula) : '';
         const source = data.source != null ? String(data.source) : '';
         if (data.sourceColumns != null) row.setAttribute('data-source-columns', data.sourceColumns);
