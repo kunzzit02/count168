@@ -4584,7 +4584,18 @@ function updateFormulaDisplay(formulaValue, processValue) {
                 return prefix + '(' + negativeNumber + ')';
             });
         }
-        
+
+        // 若原公式括号成对，展开后的显示也需成对，避免少右括号（如 ($4+$3) -> (8395.12+104.60）
+        const openOrig = (formulaValue.match(/\(/g) || []).length;
+        const closeOrig = (formulaValue.match(/\)/g) || []).length;
+        if (openOrig === closeOrig && finalDisplayFormula) {
+            const openDisplay = (finalDisplayFormula.match(/\(/g) || []).length;
+            const closeDisplay = (finalDisplayFormula.match(/\)/g) || []).length;
+            if (openDisplay > closeDisplay) {
+                finalDisplayFormula = finalDisplayFormula + ')'.repeat(openDisplay - closeDisplay);
+            }
+        }
+
         // 更新显示框
         formulaDisplayInput.value = finalDisplayFormula;
     } catch (error) {
