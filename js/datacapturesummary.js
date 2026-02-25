@@ -322,7 +322,8 @@ function restoreFormulaSourceFromRefresh() {
         row.setAttribute('data-base-processed-amount', (baseProcessedAmount != null && !isNaN(baseProcessedAmount)) ? baseProcessedAmount.toString() : '0');
         if (cells[8] && typeof applyRateToProcessedAmount === 'function') {
             const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-            cells[8].textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount : finalAmount;
+            const rounded = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount);
+            cells[8].textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(rounded) : String(finalAmount);
             cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
         }
     });
