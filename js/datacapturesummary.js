@@ -8238,7 +8238,8 @@ function evaluateFormulaExpression(formula) {
         if (!hasReferences) {
             // Pure numeric expression, evaluate directly without parseReferenceFormula
             // 纯数字表达式，直接计算，跳过 parseReferenceFormula
-            const sanitized = removeThousandsSeparators(trimmedFormula.replace(/\s+/g, ''));
+            let sanitized = removeThousandsSeparators(trimmedFormula.replace(/\s+/g, ''));
+            sanitized = sanitized.replace(/\u2212/g, '-'); // Unicode minus -> ASCII minus
             if (/^[0-9+\-*/().]+$/.test(sanitized)) {
                 const result = evaluateExpression(sanitized);
                 console.log('Formula expression evaluated (pure numeric, direct):', formula, '->', sanitized, '=', result);
@@ -8253,7 +8254,8 @@ function evaluateFormulaExpression(formula) {
         // IMPORTANT: For formulas with negative numbers in parentheses (e.g., (-1234)-(-2234)),
         // ensure proper evaluation by directly using evaluateExpression
         // This ensures real-time calculation works correctly
-        const sanitized = removeThousandsSeparators(parsedFormula.trim().replace(/\s+/g, ''));
+        let sanitized = removeThousandsSeparators(parsedFormula.trim().replace(/\s+/g, ''));
+        sanitized = sanitized.replace(/\u2212/g, '-'); // Unicode minus -> ASCII minus
         
         // Check if the formula contains only numbers, operators, and parentheses (no references)
         // If so, evaluate directly without additional parsing
@@ -9507,6 +9509,8 @@ function evaluateExpression(expression) {
         }
         
         let sanitizedExpression = removeThousandsSeparators(expression);
+        // 统一为 ASCII 减号，避免 Unicode 减号 (U+2212) 等导致校验失败或误解析
+        sanitizedExpression = sanitizedExpression.replace(/\u2212/g, '-');
         // 去掉货币显示 (MYR)、() 等，避免 "(MYR) 70.50" 导致 invalid characters
         sanitizedExpression = sanitizedExpression.replace(/\s*\([A-Z]{2,4}\)\s*/g, ' ');
         sanitizedExpression = sanitizedExpression.replace(/\s*\(\s*\)\s*/g, ' ');
