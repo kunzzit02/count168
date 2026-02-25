@@ -117,6 +117,9 @@ window.addEventListener('beforeunload', function() {
     if (!window.isNavigatingAwayByBackOrSubmit && typeof saveRateValuesForRefresh === 'function') {
         saveRateValuesForRefresh();
     }
+    if (!window.isNavigatingAwayByBackOrSubmit && typeof saveFormulaSourceForRefresh === 'function') {
+        saveFormulaSourceForRefresh();
+    }
 });
 
 // Close modal when clicking outside
@@ -239,7 +242,97 @@ function saveRateValuesForRefresh() {
     }
 }
 
-// Restore Rate Value column from localStorage after load (only set by refresh/beforeunload)
+// Save Formula + Source (and data attrs) per row by id_product for restore after refresh
+function saveFormulaSourceForRefresh() {
+    const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) return;
+    const rows = summaryTableBody.querySelectorAll('tr');
+    const map = {};
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const idProductCell = cells[0];
+        if (!idProductCell) return;
+        const idProduct = idProductCell.textContent.trim();
+        if (!idProduct) return;
+        const formulaCell = cells[4];
+        const formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+        const sourceCell = cells[5];
+        const source = sourceCell ? sourceCell.textContent.trim() : '';
+        const sourceColumns = row.getAttribute('data-source-columns') || '';
+        const formulaOperators = row.getAttribute('data-formula-operators') || '';
+        const sourcePercent = row.getAttribute('data-source-percent') || '';
+        map[idProduct] = {
+            formula: formula || '',
+            source: source || '',
+            sourceColumns: sourceColumns || '',
+            formulaOperators: formulaOperators || '',
+            sourcePercent: sourcePercent || ''
+        };
+    });
+    try {
+        localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(map));
+    } catch (e) {
+        console.warn('saveFormulaSourceForRefresh:', e);
+    }
+}
+
+// Restore Formula + Source from localStorage after load (only set by refresh/beforeunload)
+function restoreFormulaSourceFromRefresh() {
+    let saved;
+    try {
+        const raw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
+        if (!raw) return;
+        saved = JSON.parse(raw);
+    } catch (e) {
+        return;
+    }
+    if (!saved || typeof saved !== 'object') return;
+    const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) return;
+    const rows = summaryTableBody.querySelectorAll('tr');
+    rows.forEach((row) => {
+        const cells = row.querySelectorAll('td');
+        const idProductCell = cells[0];
+        if (!idProductCell) return;
+        const idProduct = idProductCell.textContent.trim();
+        const data = saved[idProduct];
+        if (!data) return;
+        const formula = data.formula != null ? String(data.formula) : '';
+        const source = data.source != null ? String(data.source) : '';
+        if (data.sourceColumns != null) row.setAttribute('data-source-columns', data.sourceColumns);
+        if (data.formulaOperators != null) row.setAttribute('data-formula-operators', data.formulaOperators);
+        if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
+        if (cells[4]) {
+            if (formula === '') {
+                cells[4].innerHTML = '';
+            } else {
+                cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>';
+                const span = cells[4].querySelector('.formula-text');
+                if (span) span.textContent = formula;
+            }
+        }
+        if (cells[5]) cells[5].textContent = source;
+        const sourcePercentText = source;
+        const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
+        const inputMethod = row.getAttribute('data-input-method') || '';
+        const enableInputMethod = !!(inputMethod && inputMethod.trim());
+        const baseProcessedAmount = typeof calculateFormulaResultFromExpression === 'function'
+            ? calculateFormulaResultFromExpression(formula, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent)
+            : 0;
+        row.setAttribute('data-base-processed-amount', (baseProcessedAmount != null && !isNaN(baseProcessedAmount)) ? baseProcessedAmount.toString() : '0');
+        if (cells[8] && typeof applyRateToProcessedAmount === 'function') {
+            const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
+            cells[8].textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount : finalAmount;
+            cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+        }
+    });
+    try {
+        localStorage.removeItem('capturedTableFormulaSourceForRefresh');
+    } catch (e) {}
+    if (typeof updateProcessedAmountTotal === 'function') {
+        updateProcessedAmountTotal();
+    }
+}
 function restoreRateValuesFromRefresh() {
     let saved;
     try {
@@ -279,13 +372,17 @@ function restoreRateValuesFromRefresh() {
 // Go back to datacapture page, preserving localStorage data
 function goBackToDataCapture() {
     window.isNavigatingAwayByBackOrSubmit = true;
-    try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
+    try {
+        localStorage.removeItem('capturedTableRateValues');
+        localStorage.removeItem('capturedTableFormulaSourceForRefresh');
+    } catch (e) {}
     window.location.href = 'datacapture.php?restore=1';
 }
 
-// Refresh page function: save rate values so they are restored after reload
+// Refresh page function: save rate values and formula/source so they are restored after reload
 function refreshPage() {
     saveRateValuesForRefresh();
+    saveFormulaSourceForRefresh();
     window.location.reload();
 }
 
@@ -805,6 +902,7 @@ function populateOriginalTableWithColumnAData(tableData) {
         .catch(error => console.error('Auto-populate templates error:', error))
         .finally(() => {
             restoreRateValuesFromRefresh();
+            restoreFormulaSourceFromRefresh();
             updateProcessedAmountTotal();
         });
 }
