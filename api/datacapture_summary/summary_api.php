@@ -1001,6 +1001,18 @@ function baseIdProductForKey($text) {
     return $pos > 0 ? trim(substr($trimmed, 0, $pos)) : $trimmed;
 }
 
+/**
+ * Normalized key for template grouping: base part with trailing " :" removed.
+ * 使 "MY EARNINGS : (RINGGIT...)" 与前端传入的 "MY EARNINGS" 一致，刷新后能取回模板。
+ */
+function baseIdProductForKeyNormalized($text) {
+    $base = baseIdProductForKey($text);
+    if ($base === '') {
+        return '';
+    }
+    return trim(rtrim($base, ' :'));
+}
+
 function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
     if (empty($ids) || $processId === null || $processId <= 0) {
         return [];
@@ -1022,7 +1034,8 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
         }
     }
     
-    // 前端传的是 normalize 后的 id（如 ALLBET95MS），库里有完整 id（如 ALLBET95MS(SV)MYR），需同时按「前缀」匹配
+    // 前端传的是 normalize 后的 id（如 ALLBET95MS、MY EARNINGS），库里有完整 id（如 ALLBET95MS(SV)MYR、MY EARNINGS : (RINGGIT...)），
+    // 需同时按「前缀」匹配；括号前带 " : " 的 id 再按「去掉尾部空格和冒号」匹配，与前端一致。
     $stmt = $pdo->prepare("
         SELECT
             id,
@@ -1059,10 +1072,12 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             (product_type = 'main' AND (
                 LOWER(id_product) IN ($placeholders)
                 OR LOWER(TRIM(SUBSTRING(id_product, 1, IF(LOCATE('(', id_product) > 0, LOCATE('(', id_product) - 1, LENGTH(id_product))))) IN ($placeholders)
+                OR LOWER(TRIM(TRIM(TRAILING ':' FROM TRIM(SUBSTRING(id_product, 1, IF(LOCATE('(', id_product) > 0, LOCATE('(', id_product) - 1, LENGTH(id_product))))))) IN ($placeholders)
             ))
             OR (product_type = 'sub' AND (
                 LOWER(parent_id_product) IN ($placeholders)
                 OR LOWER(TRIM(SUBSTRING(parent_id_product, 1, IF(LOCATE('(', parent_id_product) > 0, LOCATE('(', parent_id_product) - 1, LENGTH(parent_id_product))))) IN ($placeholders)
+                OR LOWER(TRIM(TRIM(TRAILING ':' FROM TRIM(SUBSTRING(parent_id_product, 1, IF(LOCATE('(', parent_id_product) > 0, LOCATE('(', parent_id_product) - 1, LENGTH(parent_id_product))))))) IN ($placeholders)
             ))
           )
         ORDER BY CASE WHEN row_index IS NULL THEN 1 ELSE 0 END,
@@ -1080,7 +1095,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                  id ASC
     ");
 
-    $params = array_merge([$companyId, $processId], $lowerIds, $lowerIds, $lowerIds, $lowerIds);
+    $params = array_merge([$companyId, $processId], $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds);
     $stmt->execute($params);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -1114,7 +1129,11 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
         if ($productType === 'sub') {
             $parentId = $row['parent_id_product'] ?? $row['id_product'];
             // 与 main 一致：用基名（第一个括号前）作 key，前端用 ALLBET95MS 才能取到 parent 为 ALLBET95MS(KM)MYR 的 sub
-            $parentKey = baseIdProductForKey($parentId);
+            // 使用 baseIdProductForKeyNormalized 使 "XXX : (YYY)" 的 key 为 "XXX"，与前端一致
+            $parentKey = baseIdProductForKeyNormalized($parentId);
+            if ($parentKey === '') {
+                $parentKey = baseIdProductForKey($parentId);
+            }
             if ($parentKey === '') {
                 $parentKey = normalizeIdProductForKey($parentId);
             }
@@ -1159,8 +1178,12 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             }
         } else {
             $idProduct = $row['id_product'];
-            // 用「基名」（第一个括号前）作 key，与前端 normalizeIdProductText 一致，便于 Summary 用 ALLBET95MS 取到 ALLBET95MS(SV)MYR 等
-            $mainKey = baseIdProductForKey($idProduct);
+            // 用「基名」（第一个括号前）作 key，与前端 normalizeIdProductText 一致；
+            // 使用 baseIdProductForKeyNormalized 使 "MY EARNINGS : (RINGGIT...)" 的 key 为 "MY EARNINGS"，刷新后能取回
+            $mainKey = baseIdProductForKeyNormalized($idProduct);
+            if ($mainKey === '') {
+                $mainKey = baseIdProductForKey($idProduct);
+            }
             if ($mainKey === '') {
                 $mainKey = normalizeIdProductForKey($idProduct);
             }
