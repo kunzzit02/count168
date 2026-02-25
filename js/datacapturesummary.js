@@ -8620,10 +8620,32 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
         const decimalValue = evaluateExpression(sanitizedSourcePercent);
         
         // If source is 1, don't multiply (multiplying by 1 has no effect)
-        // If formula already ends with *(sourcePercent), don't multiply again (avoid double application)
+        // If formula already ends with *(sourcePercent) or *(expr that equals source), don't multiply again (avoid double application)
         const formulaTrimmed = (formula || '').trim().replace(/\s+/g, '');
         const srcNorm = sourcePercentExpr.replace(/\s+/g, '');
-        const alreadyHasSource = formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm);
+        let alreadyHasSource = formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm);
+        if (!alreadyHasSource && formulaTrimmed.endsWith(')')) {
+            const lastClose = formulaTrimmed.length - 1;
+            let depth = 1;
+            let i = lastClose - 1;
+            while (i >= 0 && depth > 0) {
+                if (formulaTrimmed[i] === ')') depth++;
+                else if (formulaTrimmed[i] === '(') { depth--; if (depth === 0) break; }
+                i--;
+            }
+            if (depth === 0 && i >= 0) {
+                const beforeParen = formulaTrimmed.substring(0, i).trimEnd();
+                const trailingExpr = formulaTrimmed.substring(i + 1, lastClose);
+                if (beforeParen.endsWith('*') && trailingExpr && /^[0-9+\-*/().\s]+$/.test(trailingExpr.replace(/\s/g, ''))) {
+                    try {
+                        const trailingVal = evaluateExpression(trailingExpr);
+                        if (!isNaN(trailingVal) && Number.isFinite(trailingVal) && Math.abs(trailingVal - decimalValue) < 0.0001) {
+                            alreadyHasSource = true;
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+            }
+        }
         
         let result;
         if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
