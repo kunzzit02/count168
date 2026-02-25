@@ -8505,6 +8505,15 @@ function createSourcePercentDisplay(sourcePercentValue) {
     }
 }
 
+// 公式字符串括号成对：少几个右括号就末尾补几个，避免显示/求值时报错
+function balanceParentheses(s) {
+    if (!s || typeof s !== 'string') return s;
+    const open = (s.match(/\(/g) || []).length;
+    const close = (s.match(/\)/g) || []).length;
+    if (open <= close) return s;
+    return s + ')'.repeat(open - close);
+}
+
 // Create Formula display from expression with source percent
 function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableSourcePercent = true) {
     try {
@@ -8549,12 +8558,14 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         
         if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
             // Source is 1, return formula without multiplying
-            console.log('Formula display created from expression (source is 1, no multiplication):', trimmedFormula);
-            return formatNegativeNumbersInFormula(trimmedFormula);
+            const balanced = balanceParentheses(trimmedFormula);
+            console.log('Formula display created from expression (source is 1, no multiplication):', balanced);
+            return formatNegativeNumbersInFormula(balanced);
         } else {
-            // Source is not 1, add source percent to display
+            // Source is not 1, add source percent to display（公式本体若少右括号则先补全再拼 *source）
+            const balancedPart = balanceParentheses(formulaPart);
             const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
-            const formulaDisplay = `${formulaPart}*${percentDisplay}`;
+            const formulaDisplay = `${balancedPart}*${percentDisplay}`;
             console.log('Formula display created from expression:', formulaDisplay);
             return formatNegativeNumbersInFormula(formulaDisplay);
         }
@@ -9581,6 +9592,13 @@ function evaluateExpression(expression) {
         // IMPORTANT: For formulas with negative numbers in parentheses (e.g., (-1234.56)-(-2234.78)),
         // removing spaces ensures proper evaluation
         jsExpression = jsExpression.replace(/\s+/g, '');
+
+        // 若括号不成对会导致 SyntaxError: Unexpected token ')'，求值前补全缺失的右括号
+        const openCount = (jsExpression.match(/\(/g) || []).length;
+        const closeCount = (jsExpression.match(/\)/g) || []).length;
+        if (openCount > closeCount) {
+            jsExpression = jsExpression + ')'.repeat(openCount - closeCount);
+        }
         
         console.log('Evaluating expression:', jsExpression);
         
