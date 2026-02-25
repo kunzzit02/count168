@@ -8620,10 +8620,16 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
         const decimalValue = evaluateExpression(sanitizedSourcePercent);
         
         // If source is 1, don't multiply (multiplying by 1 has no effect)
-        // Only multiply when source is a different number
+        // If formula already ends with *(sourcePercent), don't multiply again (avoid double application)
+        const formulaTrimmed = (formula || '').trim().replace(/\s+/g, '');
+        const srcNorm = sourcePercentExpr.replace(/\s+/g, '');
+        const alreadyHasSource = formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm);
+        
         let result;
         if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
             result = formulaResult; // Don't multiply by 1
+        } else if (alreadyHasSource) {
+            result = formulaResult; // Formula already contains *(source), don't multiply again
         } else {
             // Calculate: formula result * source percent (already in decimal format)
             result = formulaResult * decimalValue;
