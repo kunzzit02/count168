@@ -1268,13 +1268,21 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
         if (processRowIndex >= 2 && processRowIndex < processRow.length) {
             const cellData = processRow[processRowIndex];
             if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                let cellValue = cellData.value.toString();
-                // 去掉货币显示 (MYR)、(USD)、() 等，避免公式求值时 "Expression contains invalid characters"
-                cellValue = cellValue.replace(/^\s*\([^)]*\)\s*/, '').trim();
+                let cellValue = cellData.value.toString().trim();
+                // 只去掉货币代码 (MYR)、(USD) 等，不要去掉会计格式负数如 (-12410.00) 或 (12410.00)
+                cellValue = cellValue.replace(/^\s*\([A-Za-z]{2,4}\)\s*/g, '').trim();
                 cellValue = cellValue.replace(/\$/g, '');
                 let numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
-                // 去掉前导 "() " 等，只保留可参与计算的数字部分
+                // 去掉前导空括号 "() "，保留带数字的括号如 (-12410.00)
                 numericValue = numericValue.replace(/^\s*\(\s*\)\s*/, '').trim();
+                // 括号内已是负数的 (-12410.00) 直接取内层；会计格式 (12410.00) 表示负数，转为 -12410.00
+                if (numericValue && /^\(\s*-\d[\d.]*\)\s*$/.test(numericValue)) {
+                    const inner = numericValue.replace(/^\s*\(|\)\s*$/g, '').trim();
+                    if (!isNaN(parseFloat(inner))) numericValue = inner;
+                } else if (numericValue && /^\(\s*\d[\d.]*\)\s*$/.test(numericValue)) {
+                    const inner = numericValue.replace(/^\s*\(|\)\s*$/g, '').trim();
+                    if (!isNaN(parseFloat(inner))) numericValue = '-' + inner;
+                }
                 console.log('Found cell value for id_product:', idProductResolved, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
                 return (numericValue && numericValue !== '') ? numericValue : cellValue;
             }
