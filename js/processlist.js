@@ -456,6 +456,28 @@
             }
         }
 
+        function openSopModal() {
+            const modal = document.getElementById('sopModal');
+            const bankRemark = document.getElementById('bank_remark');
+            const sopContent = document.getElementById('sop_content');
+            if (modal && bankRemark && sopContent) {
+                sopContent.value = (bankRemark.value || '').trim();
+                modal.style.display = 'block';
+            }
+        }
+        function closeSopModal() {
+            const modal = document.getElementById('sopModal');
+            if (modal) modal.style.display = 'none';
+        }
+        function saveSopAndClose() {
+            const bankRemark = document.getElementById('bank_remark');
+            const sopContent = document.getElementById('sop_content');
+            if (bankRemark && sopContent) {
+                bankRemark.value = (sopContent.value || '').trim().toUpperCase();
+            }
+            closeSopModal();
+        }
+
         function closeAddModal() {
             document.getElementById('addModal').style.display = 'none';
             document.getElementById('addProcessForm').reset();
@@ -4568,7 +4590,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
             });
 
-            // 统一管理需要大写的输入框（Remarks/Remark 默认大写英语字母）
+            // 统一管理需要大写的输入框（Remarks/Remark 默认大写英语字母）；bank_remark 已改为 SOP 弹窗内编辑，保存时大写
             const uppercaseInputs = [
                 'add_process_id',
                 'new_description_name',
@@ -4579,8 +4601,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 'edit_remove_words',
                 'edit_replace_word_from',
                 'edit_replace_word_to',
-                'edit_remarks',
-                'bank_remark'
+                'edit_remarks'
             ];
 
             // 为所有需要大写的输入框添加事件监听
