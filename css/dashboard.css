@@ -468,7 +468,7 @@ body.dashboard-page {
 }
 
 .enhanced-date-picker.month-only {
-    min-width: clamp(80px, 6.77vw, 130px);
+    min-width: clamp(80px, 10.77vw, 197px);
 }
 
 
@@ -555,7 +555,7 @@ body.dashboard-page {
     left: 0;
     right: auto;
     width: max-content;
-    min-width: 260px;
+    min-width: 195px;
     max-width: min(360px, 90vw);
     overflow-x: visible;
     overflow-y: auto;
