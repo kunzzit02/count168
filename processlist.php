@@ -891,9 +891,9 @@ if ($current_user_id && count($user_companies) > 0) {
 
     <!-- SOP Modal：记录事项（与当前 Add/Edit Process 关联） -->
     <div id="sopModal" class="modal bank-modal" style="display: none;">
-        <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-content" style="max-width: 1000px;">
             <div class="modal-header">
-                <h2>记录事项</h2>
+                <h2>SOP Remarks</h2>
                 <span class="close" onclick="closeSopModal()">&times;</span>
             </div>
             <div class="modal-body">

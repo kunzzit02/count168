@@ -862,7 +862,7 @@ body.process-page {
     max-width: 68rem; /* slightly narrower to center better */
     box-shadow: 0 1.25rem 1.5625rem -0.3125rem rgba(0, 0, 0, 0.1), 0 0.625rem 0.625rem -0.3125rem rgba(0, 0, 0, 0.04);
     overflow: auto;
-    max-height: 92vh; /* keep inside viewport */
+    max-height: 79vh; /* keep inside viewport */
 }
 
 .process-page .modal-header h2 {
