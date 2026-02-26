@@ -2,6 +2,16 @@
  * reset-password.php - 重置密码页逻辑
  */
 (function() {
+    const companyIdInput = document.getElementById('company-id');
+    if (companyIdInput) {
+        companyIdInput.addEventListener('input', function() {
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            this.value = this.value.toUpperCase();
+            this.setSelectionRange(start, end);
+        });
+    }
+
     const newPassword = document.getElementById('new-password');
     const confirmPassword = document.getElementById('confirm-password');
 
