@@ -107,10 +107,11 @@ body.dashboard-page {
 }
 .dashboard-card:first-of-type {
     flex-shrink: 0;
+    min-width: min(900px, 100%);
 }
 
 .dashboard-card-body {
-    padding: clamp(8px, 1vw, 12px) clamp(12px, 1vw, 18px);
+    padding: clamp(8px, 1vw, 12px) clamp(14px, 1.2vw, 24px);
 }
 
 /* KPI卡片网格 - 三列，大屏到1024px一致 */
@@ -535,12 +536,18 @@ body.dashboard-page {
     padding: clamp(2px, 0.36vw, 8px);
 }
 
-/* Select Year & Month：下拉保证年份四位数完整显示 */
+/* Select Year & Month：下拉保证年份四位数完整显示，月份 4 列完整展示不裁切 */
+#month-date-picker {
+    position: relative;
+}
 #month-date-picker .date-dropdown {
+    left: 0;
+    right: auto;
     width: max-content;
-    min-width: 100px;
-    max-width: 100%;
-    overflow-x: auto;
+    min-width: 240px;
+    max-width: min(320px, 95vw);
+    overflow-x: visible;
+    overflow-y: auto;
     box-sizing: border-box;
 }
 #month-date-picker .year-grid {
@@ -553,6 +560,11 @@ body.dashboard-page {
     min-width: 0;
     text-align: center;
     white-space: nowrap;
+}
+#month-date-picker .month-grid {
+    grid-template-columns: repeat(4, minmax(44px, 1fr));
+    padding: 6px 8px;
+    min-width: 0;
 }
 
 .month-grid {
