@@ -972,8 +972,8 @@
 
 /* SOP Modal：固定弹窗尺寸与底部按钮 */
 .sop-modal .sop-modal-content {
-    width: 520px;
-    height: 420px;
+    width: 1000px;
+    height: 735px;
     max-width: none;
     display: flex;
     flex-direction: column;
