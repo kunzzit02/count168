@@ -19,12 +19,12 @@ try {
     throw new PDOException("数据库连接失败: " . $e->getMessage());
 }
 
-// SMTP 发信（可选）：配置后重置密码等邮件将走 SMTP，可正常发到 Gmail
-// Gmail：使用应用专用密码 https://myaccount.google.com/apppasswords ，不要用登录密码
-$smtp_host = '';        // 例如 'smtp.gmail.com'
-$smtp_port = 465;       // Gmail 用 465 (SSL)，若用 587 需 STARTTLS
-$smtp_user = '';        // 例如 'your@gmail.com'
-$smtp_pass = '';        // Gmail 应用专用密码
-$smtp_from_email = '';  // 发件人邮箱，一般与 smtp_user 一致
+// SMTP 发信（必填才能发到 Gmail）：填好后重置密码邮件走 SMTP，否则用 mail() 易失败
+// Gmail 步骤：1) 开启两步验证 2) 申请应用专用密码 https://myaccount.google.com/apppasswords 3) 下面填好
+$smtp_host = 'smtp.gmail.com';
+$smtp_port = 465;
+$smtp_user = '';           // 你的 Gmail，如 yourname@gmail.com
+$smtp_pass = '';           // 上一步生成的应用专用密码（16 位）
+$smtp_from_email = '';     // 留空则用 smtp_user
 $smtp_from_name = 'EazyCount';
 ?>

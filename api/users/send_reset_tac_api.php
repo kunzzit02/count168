@@ -153,7 +153,8 @@ try {
     $out = ['success' => true, 'message' => 'TAC has been sent to your email. Please check your inbox (and spam folder).'];
     if (!$sent) {
         error_log("send_reset_tac_api: mail/SMTP failed for {$email}, code was saved.");
-        $out['message'] = 'Email may not have been delivered (server mail not configured). Your verification code is below.';
+        $out['message'] = 'Email may not have been delivered (server mail not configured). Your verification code is below. '
+            . 'To enable sending to Gmail: in config.php set $smtp_host=\'smtp.gmail.com\', $smtp_port=465, $smtp_user and $smtp_pass (use Gmail App Password).';
         $out['tac'] = $code;
     }
     echo json_encode($out);
