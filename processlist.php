@@ -746,8 +746,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <select id="bank_type" name="type" class="bank-select" required>
                                         <option value="">Select Type</option>
                                         <option value="PERSONAL">PERSONAL</option>
-                                        <option value="BUSINESS">BUSINESS</option>
                                         <option value="ENTERPRISE">ENTERPRISE</option>
+                                        <option value="BUSINESS">BUSINESS</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
