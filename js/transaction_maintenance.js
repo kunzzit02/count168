@@ -224,6 +224,9 @@
                 btn.classList.remove('active');
             }
         });
+        if (hasSearched) {
+            searchData();
+        }
     }
 
     async function switchCompany(companyId) {
@@ -480,7 +483,7 @@
             return;
         }
 
-        console.log('🔍 搜索参数:', { process, dateFrom, dateTo, companyId: currentCompanyId });
+        console.log('🔍 搜索参数:', { process, dateFrom, dateTo, companyId: currentCompanyId, category: selectedPermission });
 
         let url = `api/transactions/maintenance_search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
         if (process) {
@@ -488,6 +491,9 @@
         }
         if (currentCompanyId) {
             url += `&company_id=${encodeURIComponent(currentCompanyId)}`;
+        }
+        if (selectedPermission) {
+            url += `&category=${encodeURIComponent(selectedPermission)}`;
         }
 
         const tbody = document.getElementById('dataTableBody');

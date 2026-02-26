@@ -46,29 +46,45 @@ try {
     $date_from = $_GET['date_from'] ?? null;
     $date_to   = $_GET['date_to']   ?? null;
     $process   = $_GET['process']   ?? null; // process.process_id
-    
+    $category  = trim($_GET['category'] ?? $_GET['permission'] ?? ''); // Games|Bank|Loan|Rate|Money，按 category 只显示该部分数据
+
     if (!$date_from || !$date_to) {
         throw new Exception('日期范围是必填项');
     }
-    
+
     $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
     $date_to_db   = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
-    
+
+    $is_bank_category = (strtoupper($category) === 'BANK');
+    $has_source_bank_col = false;
+    try {
+        $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+        $has_source_bank_col = $colStmt && $colStmt->rowCount() > 0;
+    } catch (PDOException $e) { /* ignore */ }
+
     $formatted = [];
     $no = 1;
-    
+
     // ========== 1. 查询 Transaction 数据 ==========
     $where = [];
     $params = [];
-    
+
     // company 过滤（transactions）
     $where[] = "t.company_id = ?";
     $params[] = $company_id;
-    
+
     $where[] = "t.transaction_date BETWEEN ? AND ?";
     $params[] = $date_from_db;
     $params[] = $date_to_db;
-    
+
+    if ($has_source_bank_col && $category !== '') {
+        if ($is_bank_category) {
+            $where[] = "t.source_bank_process_id IS NOT NULL AND t.source_bank_process_id != 0";
+        } else {
+            $where[] = "(t.source_bank_process_id IS NULL OR t.source_bank_process_id = 0)";
+        }
+    }
+
     $whereSql = 'WHERE ' . implode(' AND ', $where);
     
     // 主查询（未删除）
@@ -141,28 +157,29 @@ try {
             'data_type' => 'transaction'
         ];
     }
-    
-    // ========== 2. 查询 Data Capture 数据 ==========
+
+    // ========== 2. 查询 Data Capture 数据（Bank category 不包含 Data Capture，仅 Transaction）==========
+    if (!$is_bank_category) {
     try {
         $captureWhere = [];
         $captureParams = [];
-        
+
         $captureWhere[] = "dc.company_id = ?";
         $captureParams[] = $company_id;
-        
+
         $captureWhere[] = "dcd.company_id = ?";
         $captureParams[] = $company_id;
-        
+
         $captureWhere[] = "dc.capture_date BETWEEN ? AND ?";
         $captureParams[] = $date_from_db;
         $captureParams[] = $date_to_db;
-        
+
         // Process 过滤（如果指定）
         if ($process) {
             $captureWhere[] = "p.process_id = ?";
             $captureParams[] = $process;
         }
-        
+
         $captureWhereSql = 'WHERE ' . implode(' AND ', $captureWhere);
         
         $captureSql = "
@@ -248,11 +265,25 @@ try {
     } catch (Exception $e) {
         error_log('查询 Data Capture 数据失败: ' . $e->getMessage());
     }
-    
+    }
     // ========== 3. 查询已删除的 Transaction 记录（transactions_deleted，可选）==========
     try {
         $check = $pdo->query("SHOW TABLES LIKE 'transactions_deleted'");
         if ($check->rowCount() > 0) {
+            $delWhere = "td.company_id = ? AND td.transaction_date BETWEEN ? AND ?";
+            $delParams = [$company_id, $date_from_db, $date_to_db];
+            $hasTdSourceBank = false;
+            try {
+                $tdCol = $pdo->query("SHOW COLUMNS FROM transactions_deleted LIKE 'source_bank_process_id'");
+                $hasTdSourceBank = $tdCol && $tdCol->rowCount() > 0;
+            } catch (PDOException $e) { /* ignore */ }
+            if ($hasTdSourceBank && $category !== '') {
+                if ($is_bank_category) {
+                    $delWhere .= " AND td.source_bank_process_id IS NOT NULL AND td.source_bank_process_id != 0";
+                } else {
+                    $delWhere .= " AND (td.source_bank_process_id IS NULL OR td.source_bank_process_id = 0)";
+                }
+            }
             $deletedSql = "
                 SELECT
                     td.transaction_id,
@@ -277,11 +308,9 @@ try {
                 LEFT JOIN owner o ON td.created_by_owner = o.id
                 LEFT JOIN user du ON td.deleted_by_user_id = du.id
                 LEFT JOIN owner do ON td.deleted_by_owner_id = do.id
-                WHERE td.company_id = ?
-                  AND td.transaction_date BETWEEN ? AND ?
+                WHERE $delWhere
                 ORDER BY td.transaction_date DESC, td.created_at DESC
             ";
-            $delParams = [$company_id, $date_from_db, $date_to_db];
             $delStmt = $pdo->prepare($deletedSql);
             $delStmt->execute($delParams);
             $deletedRows = $delStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -327,8 +356,9 @@ try {
     } catch (Exception $e) {
         error_log('查询已删除交易失败: ' . $e->getMessage());
     }
-    
-    // ========== 4. 查询已删除的 Data Capture 记录（data_captures_deleted，可选）==========
+
+    // ========== 4. 查询已删除的 Data Capture 记录（data_captures_deleted，可选；Bank category 不包含）==========
+    if (!$is_bank_category) {
     try {
         $check = $pdo->query("SHOW TABLES LIKE 'data_captures_deleted'");
         if ($check->rowCount() > 0) {
@@ -432,7 +462,7 @@ try {
     } catch (Exception $e) {
         error_log('查询已删除 Data Capture 失败: ' . $e->getMessage());
     }
-    
+    }
     // ========== 5. 按日期排序合并后的数据 ==========
     usort($formatted, function($a, $b) {
         // 先按日期排序（降序）
