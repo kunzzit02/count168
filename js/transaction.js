@@ -2701,6 +2701,14 @@ function handleReverseAccounts(event) {
         return;
     }
     
+    // RATE 类型下 Account 旁的 Reverse：只对调两个 Account 下拉，不动货币/金额/Transfer 账户
+    if (triggerId === 'rate_account_reverse_btn') {
+        const rateFromBtn = document.getElementById('rate_account_from');
+        const rateToBtn = document.getElementById('rate_account_to');
+        if (rateFromBtn && rateToBtn) swapAccountButtons(rateFromBtn, rateToBtn);
+        return;
+    }
+    
     if (isRateTypeSelected()) {
         const rateFromBtn = document.getElementById('rate_account_from');
         const rateToBtn = document.getElementById('rate_account_to');
