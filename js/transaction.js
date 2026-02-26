@@ -2081,9 +2081,10 @@ function submitAction() {
     const rateToAccountInput = document.getElementById('rate_account_to');
     const rateFromAccountInput = document.getElementById('rate_account_from');
 
-    // PROFIT：第一个下拉为 To Account、第二个为 From Account，前后两个账户的 Payment History 都要显示
-    const accountId = isRate ? getAccountId(rateToAccountInput) : (type === 'PROFIT' ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput));
-    const fromAccountId = isRate ? getAccountId(rateFromAccountInput) : (type === 'PROFIT' ? getAccountId(standardToAccountInput) : getAccountId(standardFromAccountInput));
+    // PROFIT：第一个下拉为 To Account、第二个为 From Account；CONTRA/PAYMENT/RECEIVE/CLAIM/CLEAR：第一个为 To、第二个为 From，与 UI 标签一致
+    const needsFromTo = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR'].includes(effectiveType);
+    const accountId = isRate ? getAccountId(rateToAccountInput) : (type === 'PROFIT' ? getAccountId(standardFromAccountInput) : (needsFromTo ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput)));
+    const fromAccountId = isRate ? getAccountId(rateFromAccountInput) : (type === 'PROFIT' ? getAccountId(standardToAccountInput) : (needsFromTo ? getAccountId(standardToAccountInput) : getAccountId(standardFromAccountInput)));
     
     const standardAmountInput = document.getElementById('action_amount');
     const rateCurrencyFromAmountInput = document.getElementById('rate_currency_from_amount');
