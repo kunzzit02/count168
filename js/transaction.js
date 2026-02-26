@@ -2235,11 +2235,9 @@ function submitAction() {
                 middlemanAmount = 0;
             }
             
-            // 生成记录的 description（添加汇率信息）
-            // Transfer From Account 记录：Transaction to {to_account_id} (Rate: {rate})
-            transferFromAccountDescription = `Transaction to ${transferToAccountCode} (Rate: ${rateExchangeRate})`;
-            // Transfer To Account 记录：Transaction from {from_account_id} (Rate: {rate})
-            transferToAccountDescription = `Transaction from ${transferFromAccountCode} (Rate: ${rateExchangeRate})`;
+            // 生成记录的 description（第一个下拉=To、第二个=From）：From 存 "Transaction to {To code}"，To 视角由 history 显示 "Transaction from {From code}"
+            transferFromAccountDescription = `Transaction to ${transferFromAccountCode} (Rate: ${rateExchangeRate})`;
+            transferToAccountDescription = `Transaction from ${transferToAccountCode} (Rate: ${rateExchangeRate})`;
             // Middle-Man: Rate charge (x{rate}) from {currency_from} {base_amount}
             // base_amount = currency_from_amount（例如 100），显示来源本金，不是手续费金额
             if (middlemanAmount > 0) {
@@ -2323,9 +2321,9 @@ function submitAction() {
         formData.append('rate_to_amount', rateCurrencyToAmount);
         formData.append('rate_to_description', toAccountDescription);
         
-        // 使用变量中的 account ID（已经通过 getAccountId 获取）
-        const rateTransferFromAccountId = rateTransferFromAccount;
-        const rateTransferToAccountId = rateTransferToAccount;
+        // 使用变量中的 account ID；与第一行一致：第一个下拉 = To、第二个 = From，提交时 from/to 与后端语义一致
+        const rateTransferToAccountId = rateTransferFromAccount;   // 第一个下拉 = To（收款）
+        const rateTransferFromAccountId = rateTransferToAccount;   // 第二个下拉 = From（付款）
         const rateMiddlemanAccountId = rateMiddlemanAccount;
         
         // 第二个 Account 和 Middle-Man 的交易记录（如果填写了第二个 account 行）
