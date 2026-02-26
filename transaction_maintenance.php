@@ -608,28 +608,36 @@ if (!empty($session_company_id)) {
         }
 
 
-        // Search function
+        // Search function（须与 js/transaction_maintenance.js 一致：带 category 参数）
         function searchData() {
             const processButton = document.getElementById('filter_process');
             const process = processButton?.getAttribute('data-value') || '';
             const dateFrom = document.getElementById('date_from').value.trim();
             const dateTo = document.getElementById('date_to').value.trim();
-            
-            // 验证日期
+
             if (!dateFrom || !dateTo) {
                 showNotification('Please select date range', 'error');
                 return;
             }
-            
-            console.log('🔍 搜索参数:', { process, dateFrom, dateTo, companyId: currentCompanyId });
-            
-            // 构建URL
+
+            let categoryToSend = typeof selectedPermission !== 'undefined' ? selectedPermission : null;
+            if (!categoryToSend) {
+                const activeBtn = document.querySelector('#maintenance-permission-buttons .maintenance-company-btn.active');
+                if (activeBtn && activeBtn.dataset.permission) {
+                    categoryToSend = activeBtn.dataset.permission;
+                }
+            }
+            console.log('🔍 搜索参数:', { process, dateFrom, dateTo, companyId: currentCompanyId, category: categoryToSend });
+
             let url = `api/transactions/maintenance_search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
             if (process) {
                 url += `&process=${encodeURIComponent(process)}`;
             }
             if (currentCompanyId) {
                 url += `&company_id=${encodeURIComponent(currentCompanyId)}`;
+            }
+            if (categoryToSend) {
+                url += `&category=${encodeURIComponent(categoryToSend)}`;
             }
             
             // 显示加载状态
@@ -772,15 +780,13 @@ if (!empty($session_company_id)) {
             initAutoSearchFilters();
 
             loadOwnerCompanies()
+                .then(() => (typeof loadPermissionButtons === 'function' ? loadPermissionButtons() : Promise.resolve()))
                 .catch(() => {})
-                .finally(() => {
-                    loadProcesses()
-                        .catch(() => {})
-                        .finally(() => {
-                            // Initialize custom select
-                            initProcessSelect();
-                            searchData();
-                        });
+                .then(() => loadProcesses())
+                .catch(() => {})
+                .then(() => {
+                    initProcessSelect();
+                    searchData();
                 });
             
             // Check for URL parameters and show notifications
