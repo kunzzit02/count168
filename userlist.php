@@ -121,7 +121,7 @@ try {
     die("Query failed: " . $e->getMessage());
 }
 
-// Get accounts data - filter current company through account_company association table
+// Get accounts data - filter current company through account_company, 仅 active 与 Account List 默认一致
 try {
     $accountStmt = $pdo->prepare("
         SELECT 
@@ -131,7 +131,7 @@ try {
             a.status
         FROM account a
         INNER JOIN account_company ac ON ac.account_id = a.id
-        WHERE ac.company_id = ?
+        WHERE ac.company_id = ? AND a.status = 'active'
         ORDER BY a.account_id ASC
     ");
     $accountStmt->execute([$company_id]);
@@ -607,7 +607,7 @@ try {
                         </div>
                     </div>
                     
-                    <!-- Right Part - Account and Process Permissions (only shown in edit mode) -->
+                    <!-- Right Part - Account and Process Permissions (only shown in edit mode). 列表按页面打开时的 company 加载，与 Account List 同 company 时数目一致 -->
                     <div id="accountProcessPermissionsSection" style="display: none; flex-direction: row; gap: clamp(12px, 1.25vw, 24px); min-width: 0; overflow-y: auto; max-height: calc(98vh - clamp(120px, 12.5vw, 200px)); min-height: clamp(400px, 36.46vw, 700px);">
                     <!-- Account Permissions -->
                     <div class="form-group" style="flex: 1; margin-bottom: 0; margin-top: 0; display: flex; flex-direction: column;">
