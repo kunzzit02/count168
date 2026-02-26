@@ -628,6 +628,16 @@ try {
                     }
                 }
                 break;
+
+            case 'RATE':
+                if ($is_internal_transfer) {
+                    $cr_dr = 0;
+                } elseif ($is_to_account) {
+                    $cr_dr = (float) $t['amount'];
+                } else {
+                    $cr_dr = -(float) $t['amount'];
+                }
+                break;
                 
         }
         
@@ -687,6 +697,14 @@ try {
                 } else {
                     // 当前账户是 From Account
                     $description = $t['transaction_type'] . ' TO ' . ($t['to_account_code'] ?: 'N/A');
+                }
+            } elseif ($t['transaction_type'] === 'RATE' && preg_match('/^Transaction\s+(from|to)\s+(.+?)\s*\((?:Rate|RATE):\s*([^)]+)\)\s*$/i', $t['description'], $rateMatches)) {
+                // RATE 存的是 "Transaction from X (Rate: n)" 或 "Transaction to X (Rate: n)"，按视角显示：To 账户显示 FROM 对方，From 账户显示 TO 对方
+                $rateSuffix = ' (RATE: ' . trim($rateMatches[3]) . ')';
+                if ($is_to_account) {
+                    $description = 'TRANSACTION FROM ' . ($t['from_account_code'] ?: 'N/A') . $rateSuffix;
+                } else {
+                    $description = 'TRANSACTION TO ' . ($t['to_account_code'] ?: 'N/A') . $rateSuffix;
                 }
             } else {
                 // 如果原始 description 是自动生成的格式，需要根据视角调整
