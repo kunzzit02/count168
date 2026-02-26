@@ -969,3 +969,38 @@
 #profitSharingModal .form-actions.bank-actions {
     justify-content: center;
 }
+
+/* SOP Modal：固定弹窗尺寸与底部按钮 */
+.sop-modal .sop-modal-content {
+    width: 520px;
+    height: 420px;
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+}
+.sop-modal .sop-modal-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.sop-modal .sop-modal-textarea {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    resize: none;
+    box-sizing: border-box;
+}
+.sop-modal .sop-modal-actions {
+    flex: none;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+.sop-modal .sop-modal-actions .btn {
+    width: 120px;
+    min-width: 120px;
+    padding: 8px 20px;
+    font-size: 14px;
+}
