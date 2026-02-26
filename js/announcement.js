@@ -45,17 +45,17 @@ async function loadAnnouncements() {
             listContainer.innerHTML = result.data.map(announcement => {
                 const titleEscaped = escapeHtml(announcement.title);
                 const contentEscaped = escapeHtml(announcement.content);
-                const titleForJs = titleEscaped.replace(/'/g, "&#39;").replace(/"/g, "&quot;");
-                const contentForJs = contentEscaped.replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/\n/g, "\\n");
+                const contentAttr = contentEscaped.replace(/"/g, '&quot;').replace(/\n/g, '&#10;');
+                const titleAttr = titleEscaped.replace(/"/g, '&quot;');
                 return `
                 <div class="announcement-item">
                     <div class="announcement-item-header">
                         <h3 class="announcement-title">${titleEscaped}</h3>
                         <div>
-                            <button class="announcement-edit-btn" onclick="openEditAnnouncementModal(${announcement.id}, '${titleForJs}', '${contentForJs}')">
+                            <button class="announcement-edit-btn" data-announcement-id="${announcement.id}" data-announcement-title="${titleAttr}" data-announcement-content="${contentAttr}">
                                 Edit
                             </button>
-                            <button class="announcement-delete-btn" onclick="deleteAnnouncement(${announcement.id}, '${titleForJs}')">
+                            <button class="announcement-delete-btn" data-announcement-id="${announcement.id}">
                                 Delete
                             </button>
                         </div>
@@ -81,9 +81,35 @@ async function loadAnnouncements() {
     }
 }
 
-// Delete announcement
+// 列表事件：Delete/Edit 用 data 属性 + 委托，避免标题含引号时 onclick 断裂
+function bindAnnouncementListActions() {
+    const listContainer = document.getElementById('announcementList');
+    if (!listContainer) return;
+    listContainer.addEventListener('click', function (e) {
+        const delBtn = e.target.closest('.announcement-delete-btn');
+        if (delBtn) {
+            const id = parseInt(delBtn.getAttribute('data-announcement-id'), 10);
+            if (id) deleteAnnouncement(id);
+            return;
+        }
+        const editBtn = e.target.closest('.announcement-edit-btn');
+        if (editBtn) {
+            const id = parseInt(editBtn.getAttribute('data-announcement-id'), 10);
+            let title = editBtn.getAttribute('data-announcement-title') || '';
+            let content = editBtn.getAttribute('data-announcement-content') || '';
+            title = title.replace(/&quot;/g, '"');
+            content = content.replace(/&quot;/g, '"').replace(/&#10;/g, '\n');
+            if (id) openEditAnnouncementModal(id, title, content);
+        }
+    });
+}
+
+// Delete announcement（可只传 id，避免标题含 ' 时 confirm 断裂）
 async function deleteAnnouncement(id, title) {
-    if (!confirm(`Are you sure you want to delete announcement "${title}"? This action cannot be undone.`)) {
+    const msg = title != null && title !== ''
+        ? `Are you sure you want to delete announcement "${title}"? This action cannot be undone.`
+        : 'Are you sure you want to delete this announcement? This action cannot be undone.';
+    if (!confirm(msg)) {
         return;
     }
 
@@ -437,6 +463,7 @@ function initEditMaintenanceForm() {
 
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', function() {
+    bindAnnouncementListActions();
     initAnnouncementForm();
     initEditAnnouncementForm();
     initModalClickOutside();
