@@ -520,10 +520,11 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     }
     if ($has_transaction_currency) {
         $clearFilter = $exclude_clear ? " AND transaction_type <> 'CLEAR'" : "";
-        // 作为 To Account（排除 description 以 Process: 开头的 Bank Process WIN/LOSE，其在 Win/Loss）
+        // 作为 To Account；CONTRA 时 TO 显示负数
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM') THEN amount
+                        WHEN transaction_type IN ('RECEIVE', 'CLEAR', 'CLAIM') THEN amount
+                        WHEN transaction_type = 'CONTRA' THEN -amount
                         WHEN transaction_type = 'PAYMENT' THEN amount
                         WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
                         WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
@@ -542,10 +543,11 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from, $date_to]);
         $cr_dr += $stmt->fetchColumn();
         
-        // 作为 From Account
+        // 作为 From Account；CONTRA 时 FROM 显示正数
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'CLEAR') THEN -amount
+                        WHEN transaction_type IN ('PAYMENT', 'CLEAR') THEN -amount
+                        WHEN transaction_type = 'CONTRA' THEN amount
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
                         ELSE 0
                     END), 0) as cr_dr
