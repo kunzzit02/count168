@@ -187,9 +187,7 @@ let ownerCompanies = [];
                 const result = await response.json();
                 let permissions = result.success && result.data && result.data.permissions
                     ? result.data.permissions
-                    : ['Games', 'Loan', 'Rate', 'Money'];
-                // Data Capture 页不显示 Bank category
-                permissions = permissions.filter(p => p !== 'Bank');
+                    : ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
                 containerEl.innerHTML = '';
                 if (permissions.length > 0) {
                     filterEl.style.display = 'flex';
