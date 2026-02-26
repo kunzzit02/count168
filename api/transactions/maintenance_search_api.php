@@ -55,7 +55,9 @@ try {
     $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
     $date_to_db   = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
 
-    $is_bank_category = (strtoupper($category) === 'BANK');
+    $catUpper = strtoupper($category);
+    $is_bank_category = ($catUpper === 'BANK');
+    $is_loan_rate_money = in_array($catUpper, ['LOAN', 'RATE', 'MONEY'], true);
     $has_source_bank_col = false;
     try {
         $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
@@ -65,6 +67,9 @@ try {
     $formatted = [];
     $no = 1;
 
+    if ($is_loan_rate_money) {
+        // Loan / Rate / Money 暂未关联数据，只返回空；等过后再连接
+    } else {
     // ========== 1. 查询 Transaction 数据 ==========
     $where = [];
     $params = [];
@@ -473,6 +478,7 @@ try {
         }
     } catch (Exception $e) {
         error_log('查询已删除 Data Capture 失败: ' . $e->getMessage());
+    }
     }
     }
     // ========== 5. 按日期排序合并后的数据 ==========
