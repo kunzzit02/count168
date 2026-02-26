@@ -874,7 +874,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <!-- SOP：与当前 Process 关联的记录事项，点击按钮在弹窗中编辑 -->
                             <div class="form-group bank-remark-wrap" style="margin-top: 12px;">
                                 <input type="hidden" id="bank_remark" name="remark" value="">
-                                <button type="button" id="bank_sop_btn" class="btn btn-sop" onclick="openSopModal()">SOP</button>
+                                <button type="button" id="bank_sop_btn" class="btn btn-save" onclick="openSopModal()">SOP</button>
                             </div>
                         </div>
                     </div>

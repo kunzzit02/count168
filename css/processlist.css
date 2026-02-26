@@ -556,20 +556,6 @@
     flex: 1;
     min-height: 2.5em;
 }
-.btn-sop {
-    padding: 8px 20px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #374151;
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    cursor: pointer;
-}
-.btn-sop:hover {
-    background: #e5e7eb;
-    border-color: #9ca3af;
-}
  .bank-form-cell {
     display: flex;
     flex-direction: column;
