@@ -78,16 +78,19 @@ try {
     ");
     $stmt->execute([$email, $company_numeric_id, $code, $expires_at, $code, $expires_at]);
 
-    // 发送邮件（若 mail() 不可用则仅记录日志，仍返回成功以免泄露邮箱是否存在）
+    // 发送邮件（若 mail() 不可用则仅记录日志，并在响应中返回 TAC 供页面显示，避免用户收不到邮件无法继续）
     $subject = 'EazyCount - Password Reset TAC';
     $body = "Your verification code is: {$code}\n\nValid for 15 minutes.\n\nIf you did not request this, please ignore this email.";
     $headers = "From: noreply@eazycount.com\r\nReply-To: noreply@eazycount.com\r\nContent-Type: text/plain; charset=UTF-8";
     $sent = @mail($email, $subject, $body, $headers);
+
+    $out = ['success' => true, 'message' => 'TAC has been sent to your email. Please check your inbox (and spam folder).'];
     if (!$sent) {
         error_log("send_reset_tac_api: mail() failed for {$email}, code was saved. Check server mail config.");
+        $out['message'] = 'Email may not have been delivered (server mail not configured). Your verification code is below.';
+        $out['tac'] = $code;
     }
-
-    echo json_encode(['success' => true, 'message' => 'TAC has been sent to your email. Please check your inbox (and spam folder).']);
+    echo json_encode($out);
 } catch (Exception $e) {
     error_log("send_reset_tac_api: " . $e->getMessage());
     echo json_encode(['success' => false, 'message' => 'Failed to send TAC. Please try again or contact support.']);

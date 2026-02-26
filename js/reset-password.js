@@ -60,9 +60,20 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (data.success) {
-                    alert(data.message || 'TAC code has been sent to your email');
-                    const tacField = document.getElementById('tac-field');
-                    if (tacField) tacField.focus();
+                    let msg = data.message || 'TAC code has been sent to your email';
+                    if (data.tac) {
+                        msg += '\n\nYour verification code: ' + data.tac;
+                        const tacField = document.getElementById('tac-field');
+                        if (tacField) {
+                            tacField.value = data.tac;
+                            tacField.focus();
+                        }
+                    }
+                    alert(msg);
+                    if (!data.tac) {
+                        const tacField = document.getElementById('tac-field');
+                        if (tacField) tacField.focus();
+                    }
                 } else {
                     alert(data.message || 'Failed to send TAC. Please try again.');
                 }
