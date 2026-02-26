@@ -70,6 +70,11 @@ body.dashboard-page {
     transition: all 0.2s ease;
     color: #1f2937;
     font-weight: 600;
+    min-width: 62px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .transaction-company-btn:hover {
     background: #e2e8f0;
@@ -92,7 +97,8 @@ body.dashboard-page {
 .dashboard-content {
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow-x: visible;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: clamp(8px, 0.9vw, 14px);
@@ -108,6 +114,11 @@ body.dashboard-page {
 .dashboard-card:first-of-type {
     flex-shrink: 0;
     min-width: min(900px, 100%);
+    overflow: visible;
+}
+.dashboard-card:first-of-type .dashboard-card-body,
+.dashboard-card:first-of-type .dashboard-date-controls {
+    overflow: visible;
 }
 
 .dashboard-card-body {
@@ -544,8 +555,8 @@ body.dashboard-page {
     left: 0;
     right: auto;
     width: max-content;
-    min-width: 240px;
-    max-width: min(320px, 95vw);
+    min-width: 260px;
+    max-width: min(360px, 90vw);
     overflow-x: visible;
     overflow-y: auto;
     box-sizing: border-box;
