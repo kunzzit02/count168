@@ -77,16 +77,22 @@ try {
     $params[] = $date_from_db;
     $params[] = $date_to_db;
 
-    if ($has_source_bank_col && $category !== '') {
+    if ($category !== '') {
         if ($is_bank_category) {
-            $where[] = "t.source_bank_process_id IS NOT NULL AND t.source_bank_process_id != 0";
+            if ($has_source_bank_col) {
+                $where[] = "t.source_bank_process_id IS NOT NULL AND t.source_bank_process_id != 0";
+            } else {
+                $where[] = "1 = 0";
+            }
         } else {
-            $where[] = "(t.source_bank_process_id IS NULL OR t.source_bank_process_id = 0)";
+            if ($has_source_bank_col) {
+                $where[] = "(t.source_bank_process_id IS NULL OR t.source_bank_process_id = 0)";
+            }
         }
     }
 
     $whereSql = 'WHERE ' . implode(' AND ', $where);
-    
+
     // 主查询（未删除）
     // 计算 amount：优先使用 amount 字段；若为空视为 0
     $sql = "
@@ -277,11 +283,17 @@ try {
                 $tdCol = $pdo->query("SHOW COLUMNS FROM transactions_deleted LIKE 'source_bank_process_id'");
                 $hasTdSourceBank = $tdCol && $tdCol->rowCount() > 0;
             } catch (PDOException $e) { /* ignore */ }
-            if ($hasTdSourceBank && $category !== '') {
+            if ($category !== '') {
                 if ($is_bank_category) {
-                    $delWhere .= " AND td.source_bank_process_id IS NOT NULL AND td.source_bank_process_id != 0";
+                    if ($hasTdSourceBank) {
+                        $delWhere .= " AND td.source_bank_process_id IS NOT NULL AND td.source_bank_process_id != 0";
+                    } else {
+                        $delWhere .= " AND 1 = 0";
+                    }
                 } else {
-                    $delWhere .= " AND (td.source_bank_process_id IS NULL OR td.source_bank_process_id = 0)";
+                    if ($hasTdSourceBank) {
+                        $delWhere .= " AND (td.source_bank_process_id IS NULL OR td.source_bank_process_id = 0)";
+                    }
                 }
             }
             $deletedSql = "

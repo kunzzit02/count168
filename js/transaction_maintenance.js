@@ -483,7 +483,14 @@
             return;
         }
 
-        console.log('🔍 搜索参数:', { process, dateFrom, dateTo, companyId: currentCompanyId, category: selectedPermission });
+        let categoryToSend = selectedPermission;
+        if (!categoryToSend) {
+            const activeBtn = document.querySelector('#maintenance-permission-buttons .maintenance-company-btn.active');
+            if (activeBtn && activeBtn.dataset.permission) {
+                categoryToSend = activeBtn.dataset.permission;
+            }
+        }
+        console.log('🔍 搜索参数:', { process, dateFrom, dateTo, companyId: currentCompanyId, category: categoryToSend });
 
         let url = `api/transactions/maintenance_search_api.php?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
         if (process) {
@@ -492,8 +499,8 @@
         if (currentCompanyId) {
             url += `&company_id=${encodeURIComponent(currentCompanyId)}`;
         }
-        if (selectedPermission) {
-            url += `&category=${encodeURIComponent(selectedPermission)}`;
+        if (categoryToSend) {
+            url += `&category=${encodeURIComponent(categoryToSend)}`;
         }
 
         const tbody = document.getElementById('dataTableBody');
