@@ -448,6 +448,7 @@ body.dashboard-page {
 .enhanced-date-picker {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     background: white;
     border: 1px solid #d1d5db;
     border-radius: clamp(4px, 0.42vw, 8px);
