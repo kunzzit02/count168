@@ -178,6 +178,13 @@ try {
         throw new Exception('用户未登录');
     }
     $companyId = getCompanyIdForRequest($pdo);
+    $category = trim($_GET['category'] ?? $_GET['permission'] ?? '');
+    $catUpper = $category !== '' ? strtoupper($category) : '';
+    if (in_array($catUpper, ['LOAN', 'RATE', 'MONEY'], true)) {
+        jsonResponse(true, 'success', ['list' => [], 'total' => 0]);
+        exit;
+    }
+
     $search = isset($_GET['search']) ? trim((string)$_GET['search']) : '';
     if ($search === '' && isset($_POST['search'])) {
         $search = trim((string)$_POST['search']);

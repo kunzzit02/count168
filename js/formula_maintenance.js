@@ -461,6 +461,7 @@ function switchPermission(permission) {
             btn.classList.remove('active');
         }
     });
+    loadDataCaptureList();
 }
 
 async function switchCompany(companyId) {
@@ -569,26 +570,33 @@ function loadDataCaptureList() {
         container.style.display = 'block';
     }
 
-    // 构建 URL
-    let url = `/api/formula_maintenance/list_api.php`;
+    let categoryToSend = selectedPermission;
+    if (!categoryToSend) {
+        const activeBtn = document.querySelector('#maintenance-permission-buttons .maintenance-company-btn.active');
+        if (activeBtn && activeBtn.dataset.permission) {
+            categoryToSend = activeBtn.dataset.permission;
+        }
+    }
+
     const params = [];
     if (currentCompanyId) {
         params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
     }
-
+    if (categoryToSend) {
+        params.push(`category=${encodeURIComponent(categoryToSend)}`);
+    }
     if (process) {
         params.push(`process=${encodeURIComponent(process)}`);
     }
-
     if (searchFilter) {
         params.push(`search=${encodeURIComponent(searchFilter)}`);
     }
-
     if (dateFrom && dateTo) {
         params.push(`date_from=${encodeURIComponent(dateFrom)}`);
         params.push(`date_to=${encodeURIComponent(dateTo)}`);
     }
 
+    let url = `/api/formula_maintenance/list_api.php`;
     if (params.length > 0) {
         url += '?' + params.join('&');
     } else {
@@ -1249,15 +1257,12 @@ document.addEventListener('DOMContentLoaded', function() {
     initAutoSearchFilters();
 
     loadOwnerCompanies()
+        .then(() => (typeof loadPermissionButtons === 'function' ? loadPermissionButtons() : Promise.resolve()))
         .catch(() => {})
-        .finally(() => {
-            loadProcesses()
-                .catch(() => {})
-                .finally(() => {
-                    // Initialize custom select
-                    initProcessSelect();
-                    searchData();
-                });
+        .then(() => loadProcesses().catch(() => {}))
+        .then(() => {
+            initProcessSelect();
+            searchData();
         });
     
     
