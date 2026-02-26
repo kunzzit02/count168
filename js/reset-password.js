@@ -35,9 +35,15 @@
     const emailField = document.getElementById('email');
 
     if (getTacBtn && emailField) {
-        getTacBtn.addEventListener('click', function() {
-            const email = emailField.value;
+        getTacBtn.addEventListener('click', async function() {
+            const companyIdEl = document.getElementById('company-id');
+            const companyId = companyIdEl ? companyIdEl.value.trim() : '';
+            const email = emailField.value.trim();
 
+            if (!companyId) {
+                alert('Please enter Company ID first');
+                return;
+            }
             if (!email) {
                 alert('Please enter your email address first');
                 return;
@@ -46,13 +52,26 @@
             getTacBtn.disabled = true;
             getTacBtn.textContent = 'Sending...';
 
-            setTimeout(() => {
-                alert('TAC code has been sent to your email');
-                const tacField = document.getElementById('tac-field');
-                if (tacField) tacField.focus();
-                getTacBtn.disabled = false;
-                getTacBtn.textContent = 'Send TAC';
-            }, 2000);
+            try {
+                const res = await fetch('api/users/send_reset_tac_api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ company_id: companyId, email: email })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (data.success) {
+                    alert(data.message || 'TAC code has been sent to your email');
+                    const tacField = document.getElementById('tac-field');
+                    if (tacField) tacField.focus();
+                } else {
+                    alert(data.message || 'Failed to send TAC. Please try again.');
+                }
+            } catch (err) {
+                console.error('Send TAC error:', err);
+                alert('Network error. Please try again.');
+            }
+            getTacBtn.disabled = false;
+            getTacBtn.textContent = 'SEND';
         });
     }
 
