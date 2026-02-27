@@ -189,8 +189,32 @@ if (!empty($target_account_ids)) {
     }
     // 如果 show_inactive=1，不添加状态过滤，显示所有状态的账户
     
-    // 添加条件：如果选择了 "Show capture only"，只显示在日期范围内有 data_capture 记录的账户
-    if ($show_capture_only) {
+    // 添加条件：Show Win/Loss Only 和/或 Show Payment Only
+    // 仅 Show Win/Loss：只显示有 data_capture 的账户；仅 Show Payment：前端过滤；两者都勾选：显示有 data_capture 或有 Cr/Dr 的账户
+    if ($show_capture_only && $show_inactive) {
+        // 两者都勾选：账户在日期范围内有 Win/Loss（data_capture）或有 Payment（Cr/Dr）即显示
+        $where_conditions[] = "(
+            EXISTS (
+                SELECT 1 FROM data_capture_details dcd
+                JOIN data_captures dc ON dcd.capture_id = dc.id
+                WHERE dcd.account_id = a.id
+                  AND dc.capture_date BETWEEN ? AND ?
+            )
+            OR EXISTS (
+                SELECT 1 FROM transactions t
+                WHERE t.company_id = ?
+                  AND (t.account_id = a.id OR t.from_account_id = a.id)
+                  AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  " . contraApprovedWhere($pdo, 't') . "
+            )
+        )";
+        $params[] = $date_from_db;
+        $params[] = $date_to_db;
+        $params[] = $company_id;
+        $params[] = $date_from_db;
+        $params[] = $date_to_db;
+    } elseif ($show_capture_only) {
         $where_conditions[] = "EXISTS (
             SELECT 1 
             FROM data_capture_details dcd
@@ -201,7 +225,7 @@ if (!empty($target_account_ids)) {
         $params[] = $date_from_db;
         $params[] = $date_to_db;
     }
-    // 默认：显示所有账户（不再要求必须在 data_capture_details 中有记录）
+    // 默认 / 仅 Show Payment：不限制账户列表，由前端按 has_crdr 过滤
     
     $where_sql = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
     
@@ -509,14 +533,11 @@ if (!empty($target_account_ids)) {
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
         
-        // 如果选择了 "Show capture only"，只显示有 Win/Loss 数据且没有 Cr/Dr 数据的账户
-        if ($show_capture_only) {
-            // 隐藏有 Cr/Dr 数据的账户（有 PAYMENT/RECEIVE/CONTRA/CLAIM 交易）
+        // 如果选择了 "Show capture only"：仅勾选此项时只显示有 Win/Loss 且无 Cr/Dr 的行；与 "Show Payment" 同时勾选时不跳过 Cr/Dr 行
+        if ($show_capture_only && !$show_inactive) {
             if ($has_crdr_transactions) {
                 continue;
             }
-            // 检查是否有 Win/Loss 数据（在日期范围内有 data_capture 记录）
-            // 使用 Data Capture Summary Edit Formula 的 currency（dcd.currency_id），不读取 Data Capture 的 currency
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) 
                 FROM data_capture_details dcd
@@ -529,8 +550,6 @@ if (!empty($target_account_ids)) {
             ");
             $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from_db, $date_to_db]);
             $has_winloss_data = $stmt->fetchColumn() > 0;
-            
-            // 隐藏没有 Win/Loss 数据的账户
             if (!$has_winloss_data) {
                 continue;
             }

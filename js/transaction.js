@@ -1944,25 +1944,30 @@ function applyZeroBalanceFilterAndRender() {
     }
     const showZero = document.getElementById('show_zero_balance')?.checked || false;
     const showPaymentOnly = document.getElementById('show_inactive')?.checked || false;
+    const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
     const rawLeft = lastSearchData.left_table || [];
     const rawRight = lastSearchData.right_table || [];
     
-    // 先应用 Show Payment Only 过滤（如果有选中）
+    // 先应用 Show Payment Only / Show Win/Loss 过滤
+    // 双勾选时：显示有 Cr/Dr 或有 Win/Loss 的行；仅勾选 Show Payment：只显示有 Cr/Dr 的行
     let filteredLeft = rawLeft;
     let filteredRight = rawRight;
     
     if (showPaymentOnly) {
-        const hasTxn = row => {
-            if (typeof row.has_crdr_transactions === 'boolean') {
-                return row.has_crdr_transactions;
-            }
-            if (typeof row.has_crdr_transactions === 'number') {
-                return row.has_crdr_transactions !== 0;
-            }
+        const hasCrdr = row => {
+            if (typeof row.has_crdr_transactions === 'boolean') return row.has_crdr_transactions;
+            if (typeof row.has_crdr_transactions === 'number') return row.has_crdr_transactions !== 0;
             return parseInt(row.has_crdr_transactions || '0', 10) !== 0;
         };
-        filteredLeft = rawLeft.filter(hasTxn);
-        filteredRight = rawRight.filter(hasTxn);
+        const hasWinLoss = row => {
+            const wl = parseFloat(row.win_loss);
+            return !isNaN(wl) && Math.abs(wl) > 0.00001;
+        };
+        const shouldShow = showWinLossOnly
+            ? row => hasCrdr(row) || hasWinLoss(row)
+            : hasCrdr;
+        filteredLeft = rawLeft.filter(shouldShow);
+        filteredRight = rawRight.filter(shouldShow);
     }
     
     // 再应用 Show 0 balance 过滤
@@ -2029,25 +2034,24 @@ function handlePaymentOnlyFilter() {
     const showPaymentOnly = document.getElementById('show_inactive')?.checked || false;
     
     if (!showPaymentOnly) {
-        // 取消选中时，恢复显示所有账户（但需要应用其他过滤条件，如 show_zero_balance）
         applyZeroBalanceFilterAndRender();
         return;
     }
     
-    // 选中时，只显示有 Cr/Dr 交易的账户
-    const hasTxn = row => {
-        if (typeof row.has_crdr_transactions === 'boolean') {
-            return row.has_crdr_transactions;
-        }
-        if (typeof row.has_crdr_transactions === 'number') {
-            return row.has_crdr_transactions !== 0;
-        }
+    const hasCrdr = row => {
+        if (typeof row.has_crdr_transactions === 'boolean') return row.has_crdr_transactions;
+        if (typeof row.has_crdr_transactions === 'number') return row.has_crdr_transactions !== 0;
         return parseInt(row.has_crdr_transactions || '0', 10) !== 0;
     };
+    const hasWinLoss = row => {
+        const wl = parseFloat(row.win_loss);
+        return !isNaN(wl) && Math.abs(wl) > 0.00001;
+    };
+    const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
+    const shouldShow = showWinLossOnly ? row => hasCrdr(row) || hasWinLoss(row) : hasCrdr;
     
-    // 先应用 Cr/Dr 过滤
-    let filteredLeft = lastSearchData.left_table.filter(hasTxn);
-    let filteredRight = lastSearchData.right_table.filter(hasTxn);
+    let filteredLeft = lastSearchData.left_table.filter(shouldShow);
+    let filteredRight = lastSearchData.right_table.filter(shouldShow);
     
     // 再应用 show_zero_balance 过滤（如果启用）
     const showZero = document.getElementById('show_zero_balance')?.checked || false;
