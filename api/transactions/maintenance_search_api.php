@@ -238,7 +238,7 @@ try {
             FROM data_capture_details dcd
             INNER JOIN data_captures dc ON dcd.capture_id = dc.id
             INNER JOIN process p ON dc.process_id = p.id
-            INNER JOIN account a ON dcd.account_id = a.id
+            INNER JOIN account a ON (CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR) OR dcd.account_id = a.account_id)
             INNER JOIN currency c ON dcd.currency_id = c.id
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
@@ -440,7 +440,7 @@ try {
                     dcd.rate
                 FROM data_captures_deleted dcd
                 INNER JOIN process p ON dcd.process_id = p.id
-                INNER JOIN account a ON dcd.account_id = a.id
+                INNER JOIN account a ON (CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR) OR dcd.account_id = a.account_id)
                 INNER JOIN currency c ON dcd.currency_id = c.id
                 LEFT JOIN description d ON p.description_id = d.id
                 LEFT JOIN user u ON dcd.user_type = 'user' AND dcd.created_by = u.id
