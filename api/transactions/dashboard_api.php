@@ -275,7 +275,8 @@ try {
                         SELECT DATE(t.transaction_date) as date,
                                COALESCE(SUM(CASE 
                                    WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
-                                   WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN t.amount
+                                   WHEN transaction_type = 'CONTRA' THEN t.amount
+                                   WHEN transaction_type = 'CLEAR' THEN -t.amount
                                    WHEN transaction_type = 'PAYMENT' THEN -t.amount
                                    WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
                                    WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
@@ -310,7 +311,8 @@ try {
                     $txn_from_daily_stmt = $pdo->prepare("
                         SELECT DATE(t.transaction_date) as date,
                                COALESCE(SUM(CASE 
-                                   WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN -t.amount
+                                   WHEN transaction_type = 'CONTRA' THEN -t.amount
+                                   WHEN transaction_type = 'CLEAR' THEN t.amount
                                    WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
                                    ELSE 0
                                END), 0) as cr_dr
@@ -408,7 +410,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
-                        WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN amount
+                        WHEN transaction_type = 'CONTRA' THEN amount
+                        WHEN transaction_type = 'CLEAR' THEN -amount
                         WHEN transaction_type = 'PAYMENT' THEN -amount
                         WHEN transaction_type = 'WIN' AND (description LIKE 'Process: %') THEN amount
                         WHEN transaction_type = 'LOSE' AND (description LIKE 'Process: %') THEN -amount
@@ -433,7 +436,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN amount
-                        WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN -amount
+                        WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions
@@ -531,11 +534,12 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     }
     if ($has_transaction_currency) {
         $clearFilter = $exclude_clear ? " AND transaction_type <> 'CLEAR'" : "";
-        // 作为 To Account；CONTRA 时 TO 显示负数
+        // 作为 To Account；CONTRA/CLEAR 时 TO 显示负数
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
-                        WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN amount
+                        WHEN transaction_type = 'CONTRA' THEN amount
+                        WHEN transaction_type = 'CLEAR' THEN -amount
                         WHEN transaction_type = 'PAYMENT' THEN -amount
                         WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
                         WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
@@ -554,12 +558,11 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from, $date_to]);
         $cr_dr += $stmt->fetchColumn();
         
-        // 作为 From Account；CONTRA 时 FROM 显示正数
+        // 作为 From Account；CONTRA/CLEAR 时 FROM 显示正数
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN amount
-                        WHEN transaction_type = 'CONTRA' THEN amount
-                        WHEN transaction_type = 'CLEAR' THEN -amount
+                        WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions
