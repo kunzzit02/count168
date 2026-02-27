@@ -1448,11 +1448,25 @@ body {
             align-items: center;
             justify-content: space-between;
             gap: 0px;
+            min-width: 0;
         }
 
         .formula-text {
             flex: 1;
             word-break: break-all;
+            min-width: 0;
+            overflow: visible;
+            white-space: normal;
+        }
+
+        /* Formula 列完整展示，避免第二个 SUB 等行的 formula 被截断 */
+        #summaryTable td:nth-child(5) {
+            overflow: visible;
+            min-width: 120px;
+            max-width: none;
+        }
+        #summaryTable td:nth-child(5) .formula-cell-content {
+            overflow: visible;
         }
 
         .edit-formula-btn {

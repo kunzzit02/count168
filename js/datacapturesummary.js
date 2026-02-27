@@ -12926,14 +12926,15 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
         const inputMethodTooltip = inputMethod || '';
         cells[4].innerHTML = `
-            <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
-                <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
+            <div class="formula-cell-content" ${inputMethodTooltip ? `title="${String(inputMethodTooltip).replace(/"/g, '&quot;')}"` : ''}>
+                <span class="formula-text editable-cell"></span>
                 <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
             </div>
         `;
-        // Add double-click event listener for inline editing
         const formulaTextSpan = cells[4].querySelector('.formula-text');
         if (formulaTextSpan) {
+            formulaTextSpan.textContent = formulaText;
+            if (formulaText || inputMethodTooltip) formulaTextSpan.setAttribute('title', [formulaText, inputMethodTooltip].filter(Boolean).join('\n'));
             formulaTextSpan.addEventListener('dblclick', function(e) {
                 e.stopPropagation();
                 enableFormulaInlineEdit(this, row);
