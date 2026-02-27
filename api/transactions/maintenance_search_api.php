@@ -45,7 +45,7 @@ try {
     // 参数
     $date_from = $_GET['date_from'] ?? null;
     $date_to   = $_GET['date_to']   ?? null;
-    $process   = $_GET['process']   ?? null; // process.process_id
+    $process   = isset($_GET['process']) && $_GET['process'] !== '' ? trim((string)$_GET['process']) : null; // process.process_id（如 SPORT）
     $category  = trim($_GET['category'] ?? $_GET['permission'] ?? ''); // Games|Bank|Loan|Rate|Money，按 category 只显示该部分数据
 
     if (!$date_from || !$date_to) {
@@ -75,6 +75,8 @@ try {
 
     {
     // ========== 1. 查询 Transaction 数据 ==========
+    // 当指定了 Process 时，不查 Transaction（transactions 表无 process 关联），只由下方 Data Capture 按 process 过滤
+    if (empty($process)) {
     $where = [];
     $params = [];
 
@@ -103,7 +105,6 @@ try {
     $whereSql = 'WHERE ' . implode(' AND ', $where);
 
     // 主查询（未删除）
-    // 计算 amount：优先使用 amount 字段；若为空视为 0
     $sql = "
         SELECT
             t.id AS transaction_id,
@@ -172,6 +173,7 @@ try {
             'data_type' => 'transaction'
         ];
     }
+    } // end if (empty($process)) — 指定 Process 时不返回未关联 process 的 Transaction
 
     // ========== 2. 查询 Data Capture 数据（Bank category 不包含 Data Capture，仅 Transaction）==========
     if (!$is_bank_category) {
@@ -281,7 +283,8 @@ try {
         error_log('查询 Data Capture 数据失败: ' . $e->getMessage());
     }
     }
-    // ========== 3. 查询已删除的 Transaction 记录（transactions_deleted，可选）==========
+    // ========== 3. 查询已删除的 Transaction 记录（transactions_deleted，可选；指定 Process 时不查）==========
+    if (empty($process)) {
     try {
         $check = $pdo->query("SHOW TABLES LIKE 'transactions_deleted'");
         if ($check->rowCount() > 0) {
@@ -377,6 +380,7 @@ try {
     } catch (Exception $e) {
         error_log('查询已删除交易失败: ' . $e->getMessage());
     }
+    } // end if (empty($process)) — 指定 Process 时不返回已删除的 Transaction
 
     // ========== 4. 查询已删除的 Data Capture 记录（data_captures_deleted，可选；Bank category 不包含）==========
     if (!$is_bank_category) {
