@@ -1159,6 +1159,7 @@ body {
             position: relative;
             width: calc(200% + 30px); /* left column (100%) + gap (30px) + middle column (100%) */
             max-width: calc(200% + 30px);
+            min-width: 360px; /* 数字键输入时公式能完整展示 */
             z-index: 1;
             overflow: visible;
             box-sizing: border-box;
@@ -1172,6 +1173,13 @@ body {
         .edit-formula-form-container .form-left-column .form-row.formula-row-full-width input {
             width: 100%;
             box-sizing: border-box;
+            /* 数字键输入时公式能完整展示：保证最小宽度并允许横向滚动 */
+            min-width: min(100%, 380px);
+        }
+        
+        /* Edit Formula 弹窗内 Formula 输入框：确保长公式完整可见、可横向滚动 */
+        #editFormulaModal #formula {
+            min-width: 320px;
         }
         
         /* Responsive adjustment for Formula width on smaller screens */
@@ -1462,7 +1470,7 @@ body {
         /* Formula 列完整展示，避免第二个 SUB 等行的 formula 被截断 */
         #summaryTable td:nth-child(5) {
             overflow: visible;
-            min-width: 120px;
+            min-width: 160px;
             max-width: none;
         }
         #summaryTable td:nth-child(5) .formula-cell-content {
