@@ -65,20 +65,20 @@ function fetchCaptureRecords(PDO $pdo, int $company_id, string $date_from_db, st
     }
     $where_sql = 'AND ' . implode(' AND ', $where_conditions);
 
-    $sql = "SELECT dc.id as capture_id, p.process_id, d.name as product_name,
+    $sql = "SELECT dc.id as capture_id, p.process_id, COALESCE(d.name, p.process_id) as product_name,
             MIN(dcd.currency_id) as currency_id, MIN(c.code) as currency_code,
             dc.capture_date, DATE_FORMAT(dc.created_at, '%d/%m/%Y %H:%i:%s') as dts_created,
-            d.name as wl_group, MAX(COALESCE(u.login_id, o.owner_code)) as submitted_by
+            COALESCE(d.name, p.process_id) as wl_group, MAX(COALESCE(u.login_id, o.owner_code)) as submitted_by
             FROM data_captures dc
             INNER JOIN process p ON dc.process_id = p.id
-            INNER JOIN description d ON p.description_id = d.id
+            LEFT JOIN description d ON p.description_id = d.id
             INNER JOIN data_capture_details dcd ON dc.id = dcd.capture_id
             INNER JOIN currency c ON dcd.currency_id = c.id
             LEFT JOIN user u ON dc.created_by = u.id AND dc.user_type = 'user'
             LEFT JOIN owner o ON dc.created_by = o.id AND dc.user_type = 'owner'
             WHERE dc.company_id = ? AND dcd.company_id = ? $where_sql
-            GROUP BY dc.id, p.process_id, d.name, dc.capture_date, dc.created_at
-            ORDER BY dc.capture_date DESC, p.process_id, d.name";
+            GROUP BY dc.id, p.process_id, COALESCE(d.name, p.process_id), dc.capture_date, dc.created_at
+            ORDER BY dc.capture_date DESC, p.process_id, COALESCE(d.name, p.process_id)";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -101,21 +101,21 @@ function fetchDeletedRecords(PDO $pdo, int $company_id, string $date_from_db, st
     $deletedWhereSql = 'AND ' . implode(' AND ', $deletedWhereConditions);
     $deletedParams[] = $company_id;
 
-    $sql = "SELECT dcd.capture_id, p.process_id, d.name as product_name, dcd.currency_id, c.code as currency_code,
+    $sql = "SELECT dcd.capture_id, p.process_id, COALESCE(d.name, p.process_id) as product_name, dcd.currency_id, c.code as currency_code,
             dcd.capture_date, DATE_FORMAT(dcd.created_at, '%d/%m/%Y %H:%i:%s') as dts_created,
-            d.name as wl_group, COALESCE(u.login_id, o.owner_code) as submitted_by,
+            COALESCE(d.name, p.process_id) as wl_group, COALESCE(u.login_id, o.owner_code) as submitted_by,
             COALESCE(du.login_id, do.owner_code) as deleted_by,
             DATE_FORMAT(dcd.deleted_at, '%d/%m/%Y %H:%i:%s') as dts_deleted
             FROM data_captures_deleted dcd
             INNER JOIN process p ON dcd.process_id = p.id
-            INNER JOIN description d ON p.description_id = d.id
+            LEFT JOIN description d ON p.description_id = d.id
             INNER JOIN currency c ON dcd.currency_id = c.id
             LEFT JOIN user u ON dcd.created_by = u.id AND dcd.user_type = 'user'
             LEFT JOIN owner o ON dcd.created_by = o.id AND dcd.user_type = 'owner'
             LEFT JOIN user du ON dcd.deleted_by_user_id = du.id
             LEFT JOIN owner do ON dcd.deleted_by_owner_id = do.id
             WHERE dcd.company_id = ? AND dcd.capture_date BETWEEN ? AND ? $deletedWhereSql
-            ORDER BY dcd.capture_date DESC, p.process_id, d.name";
+            ORDER BY dcd.capture_date DESC, p.process_id, COALESCE(d.name, p.process_id)";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($deletedParams);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -178,7 +178,24 @@ try {
 
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
-    $process_name = $_GET['process'] ?? null;
+    $process_name = isset($_GET['process']) && $_GET['process'] !== '' ? trim((string)$_GET['process']) : null;
+
+    // 统一 process 为 process_id（与 maintenance_search_api 一致）：前端可能传 "SPORT (SPORT)" 或数字 id
+    if ($process_name !== null && $process_name !== '') {
+        if (preg_match('/^\d+$/', $process_name)) {
+            $stmt = $pdo->prepare("SELECT process_id FROM process WHERE id = ? AND company_id = ? LIMIT 1");
+            $stmt->execute([(int)$process_name, $company_id]);
+            $res = $stmt->fetchColumn();
+            $process_name = $res !== false ? (string)$res : null;
+        } else {
+            if (strpos($process_name, '(') !== false) {
+                $process_name = trim(explode('(', $process_name)[0]);
+            }
+            if ($process_name === '') {
+                $process_name = null;
+            }
+        }
+    }
 
     if (!$date_from || !$date_to) {
         throw new Exception('日期范围是必填项');
