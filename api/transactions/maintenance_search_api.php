@@ -489,6 +489,7 @@ try {
     }
     }
     }
+    } // end anonymous block (line 75)
     // ========== 5. 按日期排序合并后的数据 ==========
     usort($formatted, function($a, $b) {
         // 先按日期排序（降序）
