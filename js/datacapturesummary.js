@@ -13295,12 +13295,15 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         
         // Formula column (index 4)
         if (cells[4]) {
-            // CRITICAL: Always rebuild from sourceColumns if available, to ensure deleted columns are not shown
-            // This ensures that when data is deleted and saved, the formula display reflects the updated sourceColumns
+            // 优先使用 data.formula（与 Edit Formula 弹窗一致），避免重建导致显示不一致
             let formulaText = '';
+            if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+                formulaText = formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula));
+            }
             
+            // 无 data.formula 时再从 sourceColumns 重建（如从 API 只返回 sourceColumns 时）
+            if (!formulaText) {
             // IMPORTANT: Get sourceColumns from data parameter first (from API), then from row attribute
-            // This ensures we use the latest data from database, not stale DOM attribute
             const sourceColumnsValue = (data.sourceColumns !== undefined && data.sourceColumns !== null)
                 ? data.sourceColumns
                 : (row.getAttribute('data-source-columns') || '');
@@ -13309,7 +13312,6 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 : (row.getAttribute('data-formula-operators') || '');
             
             // If sourceColumns is available, rebuild formula display from it
-            // IMPORTANT: If sourceColumnsValue is empty string, it means columns were deleted, so formula should be empty
             if (sourceColumnsValue && sourceColumnsValue.trim() !== '' && processValue) {
                 const referenceExpression = buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, row);
                 if (referenceExpression) {
@@ -13381,10 +13383,16 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 }
             }
             
-            // Fallback: Get the formula to display - prioritize data.formula, then data.formulaOperators
-            // IMPORTANT: If sourceColumns was explicitly set to empty (data.sourceColumns === ''), don't use fallback
-            if (!formulaText && (data.sourceColumns === undefined || data.sourceColumns === null)) {
-                formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula)) : '';
+            // 无 sourceColumns 时用 formulaOperators 解析展示
+            if (!formulaText && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
+                const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
+                    ? data.sourcePercent.toString().trim()
+                    : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                const enableSourcePercent = data.enableSourcePercent !== undefined
+                    ? data.enableSourcePercent
+                    : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                formulaText = createFormulaDisplayFromExpression(formulaOperatorsValue, sourcePercentText, enableSourcePercent);
+            }
             }
             
             const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
