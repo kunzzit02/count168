@@ -1082,6 +1082,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         SELECT COALESCE(SUM(CASE
           WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
           WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
+          WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN -e.amount
           ELSE e.amount
         END), 0) AS total
         FROM transaction_entry e
@@ -1278,6 +1279,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
             COALESCE(SUM(CASE
               WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
               WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
+              WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN -e.amount
               ELSE e.amount
             END), 0) AS cr_dr,
             COUNT(*) AS txn_count
