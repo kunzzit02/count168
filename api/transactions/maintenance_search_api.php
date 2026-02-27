@@ -207,6 +207,10 @@ try {
         $captureParams[] = $date_from_db;
         $captureParams[] = $date_to_db;
 
+        // Process 必须限定当前公司，否则多公司同名的 process 会匹配错误导致无数据
+        $captureWhere[] = "p.company_id = ?";
+        $captureParams[] = $company_id;
+
         // Process 过滤（如果指定）
         if ($process) {
             $captureWhere[] = "p.process_id = ?";
@@ -412,6 +416,9 @@ try {
             $deletedCaptureWhere[] = "dcd.capture_date BETWEEN ? AND ?";
             $deletedCaptureParams[] = $date_from_db;
             $deletedCaptureParams[] = $date_to_db;
+            
+            $deletedCaptureWhere[] = "p.company_id = ?";
+            $deletedCaptureParams[] = $company_id;
             
             // Process 过滤（如果指定）
             if ($process) {
