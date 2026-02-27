@@ -155,8 +155,7 @@ try {
     
     // 仅使用当前请求的账户：Win/Loss 与 Payment History 只显示该账户自身数据，不聚合关联账户
     $account_ids = [$account_id];
-    $account_code = $account['account_id'] ?? '';
-
+    
     // 1. 计算 B/F (Opening Balance)（仅当前账户）
     // 如果指定了 currency，按 currency 计算
     // 如果没有指定 currency，从 data_capture_details 中获取该账户实际使用的 currency
@@ -164,21 +163,22 @@ try {
     if ($currency_id) {
         $bf = 0;
         foreach ($account_ids as $aid) {
-            $bf += calculateBFByCurrency($pdo, $aid, $currency_id, $date_from_db, $company_id, $account_code);
+            $bf += calculateBFByCurrency($pdo, $aid, $currency_id, $date_from_db, $company_id);
         }
         $bfCurrency = $currency;
     } else {
-        // 如果没有指定 currency，从 data_capture_details 中获取任一聚合账户使用的第一个 currency（dcd.account_id 可能为数字 id 或账户代码）
+        // 如果没有指定 currency，从 data_capture_details 中获取任一聚合账户使用的第一个 currency
+        $placeholders = implode(',', array_fill(0, count($account_ids), '?'));
         $stmt = $pdo->prepare("
             SELECT DISTINCT c.code 
             FROM data_capture_details dcd
             JOIN currency c ON dcd.currency_id = c.id
             WHERE dcd.company_id = ?
-              AND (CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)
+              AND CAST(dcd.account_id AS CHAR) IN ($placeholders)
             ORDER BY c.code ASC
             LIMIT 1
         ");
-        $stmt->execute([$company_id, $account_id, $account_code]);
+        $stmt->execute(array_merge([$company_id], $account_ids));
         $bfCurrency = $stmt->fetchColumn();
         
         if ($bfCurrency) {
@@ -188,12 +188,12 @@ try {
             if ($bfCurrencyId) {
                 $bf = 0;
                 foreach ($account_ids as $aid) {
-                    $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id, $account_code);
+                    $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id);
                 }
             } else {
                 $bf = 0;
                 foreach ($account_ids as $aid) {
-                    $bf += calculateBF($pdo, $aid, $date_from_db, $company_id, $account_code);
+                    $bf += calculateBF($pdo, $aid, $date_from_db, $company_id);
                 }
             }
         } else {
@@ -216,18 +216,18 @@ try {
                 if ($bfCurrencyId) {
                     $bf = 0;
                     foreach ($account_ids as $aid) {
-                        $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id, $account_code);
+                        $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id);
                     }
                 } else {
                     $bf = 0;
                     foreach ($account_ids as $aid) {
-                        $bf += calculateBF($pdo, $aid, $date_from_db, $company_id, $account_code);
+                        $bf += calculateBF($pdo, $aid, $date_from_db, $company_id);
                     }
                 }
             } else {
                 $bf = 0;
                 foreach ($account_ids as $aid) {
-                    $bf += calculateBF($pdo, $aid, $date_from_db, $company_id, $account_code);
+                    $bf += calculateBF($pdo, $aid, $date_from_db, $company_id);
                 }
             }
         }
@@ -273,10 +273,10 @@ try {
                     LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                     WHERE dcd.company_id = ?
                       AND dc.company_id = ?
-                      AND (CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)
+                      AND CAST(dcd.account_id AS CHAR) IN (" . implode(',', array_fill(0, count($account_ids), '?')) . ")
                       AND dc.capture_date BETWEEN ? AND ?";
     
-    $captureParams = array_merge([$company_id, $company_id], [$account_id, $account_code], [$date_from_db, $date_to_db]);
+    $captureParams = array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db]);
     if ($currency_id) {
         $sqlCapture .= " AND dcd.currency_id = ?";
         $captureParams[] = $currency_id;
@@ -370,18 +370,18 @@ try {
                     SELECT 1
                     FROM data_capture_details dcd
                     WHERE dcd.company_id = ?
-                      AND (CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)
+                      AND CAST(dcd.account_id AS CHAR) IN ($ph)
                       AND dcd.currency_id = ?
                 )) OR 
                 (t.from_account_id IN ($ph) AND EXISTS (
                     SELECT 1
                     FROM data_capture_details dcd
                     WHERE dcd.company_id = ?
-                      AND (CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)
+                      AND CAST(dcd.account_id AS CHAR) IN ($ph)
                       AND dcd.currency_id = ?
                 ))
             )";
-            $transactionParams = array_merge($transactionParams, [$company_id, $account_id, $account_code, $currency_id], [$company_id, $account_id, $account_code, $currency_id]);
+            $transactionParams = array_merge($transactionParams, $account_ids, [$company_id], $account_ids, [$currency_id], $account_ids, [$company_id], $account_ids, [$currency_id]);
         }
     }
     
@@ -766,12 +766,12 @@ try {
                 JOIN currency c ON dcd.currency_id = c.id
                 WHERE dcd.company_id = ?
                   AND dc.company_id = ?
-                  AND (CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)
+                  AND CAST(dcd.account_id AS CHAR) IN ($ph)
                   AND dc.capture_date <= ?
                 ORDER BY dc.capture_date DESC, c.code ASC
                 LIMIT 1
             ");
-            $stmt->execute(array_merge([$company_id, $company_id], [$account_id, $account_code], [$t['transaction_date']]));
+            $stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$t['transaction_date']]));
             $transactionCurrency = $stmt->fetchColumn();
             
             // 如果找不到，使用 B/F 的 currency
@@ -984,27 +984,21 @@ try {
  * 计算 B/F (Balance Forward)
  * 与 search_api.php 中的函数相同
  */
-function calculateBF($pdo, $account_id, $date_from, $company_id, $account_code = null) {
+function calculateBF($pdo, $account_id, $date_from, $company_id) {
     $bf = 0;
-    $dcd_cond = ($account_code !== null && $account_code !== '')
-        ? "AND (CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)"
-        : "AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)";
-    $dcd_params = ($account_code !== null && $account_code !== '')
-        ? [$account_id, $account_code]
-        : [$account_id];
-
+    
     // 1. 计算日期之前所有 data_capture 的 processed_amount
-    // 注意：account_id 可能是字符串或整数，dcd 中也可能存账户代码
+    // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
-              $dcd_cond
+              AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
               AND dc.capture_date < ?";
     
     $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_merge([$company_id, $company_id], $dcd_params, [$date_from]));
+    $stmt->execute([$company_id, $company_id, $account_id, $date_from]);
     $bf += $stmt->fetchColumn();
     
     // 2. 计算日期之前所有 transactions 的影响
@@ -1057,15 +1051,9 @@ function calculateBF($pdo, $account_id, $date_from, $company_id, $account_code =
  * 按 Currency 计算 B/F (Balance Forward)
  * 与 search_api.php 中的函数相同
  */
-function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id, $account_code = null) {
+function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id) {
     $bf = 0;
-    $dcd_cond = ($account_code !== null && $account_code !== '')
-        ? "AND (CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)"
-        : "AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)";
-    $dcd_params = ($account_code !== null && $account_code !== '')
-        ? [$account_id, $account_code]
-        : [$account_id];
-
+    
     // 检查 transactions 表是否有 currency_id 字段（仅检查一次）
     static $has_transaction_currency = null;
     if ($has_transaction_currency === null) {
@@ -1074,17 +1062,18 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     }
     
     // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 currency 过滤）
+    // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
-              $dcd_cond
+              AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
               AND dcd.currency_id = ?
               AND dc.capture_date < ?";
     
     $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_merge([$company_id, $company_id], $dcd_params, [$currency_id, $date_from]));
+    $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
     $bf += $stmt->fetchColumn();
     
     // 2. 计算起始日期之前所有 Cr/Dr（作为 To Account，按 currency 过滤）；CONTRA 时 TO 显示负数
@@ -1129,7 +1118,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                       SELECT 1
                       FROM data_capture_details dcd
                       WHERE dcd.company_id = ?
-                        AND (CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR) OR dcd.account_id = (SELECT a.account_id FROM account a WHERE a.id = t.account_id LIMIT 1))
+                        AND dcd.account_id = t.account_id
                         AND dcd.currency_id = ?
                   )"
                   . historyContraApprovedWhere($pdo, 't');
@@ -1177,7 +1166,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                       SELECT 1
                       FROM data_capture_details dcd
                       WHERE dcd.company_id = ?
-                        AND (CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR) OR dcd.account_id = (SELECT a.account_id FROM account a WHERE a.id = t.from_account_id LIMIT 1))
+                        AND CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR)
                         AND dcd.currency_id = ?
                   )"
                   . historyContraApprovedWhere($pdo, 't');

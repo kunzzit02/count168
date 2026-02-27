@@ -197,7 +197,7 @@ if (!empty($target_account_ids)) {
             EXISTS (
                 SELECT 1 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE (CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR) OR dcd.account_id = a.account_id)
+                WHERE dcd.account_id = a.id
                   AND dc.capture_date BETWEEN ? AND ?
             )
             OR EXISTS (
@@ -219,7 +219,7 @@ if (!empty($target_account_ids)) {
             SELECT 1 
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
-            WHERE (CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR) OR dcd.account_id = a.account_id)
+            WHERE dcd.account_id = a.id
               AND dc.capture_date BETWEEN ? AND ?
         )";
         $params[] = $date_from_db;
@@ -384,48 +384,22 @@ if (!empty($target_account_ids)) {
                     }));
                 }
             }
-            // 补充：账户在日期范围内有 Data Capture 的货币，确保仅有 Win/Loss 的账户（如 JH086）能显示
-            try {
-                $account_code = $account['account_id'] ?? '';
-                $dc_cur_stmt = $pdo->prepare("
-                    SELECT DISTINCT dcd.currency_id, UPPER(c.code) AS currency_code
-                    FROM data_capture_details dcd
-                    INNER JOIN data_captures dc ON dcd.capture_id = dc.id
-                    INNER JOIN currency c ON dcd.currency_id = c.id AND c.company_id = ?
-                    WHERE (CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)
-                      AND dcd.currency_id IS NOT NULL
-                      AND dc.capture_date BETWEEN ? AND ?
-                      AND dc.company_id = ?
-                ");
-                $dc_cur_stmt->execute([$company_id, $account_id, $account_code, $date_from_db, $date_to_db, $company_id]);
-                foreach ($dc_cur_stmt->fetchAll(PDO::FETCH_ASSOC) as $dcr) {
-                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $dcr['currency_id'] ?? null, $dcr['currency_code'] ?? null);
-                }
-                if (!empty($filter_currency_codes)) {
-                    $account_currencies = array_values(array_filter($account_currencies, function($ac) use ($filter_currency_codes) {
-                        return in_array(strtoupper($ac['currency_code'] ?? ''), $filter_currency_codes);
-                    }));
-                }
-            } catch (PDOException $e) {
-                // 忽略
-            }
         } else {
             // 未勾选 Show 0 balance 或没有 account_currency 表：沿用原逻辑（data_capture + transactions + 全公司货币）
             try {
-                $account_code = $account['account_id'] ?? '';
                 $dc_currency_stmt = $pdo->prepare("
                     SELECT DISTINCT dcd.currency_id, UPPER(c.code) AS currency_code
                     FROM data_capture_details dcd
                     INNER JOIN data_captures dc ON dcd.capture_id = dc.id
                     INNER JOIN currency c ON dcd.currency_id = c.id
-                    WHERE (CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)
+                    WHERE CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
                       AND dcd.currency_id IS NOT NULL
                       AND dc.capture_date <= ?
                       AND dc.company_id = ?
                       AND c.company_id = ?
                     ORDER BY dcd.currency_id ASC
                 ");
-                $dc_currency_stmt->execute([$account_id, $account_code, $date_to_db, $company_id, $company_id]);
+                $dc_currency_stmt->execute([$account_id, $date_to_db, $company_id, $company_id]);
                 $dc_rows = $dc_currency_stmt->fetchAll(PDO::FETCH_ASSOC);
                 foreach ($dc_rows as $dc_row) {
                     addAccountCurrencyCombo(
@@ -548,12 +522,11 @@ if (!empty($target_account_ids)) {
         $currency_id = $combo['currency_id'];
         $currency_code = $combo['currency_code'];
         
-        $account_code = $account['account_id'] ?? '';
         // 1. 计算 B/F (起始日期之前的所有累计余额，按 currency 过滤)
-        $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account_code);
+        $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id);
         
         // 2. 计算 Win/Loss (日期范围内的 Data Capture + WIN/LOSE 交易，按 currency 过滤)
-        $win_loss = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account_code);
+        $win_loss = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
         
         // 3. 计算 Cr/Dr (日期范围内的 PAYMENT/RECEIVE/CONTRA 交易，按 Edit Formula 的 currency 过滤)
         $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
@@ -565,18 +538,17 @@ if (!empty($target_account_ids)) {
             if ($has_crdr_transactions) {
                 continue;
             }
-            $account_code = $account['account_id'] ?? '';
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) 
                 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
                 WHERE dcd.company_id = ?
                   AND dc.company_id = ?
-                  AND (CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)
+                  AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
                   AND dcd.currency_id = ?
                   AND dc.capture_date BETWEEN ? AND ?
             ");
-            $stmt->execute([$company_id, $company_id, $account_id, $account_code, $currency_id, $date_from_db, $date_to_db]);
+            $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from_db, $date_to_db]);
             $has_winloss_data = $stmt->fetchColumn() > 0;
             if (!$has_winloss_data) {
                 continue;
@@ -960,7 +932,7 @@ function calculateTotals($data) {
  * 按 Currency 计算 B/F (Balance Forward)
  * B/F = 起始日期之前的所有累计余额（按 currency 过滤）
  */
-function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id, $account_code = null) {
+function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id) {
     $bf = 0;
     
     // 检查 transactions 表是否有 currency_id 字段（仅检查一次）
@@ -970,12 +942,6 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $has_transaction_currency = $stmt->rowCount() > 0;
     }
     
-    $dcd_account_cond = ($account_code !== null && $account_code !== '')
-        ? "AND (CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)"
-        : "AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)";
-    $dcd_account_params = ($account_code !== null && $account_code !== '')
-        ? [$account_id, $account_code]
-        : [$account_id];
     // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 currency 过滤）
     // 使用 Data Capture Summary Edit Formula 的 currency（dcd.currency_id），不读取 Data Capture 的 currency
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
@@ -983,12 +949,12 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
-              $dcd_account_cond
+              AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
               AND dcd.currency_id = ?
               AND dc.capture_date < ?";
     
     $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_merge([$company_id, $company_id], $dcd_account_params, [$currency_id, $date_from]));
+    $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
     $bf += $stmt->fetchColumn();
     
     // 2. 起始日期之前：Win/Loss 来自 WIN/LOSE（含 PROFIT）+ Cr/Dr 来自 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM（作为 To Account）；RATE 单独用 transaction_entry 处理
@@ -1012,13 +978,12 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                           SELECT 1 FROM data_capture_details dcd
                           JOIN data_captures dc ON dcd.capture_id = dc.id
                           WHERE dcd.company_id = ? AND dc.company_id = ?
-                            AND (CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR) OR dcd.account_id = ?)
+                            AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
                             AND dcd.currency_id = ?
                       ))
                   )" . contraApprovedWhere($pdo, 't');
         $stmt = $pdo->prepare($sql);
-        $exists_param = ($account_code !== null && $account_code !== '') ? $account_code : $account_id;
-        $stmt->execute([$company_id, $account_id, $date_from, $currency_id, $company_id, $company_id, $exists_param, $currency_id]);
+        $stmt->execute([$company_id, $account_id, $date_from, $currency_id, $company_id, $company_id, $currency_id]);
         $bf += $stmt->fetchColumn();
 
         // 2b. PAYMENT/RECEIVE/CONTRA/CLAIM 作为 To Account 计入 B/F 的 Cr/Dr 部分
@@ -1055,13 +1020,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND EXISTS (
                       SELECT 1 FROM data_capture_details dcd
                       JOIN data_captures dc ON dcd.capture_id = dc.id
-                      WHERE dcd.company_id = ? AND dc.company_id = ?
-                        AND (CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR) OR dcd.account_id = ?)
-                        AND dcd.currency_id = ?
+                      WHERE dcd.company_id = ? AND dc.company_id = ? AND dcd.account_id = t.account_id AND dcd.currency_id = ?
                   )" . contraApprovedWhere($pdo, 't');
         $stmt = $pdo->prepare($sql);
-        $exists_param = ($account_code !== null && $account_code !== '') ? $account_code : $account_id;
-        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $exists_param, $currency_id]);
+        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
         $bf += $stmt->fetchColumn();
 
         $sql = "SELECT 
@@ -1083,13 +1045,12 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                       JOIN data_captures dc ON dcd.capture_id = dc.id
                       WHERE dcd.company_id = ?
                         AND dc.company_id = ?
-                        AND (CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR) OR dcd.account_id = ?)
+                        AND dcd.account_id = t.account_id
                         AND dcd.currency_id = ?
                   )"
                   . contraApprovedWhere($pdo, 't');
         $stmt = $pdo->prepare($sql);
-        $exists_param = ($account_code !== null && $account_code !== '') ? $account_code : $account_id;
-        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $exists_param, $currency_id]);
+        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
         $bf += $stmt->fetchColumn();
     }
 
@@ -1131,7 +1092,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                       JOIN data_captures dc ON dcd.capture_id = dc.id
                       WHERE dcd.company_id = ?
                         AND dc.company_id = ?
-                        AND (CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR) OR dcd.account_id = (SELECT a.account_id FROM account a WHERE a.id = t.from_account_id LIMIT 1))
+                        AND dcd.account_id = t.from_account_id
                         AND dcd.currency_id = ?
                   )"
                   . contraApprovedWhere($pdo, 't');
@@ -1168,14 +1129,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
  * 按 Currency 计算 Win/Loss
  * Win/Loss = Data Capture + Bank Process 的 WIN/LOSE（description 以 "Process: " 开头）+ 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）
  */
-function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $account_code = null) {
+function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id) {
     $win_loss = 0;
-    $dcd_account_cond = ($account_code !== null && $account_code !== '')
-        ? "(CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR) OR dcd.account_id = ?)"
-        : "CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)";
-    $dcd_account_params = ($account_code !== null && $account_code !== '')
-        ? [$account_id, $account_code]
-        : [$account_id];
 
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
@@ -1183,11 +1138,11 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
-              AND $dcd_account_cond
+              AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
               AND dcd.currency_id = ?
               AND dc.capture_date BETWEEN ? AND ?";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_merge([$company_id, $company_id], $dcd_account_params, [$currency_id, $date_from, $date_to]));
+    $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
     $win_loss += $stmt->fetchColumn();
 
     // 2. 所有 Bank Process 的 WIN/LOSE（Cost/Sell Price/Profit，Remaining days 与 1号/Monthly 均计入 Win/Loss）

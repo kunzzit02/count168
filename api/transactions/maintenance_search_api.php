@@ -207,10 +207,6 @@ try {
         $captureParams[] = $date_from_db;
         $captureParams[] = $date_to_db;
 
-        // Process 必须限定当前公司，否则多公司同名的 process 会匹配错误导致无数据
-        $captureWhere[] = "p.company_id = ?";
-        $captureParams[] = $company_id;
-
         // Process 过滤（如果指定）
         if ($process) {
             $captureWhere[] = "p.process_id = ?";
@@ -242,7 +238,7 @@ try {
             FROM data_capture_details dcd
             INNER JOIN data_captures dc ON dcd.capture_id = dc.id
             INNER JOIN process p ON dc.process_id = p.id
-            INNER JOIN account a ON (CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR) OR dcd.account_id = a.account_id)
+            INNER JOIN account a ON dcd.account_id = a.id
             INNER JOIN currency c ON dcd.currency_id = c.id
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
@@ -417,9 +413,6 @@ try {
             $deletedCaptureParams[] = $date_from_db;
             $deletedCaptureParams[] = $date_to_db;
             
-            $deletedCaptureWhere[] = "p.company_id = ?";
-            $deletedCaptureParams[] = $company_id;
-            
             // Process 过滤（如果指定）
             if ($process) {
                 $deletedCaptureWhere[] = "p.process_id = ?";
@@ -447,7 +440,7 @@ try {
                     dcd.rate
                 FROM data_captures_deleted dcd
                 INNER JOIN process p ON dcd.process_id = p.id
-                INNER JOIN account a ON (CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR) OR dcd.account_id = a.account_id)
+                INNER JOIN account a ON dcd.account_id = a.id
                 INNER JOIN currency c ON dcd.currency_id = c.id
                 LEFT JOIN description d ON p.description_id = d.id
                 LEFT JOIN user u ON dcd.user_type = 'user' AND dcd.created_by = u.id
