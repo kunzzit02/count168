@@ -303,6 +303,8 @@ function restoreFormulaSourceFromRefresh() {
                 const span = cells[4].querySelector('.formula-text');
                 if (span) span.textContent = formula;
             }
+            row.setAttribute('data-formula-raw', formula || '');
+            if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
         if (cells[5]) cells[5].textContent = source;
         const sourcePercentText = source;
