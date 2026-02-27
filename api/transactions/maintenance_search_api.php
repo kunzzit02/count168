@@ -45,8 +45,25 @@ try {
     // 参数
     $date_from = $_GET['date_from'] ?? null;
     $date_to   = $_GET['date_to']   ?? null;
-    $process   = isset($_GET['process']) && $_GET['process'] !== '' ? trim((string)$_GET['process']) : null; // process.process_id（如 SPORT）
+    $process   = isset($_GET['process']) && $_GET['process'] !== '' ? trim((string)$_GET['process']) : null; // process.process_id（如 SPORT）或 "SPORT (SPORT)" 或 process 表 id（数字）
     $category  = trim($_GET['category'] ?? $_GET['permission'] ?? ''); // Games|Bank|Loan|Rate|Money，按 category 只显示该部分数据
+
+    // 统一 process 为 process_id（代码）：前端可能传 "SPORT (SPORT)" 或数字 id
+    if ($process !== null && $process !== '') {
+        if (preg_match('/^\d+$/', $process)) {
+            $stmt = $pdo->prepare("SELECT process_id FROM process WHERE id = ? AND company_id = ? LIMIT 1");
+            $stmt->execute([(int)$process, $company_id]);
+            $res = $stmt->fetchColumn();
+            $process = $res !== false ? (string)$res : null;
+        } else {
+            if (strpos($process, '(') !== false) {
+                $process = trim(explode('(', $process)[0]);
+            }
+            if ($process === '') {
+                $process = null;
+            }
+        }
+    }
 
     if (!$date_from || !$date_to) {
         throw new Exception('日期范围是必填项');
