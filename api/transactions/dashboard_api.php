@@ -455,7 +455,11 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $rateCheck = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
         if ($rateCheck && $rateCheck->rowCount() > 0) {
             $rateStmt = $pdo->prepare("
-                SELECT COALESCE(SUM(e.amount), 0) AS total
+                SELECT COALESCE(SUM(CASE
+                  WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
+                  WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
+                  ELSE e.amount
+                END), 0) AS total
                 FROM transaction_entry e
                 JOIN transactions h ON e.header_id = h.id
                 WHERE h.company_id = ?
@@ -575,7 +579,11 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
             $rateCheck = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
             if ($rateCheck && $rateCheck->rowCount() > 0) {
                 $rateStmt = $pdo->prepare("
-                    SELECT COALESCE(SUM(e.amount), 0) AS total
+                    SELECT COALESCE(SUM(CASE
+                      WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
+                      WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
+                      ELSE e.amount
+                    END), 0) AS total
                     FROM transaction_entry e
                     JOIN transactions h ON e.header_id = h.id
                     WHERE h.company_id = ?

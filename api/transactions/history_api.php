@@ -865,6 +865,11 @@ try {
         }
         
         $amount = (float)$row['amount'];
+        // RATE 第二行/第四行：TO 负数、FROM 正数（与 PAYMENT 一致）
+        $entryType = $row['entry_type'] ?? '';
+        if (in_array($entryType, ['RATE_FIRST_FROM', 'RATE_TRANSFER_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
+            $amount = -$amount;
+        }
         $description = $row['entry_description'] ?: 'RATE';
         $transactionCurrency = $row['currency_code'] ?: $bfCurrency;
         
