@@ -2027,7 +2027,7 @@ function recalculateAllRowsWithRate() {
             const inputMethod = row.getAttribute('data-input-method') || '';
             const enableInputMethod = inputMethod ? true : false;
             const formulaCell = cells[4];
-            const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+            const formulaText = getFormulaForCalculation(row);
             const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
             const baseProcessedAmount = calculateFormulaResultFromExpression(formulaText, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
             const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
@@ -2086,7 +2086,7 @@ function submitRateValues() {
             const inputMethod = row.getAttribute('data-input-method') || '';
             const enableInputMethod = inputMethod ? true : false;
             const formulaCell = cells[4];
-            const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+            const formulaText = getFormulaForCalculation(row);
             const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
             const baseProcessedAmount = calculateFormulaResultFromExpression(formulaText, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
             
@@ -8506,6 +8506,7 @@ function createSourcePercentDisplay(sourcePercentValue) {
 }
 
 // Formula 列展示用：将字符串中的数字统一格式为最多 2 位小数，避免浮点精度如 12.199999999999999
+// 仅用于展示，计算时必须用 data-formula-raw（未格式化）避免 0.1224 被变成 0.12
 function formatFormulaDisplayTo2Decimals(formulaStr) {
   if (!formulaStr || typeof formulaStr !== 'string') return formulaStr
   return formulaStr.replace(/-?\d+\.?\d*/g, function (match) {
@@ -8514,6 +8515,18 @@ function formatFormulaDisplayTo2Decimals(formulaStr) {
     const s = n.toFixed(2).replace(/\.?0+$/, '')
     return s
   })
+}
+
+// 取用于计算的公式：优先 data-formula-raw（未做 2 位小数格式化），保证 0.1224 等精度
+function getFormulaForCalculation(row) {
+  if (!row) return ''
+  const raw = row.getAttribute('data-formula-raw')
+  if (raw !== null && raw !== undefined && String(raw).trim() !== '') return String(raw).trim()
+  const cells = row.querySelectorAll('td')
+  const formulaCell = cells[4]
+  if (!formulaCell) return ''
+  const text = formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()
+  return text || ''
 }
 
 // 公式字符串括号成对：少几个右括号就末尾补几个，避免显示/求值时报错
@@ -8540,13 +8553,13 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         
         // If source percent is disabled, return parsed formula as-is
         if (!enableSourcePercent) {
-            return formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(parsedFormula.trim()));
+            return formatNegativeNumbersInFormula(parsedFormula.trim());
         }
         
         // If enableSourcePercent is true but sourcePercentValue is empty, treat as 0
         if (!sourcePercentValue || sourcePercentValue.trim() === '') {
             const trimmedFormula = parsedFormula.trim();
-            return formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(`${trimmedFormula}*(0)`));
+            return formatNegativeNumbersInFormula(`${trimmedFormula}*(0)`);
         }
         
         // 保持公式本体不动，只在结尾统一乘上 Source Percent 展示
@@ -8569,14 +8582,14 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             // Source is 1, return formula without multiplying
             const balanced = balanceParentheses(trimmedFormula);
             console.log('Formula display created from expression (source is 1, no multiplication):', balanced);
-            return formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(balanced));
+            return formatNegativeNumbersInFormula(balanced);
         } else {
             // Source is not 1, add source percent to display（公式本体若少右括号则先补全再拼 *source）
             const balancedPart = balanceParentheses(formulaPart);
             const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
             const formulaDisplay = `${balancedPart}*${percentDisplay}`;
             console.log('Formula display created from expression:', formulaDisplay);
-            return formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(formulaDisplay));
+            return formatNegativeNumbersInFormula(formulaDisplay);
         }
     } catch (error) {
         console.error('Error creating formula display from expression:', error);
@@ -10272,7 +10285,7 @@ function attachRateValueEditListener(cell, row) {
                     const inputMethod = row.getAttribute('data-input-method') || '';
                     const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
                     const formulaCell = cells[4];
-                    const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                    const formulaText = getFormulaForCalculation(row);
                     baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
                     // Store it for future use
                     if (baseAmount && !isNaN(baseAmount)) {
@@ -10918,7 +10931,12 @@ function updateFormulaAndProcessedAmount(row, data) {
     // Update Formula column (now index 4)
     if (cells[4]) {
         // Get the formula to display - prioritize data.formula, then data.formulaOperators
-        let formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula)) : '';
+        let formulaText = '';
+        let rawFormula = '';
+        if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+            rawFormula = data.formula;
+            formulaText = formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula));
+        }
 
         // If formula is empty, try to get from formulaOperators
         if (!formulaText || formulaText.trim() === '') {
@@ -11071,12 +11089,16 @@ function updateFormulaAndProcessedAmount(row, data) {
             formulaText = '';
         }
         
+        if (!rawFormula) rawFormula = formulaText;
+        row.setAttribute('data-formula-raw', rawFormula || '');
+        const displayText = formatFormulaDisplayTo2Decimals(formulaText);
+        
         // Get input method from row or data for tooltip
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
         const inputMethodTooltip = inputMethod || '';
         cells[4].innerHTML = `
             <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
-                <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
+                <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${displayText}</span>
                 <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
             </div>
         `;
@@ -11131,8 +11153,8 @@ function updateFormulaAndProcessedAmount(row, data) {
             baseProcessedAmount = calculateFormulaResultFromExpression(formulaOperators, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
             console.log('Recalculated processedAmount from formulaOperators:', formulaOperators, 'result:', baseProcessedAmount);
         } else {
-            // Fallback: try to get formula from data.formula or DOM
-            const formulaText = data.formula || (cells[4] ? (cells[4].querySelector('.formula-text')?.textContent.trim() || cells[4].textContent.trim()) : '');
+            // Fallback: use data.formula or raw formula from row (避免用单元格里 2 位小数格式化后的值参与计算)
+            const formulaText = data.formula || getFormulaForCalculation(row);
             if (formulaText && formulaText.trim() !== '' && formulaText !== 'Formula') {
                 baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
                 console.log('Recalculated processedAmount from formulaText:', formulaText, 'result:', baseProcessedAmount);
@@ -11216,7 +11238,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                 const inputMethod = row.getAttribute('data-input-method') || '';
                 const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
                 const formulaCell = cells[4];
-                const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                const formulaText = getFormulaForCalculation(row);
                 baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
                 // Store it for future use
                 if (baseAmount && !isNaN(baseAmount)) {
@@ -12919,7 +12941,9 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     // Formula column (index 4)
     if (cells[4]) {
         // If formula is empty, don't display "Formula" text, just leave it empty
-        const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula)) : '';
+        const rawFormula = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+        const formulaText = rawFormula ? formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula)) : '';
+        row.setAttribute('data-formula-raw', rawFormula || '');
         // Get input method from row or data for tooltip
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
         const inputMethodTooltip = inputMethod || '';
@@ -13015,7 +13039,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
                 const inputMethod = row.getAttribute('data-input-method') || '';
                 const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
                 const formulaCell = cells[4];
-                const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                const formulaText = getFormulaForCalculation(row);
                 baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
                 // Store it for future use
                 if (baseProcessedAmount && !isNaN(baseProcessedAmount)) {
@@ -13297,7 +13321,9 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         if (cells[4]) {
             // 优先使用 data.formula（与 Edit Formula 弹窗一致），避免重建导致显示不一致
             let formulaText = '';
+            let rawFormula = '';
             if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+                rawFormula = data.formula;
                 formulaText = formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula));
             }
             
@@ -13395,11 +13421,15 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             }
             }
             
+            if (!rawFormula) rawFormula = formulaText;
+            row.setAttribute('data-formula-raw', rawFormula || '');
+            const displayText = formatFormulaDisplayTo2Decimals(formulaText);
+            
             const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
             const inputMethodTooltip = inputMethod || '';
             cells[4].innerHTML = `
                 <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
-                    <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
+                    <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${displayText}</span>
                     <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
                 </div>
             `;
@@ -16967,7 +16997,7 @@ function updateBatchSourceColumns() {
                     const inputMethod = row.getAttribute('data-input-method') || '';
                     const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
                     const formulaCell = cells[4];
-                    const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                    const formulaText = getFormulaForCalculation(row);
                     baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
                     // Store it for future use
                     if (baseProcessedAmount && !isNaN(baseProcessedAmount)) {
