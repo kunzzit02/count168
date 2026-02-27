@@ -93,6 +93,7 @@ function formatProcesses(array $processes) {
 
 /**
  * 查询 Domain 报表原始行（按 Process 汇总 Turnover / Win / Lose）
+ * 以 process 为主表，无数据的 process 也显示（0）；过滤 dcd.company_id 保证 Win/Lose 只计当前公司
  */
 function fetchDomainReportRows(PDO $pdo, int $company_id, string $date_from, string $date_to, ?int $process_id) {
     $sql = "
@@ -103,14 +104,16 @@ function fetchDomainReportRows(PDO $pdo, int $company_id, string $date_from, str
             COALESCE(SUM(ABS(dcd.processed_amount)), 0) AS turnover_total,
             COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win_total,
             COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN ABS(dcd.processed_amount) ELSE 0 END), 0) AS lose_total
-        FROM data_captures dc
-        INNER JOIN process p ON dc.process_id = p.id
+        FROM process p
         LEFT JOIN description d ON p.description_id = d.id
-        INNER JOIN data_capture_details dcd ON dc.id = dcd.capture_id
-        WHERE p.company_id = ?
+        LEFT JOIN data_captures dc ON dc.process_id = p.id
+          AND dc.company_id = ?
           AND dc.capture_date BETWEEN ? AND ?
+        LEFT JOIN data_capture_details dcd ON dcd.capture_id = dc.id
+          AND dcd.company_id = ?
+        WHERE p.company_id = ?
     ";
-    $params = [$company_id, $date_from, $date_to];
+    $params = [$company_id, $date_from, $date_to, $company_id, $company_id];
     if ($process_id !== null && $process_id > 0) {
         $sql .= " AND p.id = ? ";
         $params[] = $process_id;
