@@ -8505,6 +8505,17 @@ function createSourcePercentDisplay(sourcePercentValue) {
     }
 }
 
+// Formula 列展示用：将字符串中的数字统一格式为最多 2 位小数，避免浮点精度如 12.199999999999999
+function formatFormulaDisplayTo2Decimals(formulaStr) {
+  if (!formulaStr || typeof formulaStr !== 'string') return formulaStr
+  return formulaStr.replace(/-?\d+\.?\d*/g, function (match) {
+    const n = parseFloat(match)
+    if (isNaN(n) || !Number.isFinite(n)) return match
+    const s = n.toFixed(2).replace(/\.?0+$/, '')
+    return s
+  })
+}
+
 // 公式字符串括号成对：少几个右括号就末尾补几个，避免显示/求值时报错
 function balanceParentheses(s) {
     if (!s || typeof s !== 'string') return s;
@@ -8531,13 +8542,13 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         
         // If source percent is disabled, return parsed formula as-is
         if (!enableSourcePercent) {
-            return formatNegativeNumbersInFormula(parsedFormula.trim());
+            return formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(parsedFormula.trim()));
         }
         
         // If enableSourcePercent is true but sourcePercentValue is empty, treat as 0
         if (!sourcePercentValue || sourcePercentValue.trim() === '') {
             const trimmedFormula = parsedFormula.trim();
-            return formatNegativeNumbersInFormula(`${trimmedFormula}*(0)`);
+            return formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(`${trimmedFormula}*(0)`));
         }
         
         // 保持公式本体不动，只在结尾统一乘上 Source Percent 展示
@@ -8560,14 +8571,14 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             // Source is 1, return formula without multiplying
             const balanced = balanceParentheses(trimmedFormula);
             console.log('Formula display created from expression (source is 1, no multiplication):', balanced);
-            return formatNegativeNumbersInFormula(balanced);
+            return formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(balanced));
         } else {
             // Source is not 1, add source percent to display（公式本体若少右括号则先补全再拼 *source）
             const balancedPart = balanceParentheses(formulaPart);
             const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
             const formulaDisplay = `${balancedPart}*${percentDisplay}`;
             console.log('Formula display created from expression:', formulaDisplay);
-            return formatNegativeNumbersInFormula(formulaDisplay);
+            return formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(formulaDisplay));
         }
     } catch (error) {
         console.error('Error creating formula display from expression:', error);
@@ -10909,8 +10920,8 @@ function updateFormulaAndProcessedAmount(row, data) {
     // Update Formula column (now index 4)
     if (cells[4]) {
         // Get the formula to display - prioritize data.formula, then data.formulaOperators
-        let formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatNegativeNumbersInFormula(data.formula) : '';
-        
+        let formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula)) : '';
+
         // If formula is empty, try to get from formulaOperators
         if (!formulaText || formulaText.trim() === '') {
             const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
@@ -12910,7 +12921,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     // Formula column (index 4)
     if (cells[4]) {
         // If formula is empty, don't display "Formula" text, just leave it empty
-        const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatNegativeNumbersInFormula(data.formula) : '';
+        const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula)) : '';
         // Get input method from row or data for tooltip
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
         const inputMethodTooltip = inputMethod || '';
@@ -13374,7 +13385,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             // Fallback: Get the formula to display - prioritize data.formula, then data.formulaOperators
             // IMPORTANT: If sourceColumns was explicitly set to empty (data.sourceColumns === ''), don't use fallback
             if (!formulaText && (data.sourceColumns === undefined || data.sourceColumns === null)) {
-                formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatNegativeNumbersInFormula(data.formula) : '';
+                formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula)) : '';
             }
             
             const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
