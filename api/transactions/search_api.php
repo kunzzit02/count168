@@ -938,8 +938,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     
     // 2. 起始日期之前：Win/Loss 来自 WIN/LOSE（含 PROFIT）+ Cr/Dr 来自 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM（作为 To Account）；RATE 单独用 transaction_entry 处理
     if ($has_transaction_currency) {
-        // 2a. WIN/LOSE（含 PROFIT）计入 B/F 的 Win/Loss 部分
-        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) as total
+        // 2a. WIN/LOSE（含 PROFIT）：Bank Process 保持 WIN 正 LOSE 负；手动 PROFIT 与 PAYMENT 一致 TO 负 FROM 正
+        $sql = "SELECT COALESCE(SUM(CASE
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
+                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
+                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
+                  ELSE 0
+                END), 0) as total
                 FROM transactions t
                 WHERE t.company_id = ?
                   AND CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
@@ -978,8 +984,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $stmt->execute([$company_id, $account_id, $date_from, $currency_id]);
         $bf += $stmt->fetchColumn();
     } else {
-        // WIN/LOSE 计入 B/F
-        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) as total
+        // WIN/LOSE 计入 B/F（Bank Process 保持原符号；手动 PROFIT TO 负 FROM 正）
+        $sql = "SELECT COALESCE(SUM(CASE
+                  WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
+                  WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
+                  WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
+                  WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
+                  ELSE 0
+                END), 0) as total
                 FROM transactions t
                 WHERE t.company_id = ? AND t.account_id = ? AND t.transaction_date < ?
                   AND t.transaction_type IN ('WIN', 'LOSE')
@@ -1115,8 +1127,8 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
         $win_loss += $stmt->fetchColumn();
 
-        // 3. 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）计入 Win/Loss 列
-        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) as total
+        // 3. 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）：与 PAYMENT 一致，TO 负数、FROM 正数
+        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN -amount WHEN transaction_type = 'LOSE' THEN amount ELSE 0 END), 0) as total
                 FROM transactions
                 WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
                   AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')

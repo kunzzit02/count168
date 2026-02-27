@@ -277,8 +277,10 @@ try {
                                    WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
                                    WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN t.amount
                                    WHEN transaction_type = 'PAYMENT' THEN -t.amount
-                                   WHEN transaction_type = 'WIN' THEN t.amount
-                                   WHEN transaction_type = 'LOSE' THEN -t.amount
+                                   WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
+                                   WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
+                                   WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
+                                   WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
                                    ELSE 0
                                END), 0) as cr_dr
                         FROM transactions t
@@ -408,8 +410,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
                         WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN -amount
-                        WHEN transaction_type = 'WIN' THEN amount
-                        WHEN transaction_type = 'LOSE' THEN -amount
+                        WHEN transaction_type = 'WIN' AND (description LIKE 'Process: %') THEN amount
+                        WHEN transaction_type = 'LOSE' AND (description LIKE 'Process: %') THEN -amount
+                        WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
+                        WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions
@@ -528,8 +532,8 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
                         WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN -amount
-                        WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
-                        WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
+                        WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
+                        WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions
