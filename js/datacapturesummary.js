@@ -7088,19 +7088,23 @@ function saveFormula() {
         sourceColumns = ''; // Clear sourceColumns when formula is empty
         console.log('Formula value is empty, keeping formulaDisplay as empty string and clearing columnsDisplay');
     } else {
-        // 优先使用 formulaDisplay 输入框的值（已经转换好的值）
-        if (formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
+        // 纯按键输入时 keypad 只写入 #formula，不更新 #formulaDisplay，若曾打开过其他行再清空重输则 formulaDisplay 可能为旧值
+        // 因此：公式不含 $ 或 [id,num] 引用时，一律用 formulaValue 生成 formulaDisplay，避免使用过期的 formulaDisplay
+        const trimmedFormula = formulaValue.trim();
+        const hasRefs = /\[\s*[^,\]]+\s*,\s*\d+\s*\]|\$\d+/.test(trimmedFormula);
+        const useFormulaInputAsSource = !hasRefs;
+
+        if (!useFormulaInputAsSource && formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
+            // 有引用时优先使用 formulaDisplay 输入框的值（已转换好的值）
             const convertedFormula = formulaDisplayInput.value.trim();
-            // 添加 Source Percent 部分（如果需要）
             formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
             console.log('saveFormula - Using formulaDisplay input value:', convertedFormula, 'Final formulaDisplay:', formulaDisplay);
         } else {
-            // 如果 formulaDisplay 输入框为空，从 formulaValue 转换
-            const trimmedFormula = formulaValue.trim();
-            // 先将 $数字 转换为实际值
+            // 纯按键输入或 formulaDisplay 为空：从 formulaValue 转换
             const processValueForDisplay = processValue;
-            // 临时更新显示框以获取转换后的值
-            updateFormulaDisplay(trimmedFormula, processValueForDisplay);
+            if (!useFormulaInputAsSource) {
+                updateFormulaDisplay(trimmedFormula, processValueForDisplay);
+            }
             const convertedFormula = formulaDisplayInput ? formulaDisplayInput.value.trim() : '';
             if (convertedFormula && convertedFormula !== '') {
                 formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
