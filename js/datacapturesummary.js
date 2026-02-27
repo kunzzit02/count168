@@ -10935,7 +10935,7 @@ function updateFormulaAndProcessedAmount(row, data) {
         let rawFormula = '';
         if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
             rawFormula = data.formula;
-            formulaText = formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula));
+            formulaText = formatNegativeNumbersInFormula(data.formula);
         }
 
         // If formula is empty, try to get from formulaOperators
@@ -11091,7 +11091,7 @@ function updateFormulaAndProcessedAmount(row, data) {
         
         if (!rawFormula) rawFormula = formulaText;
         row.setAttribute('data-formula-raw', rawFormula || '');
-        const displayText = formatFormulaDisplayTo2Decimals(formulaText);
+        const displayText = formulaText;
         
         // Get input method from row or data for tooltip
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
@@ -12942,7 +12942,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     if (cells[4]) {
         // If formula is empty, don't display "Formula" text, just leave it empty
         const rawFormula = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
-        const formulaText = rawFormula ? formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula)) : '';
+        const formulaText = rawFormula ? formatNegativeNumbersInFormula(data.formula) : '';
         row.setAttribute('data-formula-raw', rawFormula || '');
         // Get input method from row or data for tooltip
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
@@ -13324,7 +13324,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             let rawFormula = '';
             if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
                 rawFormula = data.formula;
-                formulaText = formatFormulaDisplayTo2Decimals(formatNegativeNumbersInFormula(data.formula));
+                formulaText = formatNegativeNumbersInFormula(data.formula);
             }
             
             // 无 data.formula 时再从 sourceColumns 重建（如从 API 只返回 sourceColumns 时）
@@ -13423,7 +13423,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             
             if (!rawFormula) rawFormula = formulaText;
             row.setAttribute('data-formula-raw', rawFormula || '');
-            const displayText = formatFormulaDisplayTo2Decimals(formulaText);
+            const displayText = formulaText;
             
             const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
             const inputMethodTooltip = inputMethod || '';
