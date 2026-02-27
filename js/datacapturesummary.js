@@ -8532,12 +8532,10 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             return 'Formula';
         }
         
-        // IMPORTANT: Parse reference format (e.g., [id_product : column]) to actual values first
-        // This ensures that references to other id_product rows are correctly resolved
-        let parsedFormula = formula;
-        if (formula.includes('[') && formula.includes(']')) {
-            parsedFormula = parseReferenceFormula(formula);
-            console.log('createFormulaDisplayFromExpression: Parsed reference format:', formula, '->', parsedFormula);
+        // Always resolve references ($n, An/Sn, [id:n]) to actual values so table Formula column matches Edit Formula modal display
+        let parsedFormula = parseReferenceFormula(formula);
+        if (formula !== parsedFormula) {
+            console.log('createFormulaDisplayFromExpression: Parsed references:', formula, '->', parsedFormula);
         }
         
         // If source percent is disabled, return parsed formula as-is
