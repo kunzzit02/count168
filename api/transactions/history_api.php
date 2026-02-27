@@ -273,10 +273,14 @@ try {
                     LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                     WHERE dcd.company_id = ?
                       AND dc.company_id = ?
-                      AND CAST(dcd.account_id AS CHAR) IN (" . implode(',', array_fill(0, count($account_ids), '?')) . ")
+                      AND (
+                          CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+                          OR dcd.account_id = ?
+                      )
                       AND dc.capture_date BETWEEN ? AND ?";
     
-    $captureParams = array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db]);
+    // dcd.account_id 可能存 account 表的 id，也可能直接存账户代码（如 JH086），这里同时支持两种形式
+    $captureParams = [$company_id, $company_id, $account_id, $account_code, $date_from_db, $date_to_db];
     if ($currency_id) {
         $sqlCapture .= " AND dcd.currency_id = ?";
         $captureParams[] = $currency_id;
