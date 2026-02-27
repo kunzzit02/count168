@@ -90,7 +90,6 @@ try {
     $formatted = [];
     $no = 1;
 
-    {
     // ========== 1. 查询 Transaction 数据 ==========
     // 当指定了 Process 时，不查 Transaction（transactions 表无 process 关联），只由下方 Data Capture 按 process 过滤
     if (empty($process)) {
@@ -506,7 +505,6 @@ try {
     }
     }
     }
-    } // end anonymous block (line 75)
     // ========== 5. 按日期排序合并后的数据 ==========
     usort($formatted, function($a, $b) {
         // 先按日期排序（降序）
