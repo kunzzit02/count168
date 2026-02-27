@@ -504,7 +504,6 @@ try {
         error_log('查询已删除 Data Capture 失败: ' . $e->getMessage());
     }
     }
-    }
     // ========== 5. 按日期排序合并后的数据 ==========
     usort($formatted, function($a, $b) {
         // 先按日期排序（降序）
