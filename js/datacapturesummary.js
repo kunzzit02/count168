@@ -17588,6 +17588,13 @@ async function submitSummaryData() {
             }
             seenRows.add(rowKey);
             
+            // source_percent == 1 时存基础公式（去掉末尾 *(…)），Payment History 与 Maintenance - Formula 一致
+            const sourcePercentForSend = sourcePercent || '1';
+            const isSourceOne = Math.abs(parseFloat(sourcePercentForSend) - 1) < 0.0001;
+            const formulaToSend = (isSourceOne && formula && typeof removeTrailingSourcePercentExpression === 'function')
+                ? removeTrailingSourcePercentExpression(formula)
+                : formula;
+            
             summaryRows.push({
                 idProductMain: cleanIdProductMain || null,
                 descriptionMain: descriptionMain || null,
@@ -17605,12 +17612,10 @@ async function submitSummaryData() {
                 columns: columnsValue,
                 sourceColumns: sourceColumnsAttr || columnsValue, // Use saved sourceColumns or fallback to columnsValue
                 source: sourceValue,
-                // 如果为空则默认 1 (1 = 100%)
-                // sourcePercent has already been converted above (lines 9300-9312)
-                sourcePercent: sourcePercent || '1', // Save as string to preserve expressions like "1/2"
+                sourcePercent: sourcePercentForSend,
                 enableSourcePercent: enableSourcePercentAttr ? 1 : 0,
                 formulaOperators: formulaOperatorsAttr, // Now stores the full formula expression
-                formula: formula,
+                formula: formulaToSend,
                 processedAmount: finalProcessedAmount, // Use finalProcessedAmount (with rate applied if checked)
                 inputMethod: inputMethodAttr,
                 enableInputMethod: enableInputMethodAttr ? 1 : 0,
