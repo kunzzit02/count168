@@ -3,6 +3,8 @@ session_start();
 require_once __DIR__ . '/../../config.php';
 
 header('Content-Type: application/json');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 // Get JSON input
 $json = file_get_contents('php://input');
