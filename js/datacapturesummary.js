@@ -13717,6 +13717,17 @@ uniqueIds.forEach(normalizedIdProduct => {
     if (template) {
         // Check if there are multiple main templates for the same id_product (different accounts)
         if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
+            if (summaryTableBody) {
+                const allRows = summaryTableBody.querySelectorAll('tr');
+                allRows.forEach((r) => {
+                    const productType = r.getAttribute('data-product-type') || 'main';
+                    if (productType !== 'main') return;
+                    const idCell = r.querySelector('td:first-child');
+                    const pv = idCell ? getProductValuesFromCell(idCell) : {};
+                    const mainNorm = normalizeIdProductText(pv.main || '');
+                    if (mainNorm === normalizedIdProduct) r.removeAttribute('data-template-applied');
+                });
+            }
             // Sort templates by row_index to apply them in the correct order
             const sortedTemplates = [...template.allMains].sort((a, b) => {
                 const aIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
@@ -14387,19 +14398,23 @@ allRows.forEach((row, index) => {
     if (idMatches) {
         const accountCell = row.querySelector('td:nth-child(2)');
         const rowAccountId = accountCell?.getAttribute('data-account-id');
+        const rowAccountDisplay = accountCell ? accountCell.textContent.trim() : '';
         const rowFormulaVariant = row.getAttribute('data-formula-variant');
         const rowTemplateId = row.getAttribute('data-template-id');
         const rowRowIndexAttr = row.getAttribute('data-row-index');
         const rowRowIndex = (rowRowIndexAttr !== null && rowRowIndexAttr !== '' && !Number.isNaN(Number(rowRowIndexAttr)))
             ? Number(rowRowIndexAttr) : null;
+        const alreadyApplied = row.getAttribute('data-template-applied') === '1';
 
         candidateRows.push({
             row,
             index,
             accountId: rowAccountId,
+            accountDisplay: rowAccountDisplay,
             formulaVariant: rowFormulaVariant,
             templateId: rowTemplateId,
-            rowIndex: rowRowIndex
+            rowIndex: rowRowIndex,
+            alreadyApplied
         });
     }
 });
@@ -14410,6 +14425,26 @@ if (templateId) {
         if (candidate.templateId === templateId) {
             targetRow = candidate.row;
             console.log('Matched row by template_id:', templateId);
+            break;
+        }
+    }
+}
+
+// Priority 1b: Match by account_display so IK-SPORT + JH083 row always gets JH083 template (fix amount mix-up)
+const templateAccountDisplay = (mainTemplate.account_display || '').trim();
+if (!targetRow && templateAccountDisplay && templateAccountId) {
+    const norm = (s) => (s || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    const codeFromDisplay = (s) => (s.match(/^[A-Z0-9]+/i) || [])[0] || '';
+    const templateCode = codeFromDisplay(templateAccountDisplay) || String(templateAccountId);
+    for (const candidate of candidateRows) {
+        const rowDisplay = (candidate.accountDisplay || '').trim();
+        if (!rowDisplay) continue;
+        const rowCode = codeFromDisplay(rowDisplay);
+        const match = rowCode && templateCode && rowCode.toUpperCase() === templateCode.toUpperCase();
+        const displayMatch = norm(rowDisplay) === norm(templateAccountDisplay) || (rowDisplay && templateAccountDisplay && rowDisplay.indexOf(templateAccountDisplay) >= 0);
+        if (match || displayMatch || (candidate.accountId === templateAccountId)) {
+            targetRow = candidate.row;
+            console.log('Matched row by account_display/account_id:', templateAccountDisplay, templateAccountId);
             break;
         }
     }
@@ -14492,15 +14527,22 @@ if (!targetRow && templateAccountId) {
 }
 
 // Priority 4: Match by row_index only (fallback when account_id not available)
-// This is a lower priority fallback for cases where account_id is not set
-// It helps maintain row order when no account information is available
+// Prefer rows not yet assigned a template in this round to avoid one row getting two templates
 if (!targetRow && templateRowIndex !== null) {
-    // First, try exact match
     for (const candidate of candidateRows) {
-        if (candidate.rowIndex === templateRowIndex) {
+        if (candidate.rowIndex === templateRowIndex && !candidate.alreadyApplied) {
             targetRow = candidate.row;
             console.log('Matched row by row_index (fallback, no account_id):', templateRowIndex);
             break;
+        }
+    }
+    if (!targetRow) {
+        for (const candidate of candidateRows) {
+            if (candidate.rowIndex === templateRowIndex) {
+                targetRow = candidate.row;
+                console.log('Matched row by row_index (fallback, exact):', templateRowIndex);
+                break;
+            }
         }
     }
     
@@ -15244,6 +15286,7 @@ if (mainTemplate.id) {
 if (mainTemplate.formula_variant !== undefined && mainTemplate.formula_variant !== null) {
     targetRow.setAttribute('data-formula-variant', String(mainTemplate.formula_variant));
 }
+targetRow.setAttribute('data-template-applied', '1');
 
 console.log('Applied main template to row with account_id:', mainTemplate.account_id);
 return targetRow; // Return the row so sub templates can be applied to it
