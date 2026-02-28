@@ -17338,7 +17338,6 @@ async function submitSummaryData() {
         const summaryTableBody = document.getElementById('summaryTableBody');
         const rows = summaryTableBody.querySelectorAll('tr');
         const summaryRows = [];
-        const seenRows = new Set(); // Track seen rows to prevent duplicates
         
         // Pre-load account list so rows without data-account-id can resolve accountId (e.g. when Submit without opening edit form)
         window.__summaryAccountListCache = await fetchSummaryAccountList();
@@ -17620,22 +17619,10 @@ async function submitSummaryData() {
                 return;
             }
             
-            // Create a unique key for this row to prevent duplicates.
-            // When formulaVariant is set, use it so same (product, account, formulaVariant) is one record.
-            // When formulaVariant is null/empty, use row index so every table row is submitted (avoid collapsing 8 rows into 5).
-            const rowIndexInTable = Array.from(rows).indexOf(row);
-            const variantOrIndex = (formulaVariant !== null && formulaVariant !== '' && !Number.isNaN(Number(formulaVariant)))
-                ? formulaVariant
-                : 'row_' + rowIndexInTable;
-            const rowKey = `${productType}:${idProduct}:${accountId}:${templateKeyAttr || ''}:${variantOrIndex}`;
-            if (seenRows.has(rowKey)) {
-                console.warn('Skipping duplicate row:', rowKey);
-                return;
-            }
-            seenRows.add(rowKey);
-            
-            // sourcePercentForSend, isSourceOne, formulaToSend already computed above (for amount when isSourceOne)
-            
+            // 不再在前端根据 product/account/formula 去重。
+            // Summary 表中的每一行（只要有有效的 Id Product 和 Account）都应当提交到后端，
+            // 由后端根据 captureId 和业务规则决定是新增还是覆盖。
+            // sourcePercentForSend, isSourceOne, formulaToSend 已在上方计算完毕。
             summaryRows.push({
                 idProductMain: cleanIdProductMain || null,
                 descriptionMain: descriptionMain || null,
