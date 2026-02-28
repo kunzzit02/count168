@@ -179,6 +179,8 @@ try {
     
     // 仅使用当前请求的账户：Win/Loss 与 Payment History 只显示该账户自身数据，不聚合关联账户
     $account_ids = [$account_id];
+    // 账户代码（用于 data_capture_details 中可能按代码存储的 account_id 匹配）
+    $account_code = isset($account['account_id']) ? trim((string)$account['account_id']) : '';
     
     // 1. 计算 B/F (Opening Balance)（仅当前账户）
     // 如果指定了 currency，按 currency 计算
