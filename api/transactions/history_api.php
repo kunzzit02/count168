@@ -55,6 +55,30 @@ function mapEntryTypeToProduct($entryType) {
     return $mapping[$entryType] ?? $entryType;
 }
 
+/**
+ * 从 profit_sharing 字符串（如 "D - 500, A - 100"）中解析出指定账户的金额；按 account_id 或 name 匹配
+ */
+function getProfitSharingAmountForAccount(?string $profitSharing, string $accountCode, string $accountName): ?float {
+    if ($profitSharing === null || trim($profitSharing) === '') {
+        return null;
+    }
+    $code = trim($accountCode);
+    $name = trim($accountName);
+    foreach (explode(',', $profitSharing) as $part) {
+        $t = trim($part);
+        $dash = strrpos($t, ' - ');
+        if ($dash !== false) {
+            $accountText = trim(substr($t, 0, $dash));
+            $amountStr = trim(substr($t, $dash + 3));
+            $amount = (float) $amountStr;
+            if ($accountText !== '' && ($accountText === $code || $accountText === $name)) {
+                return $amount;
+            }
+        }
+    }
+    return null;
+}
+
 try {
     // 检查用户是否登录
     if (!isset($_SESSION['user_id'])) {
@@ -332,7 +356,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.card_merchant_id, bp_t.profit_account_id";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.card_merchant_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -687,10 +711,15 @@ try {
                 $description = 'Monthly bill';
             }
             $currentAccountId = (int) $account_ids_int[0];
+            $accountCode = isset($account['account_id']) ? (string) $account['account_id'] : '';
+            $accountName = isset($account['name']) ? (string) $account['name'] : '';
             if ($isBankProcessTransaction && isset($t['card_merchant_id']) && (int) $t['card_merchant_id'] === $currentAccountId && $t['process_cost'] !== null && $t['process_cost'] !== '') {
                 $amt = (float) $t['process_cost'];
             } elseif ($isBankProcessTransaction && isset($t['profit_account_id']) && (int) $t['profit_account_id'] === $currentAccountId && $t['process_profit'] !== null && $t['process_profit'] !== '') {
                 $amt = (float) $t['process_profit'];
+            } elseif ($isBankProcessTransaction && !empty($t['process_profit_sharing'])) {
+                $psAmount = getProfitSharingAmountForAccount($t['process_profit_sharing'], $accountCode, $accountName);
+                $amt = $psAmount !== null ? $psAmount : (isset($t['amount']) ? (float) $t['amount'] : 0);
             } else {
                 $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
             }
