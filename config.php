@@ -23,7 +23,7 @@ try {
 // Gmail 步骤：1) 开启两步验证 2) 申请应用专用密码 https://myaccount.google.com/apppasswords 3) 下面填好
 $smtp_host = 'smtp.gmail.com';
 $smtp_port = 465;
-$smtp_user = 'noreply@count168.com';           // 你的 Gmail，如 yourname@gmail.com
+$smtp_user = 'maxjk77777@gmail.com';           // 你的 Gmail，如 yourname@gmail.com
 $smtp_pass = 'icwe kjwy otmg pjkw';           // 上一步生成的应用专用密码（16 位）
 $smtp_from_email = 'noreply@count168.com';     // 留空则用 smtp_user
 $smtp_from_name = 'EazyCount';
