@@ -17448,33 +17448,39 @@ async function submitSummaryData() {
             const sourcePercentAttrForEnable = row.getAttribute('data-source-percent') || '';
             const enableSourcePercentAttr = sourcePercentAttrForEnable && sourcePercentAttrForEnable.trim() !== '';
             
-            // IMPORTANT: Get raw processed amount from data attribute (not rounded)
-            // This ensures we save the original calculated value to database, not the rounded display value
-            // 重要：从 data 属性中获取原始 processed amount（未四舍五入）
-            // 这确保我们保存原始计算值到数据库，而不是四舍五入后的显示值
-            let processedAmountValue = row.getAttribute('data-base-processed-amount');
-            const needRecalc = !processedAmountValue || processedAmountValue === '' || processedAmountValue === 'null' || parseFloat(processedAmountValue) === 0;
-            if (needRecalc) {
-                // Fallback 1: Try to recalculate from source data (data-formula-operators / Source columns)
+            // WYSIWYG: Submit the amount the user sees. Priority:
+            // 1) Displayed Processed Amount cell if it has a valid number (what you see is what gets saved)
+            // 2) data-base-processed-amount, 3) recalc from formula/source
+            let processedAmountValue = '';
+            const processedAmountText = cells[8] ? cells[8].textContent.trim() : '';
+            const cellValueRaw = processedAmountText ? (typeof removeThousandsSeparators === 'function' ? removeThousandsSeparators(processedAmountText) : processedAmountText.replace(/,/g, '')) : '';
+            const cellNum = parseFloat(cellValueRaw);
+            if (cellValueRaw !== '' && !isNaN(cellNum) && isFinite(cellNum)) {
+                processedAmountValue = String(cellNum);
+            }
+            if (!processedAmountValue || processedAmountValue === '' || processedAmountValue === 'null') {
+                processedAmountValue = row.getAttribute('data-base-processed-amount') || '';
+            }
+            if (!processedAmountValue || processedAmountValue === 'null' || parseFloat(processedAmountValue) === 0) {
+                // Fallback 1: Recalculate from source data
                 const sourceData = (row.getAttribute('data-formula-operators') || sourceValue || '').trim();
                 const inputMethod = inputMethodAttr || '';
                 const enableInputMethod = enableInputMethodAttr;
                 if (sourceData && sourceData !== 'Source') {
                     try {
-                        processedAmountValue = calculateFormulaResultFromExpression(
+                        const recalc = calculateFormulaResultFromExpression(
                             sourceData,
                             sourcePercent,
                             inputMethod,
                             enableInputMethod,
                             enableSourcePercentAttr
-                        ).toString();
-                        if (processedAmountValue !== '' && !isNaN(parseFloat(processedAmountValue))) {
+                        );
+                        if (recalc != null && !isNaN(parseFloat(String(recalc)))) {
+                            processedAmountValue = String(recalc);
                             console.log('Recalculated processed amount from source data:', processedAmountValue);
                         }
                     } catch (e) { /* ignore */ }
                 }
-                // Fallback 2: If we have formula display (e.g. "3000-2000*0.005") but no source, evaluate formula directly
-                // 有 Formula 但无 source 时（如 Maintenance - Formula 里 JH086 的公式），用公式直接计算，避免 Maintenance - Transaction 显示 0
                 if ((!processedAmountValue || processedAmountValue === '' || parseFloat(processedAmountValue) === 0) && formula && formula.trim() !== '') {
                     try {
                         const sanitized = typeof removeThousandsSeparators === 'function'
@@ -17489,12 +17495,12 @@ async function submitSummaryData() {
                         }
                     } catch (e) { /* ignore */ }
                 }
-                // Fallback 3: get from cell text (will be rounded)
                 if (!processedAmountValue || processedAmountValue === '' || processedAmountValue === 'null') {
                     const processedAmountText = cells[8] ? cells[8].textContent.trim() : '';
-                    processedAmountValue = removeThousandsSeparators(processedAmountText);
+                    processedAmountValue = (processedAmountText && typeof removeThousandsSeparators === 'function')
+                        ? removeThousandsSeparators(processedAmountText) : (processedAmountText || '').replace(/,/g, '');
                     if (processedAmountValue === '') processedAmountValue = '0';
-                    console.warn('Using value from cell text (could not recalculate):', processedAmountValue);
+                    console.warn('Using value from cell text (final fallback):', processedAmountValue);
                 }
             }
             // Batch Selection column removed
