@@ -957,6 +957,7 @@ function updateDashboard(data) {
                 const profitEl = document.getElementById('profit-value');
                 // 左边「Profit」卡片 = Transaction Payment 里 Profit 的总额（Total Balance）
                 if (capitalEl) capitalEl.textContent = formatCurrency(data.profit);
+                // Expenses 按 API 返回的实际代数值显示：Payment 里 total 为负则显示负数，不取绝对值
                 if (expensesEl) expensesEl.textContent = formatCurrency(data.expenses);
                 // 右边「NET PROFIT」：按 expenses 正负判断加减
                 // 业务规则：net = profit - expenses
