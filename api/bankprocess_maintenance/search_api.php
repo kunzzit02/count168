@@ -140,11 +140,11 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
                 t.transaction_type, t.amount, t.description,
                 COALESCE(t.sms, '') AS remark,
                 DATE_FORMAT(t.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
-                to_acc.account_id AS account_code, to_acc.name AS account_name,
+                to_acc.id AS account_id, to_acc.account_id AS account_code, to_acc.name AS account_name,
                 from_acc.account_id AS from_account_code, from_acc.name AS from_account_name,
                 {$schema['selectCurrency']},
                 u.login_id AS created_by_login, o.owner_code AS created_by_owner,
-                bp.profit AS process_profit
+                bp.profit AS process_profit, bp.cost AS process_cost, bp.card_merchant_id, bp.profit_account_id
                 $periodTypeSelect
             FROM transactions t
             JOIN account to_acc ON t.account_id = to_acc.id
@@ -175,7 +175,7 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
 function rowToItem(array $row) {
     $description = $row['description'] ?? '';
 
-    // WIN/LOSE（Bank process 入账）：与 history_api 一致，Description 金额用 Edit Process 的 profit，格式如 Remaining days bill 1500 (MBB)
+    // WIN/LOSE（Bank process 入账）：与 history_api 一致，Supplier 用 Buy Price(cost)，Company 用 Profit，格式如 Remaining days bill 2000 (MBB)
     if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'])) {
         $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
         if ($periodType === 'partial_first_month') {
@@ -187,7 +187,16 @@ function rowToItem(array $row) {
         } else {
             $description = 'Monthly bill';
         }
-        $amt = isset($row['process_profit']) && $row['process_profit'] !== null && $row['process_profit'] !== '' ? (float) $row['process_profit'] : (isset($row['amount']) ? (float) $row['amount'] : 0);
+        $accId = isset($row['account_id']) ? (int) $row['account_id'] : 0;
+        $isSupplier = isset($row['card_merchant_id']) && (int) $row['card_merchant_id'] === $accId && $row['process_cost'] !== null && $row['process_cost'] !== '';
+        $isCompany = isset($row['profit_account_id']) && (int) $row['profit_account_id'] === $accId && $row['process_profit'] !== null && $row['process_profit'] !== '';
+        if ($isSupplier) {
+            $amt = (float) $row['process_cost'];
+        } elseif ($isCompany) {
+            $amt = (float) $row['process_profit'];
+        } else {
+            $amt = isset($row['amount']) ? (float) $row['amount'] : 0;
+        }
         $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
         $description = $description . ' ' . $billAmount;
     } elseif (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {

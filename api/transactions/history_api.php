@@ -332,7 +332,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.card_merchant_id, bp_t.profit_account_id";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -674,7 +674,7 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
-        // WIN/LOSE（Bank process 入账）：按入账类型显示，加 "bill" 表示收费/账单；Description 金额用 Edit Process 的 profit（Company 利润），格式如 Remaining days bill 1500 (MBB)
+        // WIN/LOSE（Bank process 入账）：按入账类型显示；Description 金额按当前账户：Supplier 用 Buy Price(cost)，Company 用 Profit，格式如 Remaining days bill 2000 (MBB)
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
             $periodType = isset($t['period_type']) ? trim((string)$t['period_type']) : '';
             if ($periodType === 'partial_first_month') {
@@ -686,7 +686,14 @@ try {
             } else {
                 $description = 'Monthly bill';
             }
-            $amt = isset($t['process_profit']) && $t['process_profit'] !== null && $t['process_profit'] !== '' ? (float) $t['process_profit'] : (isset($t['amount']) ? (float) $t['amount'] : 0);
+            $currentAccountId = (int) $account_ids_int[0];
+            if ($isBankProcessTransaction && isset($t['card_merchant_id']) && (int) $t['card_merchant_id'] === $currentAccountId && $t['process_cost'] !== null && $t['process_cost'] !== '') {
+                $amt = (float) $t['process_cost'];
+            } elseif ($isBankProcessTransaction && isset($t['profit_account_id']) && (int) $t['profit_account_id'] === $currentAccountId && $t['process_profit'] !== null && $t['process_profit'] !== '') {
+                $amt = (float) $t['process_profit'];
+            } else {
+                $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
+            }
             $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
             $description = $description . ' ' . $billAmount;
             if ($isBankProcessTransaction && !empty($t['bank_name'])) {
