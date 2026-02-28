@@ -2,6 +2,43 @@
  * reset-password.php - 重置密码页逻辑
  */
 (function() {
+    // 自定义弹窗（替代原生 alert，风格与确认删除弹窗一致）
+    function showAlertModal(title, message) {
+        return new Promise(function(resolve) {
+            const overlay = document.getElementById('alertModalOverlay');
+            const titleEl = document.getElementById('modalTitle');
+            const messageEl = document.getElementById('modalMessage');
+            const confirmBtn = document.getElementById('modalConfirmBtn');
+            if (!overlay || !titleEl || !messageEl || !confirmBtn) {
+                alert(message);
+                resolve();
+                return;
+            }
+            titleEl.textContent = title || 'Notice';
+            messageEl.textContent = message || '';
+            overlay.classList.add('is-open');
+            overlay.setAttribute('aria-hidden', 'false');
+            function close() {
+                overlay.classList.remove('is-open');
+                overlay.setAttribute('aria-hidden', 'true');
+                confirmBtn.removeEventListener('click', onConfirm);
+                overlay.removeEventListener('click', onOverlayClick);
+                document.removeEventListener('keydown', onEscape);
+                resolve();
+            }
+            function onConfirm() { close(); }
+            function onOverlayClick(e) {
+                if (e.target === overlay) close();
+            }
+            function onEscape(e) {
+                if (e.key === 'Escape') close();
+            }
+            confirmBtn.addEventListener('click', onConfirm);
+            overlay.addEventListener('click', onOverlayClick);
+            document.addEventListener('keydown', onEscape);
+        });
+    }
+
     const companyIdInput = document.getElementById('company-id');
     if (companyIdInput) {
         companyIdInput.addEventListener('input', function() {
@@ -41,11 +78,11 @@
             const email = emailField.value.trim();
 
             if (!companyId) {
-                alert('Please enter Company ID first');
+                showAlertModal('Notice', 'Please enter Company ID first');
                 return;
             }
             if (!email) {
-                alert('Please enter your email address first');
+                showAlertModal('Notice', 'Please enter your email address first');
                 return;
             }
 
@@ -69,17 +106,17 @@
                             tacField.focus();
                         }
                     }
-                    alert(msg);
+                    await showAlertModal('Success', msg);
                     if (!data.tac) {
                         const tacField = document.getElementById('tac-field');
                         if (tacField) tacField.focus();
                     }
                 } else {
-                    alert(data.message || 'Failed to send TAC. Please try again.');
+                    await showAlertModal('Notice', data.message || 'Failed to send TAC. Please try again.');
                 }
             } catch (err) {
                 console.error('Send TAC error:', err);
-                alert('Network error. Please try again.');
+                await showAlertModal('Notice', 'Network error. Please try again.');
             }
             getTacBtn.disabled = false;
             getTacBtn.textContent = 'SEND';
@@ -92,13 +129,13 @@
             e.preventDefault();
 
             if (!validatePassword()) {
-                alert('Passwords do not match');
+                showAlertModal('Notice', 'Passwords do not match');
                 return;
             }
 
             const tac = document.getElementById('tac-field').value.trim();
             if (!tac) {
-                alert('Please enter the TAC code');
+                showAlertModal('Notice', 'Please enter the TAC code');
                 return;
             }
 
@@ -108,7 +145,7 @@
             const newPasswordVal = newPassword ? newPassword.value : '';
 
             if (!companyId || !emailVal) {
-                alert('Company ID and email are required');
+                showAlertModal('Notice', 'Company ID and email are required');
                 return;
             }
 
@@ -131,12 +168,12 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (data.success) {
-                    alert('Password reset successful! Redirecting to login...');
+                    await showAlertModal('Success', 'Password reset successful! Redirecting to login...');
                     setTimeout(() => {
                         window.location.href = 'index.php';
                     }, 1500);
                 } else {
-                    alert(data.message || 'Failed to reset password. Please try again.');
+                    await showAlertModal('Notice', data.message || 'Failed to reset password. Please try again.');
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = 'Reset Password';
@@ -144,7 +181,7 @@
                 }
             } catch (err) {
                 console.error('Reset password error:', err);
-                alert('Network error. Please try again.');
+                await showAlertModal('Notice', 'Network error. Please try again.');
                 if (btn) {
                     btn.disabled = false;
                     btn.textContent = 'Reset Password';

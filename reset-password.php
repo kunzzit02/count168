@@ -70,6 +70,20 @@
         </div>
     </div>
 
+    <!-- 自定义弹窗（替代浏览器 alert，风格与确认删除弹窗一致） -->
+    <div id="alertModalOverlay" class="modal-overlay" aria-hidden="true">
+        <div class="modal-box" role="dialog" aria-labelledby="modalTitle" aria-describedby="modalMessage">
+            <div class="modal-icon-wrap">
+                <i class="fas fa-exclamation-triangle modal-icon" aria-hidden="true"></i>
+            </div>
+            <h3 id="modalTitle" class="modal-title">Notice</h3>
+            <p id="modalMessage" class="modal-message"></p>
+            <div class="modal-actions">
+                <button type="button" id="modalConfirmBtn" class="modal-btn modal-btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/reset-password.js?v=<?php echo time(); ?>"></script>
 </body>
 
