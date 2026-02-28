@@ -17617,9 +17617,14 @@ async function submitSummaryData() {
                 return;
             }
             
-            // Create a unique key for this row to prevent duplicates
-            // Include formulaVariant in the key to distinguish rows with same account but different formulas
-            const rowKey = `${productType}:${idProduct}:${accountId}:${templateKeyAttr || ''}:${formulaVariant || ''}`;
+            // Create a unique key for this row to prevent duplicates.
+            // When formulaVariant is set, use it so same (product, account, formulaVariant) is one record.
+            // When formulaVariant is null/empty, use row index so every table row is submitted (avoid collapsing 8 rows into 5).
+            const rowIndexInTable = Array.from(rows).indexOf(row);
+            const variantOrIndex = (formulaVariant !== null && formulaVariant !== '' && !Number.isNaN(Number(formulaVariant)))
+                ? formulaVariant
+                : 'row_' + rowIndexInTable;
+            const rowKey = `${productType}:${idProduct}:${accountId}:${templateKeyAttr || ''}:${variantOrIndex}`;
             if (seenRows.has(rowKey)) {
                 console.warn('Skipping duplicate row:', rowKey);
                 return;
