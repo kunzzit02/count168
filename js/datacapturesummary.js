@@ -14029,10 +14029,14 @@ if (mainTemplate && !hasExistingData) {
             processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
             processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
         }
-        // 更新存储的原始值，保持后续计算一致
+        // 更新存储的原始值，保持后续计算一致；若 formula 未含 *(0.05) 则不用 template 的 0.05
+        let srcPercentForRow = mainTemplate.source_percent || '1';
+        const sfCheck = (savedFormulaDisplay || '').trim().replace(/\s+/g, '');
+        const endsWith005 = /\)\s*\*\s*\(\s*0\.05\s*\)\s*$/.test(sfCheck) || /\)\s*\*\s*0\.05\s*$/.test(sfCheck);
+        if (!endsWith005 && Math.abs(parseFloat(srcPercentForRow) - 0.05) < 0.0001) srcPercentForRow = '1';
         targetRow.setAttribute('data-formula-display', savedFormulaDisplay);
         targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
-        targetRow.setAttribute('data-source-percent', mainTemplate.source_percent || '1');
+        targetRow.setAttribute('data-source-percent', srcPercentForRow);
         updateProcessedAmountTotal();
         return;
     }
@@ -14040,16 +14044,21 @@ if (mainTemplate && !hasExistingData) {
     const sourcePercentRaw = mainTemplate.source_percent || '';
     let percentValue = sourcePercentRaw.toString();
     // Convert old percentage format to new decimal format if needed
-    // Only convert if value is >= 10 (likely old percentage format like 100 = 100%)
-    // Values < 10 are likely already in decimal format (1 = 100%, 0.5 = 50%, etc.)
     if (percentValue) {
         const numValue = parseFloat(percentValue);
         if (!isNaN(numValue) && numValue >= 10 && numValue <= 1000) {
-            // Likely old percentage format, convert to decimal
             percentValue = (numValue / 100).toString();
         }
     } else {
-        percentValue = '1'; // Default to 1 (1 = 100%)
+        percentValue = '1';
+    }
+    // Follow Data Capture Summary formula: if template formula_display does NOT end with *(0.05),
+    // do not apply source_percent 0.05 (use 1 so result = formula result, e.g. 6025 not 301.25).
+    const savedFormulaDisplayForCheck = (mainTemplate.formula_display || '').trim().replace(/\s+/g, '');
+    const endsWith005 = /\)\s*\*\s*\(\s*0\.05\s*\)\s*$/.test(savedFormulaDisplayForCheck) || /\)\s*\*\s*0\.05\s*$/.test(savedFormulaDisplayForCheck);
+    const percentIs005 = Math.abs(parseFloat(percentValue) - 0.05) < 0.0001;
+    if (percentIs005 && !endsWith005) {
+        percentValue = '1';
     }
     const columnsDisplay = sourceColumnsValue ? createColumnsDisplay(sourceColumnsValue, formulaOperatorsValue) : '';
     // Auto-enable if source percent has value
