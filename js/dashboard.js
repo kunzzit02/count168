@@ -1196,35 +1196,22 @@ function updateChart(data) {
         });
     }
     
-    // 限制图表最多显示 31 天的数据（非年份范围），从范围开始日期起算
-    const MAX_DAYS = 31;
-    let effectiveDates = dates;
-    let effectiveCapitalData = capitalData;
-    let effectiveExpensesData = expensesData;
-    let effectiveProfitData = profitData;
-    if (currentRangeType !== 'year' && dates.length > MAX_DAYS) {
-        // 只保留最前面的 31 天，这样会从 1/2 开始往后显示
-        effectiveDates = dates.slice(0, MAX_DAYS);
-        effectiveCapitalData = capitalData.slice(0, MAX_DAYS);
-        effectiveExpensesData = expensesData.slice(0, MAX_DAYS);
-        effectiveProfitData = profitData.slice(0, MAX_DAYS);
-    }
-    
-    const sortedDates = effectiveDates;
+    // sortedDates 始终与 dates 对应，用于 tooltip / 坐标轴刻度
+    const sortedDates = dates;
     
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
         sortedDates: sortedDates,
-        capitalData: effectiveCapitalData,
-        expensesData: effectiveExpensesData,
-        profitData: effectiveProfitData
+        capitalData: capitalData,
+        expensesData: expensesData,
+        profitData: profitData
     };
     
     // 只显示 Profit 和 Expenses 数据集
     const allDatasets = [
             {
                 label: 'Profit',
-            data: effectiveProfitData,
+                data: profitData,
                 borderColor: '#3b82f6',
             backgroundColor: function(context) {
                 const chart = context.chart;
@@ -1248,7 +1235,7 @@ function updateChart(data) {
             },
             {
                 label: 'Expenses',
-                data: effectiveExpensesData,
+                data: expensesData,
                 borderColor: '#ef4444',
             backgroundColor: function(context) {
                 const chart = context.chart;
@@ -1276,7 +1263,7 @@ function updateChart(data) {
     let filteredDatasets = allDatasets;
     
     const chartData = {
-        labels: effectiveDates.map(d => {
+        labels: dates.map(d => {
             try {
                 // 如果是年份范围，d 是 "YYYY-MM" 格式
                 if (currentRangeType === 'year' && d.match(/^\d{4}-\d{2}$/)) {
@@ -1387,10 +1374,51 @@ function createChart(canvas, chartData) {
                         },
                         ticks: {
                             font: { size: axisFontSize },
-                            maxRotation: 45,
+                            maxRotation: 0,
                             minRotation: 0,
                             autoSkip: false,
-                            maxTicksLimit: undefined
+                            maxTicksLimit: undefined,
+                            // 只按月份显示刻度，不再逐天显示
+                            callback: function(value, index) {
+                                try {
+                                    const dateStr = (chartData.labels && chartData.labels[index]) || sortedDates[index];
+                                    if (!dateStr) return '';
+
+                                    // 年份范围：labels 已经是月份简称，直接返回
+                                    if (currentRangeType === 'year' && dateStr.match(/^[A-Za-z]{3}$/)) {
+                                        return dateStr;
+                                    }
+
+                                    // 其它情况：dateStr 可能是 "YYYY-MM-DD" 或 "DD/MM"
+                                    let year, month, day;
+                                    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                        // YYYY-MM-DD
+                                        const parts = dateStr.split('-');
+                                        year = parseInt(parts[0], 10);
+                                        month = parseInt(parts[1], 10);
+                                        day = parseInt(parts[2], 10);
+                                    } else if (dateStr.match(/^\d{1,2}\/\d{1,2}$/)) {
+                                        // DD/MM（无年份，用当前年份兜底）
+                                        const parts = dateStr.split('/');
+                                        day = parseInt(parts[0], 10);
+                                        month = parseInt(parts[1], 10);
+                                        year = new Date().getFullYear();
+                                    } else {
+                                        const d = new Date(dateStr);
+                                        if (isNaN(d.getTime())) return '';
+                                        year = d.getFullYear();
+                                        month = d.getMonth() + 1;
+                                        day = d.getDate();
+                                    }
+
+                                    // 只在每个月的第 1 天显示标签，其它日期不显示
+                                    if (day !== 1) return '';
+                                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                    return `${monthNames[month - 1]} ${year}`;
+                                } catch (e) {
+                                    return '';
+                                }
+                            }
                         }
                     }
                 },
