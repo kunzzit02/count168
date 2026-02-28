@@ -573,7 +573,6 @@
             const accountDisplay = row.account ? escapeHtml(row.account) : '-';
             const descriptionDisplay = row.description ? escapeHtml(row.description) : '-';
             const remarkDisplay = row.remark ? escapeHtml(row.remark) : '-';
-            const sourceDisplay = row.source ? escapeHtml(row.source) : '-';
             const percentDisplay = (row.percent !== null && row.percent !== undefined && row.percent !== '') ? escapeHtml(row.percent) : '-';
             const currencyDisplay = row.currency ? escapeHtml(row.currency) : '-';
             const rateDisplay = (row.rate !== null && row.rate !== undefined && row.rate !== '') ? escapeHtml(row.rate) : '-';
@@ -596,7 +595,6 @@
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${descriptionDisplay}</td>
                     <td class="maintenance-table-cell">${remarkDisplay}</td>
-                    <td class="maintenance-table-cell">${sourceDisplay}</td>
                     <td class="maintenance-table-cell">${percentDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-currency">${currencyDisplay}</td>
                     <td class="maintenance-table-cell">${rateDisplay}</td>
