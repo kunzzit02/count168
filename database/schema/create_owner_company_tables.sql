@@ -12,7 +12,7 @@
 -- 1) Owner table ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS owner (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    owner_code VARCHAR(50) NOT NULL UNIQUE COMMENT 'Business identifier for the owner',
+    owner_code VARCHAR(50) NOT NULL COMMENT 'Business identifier for the owner',
     name VARCHAR(150) NOT NULL,
     email VARCHAR(150) NULL UNIQUE,
     phone VARCHAR(50) NULL,
