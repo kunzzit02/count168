@@ -960,15 +960,14 @@ function updateDashboard(data) {
                 const rawProfit = parseFloat(data.profit) || 0;
                 const rawExpenses = parseFloat(data.expenses) || 0;
 
-                // Profit 卡片：如果 Payment 是负数（亏损），Dashboard 显示为正数；否则保持原符号
-                const displayProfitNum = rawProfit < 0 ? -rawProfit : rawProfit;
+                // Profit 卡片：直接沿用 Payment 的符号（Payment 为负，这里也显示负）
+                const displayProfitNum = rawProfit;
 
                 // Expenses 卡片：Payment 为正数时，Dashboard 用负数显示支出；如果本身是负数则保持
                 const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
 
-                // NET PROFIT 卡片：用「卡片显示值」来算
+                // NET PROFIT 卡片：沿用「显示值」计算
                 // 规则：NET PROFIT = Profit(显示) + Expenses(显示)
-                // 示例：Profit=10,000，Expenses=-1,000 => Net Profit=9,000
                 const netProfitDisplay = displayProfitNum + displayExpensesNum;
 
                 if (capitalEl) capitalEl.textContent = formatCurrency(displayProfitNum);
