@@ -290,11 +290,16 @@ function restoreFormulaSourceFromRefresh() {
         const data = saved[i];
         if (!data) return;
         const cells = row.querySelectorAll('td');
-        const formula = data.formula != null ? String(data.formula) : '';
+        let formula = data.formula != null ? String(data.formula) : '';
         const source = data.source != null ? String(data.source) : '';
         if (data.sourceColumns != null) row.setAttribute('data-source-columns', data.sourceColumns);
         if (data.formulaOperators != null) row.setAttribute('data-formula-operators', data.formulaOperators);
         if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
+        // source_percent == 1 时只显示基础公式，不显示 *(1) 或 *(0.05)
+        const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
+        if (srcPct !== '' && formula && Math.abs(parseFloat(srcPct) - 1) < 0.0001 && typeof removeTrailingSourcePercentExpression === 'function') {
+            formula = removeTrailingSourcePercentExpression(formula) || formula;
+        }
         if (cells[4]) {
             if (formula === '') {
                 cells[4].innerHTML = '';
@@ -13321,6 +13326,11 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
                 rawFormula = data.formula;
                 formulaText = formatNegativeNumbersInFormula(data.formula);
+                // source_percent == 1 时不显示 *(1) 或 *(0.05)，只显示基础公式（与 Maintenance - Formula 一致）
+                const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
+                if (srcPct !== '' && Math.abs(parseFloat(srcPct) - 1) < 0.0001 && typeof removeTrailingSourcePercentExpression === 'function') {
+                    formulaText = removeTrailingSourcePercentExpression(formulaText) || formulaText;
+                }
             }
             
             // 无 data.formula 时再从 sourceColumns 重建（如从 API 只返回 sourceColumns 时）
@@ -14799,10 +14809,15 @@ if (currentSourceData && currentSourceData.trim() !== '') {
 }
 
     // 如果模板没有绑定任何表格列（纯手动公式），直接用保存的公式，不尝试从表格重建
-    const formulaDisplayForManual = mainTemplate.formula_display || '';
+    let formulaDisplayForManual = mainTemplate.formula_display || '';
     if ((!sourceColumnsValue || sourceColumnsValue.trim() === '') &&
         (!formulaOperatorsValue || formulaOperatorsValue.trim() === '') &&
         formulaDisplayForManual && formulaDisplayForManual.trim() !== '') {
+        // source_percent == 1 时只显示基础公式，不显示 *(1) 或 *(0.05)
+        const manualSrcPct = (mainTemplate.source_percent != null ? String(mainTemplate.source_percent) : '').trim();
+        if (manualSrcPct !== '' && Math.abs(parseFloat(manualSrcPct) - 1) < 0.0001 && typeof removeTrailingSourcePercentExpression === 'function') {
+            formulaDisplayForManual = removeTrailingSourcePercentExpression(formulaDisplayForManual) || formulaDisplayForManual;
+        }
         const formulaCell = targetRow.querySelector('td:nth-child(5)');
         if (formulaCell) {
             formulaCell.innerHTML = `<span class="formula-text">${formulaDisplayForManual}</span>`;
@@ -15230,6 +15245,11 @@ if (percentValue) {
         convertedPercentValue = (numValue / 100).toString();
     }
     // If value is < 10, it's already in multiplier format, use as-is
+}
+
+// source_percent == 1 时只存/显示基础公式，不显示 *(1) 或 *(0.05)
+if (convertedPercentValue && Math.abs(parseFloat(convertedPercentValue) - 1) < 0.0001 && formulaDisplay && typeof removeTrailingSourcePercentExpression === 'function') {
+    formulaDisplay = removeTrailingSourcePercentExpression(formulaDisplay) || formulaDisplay;
 }
 
 const data = {
@@ -17551,7 +17571,25 @@ async function submitSummaryData() {
             
             // Submit the Processed Amount as displayed (do not multiply by Rate on submit).
             // Rate column is for display/other use; saved amount = Summary table Processed Amount so Maintenance - Transaction shows correct value (e.g. 6025 not 301.25).
-            const finalProcessedAmount = parseFloat(processedAmountValue) || 0;
+            let finalProcessedAmount = parseFloat(processedAmountValue) || 0;
+            
+            // source_percent == 1 时以基础公式重算金额再提交，避免界面仍显示旧比例时的错误金额（如 301.25）
+            const sourcePercentForSend = sourcePercent || '1';
+            const isSourceOne = Math.abs(parseFloat(sourcePercentForSend) - 1) < 0.0001;
+            const formulaToSend = (isSourceOne && formula && typeof removeTrailingSourcePercentExpression === 'function')
+                ? removeTrailingSourcePercentExpression(formula)
+                : formula;
+            if (isSourceOne && formulaToSend && formulaToSend.trim() !== '') {
+                try {
+                    const sanitized = (typeof removeThousandsSeparators === 'function' ? removeThousandsSeparators(formulaToSend.trim().replace(/\s+/g, '')) : formulaToSend.trim().replace(/\s+/g, '').replace(/,/g, ''));
+                    if (sanitized && /^[\d+\-*/().\s]+$/.test(sanitized) && typeof evaluateExpression === 'function') {
+                        const baseAmount = evaluateExpression(sanitized);
+                        if (baseAmount != null && !isNaN(baseAmount) && isFinite(baseAmount)) {
+                            finalProcessedAmount = baseAmount;
+                        }
+                    }
+                } catch (e) { /* use cell value */ }
+            }
             
             // Debug log
             console.log('Row data extracted:', {
@@ -17588,12 +17626,7 @@ async function submitSummaryData() {
             }
             seenRows.add(rowKey);
             
-            // source_percent == 1 时存基础公式（去掉末尾 *(…)），Payment History 与 Maintenance - Formula 一致
-            const sourcePercentForSend = sourcePercent || '1';
-            const isSourceOne = Math.abs(parseFloat(sourcePercentForSend) - 1) < 0.0001;
-            const formulaToSend = (isSourceOne && formula && typeof removeTrailingSourcePercentExpression === 'function')
-                ? removeTrailingSourcePercentExpression(formula)
-                : formula;
+            // sourcePercentForSend, isSourceOne, formulaToSend already computed above (for amount when isSourceOne)
             
             summaryRows.push({
                 idProductMain: cleanIdProductMain || null,
