@@ -164,6 +164,8 @@ try {
                 $crVal = $amt;
             } elseif ($amt < 0) {
                 $drVal = abs($amt);
+            } else {
+                $crVal = 0;
             }
         }
 
@@ -263,6 +265,9 @@ try {
                     $crVal = $amt;
                 } elseif ($amt < 0) {
                     $drVal = abs($amt);
+                } else {
+                    // amount === 0: 仍显示该笔 Data Capture 记录，Cr 显示 0.00
+                    $crVal = 0;
                 }
             }
             
@@ -368,6 +373,8 @@ try {
                         $crVal = $amt;
                     } elseif ($amt < 0) {
                         $drVal = abs($amt);
+                    } else {
+                        $crVal = 0;
                     }
                 }
 
@@ -468,6 +475,8 @@ try {
                         $crVal = $amt;
                     } elseif ($amt < 0) {
                         $drVal = abs($amt);
+                    } else {
+                        $crVal = 0;
                     }
                 }
                 
