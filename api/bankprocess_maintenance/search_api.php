@@ -144,7 +144,7 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
                 from_acc.account_id AS from_account_code, from_acc.name AS from_account_name,
                 {$schema['selectCurrency']},
                 u.login_id AS created_by_login, o.owner_code AS created_by_owner,
-                bp.profit AS process_profit, bp.cost AS process_cost, bp.card_merchant_id, bp.profit_account_id, bp.profit_sharing AS process_profit_sharing
+                bp.profit AS process_profit, bp.cost AS process_cost, bp.price AS process_price, bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.profit_sharing AS process_profit_sharing
                 $periodTypeSelect
             FROM transactions t
             JOIN account to_acc ON t.account_id = to_acc.id
@@ -199,7 +199,7 @@ function getProfitSharingAmountForAccount(?string $profitSharing, string $accoun
 function rowToItem(array $row) {
     $description = $row['description'] ?? '';
 
-    // WIN/LOSE（Bank process 入账）：与 history_api 一致，Supplier 用 Buy Price(cost)，Company 用 Profit，格式如 Remaining days bill 2000 (MBB)
+    // WIN/LOSE（Bank process 入账）：与 history_api 一致，Supplier 用 Buy Price(cost)，Customer 用 Sell Price(price)，Company 用 Profit，Profit sharing 用对应金额，格式如 Remaining days bill 2000 (MBB)
     if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'])) {
         $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
         if ($periodType === 'partial_first_month') {
@@ -216,10 +216,13 @@ function rowToItem(array $row) {
         $accName = isset($row['account_name']) ? (string) $row['account_name'] : '';
         $isSupplier = isset($row['card_merchant_id']) && (int) $row['card_merchant_id'] === $accId && $row['process_cost'] !== null && $row['process_cost'] !== '';
         $isCompany = isset($row['profit_account_id']) && (int) $row['profit_account_id'] === $accId && $row['process_profit'] !== null && $row['process_profit'] !== '';
+        $isCustomer = isset($row['customer_id']) && (int) $row['customer_id'] === $accId && $row['process_price'] !== null && $row['process_price'] !== '';
         if ($isSupplier) {
             $amt = (float) $row['process_cost'];
         } elseif ($isCompany) {
             $amt = (float) $row['process_profit'];
+        } elseif ($isCustomer) {
+            $amt = (float) $row['process_price'];
         } elseif (!empty($row['process_profit_sharing'])) {
             $psAmount = getProfitSharingAmountForAccount($row['process_profit_sharing'], $accCode, $accName);
             $amt = $psAmount !== null ? $psAmount : (isset($row['amount']) ? (float) $row['amount'] : 0);
