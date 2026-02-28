@@ -17473,7 +17473,11 @@ async function submitSummaryData() {
             if (!processedAmountValue || processedAmountValue === '' || processedAmountValue === 'null') {
                 processedAmountValue = row.getAttribute('data-base-processed-amount') || '';
             }
-            if (!processedAmountValue || processedAmountValue === 'null' || parseFloat(processedAmountValue) === 0) {
+            // ⚠ IMPORTANT:
+            // 这里不再把 0 当成「无效」数值。
+            // 如果界面上的 Processed Amount 是 0.00，用户就是希望保存 0。
+            // 只有在完全空白/无数字时才尝试回退计算。
+            if (!processedAmountValue || processedAmountValue === 'null') {
                 // Fallback 1: Recalculate from source data
                 const sourceData = (row.getAttribute('data-formula-operators') || sourceValue || '').trim();
                 const inputMethod = inputMethodAttr || '';
@@ -17493,7 +17497,7 @@ async function submitSummaryData() {
                         }
                     } catch (e) { /* ignore */ }
                 }
-                if ((!processedAmountValue || processedAmountValue === '' || parseFloat(processedAmountValue) === 0) && formula && formula.trim() !== '') {
+                if ((!processedAmountValue || processedAmountValue === '') && formula && formula.trim() !== '') {
                     try {
                         const sanitized = typeof removeThousandsSeparators === 'function'
                             ? removeThousandsSeparators(formula.trim().replace(/\s+/g, ''))
@@ -17572,16 +17576,19 @@ async function submitSummaryData() {
             }
             
             // Submit the Processed Amount as displayed (do not multiply by Rate on submit).
-            // Rate column is for display/other use; saved amount = Summary table Processed Amount so Maintenance - Transaction shows correct value (e.g. 6025 not 301.25).
-            let finalProcessedAmount = parseFloat(processedAmountValue) || 0;
+            // 如果单元格里有数字（包括 0），优先使用单元格里的值；只有在完全没有数字时才回退到公式计算。
+            // Rate 列仅用于显示/换算；保存到数据库的永远是 Summary 表中的 Processed Amount。
+            const hasDisplayAmount = processedAmountValue !== '' && processedAmountValue !== 'null' && !isNaN(parseFloat(processedAmountValue));
+            let finalProcessedAmount = hasDisplayAmount ? parseFloat(processedAmountValue) : 0;
             
-            // source_percent == 1 时以基础公式重算金额再提交，避免界面仍显示旧比例时的错误金额（如 301.25）
+            // source_percent == 1 时，以基础公式重算金额的逻辑只在「没有显示金额」时才启用；
+            // 否则会把用户手动改成 0 的金额又改回公式计算值。
             const sourcePercentForSend = sourcePercent || '1';
             const isSourceOne = Math.abs(parseFloat(sourcePercentForSend) - 1) < 0.0001;
             const formulaToSend = (isSourceOne && formula && typeof removeTrailingSourcePercentExpression === 'function')
                 ? removeTrailingSourcePercentExpression(formula)
                 : formula;
-            if (isSourceOne && formulaToSend && formulaToSend.trim() !== '') {
+            if (!hasDisplayAmount && isSourceOne && formulaToSend && formulaToSend.trim() !== '') {
                 try {
                     const sanitized = (typeof removeThousandsSeparators === 'function' ? removeThousandsSeparators(formulaToSend.trim().replace(/\s+/g, '')) : formulaToSend.trim().replace(/\s+/g, '').replace(/,/g, ''));
                     if (sanitized && /^[\d+\-*/().\s]+$/.test(sanitized) && typeof evaluateExpression === 'function') {
