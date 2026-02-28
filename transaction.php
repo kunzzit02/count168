@@ -20,10 +20,9 @@ $canApproveContra = in_array($viewerRole, ['manager', 'admin', 'owner'], true);
 // 获取 session 中的 company_id（用于跨页面同步）
 $session_company_id = $_SESSION['company_id'] ?? null;
 
-// Capture Date 默认：当月1号至今天
+// Capture Date 默认：当天
 $today_dt = new DateTime('today');
-$first_day_dt = new DateTime('first day of this month');
-$default_date_from = $first_day_dt->format('d/m/Y');
+$default_date_from = $today_dt->format('d/m/Y');
 $default_date_to = $today_dt->format('d/m/Y');
 ?>
 <!DOCTYPE html>
