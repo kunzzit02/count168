@@ -955,19 +955,25 @@ function updateDashboard(data) {
                 const capitalEl = document.getElementById('capital-value');
                 const expensesEl = document.getElementById('expenses-value');
                 const profitEl = document.getElementById('profit-value');
-                // 左边「Profit」卡片：Payment 的 profit 为负数时，Dashboard 显示为正数（取反展示）
-                if (capitalEl) capitalEl.textContent = formatCurrency(-(parseFloat(data.profit) || 0));
-                // Expenses 卡片：Payment 的 expenses total 为正数时，Dashboard 显示为负数（支出以负值展示）
-                const expensesRaw = parseFloat(data.expenses) || 0;
-                if (expensesEl) expensesEl.textContent = formatCurrency(-expensesRaw);
-                // 右边「NET PROFIT」：按 expenses 正负判断加减
-                // 业务规则：net = profit - expenses
-                // - 当 expenses 为正数：净利 = Profit − Expenses
-                // - 当 expenses 为负数：净利 = Profit − (负数) = Profit + |Expenses|
-                const profitNum = parseFloat(data.profit) || 0;
-                const expensesNum = parseFloat(data.expenses) || 0;
-                const netProfit = profitNum - expensesNum;
-                if (profitEl) profitEl.textContent = formatCurrency(netProfit);
+
+                // 原始值（跟 Payment 一致）
+                const rawProfit = parseFloat(data.profit) || 0;
+                const rawExpenses = parseFloat(data.expenses) || 0;
+
+                // Profit 卡片：如果 Payment 是负数（亏损），Dashboard 显示为正数；否则保持原符号
+                const displayProfitNum = rawProfit < 0 ? -rawProfit : rawProfit;
+
+                // Expenses 卡片：Payment 为正数时，Dashboard 用负数显示支出；如果本身是负数则保持
+                const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
+
+                // NET PROFIT 卡片：用「卡片显示值」来算
+                // 规则：NET PROFIT = Profit(显示) + Expenses(显示)
+                // 示例：Profit=10,000，Expenses=-1,000 => Net Profit=9,000
+                const netProfitDisplay = displayProfitNum + displayExpensesNum;
+
+                if (capitalEl) capitalEl.textContent = formatCurrency(displayProfitNum);
+                if (expensesEl) expensesEl.textContent = formatCurrency(displayExpensesNum);
+                if (profitEl) profitEl.textContent = formatCurrency(netProfitDisplay);
                 const chartDateRangeEl = document.getElementById('chart-date-range');
                 if (chartDateRangeEl && data.date_range) {
                     chartDateRangeEl.textContent =
