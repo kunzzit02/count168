@@ -1119,8 +1119,8 @@ function updateChart(data) {
         }
         
         // 如果没有日期范围，使用API返回的日期（向后兼容）
-        const sortedDates = allDatesInRange.length > 0 ? allDatesInRange : [];
-        if (sortedDates.length === 0) {
+        const allSortedDates = allDatesInRange.length > 0 ? allDatesInRange : [];
+        if (allSortedDates.length === 0) {
             // 如果没有日期范围，尝试从API数据中获取日期
             const allDates = new Set();
             if (dailyData.expenses && typeof dailyData.expenses === 'object') {
@@ -1129,10 +1129,10 @@ function updateChart(data) {
             if (dailyData.profit && typeof dailyData.profit === 'object') {
                 Object.keys(dailyData.profit).forEach(date => allDates.add(date));
             }
-            sortedDates.push(...Array.from(allDates).sort());
+            allSortedDates.push(...Array.from(allDates).sort());
         }
         
-        if (sortedDates.length === 0) {
+        if (allSortedDates.length === 0) {
             // 如果没有数据，显示空图表
             console.warn('没有图表数据，显示空图表');
             
@@ -1168,7 +1168,7 @@ function updateChart(data) {
         }
         
         // 为范围内的每一天准备数据，没有数据的日期默认为0
-        sortedDates.forEach(date => {
+        allSortedDates.forEach(date => {
             try {
                 dates.push(date);
                 const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
@@ -1193,21 +1193,35 @@ function updateChart(data) {
         });
     }
     
-    const sortedDates = dates;
+    // 限制图表最多显示 31 天的数据（非年份范围）
+    const MAX_DAYS = 31;
+    let effectiveDates = dates;
+    let effectiveCapitalData = capitalData;
+    let effectiveExpensesData = expensesData;
+    let effectiveProfitData = profitData;
+    if (currentRangeType !== 'year' && dates.length > MAX_DAYS) {
+        const startIndex = dates.length - MAX_DAYS;
+        effectiveDates = dates.slice(startIndex);
+        effectiveCapitalData = capitalData.slice(startIndex);
+        effectiveExpensesData = expensesData.slice(startIndex);
+        effectiveProfitData = profitData.slice(startIndex);
+    }
+    
+    const sortedDates = effectiveDates;
     
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
         sortedDates: sortedDates,
-        capitalData: capitalData,
-        expensesData: expensesData,
-        profitData: profitData
+        capitalData: effectiveCapitalData,
+        expensesData: effectiveExpensesData,
+        profitData: effectiveProfitData
     };
     
     // 只显示 Profit 和 Expenses 数据集
     const allDatasets = [
             {
                 label: 'Profit',
-                data: profitData,
+            data: effectiveProfitData,
                 borderColor: '#3b82f6',
             backgroundColor: function(context) {
                 const chart = context.chart;
@@ -1231,7 +1245,7 @@ function updateChart(data) {
             },
             {
                 label: 'Expenses',
-                data: expensesData,
+                data: effectiveExpensesData,
                 borderColor: '#ef4444',
             backgroundColor: function(context) {
                 const chart = context.chart;
@@ -1259,7 +1273,7 @@ function updateChart(data) {
     let filteredDatasets = allDatasets;
     
     const chartData = {
-        labels: dates.map(d => {
+        labels: effectiveDates.map(d => {
             try {
                 // 如果是年份范围，d 是 "YYYY-MM" 格式
                 if (currentRangeType === 'year' && d.match(/^\d{4}-\d{2}$/)) {
