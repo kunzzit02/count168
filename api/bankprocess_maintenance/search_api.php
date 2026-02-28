@@ -143,11 +143,13 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
                 to_acc.account_id AS account_code, to_acc.name AS account_name,
                 from_acc.account_id AS from_account_code, from_acc.name AS from_account_name,
                 {$schema['selectCurrency']},
-                u.login_id AS created_by_login, o.owner_code AS created_by_owner
+                u.login_id AS created_by_login, o.owner_code AS created_by_owner,
+                bp.profit AS process_profit
                 $periodTypeSelect
             FROM transactions t
             JOIN account to_acc ON t.account_id = to_acc.id
             LEFT JOIN account from_acc ON t.from_account_id = from_acc.id
+            LEFT JOIN bank_process bp ON t.source_bank_process_id = bp.id
             INNER JOIN account_company ac ON ac.account_id = to_acc.id
             {$schema['currencyJoinSql']}
             LEFT JOIN user u ON t.created_by = u.id
@@ -173,7 +175,7 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
 function rowToItem(array $row) {
     $description = $row['description'] ?? '';
 
-    // WIN/LOSE（Bank process 入账）：与 history_api 一致，按入账类型显示，并加上金额，格式如 Remaining days bill 1000 (MBB)
+    // WIN/LOSE（Bank process 入账）：与 history_api 一致，Description 金额用 Edit Process 的 profit，格式如 Remaining days bill 1500 (MBB)
     if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'])) {
         $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
         if ($periodType === 'partial_first_month') {
@@ -185,7 +187,7 @@ function rowToItem(array $row) {
         } else {
             $description = 'Monthly bill';
         }
-        $amt = isset($row['amount']) ? (float) $row['amount'] : 0;
+        $amt = isset($row['process_profit']) && $row['process_profit'] !== null && $row['process_profit'] !== '' ? (float) $row['process_profit'] : (isset($row['amount']) ? (float) $row['amount'] : 0);
         $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
         $description = $description . ' ' . $billAmount;
     } elseif (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {

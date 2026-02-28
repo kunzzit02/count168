@@ -332,7 +332,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -674,7 +674,7 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
-        // WIN/LOSE（Bank process 入账）：按入账类型显示，加 "bill" 表示收费/账单；Supplier Payment History 前加金额与银行名，格式如 Remaining days bill 1000 (MBB)
+        // WIN/LOSE（Bank process 入账）：按入账类型显示，加 "bill" 表示收费/账单；Description 金额用 Edit Process 的 profit（Company 利润），格式如 Remaining days bill 1500 (MBB)
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
             $periodType = isset($t['period_type']) ? trim((string)$t['period_type']) : '';
             if ($periodType === 'partial_first_month') {
@@ -686,7 +686,7 @@ try {
             } else {
                 $description = 'Monthly bill';
             }
-            $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
+            $amt = isset($t['process_profit']) && $t['process_profit'] !== null && $t['process_profit'] !== '' ? (float) $t['process_profit'] : (isset($t['amount']) ? (float) $t['amount'] : 0);
             $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
             $description = $description . ' ' . $billAmount;
             if ($isBankProcessTransaction && !empty($t['bank_name'])) {
