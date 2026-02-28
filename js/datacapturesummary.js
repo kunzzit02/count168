@@ -17559,36 +17559,9 @@ async function submitSummaryData() {
                 currencyId = getCurrencyIdByCode(currencyText);
             }
             
-            // IMPORTANT: Apply rate multiplication to processedAmount
-            // Priority: Rate Value column > Global rateInput (if checkbox checked)
-            // 重要：应用 rate 乘法到 processedAmount
-            // 优先级：Rate Value 列 > 全局 rateInput（如果 checkbox 勾选）
-            let finalProcessedAmount = parseFloat(processedAmountValue) || 0;
-            if (rateValue) {
-                let rateNum = null;
-                // Check if rateValue starts with "*" or "/"
-                if (rateValue.startsWith('*')) {
-                    rateNum = parseFloat(rateValue.substring(1));
-                } else if (rateValue.startsWith('/')) {
-                    rateNum = parseFloat(rateValue.substring(1));
-                    if (!isNaN(rateNum) && rateNum !== 0) {
-                        finalProcessedAmount = finalProcessedAmount / rateNum;
-                    }
-                    rateNum = null; // Set to null to skip multiplication below
-                } else {
-                    rateNum = parseFloat(rateValue);
-                }
-                
-                if (rateNum !== null && !isNaN(rateNum) && rateNum !== 0) {
-                    finalProcessedAmount = finalProcessedAmount * rateNum;
-                    console.log('Applied rate to processedAmount:', {
-                        baseAmount: processedAmountValue,
-                        rate: rateValue,
-                        rateNum: rateNum,
-                        finalAmount: finalProcessedAmount
-                    });
-                }
-            }
+            // Submit the Processed Amount as displayed (do not multiply by Rate on submit).
+            // Rate column is for display/other use; saved amount = Summary table Processed Amount so Maintenance - Transaction shows correct value (e.g. 6025 not 301.25).
+            const finalProcessedAmount = parseFloat(processedAmountValue) || 0;
             
             // Debug log
             console.log('Row data extracted:', {
