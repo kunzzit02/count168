@@ -13576,19 +13576,31 @@ if (processId === null) {
 
 // 添加当前选择的 company_id
 const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
+let captureIdForTemplates = null;
+if (typeof window.DATACAPTURESUMMARY_CAPTURE_ID !== 'undefined' && window.DATACAPTURESUMMARY_CAPTURE_ID != null && window.DATACAPTURESUMMARY_CAPTURE_ID !== '') {
+    captureIdForTemplates = window.DATACAPTURESUMMARY_CAPTURE_ID;
+} else {
+    try {
+        const stored = localStorage.getItem('capturedCaptureId');
+        if (stored != null && stored !== '') captureIdForTemplates = parseInt(stored, 10);
+    } catch (e) {}
+}
 const url = 'api/datacapture_summary/summary_api.php?action=templates';
 const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
-
+const bodyPayload = { 
+    idProducts: uniqueIds, 
+    processId,
+    company_id: currentCompanyId
+};
+if (captureIdForTemplates != null && !isNaN(captureIdForTemplates) && captureIdForTemplates > 0) {
+    bodyPayload.captureId = captureIdForTemplates;
+}
 const response = await fetch(finalUrl, {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ 
-        idProducts: uniqueIds, 
-        processId,
-        company_id: currentCompanyId
-    })
+    body: JSON.stringify(bodyPayload)
 });
 
 if (!response.ok) {
@@ -17870,6 +17882,8 @@ async function submitSummaryData() {
         
         // 所有批次提交成功
         if (allSubmitted && finalCaptureId) {
+            window.DATACAPTURESUMMARY_CAPTURE_ID = finalCaptureId;
+            try { localStorage.setItem('capturedCaptureId', String(finalCaptureId)); } catch (e) {}
             const totalRowsSubmitted = summaryRows.length;
             showNotification('Success', `All data submitted successfully! Capture ID: ${finalCaptureId}, total ${totalRowsSubmitted} rows`, 'success');
 
@@ -17903,9 +17917,10 @@ async function submitSummaryData() {
             setTimeout(() => {
                 window.isNavigatingAwayByBackOrSubmit = true;
                 try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
+                try { localStorage.removeItem('capturedCaptureId'); } catch (e) {}
                 localStorage.removeItem('capturedTableData');
                 localStorage.removeItem('capturedProcessData');
-                
+
                 // Redirect to data capture page
                 window.location.href = 'datacapture.php?submitted=1';
             }, 2000);

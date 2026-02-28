@@ -1013,6 +1013,155 @@ function baseIdProductForKeyNormalized($text) {
     return trim(rtrim($base, ' :'));
 }
 
+/**
+ * Merge (id_product, account_id) pairs from data_capture_details into templates
+ * so that accounts that exist in details but have no template still get a row (synthetic template).
+ * 修复：data_capture_details 有该账目但 data_capture_templates 没有时，仍能在 Summary 中显示。
+ */
+function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, array $ids, array $templates) {
+    $hasDisplayOrder = false;
+    try {
+        $colStmt = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'display_order'");
+        $hasDisplayOrder = $colStmt && $colStmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) { /* ignore */ }
+    $orderBy = $hasDisplayOrder ? "ORDER BY COALESCE(display_order, 999), id" : "ORDER BY id";
+    $cols = $hasDisplayOrder ? "id_product_main, id_product_sub, product_type, account_id, display_order" : "id_product_main, id_product_sub, product_type, account_id";
+    $detailStmt = $pdo->prepare("
+        SELECT $cols
+        FROM data_capture_details
+        WHERE company_id = ? AND capture_id = ?
+        $orderBy
+    ");
+    $detailStmt->execute([$companyId, $captureId]);
+    $details = $detailStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $pairsByKey = [];
+    foreach ($details as $row) {
+        $accountId = isset($row['account_id']) ? trim((string)$row['account_id']) : '';
+        if ($accountId === '') {
+            continue;
+        }
+        $productType = $row['product_type'] ?? 'main';
+        $idProductMain = isset($row['id_product_main']) ? trim((string)$row['id_product_main']) : '';
+        $idProductSub  = isset($row['id_product_sub'])  ? trim((string)$row['id_product_sub'])  : '';
+        if ($productType === 'main') {
+            $idForKey = $idProductMain !== '' ? $idProductMain : $idProductSub;
+        } else {
+            $idForKey = $idProductMain !== '' ? $idProductMain : $idProductSub;
+        }
+        if ($idForKey === '') {
+            continue;
+        }
+        $key = baseIdProductForKeyNormalized($idForKey);
+        if ($key === '') {
+            $key = $idForKey;
+        }
+        if (!isset($pairsByKey[$key])) {
+            $pairsByKey[$key] = [];
+        }
+        $pairsByKey[$key][$accountId] = [
+            'id_product' => $idForKey,
+            'account_id' => $accountId,
+            'display_order' => $hasDisplayOrder && isset($row['display_order']) ? (int)$row['display_order'] : null,
+        ];
+    }
+
+    $accountIds = [];
+    foreach ($pairsByKey as $pairs) {
+        foreach ($pairs as $accId => $_) {
+            if (is_numeric($accId)) {
+                $accountIds[(int)$accId] = true;
+            }
+        }
+    }
+    $accountIds = array_keys($accountIds);
+    $accountDisplayMap = [];
+    if (!empty($accountIds)) {
+        $placeholders = implode(',', array_fill(0, count($accountIds), '?'));
+        $accStmt = $pdo->prepare("
+            SELECT a.id, a.account_id AS code, a.name
+            FROM account a
+            INNER JOIN account_company ac ON a.id = ac.account_id
+            WHERE ac.company_id = ? AND a.id IN ($placeholders)
+        ");
+        $accStmt->execute(array_merge([$companyId], $accountIds));
+        while ($row = $accStmt->fetch(PDO::FETCH_ASSOC)) {
+            $id = (int)$row['id'];
+            $code = $row['code'] ?? '';
+            $name = $row['name'] ?? '';
+            $accountDisplayMap[$id] = $code !== '' && $name !== '' ? ($code . ' [' . $name . ']') : ($code ?: (string)$id);
+            $accountDisplayMap[(string)$id] = $accountDisplayMap[$id];
+        }
+    }
+
+    $requestedKeys = [];
+    foreach ($ids as $id) {
+        $n = baseIdProductForKeyNormalized(trim((string)$id));
+        if ($n !== '') {
+            $requestedKeys[$n] = true;
+        }
+    }
+    foreach ($pairsByKey as $key => $pairs) {
+        $keyInRequest = isset($templates[$key]) || isset($requestedKeys[$key]);
+        if (!$keyInRequest) {
+            continue;
+        }
+        if (!isset($templates[$key])) {
+            $templates[$key] = ['main' => null, 'subs' => [], 'allMains' => []];
+        }
+        $allMains = $templates[$key]['allMains'] ?? [];
+        $existingAccountIds = [];
+        foreach ($allMains as $m) {
+            $aid = isset($m['account_id']) ? (string)$m['account_id'] : '';
+            if ($aid !== '') {
+                $existingAccountIds[$aid] = true;
+            }
+        }
+        foreach ($pairs as $accId => $info) {
+            if (isset($existingAccountIds[(string)$accId])) {
+                continue;
+            }
+            $display = $accountDisplayMap[(int)$accId] ?? $accountDisplayMap[(string)$accId] ?? (string)$accId;
+            $synthetic = [
+                'id' => null,
+                'id_product' => $info['id_product'],
+                'product_type' => 'main',
+                'parent_id_product' => null,
+                'template_key' => $info['id_product'],
+                'description' => '',
+                'account_id' => $accId,
+                'account_display' => $display,
+                'currency_id' => null,
+                'currency_display' => null,
+                'source_columns' => '',
+                'formula_operators' => '',
+                'source_percent' => '1',
+                'enable_source_percent' => 1,
+                'input_method' => null,
+                'enable_input_method' => 0,
+                'batch_selection' => 0,
+                'columns_display' => null,
+                'formula_display' => '',
+                'last_source_value' => null,
+                'last_processed_amount' => 0,
+                'process_id' => null,
+                'data_capture_id' => null,
+                'row_index' => $info['display_order'],
+                'sub_order' => null,
+                'formula_variant' => 1,
+                'updated_at' => null,
+            ];
+            $allMains[] = $synthetic;
+            $existingAccountIds[(string)$accId] = true;
+        }
+        $templates[$key]['allMains'] = $allMains;
+        if ($templates[$key]['main'] === null && !empty($allMains)) {
+            $templates[$key]['main'] = $allMains[0];
+        }
+    }
+    return $templates;
+}
+
 function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
     if (empty($ids) || $processId === null || $processId <= 0) {
         return [];
@@ -1553,6 +1702,7 @@ if ($action === 'templates') {
     try {
         $ids = [];
         $processId = null;
+        $captureId = null;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $jsonData = file_get_contents('php://input');
@@ -1569,6 +1719,14 @@ if ($action === 'templates') {
                     $processId = (int)trim($processIdValue);
                 }
             }
+            if (isset($payload['captureId']) && $payload['captureId'] !== null && $payload['captureId'] !== '') {
+                $captureIdVal = $payload['captureId'];
+                if (is_numeric($captureIdVal)) {
+                    $captureId = (int)$captureIdVal;
+                } elseif (is_string($captureIdVal) && trim($captureIdVal) !== '') {
+                    $captureId = (int)trim($captureIdVal);
+                }
+            }
         } elseif (!empty($_GET['ids'])) {
             $ids = array_values(array_filter(array_map('trim', explode(',', $_GET['ids']))));
         }
@@ -1582,6 +1740,9 @@ if ($action === 'templates') {
                 $processId = (int)trim($getProcessId);
             }
         }
+        if (!empty($_GET['captureId']) && is_numeric($_GET['captureId'])) {
+            $captureId = (int)$_GET['captureId'];
+        }
 
         if (empty($ids)) {
             throw new Exception('No id products provided');
@@ -1592,6 +1753,10 @@ if ($action === 'templates') {
         }
 
         $templates = fetchTemplates($pdo, $ids, $processId);
+
+        if ($captureId !== null && $captureId > 0 && $company_id) {
+            $templates = mergeDetailOnlyTemplates($pdo, (int)$company_id, $captureId, $ids, $templates);
+        }
 
         echo json_encode([
             'success' => true,
