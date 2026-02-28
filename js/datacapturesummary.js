@@ -14019,24 +14019,16 @@ if (mainTemplate && !hasExistingData) {
         (!formulaOperatorsValue || formulaOperatorsValue.trim() === '') &&
         savedFormulaDisplay && savedFormulaDisplay.trim() !== '') {
         const formulaCell = targetRow.querySelector('td:nth-child(5)');
-        if (formulaCell) {
-            formulaCell.innerHTML = `<span class="formula-text">${savedFormulaDisplay}</span>`;
-        }
-        // 直接还原上次的处理结果
+        if (formulaCell) formulaCell.innerHTML = `<span class="formula-text">${savedFormulaDisplay}</span>`;
         const processedCell = targetRow.querySelector('td:nth-child(8)');
         if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
             const val = Number(mainTemplate.last_processed_amount);
             processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
             processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
         }
-        // 更新存储的原始值，保持后续计算一致；若 formula 未含 *(0.05) 则不用 template 的 0.05
-        let srcPercentForRow = mainTemplate.source_percent || '1';
-        const sfCheck = (savedFormulaDisplay || '').trim().replace(/\s+/g, '');
-        const endsWith005 = /\)\s*\*\s*\(\s*0\.05\s*\)\s*$/.test(sfCheck) || /\)\s*\*\s*0\.05\s*$/.test(sfCheck);
-        if (!endsWith005 && Math.abs(parseFloat(srcPercentForRow) - 0.05) < 0.0001) srcPercentForRow = '1';
         targetRow.setAttribute('data-formula-display', savedFormulaDisplay);
         targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
-        targetRow.setAttribute('data-source-percent', srcPercentForRow);
+        targetRow.setAttribute('data-source-percent', mainTemplate.source_percent || '1');
         updateProcessedAmountTotal();
         return;
     }
@@ -14052,21 +14044,10 @@ if (mainTemplate && !hasExistingData) {
     } else {
         percentValue = '1';
     }
-    // Follow Data Capture Summary formula: if template formula_display does NOT end with *(0.05),
-    // do not apply source_percent 0.05 (use 1 so result = formula result, e.g. 6025 not 301.25).
-    const savedFormulaDisplayForCheck = (mainTemplate.formula_display || '').trim().replace(/\s+/g, '');
-    const endsWith005 = /\)\s*\*\s*\(\s*0\.05\s*\)\s*$/.test(savedFormulaDisplayForCheck) || /\)\s*\*\s*0\.05\s*$/.test(savedFormulaDisplayForCheck);
-    const percentIs005 = Math.abs(parseFloat(percentValue) - 0.05) < 0.0001;
-    if (percentIs005 && !endsWith005) {
-        percentValue = '1';
-    }
+    // 规则：source_percent == 1 时不套用 source_percent（只算 formula）；否则套用。由 createFormulaResultFromExpression / createFormulaDisplayFromExpression 内自动辨别。
     const columnsDisplay = sourceColumnsValue ? createColumnsDisplay(sourceColumnsValue, formulaOperatorsValue) : '';
-    // Auto-enable if source percent has value
     const enableSourcePercent = percentValue && percentValue.trim() !== '';
     
-    // Priority: Use saved formula_display if available (preserves user's manual edits like *0.1)
-    // If formula_display exists, preserve its structure but update numbers from current source data
-    // Otherwise, recalculate formula from current Data Capture Table
     let formulaDisplay = '';
     const savedFormulaDisplay = mainTemplate.formula_display || '';
     const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
