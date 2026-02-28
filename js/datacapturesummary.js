@@ -17340,6 +17340,9 @@ async function submitSummaryData() {
         const summaryRows = [];
         const seenRows = new Set(); // Track seen rows to prevent duplicates
         
+        // Pre-load account list so rows without data-account-id can resolve accountId (e.g. when Submit without opening edit form)
+        window.__summaryAccountListCache = await fetchSummaryAccountList();
+        
         // 先校验：有 Account 的行必须同时填写 Currency 和 Formula，任一项空则不允许 Submit
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
@@ -17563,7 +17566,7 @@ async function submitSummaryData() {
             
             // Fallback: try to find from select options if data attribute not available
             if (!accountId) {
-                accountId = getAccountIdByAccountText(account);
+                accountId = getAccountIdByAccountText(account, window.__summaryAccountListCache);
             }
             if (!currencyId) {
                 currencyId = getCurrencyIdByCode(currencyText);
@@ -18021,38 +18024,64 @@ async function submitSummaryData() {
     }
 }
 
-// Helper function to get account ID by account text
-function getAccountIdByAccountText(accountText) {
+// Helper function to get account ID by account text.
+// accountListCache: optional array from summary_api (id, account_id, name, role) - used when dropdown is empty (e.g. Submit without opening edit form).
+function getAccountIdByAccountText(accountText, accountListCache) {
+    const trimmed = (accountText || '').trim();
+    if (!trimmed) return null;
+
     const accountDropdown = document.getElementById('account_dropdown');
     const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
-    if (!optionsContainer) {
-        console.warn('Account dropdown options container not found');
-        return null;
-    }
-    
-    const options = optionsContainer.querySelectorAll('.custom-select-option');
-    
-    // Try exact match first
-    for (let option of options) {
-        if (option.textContent.trim() === accountText.trim()) {
-            const accountId = option.getAttribute('data-value');
-            console.log('Found account ID:', accountId, 'for text:', accountText);
-            return accountId;
+    if (optionsContainer) {
+        const options = optionsContainer.querySelectorAll('.custom-select-option');
+        for (let option of options) {
+            if (option.textContent.trim() === trimmed) {
+                const id = option.getAttribute('data-value');
+                if (id) return id;
+            }
+        }
+        for (let option of options) {
+            const optText = option.textContent.trim();
+            if (optText.includes(trimmed) || trimmed.includes(optText)) {
+                const id = option.getAttribute('data-value');
+                if (id) return id;
+            }
         }
     }
-    
-    // Try partial match (in case there are extra spaces or formatting)
-    for (let option of options) {
-        if (option.textContent.includes(accountText) || accountText.includes(option.textContent)) {
-            const accountId = option.getAttribute('data-value');
-            console.log('Found account ID (partial match):', accountId, 'for text:', accountText);
-            return accountId;
+
+    // Fallback: resolve from cached account list (e.g. when Submit without opening edit form, dropdown may be empty)
+    if (accountListCache && Array.isArray(accountListCache) && accountListCache.length > 0) {
+        const code = trimmed.split(/\s*[(\[]/)[0].trim();
+        for (let a of accountListCache) {
+            const aid = (a.account_id || '').trim();
+            const dispBracket = a.name ? (aid + ' [' + (a.name || '') + ']') : aid;
+            const dispParen = a.name ? (aid + ' (' + (a.name || '') + ')') : aid;
+            if (aid === trimmed || dispBracket === trimmed || dispParen === trimmed || aid === code) {
+                return String(a.id != null ? a.id : a.account_id);
+            }
+        }
+        for (let a of accountListCache) {
+            if ((a.account_id || '').trim() === code) return String(a.id != null ? a.id : a.account_id);
         }
     }
-    
+
     console.warn('Could not find account ID for text:', accountText);
-    console.log('Available options:', Array.from(options).map(o => o.textContent));
     return null;
+}
+
+// Fetch accounts for current company (for Submit fallback when row has no data-account-id).
+async function fetchSummaryAccountList() {
+    try {
+        const url = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' && window.DATACAPTURESUMMARY_COMPANY_ID)
+            ? 'api/datacapture_summary/summary_api.php?company_id=' + window.DATACAPTURESUMMARY_COMPANY_ID
+            : 'api/datacapture_summary/summary_api.php';
+        const res = await fetch(url);
+        const data = await res.json();
+        return (data.success && data.accounts) ? data.accounts : [];
+    } catch (e) {
+        console.warn('fetchSummaryAccountList failed:', e);
+        return [];
+    }
 }
 
 // Helper function to get currency ID by currency code
