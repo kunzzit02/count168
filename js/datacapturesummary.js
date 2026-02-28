@@ -17399,12 +17399,22 @@ async function submitSummaryData() {
             const productValues = getProductValuesFromCell(idProductCell);
             const idProductMainRaw = productValues.main || '';
             const idProductSubRaw = productValues.sub || '';
+            const idProductCellText = idProductCell ? idProductCell.textContent.trim() : '';
             
             // Extract product ID：id_product 整串保留，不对其内符号做任何解析或逻辑
             let cleanIdProductMain = '';
             let descriptionMain = '';
             if (idProductMainRaw) {
                 cleanIdProductMain = idProductMainRaw.replace(/[: ]+$/, '').trim();
+                // 如果单元格文本中在主产品后面还有括号内容（例如 "IK-SPORT (红股)"），
+                // 将括号内的文字提取为 descriptionMain，方便在 Payment History 中显示为 "IK-SPORT (红股)"。
+                if (idProductCellText && idProductCellText.length > cleanIdProductMain.length) {
+                    const trailing = idProductCellText.substring(cleanIdProductMain.length).trim();
+                    const bracketMatch = trailing.match(/\(([^)]+)\)\s*$/);
+                    if (bracketMatch && bracketMatch[1]) {
+                        descriptionMain = bracketMatch[1].trim();
+                    }
+                }
             }
             let cleanIdProductSub = '';
             let descriptionSub = '';
