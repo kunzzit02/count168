@@ -955,8 +955,8 @@ function updateDashboard(data) {
                 const capitalEl = document.getElementById('capital-value');
                 const expensesEl = document.getElementById('expenses-value');
                 const profitEl = document.getElementById('profit-value');
-                // 左边「Profit」卡片 = Transaction Payment 里 Profit 的总额（Total Balance）
-                if (capitalEl) capitalEl.textContent = formatCurrency(data.profit);
+                // 左边「Profit」卡片：Payment 的 profit 为负数时，Dashboard 显示为正数（取反展示）
+                if (capitalEl) capitalEl.textContent = formatCurrency(-(parseFloat(data.profit) || 0));
                 // Expenses 卡片：Payment 的 expenses total 为正数时，Dashboard 显示为负数（支出以负值展示）
                 const expensesRaw = parseFloat(data.expenses) || 0;
                 if (expensesEl) expensesEl.textContent = formatCurrency(-expensesRaw);
