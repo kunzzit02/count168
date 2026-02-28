@@ -22,7 +22,7 @@
                 <form class="login-form" id="resetForm" method="POST">
                     <div class="input-group">
                         <i class="fas fa-building input-icon"></i>
-                        <input type="text" placeholder="Company Id" id="company-id" name="company_id" required />
+                        <input type="text" placeholder="Company Id (or Owner Code for owner)" id="company-id" name="company_id" required />
                     </div>
                     
                     <div class="input-group">

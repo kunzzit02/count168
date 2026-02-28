@@ -87,52 +87,88 @@ try {
     }
 
     $company_id_upper = strtoupper($company_id_raw);
+    $email_lower = strtolower($email);
 
-    // 解析公司数字 ID
+    // 1) 先按 Company ID 查公司
     $stmt = $pdo->prepare("SELECT id FROM company WHERE UPPER(company_id) = ?");
     $stmt->execute([$company_id_upper]);
     $company_numeric_id = (int) $stmt->fetchColumn();
-    if (!$company_numeric_id) {
-        echo json_encode(['success' => false, 'message' => 'Company not found']);
-        exit;
-    }
 
-    // 查找该公司下该邮箱对应用户（user + user_company_map）
-    $stmt = $pdo->prepare("
-        SELECT u.id, u.name, u.email
-        FROM user u
-        INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-        WHERE u.email = ? AND ucm.company_id = ? AND u.status = 'active'
-        LIMIT 1
-    ");
-    $stmt->execute([$email, $company_numeric_id]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$user) {
-        echo json_encode(['success' => false, 'message' => 'No active user found for this email in the selected company']);
-        exit;
-    }
+    $is_owner_reset = false;
+    $owner_id = null;
 
-    // 建表（若不存在）
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS password_reset_tac (
-            email VARCHAR(255) NOT NULL,
-            company_id INT NOT NULL,
-            code VARCHAR(10) NOT NULL,
-            expires_at DATETIME NOT NULL,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (email, company_id)
-        )
-    ");
+    if ($company_numeric_id) {
+        // 公司存在：查找该公司下该邮箱对应用户（user + user_company_map）
+        $stmt = $pdo->prepare("
+            SELECT u.id, u.name, u.email
+            FROM user u
+            INNER JOIN user_company_map ucm ON u.id = ucm.user_id
+            WHERE u.email = ? AND ucm.company_id = ? AND u.status = 'active'
+            LIMIT 1
+        ");
+        $stmt->execute([$email, $company_numeric_id]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$user) {
+            echo json_encode(['success' => false, 'message' => 'No active user found for this email in the selected company']);
+            exit;
+        }
+    } else {
+        // 2) 公司不存在：将输入视为 Owner Code，按 owner_code + email 查 owner（重置 owner 密码时在 Company ID 填 owner code）
+        $stmt = $pdo->prepare("
+            SELECT id, name, email FROM owner
+            WHERE UPPER(owner_code) = ? AND LOWER(TRIM(email)) = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$company_id_upper, $email_lower]);
+        $owner = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$owner) {
+            echo json_encode(['success' => false, 'message' => 'No active user found for this email in the selected company. For owner reset, enter your Owner Code in the Company ID field.']);
+            exit;
+        }
+        $is_owner_reset = true;
+        $owner_id = (int) $owner['id'];
+    }
 
     $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     $expires_at = date('Y-m-d H:i:s', time() + 900); // 15 分钟
 
-    $stmt = $pdo->prepare("
-        INSERT INTO password_reset_tac (email, company_id, code, expires_at, created_at)
-        VALUES (?, ?, ?, ?, NOW())
-        ON DUPLICATE KEY UPDATE code = ?, expires_at = ?, created_at = NOW()
-    ");
-    $stmt->execute([$email, $company_numeric_id, $code, $expires_at, $code, $expires_at]);
+    if ($is_owner_reset) {
+        // Owner TAC 表（若不存在则创建）
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS password_reset_tac_owner (
+                email VARCHAR(255) NOT NULL,
+                owner_id INT UNSIGNED NOT NULL,
+                code VARCHAR(10) NOT NULL,
+                expires_at DATETIME NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (email, owner_id)
+            )
+        ");
+        $stmt = $pdo->prepare("
+            INSERT INTO password_reset_tac_owner (email, owner_id, code, expires_at, created_at)
+            VALUES (?, ?, ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE code = ?, expires_at = ?, created_at = NOW()
+        ");
+        $stmt->execute([$email_lower, $owner_id, $code, $expires_at, $code, $expires_at]);
+    } else {
+        // User TAC 表（若不存在则创建）
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS password_reset_tac (
+                email VARCHAR(255) NOT NULL,
+                company_id INT NOT NULL,
+                code VARCHAR(10) NOT NULL,
+                expires_at DATETIME NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (email, company_id)
+            )
+        ");
+        $stmt = $pdo->prepare("
+            INSERT INTO password_reset_tac (email, company_id, code, expires_at, created_at)
+            VALUES (?, ?, ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE code = ?, expires_at = ?, created_at = NOW()
+        ");
+        $stmt->execute([$email, $company_numeric_id, $code, $expires_at, $code, $expires_at]);
+    }
 
     // 发送邮件：优先 SMTP（Gmail 等），未配置则 mail()
     $subject = 'EazyCount - Password Reset TAC';

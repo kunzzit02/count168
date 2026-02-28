@@ -88,7 +88,7 @@
 
     const resetForm = document.getElementById('resetForm');
     if (resetForm) {
-        resetForm.addEventListener('submit', function(e) {
+        resetForm.addEventListener('submit', async function(e) {
             e.preventDefault();
 
             if (!validatePassword()) {
@@ -96,16 +96,60 @@
                 return;
             }
 
-            const tac = document.getElementById('tac-field').value;
+            const tac = document.getElementById('tac-field').value.trim();
             if (!tac) {
                 alert('Please enter the TAC code');
                 return;
             }
 
-            alert('Password reset successful! Redirecting to login...');
-            setTimeout(() => {
-                window.location.href = 'index.php';
-            }, 2000);
+            const companyIdEl = document.getElementById('company-id');
+            const companyId = companyIdEl ? companyIdEl.value.trim() : '';
+            const emailVal = emailField ? emailField.value.trim() : '';
+            const newPasswordVal = newPassword ? newPassword.value : '';
+
+            if (!companyId || !emailVal) {
+                alert('Company ID and email are required');
+                return;
+            }
+
+            const btn = resetForm.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Resetting...';
+            }
+
+            try {
+                const res = await fetch('api/users/reset_password_api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company_id: companyId,
+                        email: emailVal,
+                        tac: tac,
+                        new_password: newPasswordVal
+                    })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (data.success) {
+                    alert('Password reset successful! Redirecting to login...');
+                    setTimeout(() => {
+                        window.location.href = 'index.php';
+                    }, 1500);
+                } else {
+                    alert(data.message || 'Failed to reset password. Please try again.');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Reset Password';
+                    }
+                }
+            } catch (err) {
+                console.error('Reset password error:', err);
+                alert('Network error. Please try again.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Reset Password';
+                }
+            }
         });
     }
 

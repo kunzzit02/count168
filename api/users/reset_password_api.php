@@ -1,0 +1,109 @@
+<?php
+/**
+ * 重置密码 - 验证 TAC 并更新密码
+ * POST: company_id (string, 公司 ID 或 Owner Code), email, tac, new_password
+ * 先按公司查 user，若无则按 owner_code + email 查 owner，验证 TAC 后更新对应密码
+ */
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+require_once __DIR__ . '/../../config.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    exit;
+}
+
+try {
+    $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    $company_id_raw = trim($input['company_id'] ?? $_POST['company_id'] ?? '');
+    $email = trim($input['email'] ?? $_POST['email'] ?? '');
+    $tac = trim($input['tac'] ?? $_POST['tac'] ?? '');
+    $new_password = $input['new_password'] ?? $_POST['new_password'] ?? '';
+
+    if (!$company_id_raw || !$email || !$tac || $new_password === '' || $new_password === null) {
+        echo json_encode(['success' => false, 'message' => 'Company ID, email, TAC and new password are required']);
+        exit;
+    }
+
+    $company_id_upper = strtoupper($company_id_raw);
+    $email_lower = strtolower($email);
+
+    // 1) 先按 Company ID 查公司
+    $stmt = $pdo->prepare("SELECT id FROM company WHERE UPPER(company_id) = ?");
+    $stmt->execute([$company_id_upper]);
+    $company_numeric_id = (int) $stmt->fetchColumn();
+
+    if ($company_numeric_id) {
+        // 用户重置：验证 password_reset_tac
+        $stmt = $pdo->prepare("
+            SELECT email, company_id, code, expires_at
+            FROM password_reset_tac
+            WHERE email = ? AND company_id = ? AND code = ? AND expires_at > NOW()
+            LIMIT 1
+        ");
+        $stmt->execute([$email, $company_numeric_id, $tac]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            echo json_encode(['success' => false, 'message' => 'Invalid or expired TAC. Please request a new code.']);
+            exit;
+        }
+        $user_stmt = $pdo->prepare("
+            SELECT u.id FROM user u
+            INNER JOIN user_company_map ucm ON u.id = ucm.user_id
+            WHERE u.email = ? AND ucm.company_id = ? AND u.status = 'active'
+            LIMIT 1
+        ");
+        $user_stmt->execute([$email, $company_numeric_id]);
+        $user_id = $user_stmt->fetchColumn();
+        if (!$user_id) {
+            echo json_encode(['success' => false, 'message' => 'User not found']);
+            exit;
+        }
+        $hashed = password_hash($new_password, PASSWORD_DEFAULT);
+        $pdo->prepare("UPDATE user SET password = ? WHERE id = ?")->execute([$hashed, $user_id]);
+        $pdo->prepare("DELETE FROM password_reset_tac WHERE email = ? AND company_id = ?")->execute([$email, $company_numeric_id]);
+        echo json_encode(['success' => true, 'message' => 'Password reset successful']);
+        exit;
+    }
+
+    // 2) 按 Owner Code + email 查 owner，验证 password_reset_tac_owner
+    $stmt = $pdo->prepare("
+        SELECT id FROM owner
+        WHERE UPPER(owner_code) = ? AND LOWER(TRIM(email)) = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$company_id_upper, $email_lower]);
+    $owner_id = $stmt->fetchColumn();
+    if (!$owner_id) {
+        echo json_encode(['success' => false, 'message' => 'No owner found for this Owner Code and email. Enter your Owner Code in the Company ID field.']);
+        exit;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT email, owner_id, code, expires_at
+        FROM password_reset_tac_owner
+        WHERE LOWER(email) = ? AND owner_id = ? AND code = ? AND expires_at > NOW()
+        LIMIT 1
+    ");
+    $stmt->execute([$email_lower, $owner_id, $tac]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        echo json_encode(['success' => false, 'message' => 'Invalid or expired TAC. Please request a new code.']);
+        exit;
+    }
+
+    $hashed = password_hash($new_password, PASSWORD_DEFAULT);
+    $pdo->prepare("UPDATE owner SET password = ? WHERE id = ?")->execute([$hashed, $owner_id]);
+    $pdo->prepare("DELETE FROM password_reset_tac_owner WHERE email = ? AND owner_id = ?")->execute([$email_lower, $owner_id]);
+    echo json_encode(['success' => true, 'message' => 'Password reset successful']);
+} catch (Exception $e) {
+    error_log("reset_password_api: " . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Failed to reset password. Please try again or contact support.']);
+}
