@@ -1193,18 +1193,18 @@ function updateChart(data) {
         });
     }
     
-    // 限制图表最多显示 31 天的数据（非年份范围）
+    // 限制图表最多显示 31 天的数据（非年份范围），从范围开始日期起算
     const MAX_DAYS = 31;
     let effectiveDates = dates;
     let effectiveCapitalData = capitalData;
     let effectiveExpensesData = expensesData;
     let effectiveProfitData = profitData;
     if (currentRangeType !== 'year' && dates.length > MAX_DAYS) {
-        const startIndex = dates.length - MAX_DAYS;
-        effectiveDates = dates.slice(startIndex);
-        effectiveCapitalData = capitalData.slice(startIndex);
-        effectiveExpensesData = expensesData.slice(startIndex);
-        effectiveProfitData = profitData.slice(startIndex);
+        // 只保留最前面的 31 天，这样会从 1/2 开始往后显示
+        effectiveDates = dates.slice(0, MAX_DAYS);
+        effectiveCapitalData = capitalData.slice(0, MAX_DAYS);
+        effectiveExpensesData = expensesData.slice(0, MAX_DAYS);
+        effectiveProfitData = profitData.slice(0, MAX_DAYS);
     }
     
     const sortedDates = effectiveDates;
