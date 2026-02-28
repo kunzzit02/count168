@@ -27,6 +27,4 @@ $smtp_user = 'maxjk77777@gmail.com';           // 你的 Gmail，如 yourname@gm
 $smtp_pass = 'icwe kjwy otmg pjkw';           // 上一步生成的应用专用密码（16 位）
 $smtp_from_email = '';     // 留空则用 smtp_user
 $smtp_from_name = 'EazyCount';
-
-$mail->addReplyTo('support@count168.com', 'EazyCount Support');
 ?>
