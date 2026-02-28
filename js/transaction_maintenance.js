@@ -582,11 +582,6 @@
             const createdByDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
 
             const isDeleted = row.is_deleted === 1 || row.is_deleted === '1' || row.is_deleted === true;
-            const deletedBy = row.deleted_by ? escapeHtml(row.deleted_by) : '';
-            const dtsDeleted = row.dts_deleted ? escapeHtml(row.dts_deleted) : '';
-            const deletedDisplay = isDeleted && deletedBy
-                ? `${deletedBy} (${dtsDeleted || '-'})`
-                : (isDeleted ? (dtsDeleted || '-') : '-');
 
             if (isDeleted) {
                 tr.classList.add('maintenance-row-deleted');
@@ -608,7 +603,6 @@
                     <td class="maintenance-table-cell">${crDisplay}</td>
                     <td class="maintenance-table-cell">${drDisplay}</td>
                     <td class="maintenance-table-cell">${createdByDisplay}</td>
-                    <td class="maintenance-table-cell">${deletedDisplay}</td>
                 `;
 
             tbody.appendChild(tr);
