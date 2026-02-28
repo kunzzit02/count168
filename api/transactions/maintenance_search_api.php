@@ -118,6 +118,9 @@ try {
         }
     }
 
+    // Payment history（PAYMENT、CONTRA）仅显示在 Maintenance - Payment，不在 Maintenance - Transaction 显示
+    $where[] = "t.transaction_type NOT IN ('PAYMENT', 'CONTRA')";
+
     $whereSql = 'WHERE ' . implode(' AND ', $where);
 
     // 主查询（未删除）
@@ -324,6 +327,7 @@ try {
                     }
                 }
             }
+            $delWhere .= " AND td.transaction_type NOT IN ('PAYMENT', 'CONTRA')";
             $deletedSql = "
                 SELECT
                     td.transaction_id,
