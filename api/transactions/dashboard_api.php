@@ -527,57 +527,59 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $has_transaction_currency = null, bool $exclude_clear = false) {
     $cr_dr = 0;
     $has_transactions = false;
-    
+
     if ($has_transaction_currency === null) {
         $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
         $has_transaction_currency = $check && $check->rowCount() > 0;
     }
+
     if ($has_transaction_currency) {
-        $clearFilter = $exclude_clear ? " AND transaction_type <> 'CLEAR'" : "";
-        // 作为 To Account；CONTRA/CLEAR 时 TO 显示负数
-        $sql = "SELECT 
-                    COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
-                        WHEN transaction_type = 'CONTRA' THEN amount
-                        WHEN transaction_type = 'CLEAR' THEN -amount
-                        WHEN transaction_type = 'PAYMENT' THEN -amount
-                        WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
-                        WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
+        // 新环境（有 currency_id 字段）：逻辑与 search_api.php 保持一致
+        $clearFilter = $exclude_clear ? " AND t.transaction_type <> 'CLEAR'" : "";
+        $sql = "
+            SELECT
+                COALESCE(SUM(
+                    CASE
+                        -- 作为 To Account（收到 / 支付）；CONTRA 时 TO 显示负数
+                        WHEN t.account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN -t.amount
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN -t.amount
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN -t.amount
+
+                        -- 作为 From Account（支付 / 收到）；CONTRA 时 FROM 显示正数
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN t.amount
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN t.amount
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN t.amount
+                        WHEN t.from_account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CLAIM') THEN t.amount
+
                         ELSE 0
-                    END), 0) as cr_dr
-                FROM transactions
-                WHERE company_id = ?
-                  AND account_id = ?
-                  AND currency_id = ?
-                  AND transaction_date BETWEEN ? AND ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'WIN', 'LOSE')"
-                  . $clearFilter
-                  . dashboardContraApprovedWhere($pdo, '');
-        
+                    END
+                ), 0) AS cr_dr,
+                COUNT(*) AS txn_count
+            FROM transactions t
+            WHERE t.company_id = :company_id
+              AND t.transaction_date BETWEEN :date_from AND :date_to
+              AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+              AND t.currency_id = :currency_id
+              AND (t.account_id = :acc_id OR t.from_account_id = :acc_id)
+              " . $clearFilter . "
+              " . dashboardContraApprovedWhere($pdo, 't') . "
+        ";
+
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $currency_id, $date_from, $date_to]);
-        $cr_dr += $stmt->fetchColumn();
-        
-        // 作为 From Account；CONTRA/CLEAR 时 FROM 显示正数
-        $sql = "SELECT 
-                    COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN amount
-                        WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN amount
-                        ELSE 0
-                    END), 0) as cr_dr
-                FROM transactions
-                WHERE company_id = ?
-                  AND from_account_id = ?
-                  AND currency_id = ?
-                  AND transaction_date BETWEEN ? AND ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
-                  . $clearFilter
-                  . dashboardContraApprovedWhere($pdo, '');
-        
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $currency_id, $date_from, $date_to]);
-        $cr_dr += $stmt->fetchColumn();
-        
+        $stmt->execute([
+            ':company_id'  => $company_id,
+            ':date_from'   => $date_from,
+            ':date_to'     => $date_to,
+            ':currency_id' => $currency_id,
+            ':acc_id'      => $account_id,
+        ]);
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $cr_dr += (float)($row['cr_dr'] ?? 0);
+        $txn_count = (int)($row['txn_count'] ?? 0);
+        $has_transactions = $txn_count > 0;
+
         // 本期 RATE 从 transaction_entry 计算（与 Transaction Search API 一致）
         try {
             $rateCheck = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
@@ -603,17 +605,85 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         } catch (Throwable $e) {
             // 忽略
         }
-        
-        // 检查是否有交易
-        $check_sql = "SELECT COUNT(*) FROM transactions 
-                      WHERE company_id = ? 
-                        AND ((account_id = ? AND currency_id = ?) OR (from_account_id = ? AND currency_id = ?))
-                        AND transaction_date BETWEEN ? AND ?";
-        $check_stmt = $pdo->prepare($check_sql);
-        $check_stmt->execute([$company_id, $account_id, $currency_id, $account_id, $currency_id, $date_from, $date_to]);
-        $has_transactions = $check_stmt->fetchColumn() > 0;
+    } else {
+        // 旧环境（没有 currency_id 字段）：沿用 search_api.php 的旧逻辑
+        $clearFilter = $exclude_clear ? " AND transaction_type <> 'CLEAR'" : "";
+        $sql = "SELECT 
+                    COALESCE(SUM(CASE 
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
+                        WHEN transaction_type = 'CLEAR' THEN -t.amount
+                        WHEN transaction_type = 'CONTRA' THEN -t.amount
+                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
+                        ELSE 0
+                    END), 0) as cr_dr,
+                    COUNT(*) as txn_count
+                FROM transactions t
+                WHERE t.company_id = ?
+                  AND t.account_id = ?
+                  AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
+                  . $clearFilter
+                  . dashboardContraApprovedWhere($pdo, 't');
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $account_id, $date_from, $date_to]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $cr_dr += (float)($row['cr_dr'] ?? 0);
+        $txn_count = (int)($row['txn_count'] ?? 0);
+        $has_transactions = $txn_count > 0;
+
+        // From Account（旧逻辑）；CONTRA 时 FROM 显示正数
+        $sql = "SELECT 
+                    COALESCE(SUM(CASE 
+                        WHEN transaction_type = 'PAYMENT' THEN t.amount
+                        WHEN transaction_type = 'CLEAR' THEN t.amount
+                        WHEN transaction_type = 'CONTRA' THEN t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN t.amount
+                        ELSE 0
+                    END), 0) as cr_dr,
+                    COUNT(*) as txn_count
+                FROM transactions t
+                WHERE t.company_id = ?
+                  AND t.from_account_id = ?
+                  AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
+                  . $clearFilter
+                  . dashboardContraApprovedWhere($pdo, 't');
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $account_id, $date_from, $date_to]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $cr_dr += (float)($row['cr_dr'] ?? 0);
+        $txn_count += (int)($row['txn_count'] ?? 0);
+        $has_transactions = $has_transactions || $txn_count > 0;
+
+        // RATE 分录（旧环境也从 transaction_entry 计算）
+        try {
+            $rateCheck = $pdo->query("SHOW TABLES LIKE 'transaction_entry'");
+            if ($rateCheck && $rateCheck->rowCount() > 0) {
+                $rateStmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(CASE
+                      WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
+                      WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
+                      ELSE e.amount
+                    END), 0) AS total
+                    FROM transaction_entry e
+                    JOIN transactions h ON e.header_id = h.id
+                    WHERE h.company_id = ?
+                      AND e.company_id = ?
+                      AND h.transaction_type = 'RATE'
+                      AND e.account_id = ?
+                      AND e.currency_id = ?
+                      AND h.transaction_date BETWEEN ? AND ?
+                ");
+                $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
+                $cr_dr += (float)$rateStmt->fetchColumn();
+            }
+        } catch (Throwable $e) {
+            // 忽略
+        }
     }
-    
+
     return ['value' => $cr_dr, 'has_transactions' => $has_transactions];
 }
 ?>
