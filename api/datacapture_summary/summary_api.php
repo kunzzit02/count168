@@ -2050,6 +2050,11 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 // Check for duplicate before inserting
+                // 注意：
+                // - 首次提交（$isBatchAppend === false）时，同一个 capture 还没有明细记录，
+                //   此时不需要做「重复检查」，前端 Summary 中的每一行都应当各自插入一条记录。
+                // - 只有在追加批次（$isBatchAppend === true，带 captureId 再次提交）时，
+                //   才根据 product/account/currency/formula_variant 判断是否更新已有记录，避免重复。
                 $existingRecord = false;
                 $rowCurrencyId = resolveCompanyCurrencyId(
                     $pdo,
@@ -2162,38 +2167,42 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                if ($productType === 'main') {
-                    $idProductMain = $row['idProductMain'] ?? null;
-                    $checkStmtMain->execute([
-                        ':company_id' => $companyId,
-                        ':capture_id' => $captureId,
-                        ':id_product_main' => $idProductMain,
-                        ':account_id' => $row['accountId'],
-                        ':currency_id' => $rowCurrencyId,
-                        ':formula_variant' => $formulaVariant,
-                    ]);
-                    $existingRecord = $checkStmtMain->fetch();
-                } else {
-                    // sub type - use parentIdProduct as id_product_main for checking
-                    $idProductSub = $row['idProductSub'] ?? null;
-                    $parentIdProduct = $row['parentIdProduct'] ?? $row['idProductMain'] ?? null;
-                    
-                    // Debug log for sub type duplicate check
-                    error_log("Checking duplicate sub: capture_id=$captureId, id_product_sub=" . ($idProductSub ?? 'NULL') . ", parent_id_product=" . ($parentIdProduct ?? 'NULL') . ", account_id=" . $row['accountId'] . ", formula_variant=$formulaVariant");
-                    
-                    $checkStmtSub->execute([
-                        ':company_id' => $companyId,
-                        ':capture_id' => $captureId,
-                        ':id_product_sub' => $idProductSub,
-                        ':id_product_main' => $parentIdProduct,
-                        ':account_id' => $row['accountId'],
-                        ':currency_id' => $rowCurrencyId,
-                        ':formula_variant' => $formulaVariant,
-                    ]);
-                    $existingRecord = $checkStmtSub->fetch();
+                // 只有在 batch append 模式下才检查并更新已有记录；
+                // 首次提交时，一律走 INSERT，让 Summary 里的所有行都各自落一条明细。
+                if ($isBatchAppend) {
+                    if ($productType === 'main') {
+                        $idProductMain = $row['idProductMain'] ?? null;
+                        $checkStmtMain->execute([
+                            ':company_id' => $companyId,
+                            ':capture_id' => $captureId,
+                            ':id_product_main' => $idProductMain,
+                            ':account_id' => $row['accountId'],
+                            ':currency_id' => $rowCurrencyId,
+                            ':formula_variant' => $formulaVariant,
+                        ]);
+                        $existingRecord = $checkStmtMain->fetch();
+                    } else {
+                        // sub type - use parentIdProduct as id_product_main for checking
+                        $idProductSub = $row['idProductSub'] ?? null;
+                        $parentIdProduct = $row['parentIdProduct'] ?? $row['idProductMain'] ?? null;
+                        
+                        // Debug log for sub type duplicate check
+                        error_log("Checking duplicate sub: capture_id=$captureId, id_product_sub=" . ($idProductSub ?? 'NULL') . ", parent_id_product=" . ($parentIdProduct ?? 'NULL') . ", account_id=" . $row['accountId'] . ", formula_variant=$formulaVariant");
+                        
+                        $checkStmtSub->execute([
+                            ':company_id' => $companyId,
+                            ':capture_id' => $captureId,
+                            ':id_product_sub' => $idProductSub,
+                            ':id_product_main' => $parentIdProduct,
+                            ':account_id' => $row['accountId'],
+                            ':currency_id' => $rowCurrencyId,
+                            ':formula_variant' => $formulaVariant,
+                        ]);
+                        $existingRecord = $checkStmtSub->fetch();
+                    }
                 }
                 
-                if ($existingRecord) {
+                if ($isBatchAppend && $existingRecord) {
                     // Skip duplicate record - update existing record instead of inserting
                     $existingId = $existingRecord['id'];
                     error_log("Found duplicate data_capture_details record (ID: $existingId): capture_id=$captureId, product_type=$productType, id_product_main=" . ($row['idProductMain'] ?? 'NULL') . ", id_product_sub=" . ($row['idProductSub'] ?? 'NULL') . ", account_id=" . $row['accountId'] . " - Updating existing record instead of inserting");
