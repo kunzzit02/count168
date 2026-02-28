@@ -173,7 +173,7 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
 function rowToItem(array $row) {
     $description = $row['description'] ?? '';
 
-    // WIN/LOSE（Bank process 入账）：与 history_api 一致，按入账类型显示
+    // WIN/LOSE（Bank process 入账）：与 history_api 一致，按入账类型显示，并加上金额，格式如 Remaining days bill 1000 (MBB)
     if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'])) {
         $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
         if ($periodType === 'partial_first_month') {
@@ -185,6 +185,9 @@ function rowToItem(array $row) {
         } else {
             $description = 'Monthly bill';
         }
+        $amt = isset($row['amount']) ? (float) $row['amount'] : 0;
+        $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
+        $description = $description . ' ' . $billAmount;
     } elseif (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
         $description = ($row['transaction_type'] ?? '') . ' FROM ' . ($row['from_account_code'] ?? 'N/A');
     }

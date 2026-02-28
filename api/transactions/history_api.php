@@ -674,7 +674,7 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
-        // WIN/LOSE（Bank process 入账）：按入账类型显示，加 "bill" 表示收费/账单；Supplier Payment History 前加银行名
+        // WIN/LOSE（Bank process 入账）：按入账类型显示，加 "bill" 表示收费/账单；Supplier Payment History 前加金额与银行名，格式如 Remaining days bill 1000 (MBB)
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
             $periodType = isset($t['period_type']) ? trim((string)$t['period_type']) : '';
             if ($periodType === 'partial_first_month') {
@@ -686,6 +686,9 @@ try {
             } else {
                 $description = 'Monthly bill';
             }
+            $amt = isset($t['amount']) ? (float) $t['amount'] : 0;
+            $billAmount = ($amt == floor($amt)) ? (string) (int) $amt : number_format($amt, 2);
+            $description = $description . ' ' . $billAmount;
             if ($isBankProcessTransaction && !empty($t['bank_name'])) {
                 $description = $description . ' (' . trim($t['bank_name']) . ')';
             }
