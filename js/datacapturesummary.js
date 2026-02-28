@@ -8558,30 +8558,29 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             return formatNegativeNumbersInFormula(`${trimmedFormula}*(0)`);
         }
         
-        // 保持公式本体不动；纯数字公式（如 6000+5000*0.005）不再追加 *Source%，跟 Data Capture Summary 一致
+        // 保持公式本体不动，只在结尾统一乘上 Source Percent 展示
         const trimmedFormula = parsedFormula.trim();
         const formulaPart = trimmedFormula;
-        const formulaTrimmedNoSpaces = trimmedFormula.replace(/\s+/g, '');
-        const isPureNumericFormula = /^[\d+\-*/().\s]+$/.test(formulaTrimmedNoSpaces) && formulaTrimmedNoSpaces.length > 0;
 
         // If source is 1, don't add *(1) to the display
-        // If formula is pure numeric (e.g. 6000+5000*0.005), don't append *source% - formula result is the amount
+        // Only add source percent when it's a different number
         const sourcePercentExpr = sourcePercentValue.trim();
         const sanitizedSourcePercent = removeThousandsSeparators(sourcePercentExpr);
         let decimalValue;
         try {
             decimalValue = evaluateExpression(sanitizedSourcePercent);
         } catch (e) {
+            // If evaluation fails, treat as non-1 and add to display
             decimalValue = 0;
         }
         
-        if (isPureNumericFormula || Math.abs(decimalValue - 1) < 0.0001) {
-            // Pure numeric formula or source is 1: return formula as-is, no *source%
+        if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+            // Source is 1, return formula without multiplying
             const balanced = balanceParentheses(trimmedFormula);
-            console.log('Formula display (pure numeric or source=1, no *source%):', balanced);
+            console.log('Formula display created from expression (source is 1, no multiplication):', balanced);
             return formatNegativeNumbersInFormula(balanced);
         } else {
-            // Source is not 1 and formula uses refs: add source percent to display
+            // Source is not 1, add source percent to display（公式本体若少右括号则先补全再拼 *source）
             const balancedPart = balanceParentheses(formulaPart);
             const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
             const formulaDisplay = `${balancedPart}*${percentDisplay}`;
@@ -8668,12 +8667,10 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
         const decimalValue = evaluateExpression(sanitizedSourcePercent);
         
         // If source is 1, don't multiply (multiplying by 1 has no effect)
-        // If formula is a pure numeric expression (e.g. 6000+5000*0.005), use formula result as-is - do NOT multiply by source %
-        // 若公式是纯数字运算（如 6000+5000*0.005），只按公式算一次，不再乘 Source %，避免出现 6025*0.05=301.25 的错误
+        // If formula already ends with *(sourcePercent) or *(expr that equals source), don't multiply again (avoid double application)
         const formulaTrimmed = (formula || '').trim().replace(/\s+/g, '');
-        const isPureNumericFormula = /^[\d+\-*/().\s]+$/.test(formulaTrimmed) && formulaTrimmed.length > 0;
         const srcNorm = sourcePercentExpr.replace(/\s+/g, '');
-        let alreadyHasSource = isPureNumericFormula || formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm);
+        let alreadyHasSource = formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm);
         if (!alreadyHasSource && formulaTrimmed.endsWith(')')) {
             const lastClose = formulaTrimmed.length - 1;
             let depth = 1;
