@@ -1,4 +1,41 @@
 (function() {
+    // 自定义弹窗（与重置密码页风格一致，替代原生 alert）
+    function showAlertModal(title, message) {
+        return new Promise(function(resolve) {
+            const overlay = document.getElementById('alertModalOverlay');
+            const titleEl = document.getElementById('modalTitle');
+            const messageEl = document.getElementById('modalMessage');
+            const confirmBtn = document.getElementById('modalConfirmBtn');
+            if (!overlay || !titleEl || !messageEl || !confirmBtn) {
+                alert(message);
+                resolve();
+                return;
+            }
+            titleEl.textContent = title || 'Notice';
+            messageEl.textContent = message || '';
+            overlay.classList.add('is-open');
+            overlay.setAttribute('aria-hidden', 'false');
+            function close() {
+                overlay.classList.remove('is-open');
+                overlay.setAttribute('aria-hidden', 'true');
+                confirmBtn.removeEventListener('click', onConfirm);
+                overlay.removeEventListener('click', onOverlayClick);
+                document.removeEventListener('keydown', onEscape);
+                resolve();
+            }
+            function onConfirm() { close(); }
+            function onOverlayClick(e) {
+                if (e.target === overlay) close();
+            }
+            function onEscape(e) {
+                if (e.key === 'Escape') close();
+            }
+            confirmBtn.addEventListener('click', onConfirm);
+            overlay.addEventListener('click', onOverlayClick);
+            document.addEventListener('keydown', onEscape);
+        });
+    }
+
     const adminTab = document.getElementById("admin-tab");
     const memberTab = document.getElementById("member-tab");
     const companyId = document.getElementById("company-id");
@@ -107,12 +144,12 @@
             if (data.status === 'success') {
                 window.location.href = data.redirect;
             } else {
-                alert(data.message);
+                showAlertModal('Notice', data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred during login');
+            showAlertModal('Notice', 'An error occurred during login');
         });
     });
 

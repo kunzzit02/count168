@@ -141,6 +141,20 @@ if (isset($_COOKIE['remember_token'])) {
     <!-- Telegram 图片 - 固定在右下角 -->
     <img src="images/telegram.png" alt="Telegram" class="telegram-icon" />
 
+    <!-- 登录页自定义弹窗（与重置密码页风格一致） -->
+    <div id="alertModalOverlay" class="modal-overlay" aria-hidden="true">
+        <div class="modal-box" role="dialog" aria-labelledby="modalTitle" aria-describedby="modalMessage">
+            <div class="modal-icon-wrap">
+                <i class="fas fa-exclamation-triangle modal-icon" aria-hidden="true"></i>
+            </div>
+            <h3 id="modalTitle" class="modal-title">Notice</h3>
+            <p id="modalMessage" class="modal-message"></p>
+            <div class="modal-actions">
+                <button type="button" id="modalConfirmBtn" class="modal-btn modal-btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/index.js?v=<?php echo time(); ?>"></script>
 </body>
 
