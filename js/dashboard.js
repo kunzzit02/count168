@@ -958,10 +958,13 @@ function updateDashboard(data) {
                 // 左边「Profit」卡片 = Transaction Payment 里 Profit 的总额（Total Balance）
                 if (capitalEl) capitalEl.textContent = formatCurrency(data.profit);
                 if (expensesEl) expensesEl.textContent = formatCurrency(data.expenses);
-                // 右边「NET PROFIT」：按 expenses 正负判断加减——正数就加、负数就减（即 net = profit + expenses，expenses 带符号）
+                // 右边「NET PROFIT」：按 expenses 正负判断加减
+                // 业务规则：net = profit - expenses
+                // - 当 expenses 为正数：净利 = Profit − Expenses
+                // - 当 expenses 为负数：净利 = Profit − (负数) = Profit + |Expenses|
                 const profitNum = parseFloat(data.profit) || 0;
                 const expensesNum = parseFloat(data.expenses) || 0;
-                const netProfit = profitNum + expensesNum;
+                const netProfit = profitNum - expensesNum;
                 if (profitEl) profitEl.textContent = formatCurrency(netProfit);
                 const chartDateRangeEl = document.getElementById('chart-date-range');
                 if (chartDateRangeEl && data.date_range) {
