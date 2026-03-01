@@ -13792,6 +13792,41 @@ uniqueIds.forEach(normalizedIdProduct => {
     }
 });
 
+// Maintenance - Formula 删除数据后：无 template 的行不显示 formula，避免 Summary 仍显示已删公式
+if (summaryTableBody) {
+    const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+    allSummaryRows.forEach((summaryRow) => {
+        const idCell = summaryRow.querySelector('td:first-child');
+        if (!idCell) return;
+        const productValues = getProductValuesFromCell(idCell);
+        const mainId = (productValues.main || '').trim();
+        const normalizedId = normalizeIdProductText(mainId);
+        if (!normalizedId) return;
+        let hasTemplate = !!templates[normalizedId];
+        if (!hasTemplate && normalizedId.indexOf(' - ') >= 0) {
+            for (const templateKey of Object.keys(templates)) {
+                if (templateKey === normalizedId || normalizedId.startsWith(templateKey + ' ') || normalizedId.startsWith(templateKey + '(')) {
+                    hasTemplate = true;
+                    break;
+                }
+            }
+        }
+        if (!hasTemplate) {
+            const cells = summaryRow.querySelectorAll('td');
+            if (cells[4]) {
+                cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>';
+                const span = cells[4].querySelector('.formula-text');
+                if (span) span.textContent = '';
+            }
+            summaryRow.removeAttribute('data-formula-operators');
+            summaryRow.removeAttribute('data-formula-display');
+            summaryRow.removeAttribute('data-formula-raw');
+            summaryRow.removeAttribute('data-source-columns');
+            summaryRow.removeAttribute('data-source-percent');
+        }
+    });
+}
+
 // After applying all templates, reorder rows globally by row_index
 reorderSummaryRowsByRowIndex();
 } catch (error) {
