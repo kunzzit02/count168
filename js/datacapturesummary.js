@@ -309,6 +309,11 @@ function restoreFormulaSourceFromRefresh() {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
         return;
     }
+    // 仅当当前 process 在 Maintenance 有模板时才恢复 formula 缓存；全新 process（无模板）不恢复，避免显示之前误恢复留下的 formula
+    if (window.currentProcessHadTemplates !== true) {
+        try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
+        return;
+    }
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
@@ -934,6 +939,28 @@ function populateOriginalTableWithColumnAData(tableData) {
         .finally(() => {
             restoreRateValuesFromRefresh();
             restoreFormulaSourceFromRefresh();
+            // Maintenance 没有该 process 的 formula 时，Summary 不显示任何 formula（最终保障）
+            if (window.currentProcessHadTemplates !== true) {
+                const summaryTableBody = document.getElementById('summaryTableBody');
+                if (summaryTableBody) {
+                    summaryTableBody.querySelectorAll('tr').forEach((row) => {
+                        const cells = row.querySelectorAll('td');
+                        if (cells[4]) {
+                            cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>';
+                            const span = cells[4].querySelector('.formula-text');
+                            if (span) span.textContent = '';
+                        }
+                        if (cells[5]) cells[5].textContent = '';
+                        row.removeAttribute('data-formula-operators');
+                        row.removeAttribute('data-formula-display');
+                        row.removeAttribute('data-formula-raw');
+                        row.removeAttribute('data-source-columns');
+                        row.removeAttribute('data-source-percent');
+                        row.setAttribute('data-base-processed-amount', '0');
+                        if (cells[8]) cells[8].textContent = '0.00';
+                    });
+                }
+            }
             updateProcessedAmountTotal();
         });
 }
@@ -13647,6 +13674,8 @@ if (!result.success) {
 }
 
 const templates = result.templates || {};
+// 仅当当前 process 在 Maintenance 有模板时才允许恢复刷新缓存，避免「全新 process」显示上次误恢复留下的 formula
+window.currentProcessHadTemplates = (typeof templates === 'object' && templates !== null && Object.keys(templates).length > 0);
 
 // IMPORTANT: Recalculate row_index for all Summary Table rows based on Data Capture Table order
 // This is critical when rows are added/removed in Data Capture Table
