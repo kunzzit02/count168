@@ -242,10 +242,13 @@ function saveRateValuesForRefresh() {
     }
 }
 
-// Save Formula + Source (and data attrs) per row by id_product for restore after refresh
+// Save Formula + Source (and data attrs) per row by id_product for restore after refresh.
+// Also saves current process so restore only applies when the same process is displayed (avoids showing another process's formulas).
 function saveFormulaSourceForRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
+    const processId = getCurrentProcessId();
+    const processCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
     const rows = summaryTableBody.querySelectorAll('tr');
     const byIndex = [];
     rows.forEach(row => {
@@ -267,13 +270,15 @@ function saveFormulaSourceForRefresh() {
         });
     });
     try {
-        localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(byIndex));
+        const payload = { processId: processId != null ? processId : null, processCode, rows: byIndex };
+        localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
     } catch (e) {
         console.warn('saveFormulaSourceForRefresh:', e);
     }
 }
 
-// Restore Formula + Source from localStorage after load (only set by refresh/beforeunload)
+// Restore Formula + Source from localStorage after load (only set by refresh/beforeunload).
+// Only applies when saved process matches current process, so a process without formulas does not show another process's formulas.
 function restoreFormulaSourceFromRefresh() {
     let saved;
     try {
@@ -283,12 +288,32 @@ function restoreFormulaSourceFromRefresh() {
     } catch (e) {
         return;
     }
-    if (!Array.isArray(saved) || saved.length === 0) return;
+    // New format: { processId, processCode, rows }. Only restore when same process.
+    // Old format: plain array (no process) — do not restore to avoid applying another process's formulas.
+    if (Array.isArray(saved)) {
+        try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
+        return;
+    }
+    const byIndex = (saved && typeof saved === 'object' && Array.isArray(saved.rows)) ? saved.rows : null;
+    if (!byIndex || byIndex.length === 0) {
+        try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
+        return;
+    }
+    const currentId = getCurrentProcessId();
+    const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
+    const savedId = saved.processId != null ? saved.processId : null;
+    const savedCode = (typeof saved.processCode === 'string' ? saved.processCode : '').trim();
+    const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
+    const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+    if (!idMatch || !codeMatch) {
+        try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
+        return;
+    }
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach((row, i) => {
-        const data = saved[i];
+        const data = byIndex[i];
         if (!data) return;
         const cells = row.querySelectorAll('td');
         let formula = data.formula != null ? String(data.formula) : '';
