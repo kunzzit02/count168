@@ -303,13 +303,9 @@ function restoreFormulaSourceFromRefresh() {
             formula = removeTrailingSourcePercentExpression(formula) || formula;
         }
         if (cells[4]) {
-            if (formula === '') {
-                cells[4].innerHTML = '';
-            } else {
-                cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>';
-                const span = cells[4].querySelector('.formula-text');
-                if (span) span.textContent = formula;
-            }
+            cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>';
+            const span = cells[4].querySelector('.formula-text');
+            if (span) span.textContent = formula;
             row.setAttribute('data-formula-raw', formula || '');
             if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
