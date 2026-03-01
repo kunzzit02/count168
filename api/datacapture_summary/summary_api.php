@@ -1737,6 +1737,7 @@ if ($action === 'templates') {
             throw new Exception('Process ID is required');
         }
 
+        // Summary 的 formula 仅来自 Maintenance（data_capture_templates）；Process 在 Maintenance 无记录则不显示 formula
         $templates = fetchTemplates($pdo, $ids, $processId);
 
         if ($captureId !== null && $captureId > 0 && $company_id) {
@@ -2289,6 +2290,46 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':rate' => $rateValue,
                     ':display_order' => $rowDisplayOrder
                 ]);
+            }
+
+            // 所有 Data Summary submit 后的 formula 都写入 data_capture_templates，以便在 Maintenance - Formula 中显示
+            $processIdForTemplates = isset($data['processId']) && (is_numeric($data['processId']) || (is_string($data['processId']) && trim($data['processId']) !== '')) ? $data['processId'] : null;
+            if ($processIdForTemplates !== null) {
+                foreach ($data['summaryRows'] as $summaryRow) {
+                    $idProductMain = $summaryRow['idProductMain'] ?? null;
+                    $idProductSub = $summaryRow['idProductSub'] ?? null;
+                    $pt = (empty($summaryRow['idProductMain']) && !empty($summaryRow['idProductSub'])) ? 'sub' : 'main';
+                    $idProduct = ($pt === 'main' && $idProductMain !== null && $idProductMain !== '') ? $idProductMain : $idProductSub;
+                    if ($idProduct === null || $idProduct === '' || !isset($summaryRow['accountId'])) {
+                        continue;
+                    }
+                    $rowCurrId = resolveCompanyCurrencyId($pdo, $companyId, $summaryRow['currencyId'] ?? null, $summaryRow['currencyCode'] ?? null);
+                    if ($rowCurrId === null) {
+                        $rowCurrId = $resolvedCurrencyId;
+                    }
+                    $templatePayload = [
+                        'product_type' => $pt,
+                        'id_product' => $idProduct,
+                        'parent_id_product' => ($pt === 'sub') ? ($idProductMain ?? null) : null,
+                        'account_id' => $summaryRow['accountId'],
+                        'account_display' => $summaryRow['accountDisplay'] ?? null,
+                        'currency_id' => $rowCurrId,
+                        'currency_display' => null,
+                        'source_columns' => $summaryRow['columns'] ?? '',
+                        'formula_operators' => $summaryRow['formula'] ?? '',
+                        'formula_display' => $summaryRow['formula'] ?? '',
+                        'source_percent' => isset($summaryRow['sourcePercent']) && $summaryRow['sourcePercent'] !== '' ? (string)$summaryRow['sourcePercent'] : '1',
+                        'enable_source_percent' => (isset($summaryRow['sourcePercent']) && $summaryRow['sourcePercent'] !== '' && $summaryRow['sourcePercent'] !== '0') ? 1 : 0,
+                        'process_id' => $processIdForTemplates,
+                        'data_capture_id' => null,
+                        'last_processed_amount' => isset($summaryRow['processedAmount']) ? $summaryRow['processedAmount'] : 0,
+                    ];
+                    try {
+                        saveTemplateRow($pdo, $templatePayload, $companyId);
+                    } catch (Exception $e) {
+                        error_log('Submit: save template for Maintenance - ' . $e->getMessage());
+                    }
+                }
             }
             
             // Commit transaction

@@ -68,6 +68,8 @@ function parseDateForFilter($input) {
 /**
  * 获取公式列表（含搜索、process 筛选、日期筛选），返回原始行
  * 日期筛选按 created_at 在 date_from～date_to 之间（含首尾）
+ * 直接 JOIN process 表，避免 GROUP BY 导致同一 process 代码下多条 process 行时只匹配 MIN(id)、
+ * 其余模板在 Maintenance 不显示却在 Data Capture Summary 仍显示的问题。
  */
 function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $processFilter, $dateFrom, $dateTo) {
     $sql = "SELECT 
@@ -93,23 +95,16 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
                 a.name AS account_name,
                 c.code AS currency_code
             FROM data_capture_templates dct
-            LEFT JOIN (
-                SELECT MIN(id) AS id, process_id, company_id, description_id
-                FROM process
-                GROUP BY process_id, company_id, description_id
-            ) p 
-                ON (
-                    dct.process_id = p.process_id
-                    OR (
-                        dct.process_id REGEXP '^[0-9]+$'
-                        AND CAST(dct.process_id AS UNSIGNED) = p.id
-                    )
+            INNER JOIN process p ON p.company_id = dct.company_id
+                AND (
+                    (dct.process_id REGEXP '^[0-9]+$' AND p.id = CAST(dct.process_id AS UNSIGNED))
+                    OR (dct.process_id = p.process_id)
                 )
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN account a ON dct.account_id = a.id
             LEFT JOIN currency c ON dct.currency_id = c.id
-            WHERE dct.company_id = ? AND p.company_id = ?";
-    $params = [$companyId, $companyId];
+            WHERE dct.company_id = ?";
+    $params = [$companyId];
     if ($processFilter !== '') {
         $sql .= " AND p.process_id = ?";
         $params[] = $processFilter;
