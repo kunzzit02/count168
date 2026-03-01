@@ -1216,7 +1216,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             updated_at
         FROM data_capture_templates
         WHERE company_id = ?
-          AND (process_id = ? OR process_id IS NULL)
+          AND process_id = ?
           AND (
             (product_type = 'main' AND (
                 LOWER(id_product) IN ($placeholders)
@@ -1250,22 +1250,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
 
     $templates = [];
     foreach ($results as $row) {
-        // Claim generic templates (process_id IS NULL) to specific process_id
-        // Note: process_id is INT(11), storing process.id (int), not process.process_id (string)
-        $rowProcessId = isset($row['process_id']) && is_numeric($row['process_id']) ? (int)$row['process_id'] : null;
-        if ($rowProcessId === null && $processId !== null && $processId > 0 && isset($row['id'])) {
-            try {
-                $updateStmt = $pdo->prepare("UPDATE data_capture_templates SET process_id = :process_id WHERE company_id = :company_id AND id = :id");
-                $updateStmt->execute([
-                    ':company_id' => $companyId,
-                    ':process_id' => $processId,
-                    ':id' => $row['id']
-                ]);
-                $row['process_id'] = $processId;
-            } catch (Exception $claimException) {
-                error_log('Template claim error for ID ' . $row['id'] . ': ' . $claimException->getMessage());
-            }
-        }
+        // Formula 只绑定当前 process：不再 claim process_id IS NULL 的模板，避免在其他 process 呈现
 
         // Ensure source_percent is always a string to preserve decimal values and expressions
         // This is important because decimal fields might be returned as numbers, losing precision
@@ -1321,7 +1306,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                 }
             }
             if (!$isDuplicate) {
-                // Add sub templates for this process (legacy NULL templates will be claimed on fetch)
+                // Add sub templates for this process only (formula 仅绑定当前 process)
                 // This allows multiple sub rows with same account but different formulas
                 $templates[$parentKey]['subs'][] = $row;
             }
@@ -1347,12 +1332,12 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                 ];
             }
             
-            // Store all main templates (for all process_id and account_id combinations)
+            // Store all main templates for current process only (formula 仅绑定当前 process)
             $templates[$mainKey]['allMains'][] = $row;
             
             // For backward compatibility, still set 'main' to the best default
             // But frontend should use 'allMains' to apply all templates
-            // Priority: 1) template with process_id (specific), 2) generic template (process_id IS NULL), 3) most recent
+            // Priority: prefer template with process_id, then most recent
             if ($templates[$mainKey]['main'] === null) {
                 $templates[$mainKey]['main'] = $row;
             } else {
