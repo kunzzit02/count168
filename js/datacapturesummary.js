@@ -253,7 +253,8 @@ function saveFormulaSourceForRefresh() {
         const idProductCell = cells[0];
         const idProduct = idProductCell ? idProductCell.textContent.trim() : '';
         const formulaCell = cells[4];
-        const formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+        let formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+        if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const sourceCell = cells[5];
         const source = sourceCell ? sourceCell.textContent.trim() : '';
         byIndex.push({
@@ -291,6 +292,7 @@ function restoreFormulaSourceFromRefresh() {
         if (!data) return;
         const cells = row.querySelectorAll('td');
         let formula = data.formula != null ? String(data.formula) : '';
+        if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const source = data.source != null ? String(data.source) : '';
         if (data.sourceColumns != null) row.setAttribute('data-source-columns', data.sourceColumns);
         if (data.formulaOperators != null) row.setAttribute('data-formula-operators', data.formulaOperators);
@@ -304,7 +306,7 @@ function restoreFormulaSourceFromRefresh() {
             if (formula === '') {
                 cells[4].innerHTML = '';
             } else {
-                cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>';
+                cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
                 const span = cells[4].querySelector('.formula-text');
                 if (span) span.textContent = formula;
             }
@@ -10490,7 +10492,6 @@ function restoreOriginalRowValues(row) {
             cells[4].innerHTML = `
                 <div class="formula-cell-content">
                     <span class="formula-text">${originalFormula}</span>
-                    <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
                 </div>
             `;
         }
@@ -10855,7 +10856,6 @@ function updateRowFormulaFromColumns(row) {
         cells[4].innerHTML = `
             <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
                 <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
-                <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
             </div>
         `;
         // Attach double-click event listener
@@ -11100,7 +11100,6 @@ function updateFormulaAndProcessedAmount(row, data) {
         cells[4].innerHTML = `
             <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
                 <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${displayText}</span>
-                <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
             </div>
         `;
         // Attach double-click event listener
@@ -11879,7 +11878,6 @@ function enableFormulaInlineEdit(element, row) {
             // Rebuild formula cell content with updated formula
             formulaContent.innerHTML = `
                 <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${newFormulaDisplay}</span>
-                <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
             `;
             
             // Update data attribute with base formula (without Source %)
@@ -12422,7 +12420,6 @@ function recalculateRowFormula(row, newSourcePercent) {
             cells[4].innerHTML = `
                 <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
                     <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaDisplay}</span>
-                    <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
                 </div>
             `;
             // Attach double-click event listener
@@ -12951,7 +12948,6 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         cells[4].innerHTML = `
             <div class="formula-cell-content" ${inputMethodTooltip ? `title="${String(inputMethodTooltip).replace(/"/g, '&quot;')}"` : ''}>
                 <span class="formula-text editable-cell"></span>
-                <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
             </div>
         `;
         const formulaTextSpan = cells[4].querySelector('.formula-text');
@@ -13436,7 +13432,6 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             cells[4].innerHTML = `
                 <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
                     <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${displayText}</span>
-                    <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
                 </div>
             `;
             // Attach double-click event listener
@@ -13814,7 +13809,7 @@ if (summaryTableBody) {
         if (!hasTemplate) {
             const cells = summaryRow.querySelectorAll('td');
             if (cells[4]) {
-                cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>';
+                cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span></div>';
                 const span = cells[4].querySelector('.formula-text');
                 if (span) span.textContent = '';
             }
@@ -17055,7 +17050,6 @@ function updateBatchSourceColumns() {
             cells[7].innerHTML = `
                 <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
                     <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
-                    <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
                 </div>
             `;
             // Attach double-click event listener
