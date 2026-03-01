@@ -2736,10 +2736,10 @@ let isSelecting = false;
                     if (result.data && result.data.length > 0) {
                         console.log('Loading processes for date:', selectedDate, 'Day of week:', result.day_of_week);
                         result.data.forEach(process => {
-                            // Display format: bk001(bk8)
-                            const displayText = process.description_name 
-                                ? `${process.process_id} (${process.description_name})`
-                                : process.process_id;
+                            // 抓取 Process 全部读取：使用 API 返回的 process_display，例如 F9EJMSUB (JOKER API)
+                            const displayText = (process.process_display != null && String(process.process_display).trim() !== '')
+                                ? String(process.process_display).trim()
+                                : (process.description_name ? `${process.process_id} (${process.description_name})` : process.process_id);
                             
                             // 创建选项
                             const option = document.createElement('div');

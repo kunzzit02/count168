@@ -1737,6 +1737,7 @@ if ($action === 'templates') {
             throw new Exception('Process ID is required');
         }
 
+        // 在 Data Capture 选择的 Process 下设置的 formula 只在该 Process 显示；若该 Process 有 sync 到其他 Process 则同步显示
         // Summary 的 formula 仅来自 Maintenance（data_capture_templates）；Process 在 Maintenance 无记录则不显示 formula
         $templates = fetchTemplates($pdo, $ids, $processId);
 

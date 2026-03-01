@@ -537,6 +537,13 @@ function getProcessesByDay($user_id) {
         $stmt = $pdo->prepare($baseSql);
         $stmt->execute($baseParams);
         $processes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // 抓取 Process 时返回完整显示值，例如 F9EJMSUB (JOKER API)
+        foreach ($processes as &$proc) {
+            $proc['process_display'] = (!empty($proc['description_name']))
+                ? $proc['process_id'] . ' (' . $proc['description_name'] . ')'
+                : $proc['process_id'];
+        }
+        unset($proc);
         
         echo json_encode([
             'success' => true,
