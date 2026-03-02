@@ -664,7 +664,9 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         $existingRecord = $checkStmt->fetch();
     }
     
-    // 同 (process, type, product, account) 只保留一条：先按 account 找任意一条（不要求 formula_variant），避免因 input_method 不同多出 2 条
+    // 同 (process, type, product, account) 且 同 formula、同 input_method 才视为同一条并更新；不同 formula 或不同 input_method 则保留为多条
+    $formulaForMatch = trim((string)($row['formula_operators'] ?? $row['formula_display'] ?? ''));
+    $inputMethodForMatch = trim((string)($row['input_method'] ?? ''));
     if (!$existingRecord && $dataCaptureId === null) {
         if ($productType === 'sub') {
             $anyStmt = $pdo->prepare("
@@ -672,10 +674,12 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                 WHERE company_id = ? AND process_id " . ($hasProcessId ? "= ?" : "IS NULL") . "
                   AND product_type = 'sub' AND COALESCE(TRIM(parent_id_product), '') = COALESCE(TRIM(?), '')
                   AND COALESCE(TRIM(id_product), '') = COALESCE(TRIM(?), '') AND account_id = ?
+                  AND COALESCE(TRIM(formula_operators), TRIM(formula_display), '') = ?
+                  AND COALESCE(TRIM(input_method), '') = ?
                   AND (data_capture_id IS NULL OR data_capture_id = 0)
                 ORDER BY updated_at DESC LIMIT 1
             ");
-            $anyParams = [$companyId, $parentIdProduct, $row['id_product'], $row['account_id']];
+            $anyParams = [$companyId, $parentIdProduct, $row['id_product'], $row['account_id'], $formulaForMatch, $inputMethodForMatch];
             if ($hasProcessId) {
                 array_splice($anyParams, 1, 0, [$processId]);
             }
@@ -690,10 +694,13 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                 SELECT id, formula_variant FROM data_capture_templates 
                 WHERE company_id = ? AND process_id " . ($hasProcessId ? "= ?" : "IS NULL") . "
                   AND product_type = 'main' AND COALESCE(TRIM(id_product), '') = COALESCE(TRIM(?), '')
-                  AND account_id = ? AND (data_capture_id IS NULL OR data_capture_id = 0)
+                  AND account_id = ?
+                  AND COALESCE(TRIM(formula_operators), TRIM(formula_display), '') = ?
+                  AND COALESCE(TRIM(input_method), '') = ?
+                  AND (data_capture_id IS NULL OR data_capture_id = 0)
                 ORDER BY updated_at DESC LIMIT 1
             ");
-            $anyParams = [$companyId, $row['id_product'], $row['account_id']];
+            $anyParams = [$companyId, $row['id_product'], $row['account_id'], $formulaForMatch, $inputMethodForMatch];
             if ($hasProcessId) {
                 array_splice($anyParams, 1, 0, [$processId]);
             }
@@ -2423,8 +2430,7 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                             ? (int)$summaryRow['enableInputMethod']
                             : ((isset($summaryRow['inputMethod']) && $summaryRow['inputMethod'] !== '') ? 1 : 0),
                         'process_id' => $processIdForTemplates,
-                        // 绑定到本次 Data Capture，以避免不同 Account / 行被 (process, product, account) 级别去重掉
-                        'data_capture_id' => $captureId,
+                        'data_capture_id' => null,
                         'last_processed_amount' => isset($summaryRow['processedAmount']) ? $summaryRow['processedAmount'] : 0,
                     ];
                     try {
