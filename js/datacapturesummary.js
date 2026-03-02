@@ -327,13 +327,17 @@ function restoreFormulaSourceFromRefresh() {
         if (data.sourceColumns != null) row.setAttribute('data-source-columns', data.sourceColumns);
         if (data.formulaOperators != null) row.setAttribute('data-formula-operators', data.formulaOperators);
         if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
+        if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
+        if (data.enableInputMethod != null) row.setAttribute('data-enable-input-method', String(data.enableInputMethod));
         // source_percent == 1 时只显示基础公式，不显示 *(1) 或 *(0.05)
         const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
         if (srcPct !== '' && formula && Math.abs(parseFloat(srcPct) - 1) < 0.0001 && typeof removeTrailingSourcePercentExpression === 'function') {
             formula = removeTrailingSourcePercentExpression(formula) || formula;
         }
         if (cells[4]) {
-            cells[4].innerHTML = '<div class="formula-cell-content"><span class="formula-text"></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>';
+            const imForTooltip = (data.inputMethod != null ? data.inputMethod : row.getAttribute('data-input-method')) || '';
+            const titleAttr = imForTooltip ? ` title="${String(imForTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
+            cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>`;
             const span = cells[4].querySelector('.formula-text');
             if (span) span.textContent = formula;
             row.setAttribute('data-formula-raw', formula || '');
@@ -10539,14 +10543,16 @@ function restoreOriginalRowValues(row) {
     const originalSourceColumns = row.getAttribute('data-original-source-columns');
     const originalFormulaOperators = row.getAttribute('data-original-formula-operators');
     
-    // Restore Formula column (index 4) - restore even if empty string
+    // Restore Formula column (index 4) - restore even if empty string; preserve input method tooltip
     if (cells[4] && originalFormula !== null) {
+        const imTooltip = (row.getAttribute('data-input-method') || '').trim();
+        const imTitle = imTooltip ? ` title="${String(imTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
         if (originalFormula === '') {
             cells[4].innerHTML = '';
         } else {
             cells[4].innerHTML = `
-                <div class="formula-cell-content">
-                    <span class="formula-text">${originalFormula}</span>
+                <div class="formula-cell-content"${imTitle}>
+                    <span class="formula-text"${imTitle}>${originalFormula}</span>
                     <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
                 </div>
             `;
@@ -10906,12 +10912,12 @@ function updateRowFormulaFromColumns(row) {
     // Update Formula column (index 4)
     if (cells[4]) {
         const formulaText = formulaDisplay;
-        // Get input method from row for tooltip
+        // Get input method from row for tooltip (escape for HTML attribute)
         const inputMethod = row.getAttribute('data-input-method') || '';
-        const inputMethodTooltip = inputMethod || '';
+        const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
         cells[4].innerHTML = `
-            <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
-                <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
+            <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
                 <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
             </div>
         `;
@@ -11151,12 +11157,12 @@ function updateFormulaAndProcessedAmount(row, data) {
         row.setAttribute('data-formula-raw', rawFormula || '');
         const displayText = formulaText;
         
-        // Get input method from row or data for tooltip
+        // Get input method from row or data for tooltip (escape for HTML attribute)
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
-        const inputMethodTooltip = inputMethod || '';
+        const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
         cells[4].innerHTML = `
-            <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
-                <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${displayText}</span>
+            <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${displayText}</span>
                 <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
             </div>
         `;
@@ -11928,14 +11934,14 @@ function enableFormulaInlineEdit(element, row) {
             // Recreate full formula display using converted formula + source percent
             const newFormulaDisplay = createFormulaDisplayFromExpression(displayFormula, currentSourcePercentDecimal, currentEnableSourcePercent);
             
-            // Get input method from row for tooltip
+            // Get input method from row for tooltip (escape for HTML attribute)
             const inputMethod = row.getAttribute('data-input-method') || '';
-            const inputMethodTooltip = inputMethod || '';
+            const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
             const enableInputMethod = inputMethod ? true : false;
             
             // Rebuild formula cell content with updated formula
             formulaContent.innerHTML = `
-                <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${newFormulaDisplay}</span>
+                <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${newFormulaDisplay}</span>
                 <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
             `;
             
@@ -12473,12 +12479,12 @@ function recalculateRowFormula(row, newSourcePercent) {
             if (baseFormula && baseFormula.trim() !== '') {
                 formulaDisplay = createFormulaDisplayFromExpression(baseFormula, newSourcePercent, enableSourcePercent);
             }
-            // Get input method from row for tooltip
+            // Get input method from row for tooltip (escape for HTML attribute)
             const inputMethod = row.getAttribute('data-input-method') || '';
-            const inputMethodTooltip = inputMethod || '';
+            const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
             cells[4].innerHTML = `
-                <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
-                    <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaDisplay}</span>
+                <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                    <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${formulaDisplay}</span>
                     <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
                 </div>
             `;
@@ -13358,10 +13364,16 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         
         // Columns, Batch Selection, and Source columns removed
         
-        // IMPORTANT: Set data attributes first (especially data-source-columns) before building formula display
-        // This ensures that when data is deleted and saved, the formula display reflects the updated sourceColumns
+        // IMPORTANT: Set data attributes first (especially data-source-columns, data-input-method) before building formula display
+        // This ensures tooltip and formula display use the correct values
         if (data.formulaOperators !== undefined) {
             row.setAttribute('data-formula-operators', data.formulaOperators);
+        }
+        if (data.inputMethod !== undefined) {
+            row.setAttribute('data-input-method', data.inputMethod);
+        }
+        if (data.enableInputMethod !== undefined) {
+            row.setAttribute('data-enable-input-method', data.enableInputMethod.toString());
         }
         // IMPORTANT: Set sourceColumns from data.sourceColumns first (from API response)
         // This ensures that deleted columns are not shown after page refresh
@@ -13489,10 +13501,10 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             const displayText = formulaText;
             
             const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
-            const inputMethodTooltip = inputMethod || '';
+            const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
             cells[4].innerHTML = `
-                <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
-                    <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${displayText}</span>
+                <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                    <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${displayText}</span>
                     <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
                 </div>
             `;
@@ -17108,12 +17120,12 @@ function updateBatchSourceColumns() {
         // Update Formula column (index 7)
         if (cells[7]) {
             const formulaText = formulaDisplay;
-            // Get input method from row for tooltip
+            // Get input method from row for tooltip (escape for HTML attribute)
             const inputMethod = row.getAttribute('data-input-method') || '';
-            const inputMethodTooltip = inputMethod || '';
+            const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
             cells[7].innerHTML = `
-                <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
-                    <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
+                <div class="formula-cell-content"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>
+                    <span class="formula-text editable-cell"${inputMethodTooltip ? ` title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
                     <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
                 </div>
             `;
