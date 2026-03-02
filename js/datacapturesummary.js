@@ -3184,13 +3184,13 @@ function updateIdProductRowData(idProductValue) {
             
             // Process cells with data-column-index > 1 (data columns)
             if (columnIndex && parseInt(columnIndex) > 1) {
-                // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                // Column index > 1 means data columns；[n] 与公式 $n 一致：1-based
                 if (cellValue !== '') {
                     cellCount++;
-                    // Create a separate option for each column data
+                    const displayNum = parseInt(columnIndex, 10) - 1;
                     const option = document.createElement('option');
                     option.value = `${rowIndex}:${columnIndex}`; // Store row index and column index as value
-                    option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
+                    option.textContent = `[${displayNum}] ${cellValue}`; // Format: "[1] 921" = 1st data column
                     descriptionSelect2.appendChild(option);
                     
                     // Store first option value for auto-selection
@@ -3310,13 +3310,13 @@ function updateFormulaDataGrid() {
             cells.forEach((cell, cellIndex) => {
                 const columnIndex = cell.getAttribute('data-column-index');
                 if (columnIndex && parseInt(columnIndex) > 1) {
-                    // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                    // Column index > 1 means data columns；[n] 与公式 $n 一致：1-based（[1]=第1列 … [5]=第5列）
                     const cellValue = cell.textContent ? cell.textContent.trim() : '';
                     if (cellValue !== '') {
-                        // Create a grid item for each column data
+                        const displayNum = parseInt(columnIndex, 10) - 1;
                         const gridItem = document.createElement('div');
                         gridItem.className = 'formula-data-grid-item';
-                        gridItem.textContent = `[${columnIndex}] ${cellValue}`;
+                        gridItem.textContent = `[${displayNum}] ${cellValue}`;
                         gridItem.setAttribute('data-row-index', rowIndex);
                         gridItem.setAttribute('data-column-index', columnIndex);
                         
@@ -4345,9 +4345,9 @@ function syncClickedCellRefsWithFormula(formulaInput, formulaValue, processValue
     // 只保留 formula 中实际使用的引用
     const syncedRefs = [];
     
-    // 处理 $数字 格式（当前 row）
+    // 处理 $数字 格式（当前 row）；ref 存的是 1-based 列号，用 displayColumnIndex 匹配
     dollarMatches.forEach((dollarMatch) => {
-        const matchingRefs = refMapByDataColumnIndex.get(dollarMatch.dataColumnIndex);
+        const matchingRefs = refMapByDataColumnIndex.get(dollarMatch.displayColumnIndex);
         if (matchingRefs && matchingRefs.length > 0) {
             // 使用第一个匹配的引用
             const matchedRef = matchingRefs[0];
@@ -4357,9 +4357,9 @@ function syncClickedCellRefsWithFormula(formulaInput, formulaValue, processValue
         }
     });
     
-    // 处理 [id_product,数字] 格式（其他 row），使用 parseIdProductColumnRef 保留完整 id_product 比较
+    // 处理 [id_product,数字] 格式（其他 row）；ref 存的是 1-based 列号
     bracketMatches.forEach((bracketMatch) => {
-        const matchingRefs = refMapByDataColumnIndex.get(bracketMatch.dataColumnIndex);
+        const matchingRefs = refMapByDataColumnIndex.get(bracketMatch.displayColumnIndex);
         if (matchingRefs && matchingRefs.length > 0) {
             for (const ref of matchingRefs) {
                 const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
@@ -4504,26 +4504,24 @@ function updateFormulaDisplay(formulaValue, processValue) {
                 let columnValue = null;
                 
                 if (match.fromBracketFormat) {
-                    // 新格式 [id_product,数字]：直接从id_product和列号获取值
+                    // 新格式 [id_product,数字]：数字为 1-based 数据列号（1=第1列），getCellValueByIdProductAndColumn 也按 1-based 入参
                     const idProduct = match.idProduct;
-                    const displayColumnIndex = match.columnNumber;
-                    const dataColumnIndex = displayColumnIndex - 1;
+                    const columnNumber1Based = match.columnNumber;
                     
-                    // 尝试从引用中获取 row_label（用 parseIdProductColumnRef 保留完整 id_product）
+                    // 尝试从引用中获取 row_label（用 parseIdProductColumnRef 保留完整 id_product；ref 中存的也是 1-based）
                     let rowLabel = null;
                     if (refIndex < refs.length) {
                         const ref = refs[refIndex];
                         const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
-                        if (parsed && (normalizeIdProductText(parsed.idProduct) === normalizeIdProductText(idProduct)) && parsed.dataColumnIndex === dataColumnIndex) {
+                        if (parsed && (normalizeIdProductText(parsed.idProduct) === normalizeIdProductText(idProduct)) && parsed.dataColumnIndex === columnNumber1Based) {
                             rowLabel = parsed.rowLabel;
                             refIndex++;
                         }
                     }
                     
-                    // 使用id_product和列号获取值
-                    if (dataColumnIndex > 0) {
-                        columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
-                        console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], value:', columnValue);
+                    if (columnNumber1Based > 0) {
+                        columnValue = getCellValueByIdProductAndColumn(idProduct, columnNumber1Based, rowLabel);
+                        console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', columnNumber1Based, '], value:', columnValue);
                     }
                 } else {
                     // 当前row格式 $数字：从引用中按顺序获取（parseIdProductColumnRef 保留完整 id_product）
@@ -4539,22 +4537,19 @@ function updateFormulaDisplay(formulaValue, processValue) {
                                     ? (refIdProduct.trim() === (currentIdProduct || '').trim())
                                     : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(currentIdProduct))
                             );
-                            if (isCurrentRowRef) {
-                                const displayColumnIndex = refDataColumnIndex + 1;
-                                if (displayColumnIndex === match.columnNumber) {
-                                    columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
-                                    refIndex++;
-                                }
+                            // ref 中 dataColumnIndex 为 1-based（与 $5 的 5 一致）
+                            if (isCurrentRowRef && refDataColumnIndex === match.columnNumber) {
+                                columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
+                                refIndex++;
                             }
                         }
                     }
                     
-                    // 如果从引用中找不到值，使用当前编辑的id_product
+                    // 如果从引用中找不到值，使用当前编辑的id_product（$5 = 第5个数据列，传 1-based 列号）
                     if (columnValue === null && currentIdProduct) {
                         const rowLabel = getRowLabelFromProcessValue(processValue);
                         if (rowLabel) {
-                            const dataColumnIndex = match.columnNumber - 1;
-                            columnValue = getCellValueByIdProductAndColumn(currentIdProduct, dataColumnIndex, rowLabel);
+                            columnValue = getCellValueByIdProductAndColumn(currentIdProduct, match.columnNumber, rowLabel);
                             console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
                         }
                     }
