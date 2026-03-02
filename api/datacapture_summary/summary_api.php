@@ -2423,7 +2423,8 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                             ? (int)$summaryRow['enableInputMethod']
                             : ((isset($summaryRow['inputMethod']) && $summaryRow['inputMethod'] !== '') ? 1 : 0),
                         'process_id' => $processIdForTemplates,
-                        'data_capture_id' => null,
+                        // 绑定到本次 Data Capture，以避免不同 Account / 行被 (process, product, account) 级别去重掉
+                        'data_capture_id' => $captureId,
                         'last_processed_amount' => isset($summaryRow['processedAmount']) ? $summaryRow['processedAmount'] : 0,
                     ];
                     try {
