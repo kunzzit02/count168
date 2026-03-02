@@ -15808,7 +15808,16 @@ if (!targetRow) {
 const addCell = targetRow.querySelector('td:nth-child(3)');
 const targetButton = addCell ? addCell.querySelector('.add-account-btn') : null;
 
-const sourceColumnsValue = template.source_columns || '';
+// 修复：两个 SUB 没有设置到抓格子的数据。当 SUB 模板的 source_columns 为空但公式有内容时，从父 MAIN 行继承 source_columns，使 SUB 行能关联到 Data Capture 的抓格数据。
+let sourceColumnsValue = template.source_columns || '';
+if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
+    const mainSourceColumns = mainRow ? (mainRow.getAttribute('data-source-columns') || '').trim() : '';
+    const hasFormula = (template.formula_operators || '').trim() !== '' || (template.formula_display || '').trim() !== '';
+    if (mainSourceColumns && hasFormula) {
+        sourceColumnsValue = mainSourceColumns;
+        console.log('applySubTemplatesToSummaryRow: SUB template had no source_columns, inherited from MAIN row:', sourceColumnsValue);
+    }
+}
 const formulaOperatorsValue = template.formula_operators || '';
 
 // CRITICAL: 检查公式中是否包含 $ 符号
