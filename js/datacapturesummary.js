@@ -422,6 +422,13 @@ function loadAndRenderCapturedTable() {
         const processData = localStorage.getItem('capturedProcessData');
         
         if (tableData && processData) {
+            // 第二次进入 Summary（带新的一次 capture）时不要沿用上次 submit 的 captureId，否则模板会按旧 capture 拉取导致数据错乱或丢失
+            try {
+                localStorage.removeItem('capturedCaptureId');
+            } catch (e) {}
+            if (typeof window.DATACAPTURESUMMARY_CAPTURE_ID !== 'undefined') {
+                window.DATACAPTURESUMMARY_CAPTURE_ID = null;
+            }
             const parsedTableData = JSON.parse(tableData);
             const parsedProcessData = JSON.parse(processData);
             
@@ -18081,7 +18088,12 @@ async function submitSummaryData() {
                 console.warn('Failed to record submitted process:', e);
             }
             
-            // Clear localStorage after successful submission
+            // 立即清除本次使用的 captureId，避免 2 秒内再次进入 Summary 时沿用旧 id 导致数据错乱
+            try { localStorage.removeItem('capturedCaptureId'); } catch (e) {}
+            if (typeof window.DATACAPTURESUMMARY_CAPTURE_ID !== 'undefined') {
+                window.DATACAPTURESUMMARY_CAPTURE_ID = null;
+            }
+            // Clear localStorage after successful submission (redirect 前再清表数据，避免重复进入看到旧表)
             setTimeout(() => {
                 window.isNavigatingAwayByBackOrSubmit = true;
                 try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
