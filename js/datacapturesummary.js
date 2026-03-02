@@ -6438,7 +6438,14 @@ function extractRowDataForTemplate(row, formData) {
     const formulaDisplayFromData = formData.formulaDisplay || '';
     const isFormulaEmpty = !formulaDisplayFromData || formulaDisplayFromData.trim() === '' || formulaDisplayFromData === 'Formula';
     const sourceColumns = isFormulaEmpty ? '' : (row.getAttribute('data-source-columns') || formData.clickedColumnsDisplay || '');
-    const formulaOperators = row.getAttribute('data-formula-operators') || formData.formulaValue || '';
+    // 优先使用 Edit Formula 中的原始公式（formData.formulaValue），确保包含 $2 / 引用格式时能被完整保存到 formula_operators
+    // 只有在当前保存没有提供公式值时，才回退到已有的 data-formula-operators
+    let formulaOperators = '';
+    if (formData.formulaValue && String(formData.formulaValue).trim() !== '') {
+        formulaOperators = String(formData.formulaValue).trim();
+    } else {
+        formulaOperators = row.getAttribute('data-formula-operators') || '';
+    }
     const sourcePercentAttr = row.getAttribute('data-source-percent') || '';
     const sourcePercent = sourcePercentAttr || formData.sourcePercentValue || '1';
     // Auto-enable if source percent has value
