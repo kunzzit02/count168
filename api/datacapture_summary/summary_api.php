@@ -2006,6 +2006,20 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 (:company_id, :capture_id, :id_product_main, :description_main, :id_product_sub, :description_sub, :product_type, :formula_variant, :account_id, :currency_id, :columns_value, :source_value, :source_percent, :enable_source_percent, :formula, :processed_amount, :rate, :display_order)
             ");
             
+            // 同一 capture 下相同 id_product_main 按顺序：第一条为 main，后续均为 sub
+            $mainSeenForIdProductMain = [];
+            if ($isBatchAppend) {
+                $existMainStmt = $pdo->prepare("
+                    SELECT DISTINCT COALESCE(TRIM(id_product_main), '') AS id_product_main
+                    FROM data_capture_details
+                    WHERE capture_id = ? AND company_id = ? AND product_type = 'main' AND COALESCE(id_product_main, '') != ''
+                ");
+                $existMainStmt->execute([$captureId, $companyId]);
+                while ($r = $existMainStmt->fetch(PDO::FETCH_ASSOC)) {
+                    $mainSeenForIdProductMain[$r['id_product_main']] = true;
+                }
+            }
+            
             // Track display_order to preserve row order from frontend
             $displayOrder = 0;
             foreach ($data['summaryRows'] as $row) {
@@ -2024,15 +2038,19 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $rowDisplayOrder = isset($row['displayOrder']) && $row['displayOrder'] !== null ? (int)$row['displayOrder'] : $displayOrder;
                 $displayOrder++;
                 
-                // Determine product_type: if idProductMain exists, it's 'main', otherwise 'sub'
+                // Determine product_type: 同一 id_product_main 下第一条为 main，其余为 sub；仅 id_product_sub 有值且 main 空时为 sub
                 $productType = 'main';
                 if (empty($row['idProductMain']) && !empty($row['idProductSub'])) {
                     $productType = 'sub';
                 } elseif (!empty($row['idProductMain'])) {
-                    // If idProductMain exists, it's always 'main' regardless of what frontend sent
-                    $productType = 'main';
+                    $key = trim((string)$row['idProductMain']);
+                    if (isset($mainSeenForIdProductMain[$key])) {
+                        $productType = 'sub';
+                    } else {
+                        $productType = 'main';
+                        $mainSeenForIdProductMain[$key] = true;
+                    }
                 } else {
-                    // Fallback to what frontend sent
                     $productType = $row['productType'] ?? 'main';
                 }
                 
