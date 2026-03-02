@@ -2399,6 +2399,11 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         'formula_display' => $summaryRow['formula'] ?? '',
                         'source_percent' => isset($summaryRow['sourcePercent']) && $summaryRow['sourcePercent'] !== '' ? (string)$summaryRow['sourcePercent'] : '1',
                         'enable_source_percent' => (isset($summaryRow['sourcePercent']) && $summaryRow['sourcePercent'] !== '' && $summaryRow['sourcePercent'] !== '0') ? 1 : 0,
+                        // 将 Summary 中选好的 Input Method 一并写入模板；字段名兼容驼峰和下划线两种
+                        'input_method' => $summaryRow['inputMethod'] ?? ($summaryRow['input_method'] ?? null),
+                        'enable_input_method' => isset($summaryRow['enableInputMethod'])
+                            ? (int)$summaryRow['enableInputMethod']
+                            : ((isset($summaryRow['inputMethod']) && $summaryRow['inputMethod'] !== '') ? 1 : 0),
                         'process_id' => $processIdForTemplates,
                         'data_capture_id' => null,
                         'last_processed_amount' => isset($summaryRow['processedAmount']) ? $summaryRow['processedAmount'] : 0,
