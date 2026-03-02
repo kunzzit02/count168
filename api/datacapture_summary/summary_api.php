@@ -2312,13 +2312,30 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // 所有 Data Summary submit 后的 formula 都写入 data_capture_templates，以便在 Maintenance - Formula 中显示
+            // 与 data_capture_details 一致：同一 id_product_main 下第一条为 main、其余为 sub，这样 Submit 3 条只产生 3 条模板（1 main + 2 sub）
             $processIdForTemplates = isset($data['processId']) && (is_numeric($data['processId']) || (is_string($data['processId']) && trim($data['processId']) !== '')) ? $data['processId'] : null;
             if ($processIdForTemplates !== null) {
+                $templateMainSeen = [];
                 foreach ($data['summaryRows'] as $summaryRow) {
                     $idProductMain = $summaryRow['idProductMain'] ?? null;
                     $idProductSub = $summaryRow['idProductSub'] ?? null;
-                    $pt = (empty($summaryRow['idProductMain']) && !empty($summaryRow['idProductSub'])) ? 'sub' : 'main';
-                    $idProduct = ($pt === 'main' && $idProductMain !== null && $idProductMain !== '') ? $idProductMain : $idProductSub;
+                    if (empty($idProductMain) && !empty($idProductSub)) {
+                        $pt = 'sub';
+                        $idProduct = $idProductSub;
+                    } elseif (!empty($idProductMain)) {
+                        $key = trim((string)$idProductMain);
+                        if (isset($templateMainSeen[$key])) {
+                            $pt = 'sub';
+                            $idProduct = $idProductMain;
+                        } else {
+                            $pt = 'main';
+                            $idProduct = $idProductMain;
+                            $templateMainSeen[$key] = true;
+                        }
+                    } else {
+                        $pt = $summaryRow['productType'] ?? 'main';
+                        $idProduct = $idProductMain ?? $idProductSub;
+                    }
                     if ($idProduct === null || $idProduct === '' || !isset($summaryRow['accountId'])) {
                         continue;
                     }
@@ -2344,6 +2361,15 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         'last_processed_amount' => isset($summaryRow['processedAmount']) ? $summaryRow['processedAmount'] : 0,
                     ];
                     try {
+                        if ($pt === 'sub' && !empty($idProductMain)) {
+                            $delMain = $pdo->prepare("
+                                DELETE FROM data_capture_templates
+                                WHERE company_id = ? AND process_id = ? AND product_type = 'main'
+                                  AND COALESCE(TRIM(id_product), '') = COALESCE(TRIM(?), '')
+                                  AND account_id = ? AND COALESCE(data_capture_id, 0) = 0
+                            ");
+                            $delMain->execute([$companyId, $processIdForTemplates, $idProductMain, $summaryRow['accountId']]);
+                        }
                         saveTemplateRow($pdo, $templatePayload, $companyId);
                     } catch (Exception $e) {
                         error_log('Submit: save template for Maintenance - ' . $e->getMessage());
