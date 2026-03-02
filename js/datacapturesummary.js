@@ -1656,7 +1656,7 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
                         <div class="form-row formula-row-full-width">
                             <div class="form-group">
                                 <label for="formula">Formula</label>
-                                <input type="text" id="formula" placeholder="e.g. $5+$10*0.6/7">
+                                <input type="text" id="formula" placeholder="e.g. $1+$2*0.6/7" title="[1]=$1, [2]=$2 … 下方 [n] 对应公式中的 $n">
                             </div>
                         </div>
                         
@@ -1669,7 +1669,7 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
                         
                         <div class="form-row formula-row-full-width">
                             <div class="form-group">
-                                <label></label>
+                                <label class="formula-grid-hint" style="font-size: 0.85em; color: #666;">[1]=$1, [2]=$2 …</label>
                                 <div id="formulaDataGrid" class="formula-data-grid">
                                     <!-- Grid options will be loaded here via JavaScript -->
                                 </div>
