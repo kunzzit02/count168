@@ -201,10 +201,12 @@ function computeTemplateKey(array $row): string {
             $parent = 'sub';
         }
 
-        // 与 main 一致：sub 的 template_key 使用 parent_id_product（如 ALLBET95MS(KM)MYR）
+        // 与 main 一致：sub 的 template_key 使用 parent_id_product，并加上 account_id 区分同 parent 下多 account（避免 2 条 sub 共用一个 key 互相覆盖或产生重复）
         $baseKey = $parent !== '' ? $parent : ($subId !== '' ? $subId : '');
+        $accountId = trim((string)($row['account_id'] ?? ''));
         if ($baseKey !== '') {
-            return substr($baseKey, 0, 250);
+            $key = $accountId !== '' ? $baseKey . '_' . $accountId : $baseKey;
+            return substr($key, 0, 250);
         }
 
         // 无 parent/sub 时用长格式保证唯一
@@ -662,11 +664,52 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         $existingRecord = $checkStmt->fetch();
     }
     
-    // 如果没有通过 template_id 找到记录，使用原来的逻辑查找
+    // 同 (process, type, product, account) 只保留一条：先按 account 找任意一条（不要求 formula_variant），避免因 input_method 不同多出 2 条
+    if (!$existingRecord && $dataCaptureId === null) {
+        if ($productType === 'sub') {
+            $anyStmt = $pdo->prepare("
+                SELECT id, formula_variant FROM data_capture_templates 
+                WHERE company_id = ? AND process_id " . ($hasProcessId ? "= ?" : "IS NULL") . "
+                  AND product_type = 'sub' AND COALESCE(TRIM(parent_id_product), '') = COALESCE(TRIM(?), '')
+                  AND COALESCE(TRIM(id_product), '') = COALESCE(TRIM(?), '') AND account_id = ?
+                  AND (data_capture_id IS NULL OR data_capture_id = 0)
+                ORDER BY updated_at DESC LIMIT 1
+            ");
+            $anyParams = [$companyId, $parentIdProduct, $row['id_product'], $row['account_id']];
+            if ($hasProcessId) {
+                array_splice($anyParams, 1, 0, [$processId]);
+            }
+            $anyStmt->execute($anyParams);
+            $anyRow = $anyStmt->fetch(PDO::FETCH_ASSOC);
+            if ($anyRow) {
+                $existingRecord = ['id' => $anyRow['id']];
+                $formulaVariant = (int)$anyRow['formula_variant'];
+            }
+        } else {
+            $anyStmt = $pdo->prepare("
+                SELECT id, formula_variant FROM data_capture_templates 
+                WHERE company_id = ? AND process_id " . ($hasProcessId ? "= ?" : "IS NULL") . "
+                  AND product_type = 'main' AND COALESCE(TRIM(id_product), '') = COALESCE(TRIM(?), '')
+                  AND account_id = ? AND (data_capture_id IS NULL OR data_capture_id = 0)
+                ORDER BY updated_at DESC LIMIT 1
+            ");
+            $anyParams = [$companyId, $row['id_product'], $row['account_id']];
+            if ($hasProcessId) {
+                array_splice($anyParams, 1, 0, [$processId]);
+            }
+            $anyStmt->execute($anyParams);
+            $anyRow = $anyStmt->fetch(PDO::FETCH_ASSOC);
+            if ($anyRow) {
+                $existingRecord = ['id' => $anyRow['id']];
+                $formulaVariant = (int)$anyRow['formula_variant'];
+            }
+        }
+    }
+    
+    // 如果没有通过 template_id 找到记录，使用原来的逻辑查找（按 formula_variant 精确匹配）
     if (!$existingRecord) {
         if ($productType === 'sub') {
             // For sub type, check by parent_id_product, id_product, account_id, formula_variant, sub_order, process_id, data_capture_id
-            // sub_order is used to distinguish multiple sub rows with same account
             $checkStmt = $pdo->prepare("
                 SELECT id FROM data_capture_templates 
                 WHERE company_id = :company_id
