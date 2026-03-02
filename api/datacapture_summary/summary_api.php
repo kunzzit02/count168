@@ -2386,6 +2386,14 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($rowCurrId === null) {
                         $rowCurrId = $resolvedCurrencyId;
                     }
+                    // 保存每行的 currency_display，这样再次进入 Data Summary 时 Currency 列能正确显示（否则为 null 会显示为空）
+                    $rowCurrencyDisplay = $summaryRow['currencyDisplay'] ?? $summaryRow['currency'] ?? null;
+                    if ($rowCurrencyDisplay === null && $rowCurrId !== null) {
+                        $codeStmt = $pdo->prepare("SELECT code FROM currency WHERE id = ? AND company_id = ? LIMIT 1");
+                        $codeStmt->execute([$rowCurrId, $companyId]);
+                        $codeRow = $codeStmt->fetch(PDO::FETCH_ASSOC);
+                        $rowCurrencyDisplay = $codeRow['code'] ?? null;
+                    }
                     // 优先使用前端传来的 sourceColumns / formulaOperators（保留 $2 / 引用格式），
                     // 仅在缺失时才回退到旧字段，避免在 Submit 时把模板里的符号公式覆盖成代入数值后的公式。
                     $templatePayload = [
@@ -2395,7 +2403,7 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         'account_id' => $summaryRow['accountId'],
                         'account_display' => $summaryRow['accountDisplay'] ?? null,
                         'currency_id' => $rowCurrId,
-                        'currency_display' => null,
+                        'currency_display' => $rowCurrencyDisplay,
                         // source_columns：优先使用 summaryRows.sourceColumns，其次回退到 columns
                         'source_columns' => $summaryRow['sourceColumns'] ?? ($summaryRow['columns'] ?? ''),
                         // formula_operators：优先使用 summaryRows.formulaOperators（原始公式，含 $2），
