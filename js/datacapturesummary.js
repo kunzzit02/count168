@@ -1859,92 +1859,15 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
 // Store the current selected row for calculator keypad
 let currentSelectedRowForCalculator = null;
 
-// 通用的公式输入处理函数：无论是点击 keypad 还是键盘输入，统一走这里
+// 通用的公式输入处理函数：无论是点击 keypad 还是键盘输入，都只按「原样字符」写入
+// 数字本身一律视为常数；只有带 $ 符号（如 $5）或 [ID,5] 这样的引用，才在后续解析时绑定到格子
 function handleFormulaValueInput(formulaInput, value) {
     if (!formulaInput || !value) return;
 
-    // 数字 0-9：按列号去当前行找对应 column 的值
-    if (/^\d$/.test(value)) {
-        const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
-        const textBefore = formulaInput.value.substring(0, cursorPos);
-
-        // 判断当前位置是否应该用「列值」而不是字面数字
-        const trimmedBefore = textBefore.trim();
-        let shouldUseColumnValue = false;
-
-        if (trimmedBefore.length === 0) {
-            // 开头直接输数字：按列找值
-            shouldUseColumnValue = true;
-        } else {
-            // 从后往前找最近的运算符或小数点
-            let lastOperatorIndex = -1;
-            let lastOperator = '';
-            for (let i = trimmedBefore.length - 1; i >= 0; i--) {
-                const char = trimmedBefore[i];
-                if (char === '+' || char === '-' || char === '*' || char === '/' || char === '.') {
-                    lastOperatorIndex = i;
-                    lastOperator = char;
-                    break;
-                }
-            }
-
-            if (lastOperatorIndex === -1) {
-                // 没找到运算符，当成开头
-                shouldUseColumnValue = true;
-            } else if (lastOperator === '.') {
-                // 小数点后面直接输入数字，按普通数字处理
-                shouldUseColumnValue = false;
-            } else if (lastOperator === '*' || lastOperator === '/') {
-                // 乘除后面输入数字，按普通数字处理
-                shouldUseColumnValue = false;
-            } else if (lastOperator === '+' || lastOperator === '-') {
-                // + / - 后面，如果中间没有小数点，就按列号处理
-                const afterOperator = trimmedBefore.substring(lastOperatorIndex + 1).trim();
-                shouldUseColumnValue = !afterOperator.includes('.');
-            }
-        }
-
-        if (shouldUseColumnValue) {
-            // 使用当前选中行的列值
-            const columnValue = getColumnValueFromSelectedRow(parseInt(value));
-            if (columnValue !== null) {
-                const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                formulaInput.value = textBefore + columnValue + textAfter;
-
-                const newCursorPos = cursorPos + columnValue.length;
-                formulaInput.setSelectionRange(newCursorPos, newCursorPos);
-
-                // 记录被使用的列号
-                let clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
-                const columnsArray = clickedColumns ? clickedColumns.split(',').map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
-                columnsArray.push(parseInt(value));
-                formulaInput.setAttribute('data-clicked-columns', columnsArray.join(','));
-
-                // 记录「值 -> 列号」的映射
-                let valueColumnMap = formulaInput.getAttribute('data-value-column-map') || '';
-                const mapEntries = valueColumnMap ? valueColumnMap.split(',') : [];
-                mapEntries.push(`${columnValue}:${value}`);
-                formulaInput.setAttribute('data-value-column-map', mapEntries.join(','));
-
-                formulaInput.focus();
-                return;
-            }
-        }
-
-        // 没有选中行或没找到列，就按普通数字插入
-        const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-        formulaInput.value = textBefore + value + textAfter;
-
-        const newCursorPos = cursorPos + value.length;
-        formulaInput.setSelectionRange(newCursorPos, newCursorPos);
-        formulaInput.focus();
-        return;
-    }
-
-    // 运算符、小括号、小数点：直接插入
     const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
     const textBefore = formulaInput.value.substring(0, cursorPos);
     const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
+
     formulaInput.value = textBefore + value + textAfter;
 
     const newCursorPos = cursorPos + value.length;
