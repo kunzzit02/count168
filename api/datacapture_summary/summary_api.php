@@ -2386,6 +2386,8 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($rowCurrId === null) {
                         $rowCurrId = $resolvedCurrencyId;
                     }
+                    // 优先使用前端传来的 sourceColumns / formulaOperators（保留 $2 / 引用格式），
+                    // 仅在缺失时才回退到旧字段，避免在 Submit 时把模板里的符号公式覆盖成代入数值后的公式。
                     $templatePayload = [
                         'product_type' => $pt,
                         'id_product' => $idProduct,
@@ -2394,8 +2396,16 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         'account_display' => $summaryRow['accountDisplay'] ?? null,
                         'currency_id' => $rowCurrId,
                         'currency_display' => null,
-                        'source_columns' => $summaryRow['columns'] ?? '',
-                        'formula_operators' => $summaryRow['formula'] ?? '',
+                        // source_columns：优先使用 summaryRows.sourceColumns，其次回退到 columns
+                        'source_columns' => $summaryRow['sourceColumns'] ?? ($summaryRow['columns'] ?? ''),
+                        // formula_operators：优先使用 summaryRows.formulaOperators（原始公式，含 $2），
+                        // 若不存在再回退到 formula（数值公式）；否则保持为空。
+                        'formula_operators' => (
+                            isset($summaryRow['formulaOperators']) && $summaryRow['formulaOperators'] !== ''
+                                ? $summaryRow['formulaOperators']
+                                : ($summaryRow['formula'] ?? '')
+                        ),
+                        // formula_display 仍使用当前 Summary 提交的公式（通常是代入数值后的表达式）
                         'formula_display' => $summaryRow['formula'] ?? '',
                         'source_percent' => isset($summaryRow['sourcePercent']) && $summaryRow['sourcePercent'] !== '' ? (string)$summaryRow['sourcePercent'] : '1',
                         'enable_source_percent' => (isset($summaryRow['sourcePercent']) && $summaryRow['sourcePercent'] !== '' && $summaryRow['sourcePercent'] !== '0') ? 1 : 0,
