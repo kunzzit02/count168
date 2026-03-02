@@ -13020,7 +13020,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         const formulaTextSpan = cells[4].querySelector('.formula-text');
         if (formulaTextSpan) {
             formulaTextSpan.textContent = formulaText;
-            if (formulaText || inputMethodTooltip) formulaTextSpan.setAttribute('title', [formulaText, inputMethodTooltip].filter(Boolean).join('\n'));
+            if (inputMethodTooltip) formulaTextSpan.setAttribute('title', inputMethodTooltip);
             formulaTextSpan.addEventListener('dblclick', function(e) {
                 e.stopPropagation();
                 enableFormulaInlineEdit(this, row);
