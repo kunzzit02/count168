@@ -2419,15 +2419,9 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         'last_processed_amount' => isset($summaryRow['processedAmount']) ? $summaryRow['processedAmount'] : 0,
                     ];
                     try {
-                        if ($pt === 'sub' && !empty($idProductMain)) {
-                            $delMain = $pdo->prepare("
-                                DELETE FROM data_capture_templates
-                                WHERE company_id = ? AND process_id = ? AND product_type = 'main'
-                                  AND COALESCE(TRIM(id_product), '') = COALESCE(TRIM(?), '')
-                                  AND account_id = ? AND COALESCE(data_capture_id, 0) = 0
-                            ");
-                            $delMain->execute([$companyId, $processIdForTemplates, $idProductMain, $summaryRow['accountId']]);
-                        }
+                        // 之前这里在保存 sub 模板时会删除同一 id_product_main + account 的 main 模板，
+                        // 会导致「第一次 Submit 有 main，一旦有 sub 再 Submit，main 模板被删，下一次生成 Summary 时 main 行公式消失」。
+                        // 现在不再删除 main 模板，保留 main + 多个 sub 同时存在的场景。
                         saveTemplateRow($pdo, $templatePayload, $companyId);
                     } catch (Exception $e) {
                         error_log('Submit: save template for Maintenance - ' . $e->getMessage());
