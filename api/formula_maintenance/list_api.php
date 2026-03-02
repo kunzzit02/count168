@@ -143,6 +143,13 @@ function mapRowsToDisplay(array $rows) {
     $no = 1;
     foreach ($rows as $row) {
         $sourceValue = $row['columns_display'] ?? $row['source_columns'] ?? '';
+        // 优先使用 formula_operators（原始公式，可能包含 $2 / 引用格式），
+        // 这样 Maintenance - Formula 的 Formula 列显示的是符号公式而不是代入数值后的结果。
+        // 若 formula_operators 为空，再回退到 formula_display。
+        $formulaValue = $row['formula_operators'] ?? '';
+        if ($formulaValue === null || $formulaValue === '') {
+            $formulaValue = $row['formula_display'] ?? '';
+        }
         $processCode = $row['process_code'] ?? '';
         $descriptionName = $row['description_name'] ?? '';
         $processDisplay = $processCode;
@@ -160,7 +167,7 @@ function mapRowsToDisplay(array $rows) {
             'source' => $sourceValue,
             'product' => $row['id_product'] ?? '',
             'input_method' => $row['input_method'] ?? '',
-            'formula' => $row['formula_display'] ?? $row['formula_operators'] ?? '',
+            'formula' => $formulaValue,
             'description' => $row['description'] ?? '',
             'product_type' => $row['product_type'] ?? 'main'
         ];
