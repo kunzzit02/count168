@@ -13626,24 +13626,6 @@ const templates = result.templates || {};
 // 仅当当前 process 在 Maintenance 有模板时才允许恢复刷新缓存，避免「全新 process」显示上次误恢复留下的 formula
 window.currentProcessHadTemplates = (typeof templates === 'object' && templates !== null && Object.keys(templates).length > 0);
 
-// 对于「全新 process」（在 Maintenance 中没有任何模板），Data Capture Summary 不应预先显示任何行
-// 这样新流程在 Summary 页面是空表，不会继承从 Data Capture 页面传来的产品行
-if (window.currentProcessHadTemplates !== true) {
-    const emptySummaryBody = document.getElementById('summaryTableBody');
-    if (emptySummaryBody) {
-        emptySummaryBody.innerHTML = '';
-    }
-    // 同步重建已使用账号集合，避免后续校验/下拉依赖旧行状态
-    if (typeof rebuildUsedAccountIds === 'function') {
-        try {
-            rebuildUsedAccountIds();
-        } catch (e) {
-            console.warn('rebuildUsedAccountIds failed on new process without templates:', e);
-        }
-    }
-    return;
-}
-
 // IMPORTANT: Recalculate row_index for all Summary Table rows based on Data Capture Table order
 // This is critical when rows are added/removed in Data Capture Table
 // Summary Table row should have row_index matching its position in Data Capture Table
