@@ -139,9 +139,38 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
  * 将原始行转换为前端需要的格式（no, process, account, source, formula 等）
  */
 function mapRowsToDisplay(array $rows) {
+    // 先根据业务关键字段去重，避免同一 Process / Product / Account / Currency / Formula
+    // 在 Maintenance - Formula 中出现多条重复记录，导致条数比 Data Summary 多 1 条或多条。
+    // 关键字段组合：process_id + product_type + id_product + account_id + currency_id + formula_operators + columns_display + source_columns
+    $rowsByKey = [];
+    foreach ($rows as $row) {
+        $keyParts = [
+            $row['process_id'] ?? '',
+            $row['product_type'] ?? 'main',
+            $row['id_product'] ?? '',
+            $row['account_id'] ?? '',
+            $row['currency_id'] ?? '',
+            $row['formula_operators'] ?? '',
+            $row['columns_display'] ?? '',
+            $row['source_columns'] ?? '',
+        ];
+        $dedupKey = implode('|', array_map('strval', $keyParts));
+
+        // 同一个 key 只保留最新的一条（id 最大），这样不会影响已存在功能，只是把历史重复记录在列表中折叠成一条
+        if (!isset($rowsByKey[$dedupKey])) {
+            $rowsByKey[$dedupKey] = $row;
+        } else {
+            $existingId = isset($rowsByKey[$dedupKey]['id']) ? (int)$rowsByKey[$dedupKey]['id'] : 0;
+            $currentId = isset($row['id']) ? (int)$row['id'] : 0;
+            if ($currentId > $existingId) {
+                $rowsByKey[$dedupKey] = $row;
+            }
+        }
+    }
+
     $data = [];
     $no = 1;
-    foreach ($rows as $row) {
+    foreach ($rowsByKey as $row) {
         $sourceValue = $row['columns_display'] ?? $row['source_columns'] ?? '';
         // 优先使用 formula_operators（原始公式，可能包含 $2 / 引用格式），
         // 这样 Maintenance - Formula 的 Formula 列显示的是符号公式而不是代入数值后的结果。
