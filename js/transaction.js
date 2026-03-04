@@ -343,44 +343,33 @@ document.addEventListener('DOMContentLoaded', function() {
     // 绑定 Middle-Man Amount 自动计算
     initMiddleManAmountCalculation();
     
-    // 🆕 加载分类列表和 company 列表，完成后加载 currency，然后加载账户列表并自动执行搜索
+    // 🆕 加载分类列表和 company 列表，然后并行：currency、账户、搜索（不先等 currency，首屏更快）
     Promise.all([
         loadCategories(),
         loadOwnerCompanies()
     ]).then(() => {
-        // 确保 currentCompanyId 已设置
         console.log('🔍 loadOwnerCompanies 完成后，currentCompanyId:', currentCompanyId);
-        
-        // 如果 currentCompanyId 还是 null，等待一下再加载 currency
+        ensureDefaultDates();
+
         if (!currentCompanyId) {
             console.warn('⚠️ currentCompanyId 为 null，短暂延迟后加载 currency');
             return new Promise(resolve => {
                 setTimeout(() => loadCompanyCurrencies().then(resolve), 50);
+            }).then(() => {
+                if (currencyList.length === 0) {
+                    showNotification('No currency available for current company', 'info');
+                    return loadAccounts().then(() => { initCustomSelects(); });
+                }
+                loadAccounts().then(() => { initCustomSelects(); console.log('✅ 初始数据加载完成'); });
+                searchTransactions(true);
             });
         }
-        
-        // 先加载 currency，一就绪就发起搜索（不等待账户列表），表格数据更快「直接显示」
-        return loadCompanyCurrencies();
-    }).then(() => {
-        // 有 currency 即触发搜索，账户下拉稍后由 loadAccounts + initCustomSelects 补全
-        if (currencyList.length === 0) {
-            showNotification('No currency available for current company', 'info');
-            return loadAccounts().then(() => { initCustomSelects(); });
-        }
-        if (!showAllCurrencies && selectedCurrencies.length === 0) {
-            setTimeout(() => {
-                if (!showAllCurrencies && selectedCurrencies.length === 0) return;
-                loadContraInbox();
-                searchTransactions(true);
-            }, 0);
-        } else {
-            loadContraInbox();
-            searchTransactions(true);
-        }
-        return loadAccounts().then(() => {
-            initCustomSelects();
-            console.log('✅ 初始数据加载完成');
-        });
+
+        // 有 company：currency、账户、搜索并行，不先等 get_company_currencies（约省 0.5s）
+        loadCompanyCurrencies();
+        loadAccounts().then(() => { initCustomSelects(); console.log('✅ 初始数据加载完成'); });
+        // Contra Inbox 延后到用户点击再加载，减少首屏请求
+        searchTransactions(true);
     }).catch(error => {
         console.error('❌ 初始数据加载失败:', error);
         showNotification('Failed to load initial data', 'error');
@@ -1242,10 +1231,12 @@ function searchTransactions(isInitialLoad) {
         return;
     }
     
-    // 如果没有选中任何 currency 且没有选择 All，不显示表格
-    if (!showAllCurrencies && selectedCurrencies.length === 0) {
-        document.querySelector('.transaction-tables-section').style.display = 'none';
-        document.querySelector('.transaction-summary-section').style.display = 'none';
+    // 首次进入页面时允许不选 currency 就搜（只传 company_id + 日期，后端返回全部 currency）
+    if (!isInitialLoad && !showAllCurrencies && selectedCurrencies.length === 0) {
+        const tablesSection = document.querySelector('.transaction-tables-section');
+        const summarySection = document.querySelector('.transaction-summary-section');
+        if (tablesSection) tablesSection.style.display = 'none';
+        if (summarySection) summarySection.style.display = 'none';
         showNotification('Please select at least one Currency or select All', 'info');
         return;
     }
@@ -1275,7 +1266,7 @@ function searchTransactions(isInitialLoad) {
         tablesSection.style.flexDirection = 'column';
     }
     if (loadingEl) {
-        loadingEl.textContent = isInitialLoad ? "Loading data..." : 'Loading...';
+        loadingEl.textContent = isInitialLoad ? "Loading today's data..." : 'Loading...';
         loadingEl.style.display = 'flex';
     }
     if (defaultTables) defaultTables.style.display = 'none';
