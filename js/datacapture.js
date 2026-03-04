@@ -3153,6 +3153,9 @@ let isSelecting = false;
                 return;
             }
             
+            // 重建表格前，清空所有选中状态和内部 selectedCells 记录
+            clearAllSelections();
+            
             // Clear existing content
             tableBody.innerHTML = '';
             
