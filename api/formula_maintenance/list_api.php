@@ -139,38 +139,11 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
  * 将原始行转换为前端需要的格式（no, process, account, source, formula 等）
  */
 function mapRowsToDisplay(array $rows) {
-    // 先根据业务关键字段去重，避免同一 Process / Product / Account / Currency / Formula
-    // 在 Maintenance - Formula 中出现多条重复记录，导致条数比 Data Summary 多 1 条或多条。
-    // 关键字段组合：process_id + product_type + id_product + account_id + currency_id + formula_operators + columns_display + source_columns
-    $rowsByKey = [];
+    // 以「界面上能看到的字段」为维度去重，
+    // 确保同一 Process 下，Maintenance - Formula 的可见行数与 Data Summary 一致，
+    // 但不影响底层 data_capture_templates 中的所有记录（仅列表展示去重）。
+    $displayRowsByKey = [];
     foreach ($rows as $row) {
-        $keyParts = [
-            $row['process_id'] ?? '',
-            $row['product_type'] ?? 'main',
-            $row['id_product'] ?? '',
-            $row['account_id'] ?? '',
-            $row['currency_id'] ?? '',
-            $row['formula_operators'] ?? '',
-            $row['columns_display'] ?? '',
-            $row['source_columns'] ?? '',
-        ];
-        $dedupKey = implode('|', array_map('strval', $keyParts));
-
-        // 同一个 key 只保留最新的一条（id 最大），这样不会影响已存在功能，只是把历史重复记录在列表中折叠成一条
-        if (!isset($rowsByKey[$dedupKey])) {
-            $rowsByKey[$dedupKey] = $row;
-        } else {
-            $existingId = isset($rowsByKey[$dedupKey]['id']) ? (int)$rowsByKey[$dedupKey]['id'] : 0;
-            $currentId = isset($row['id']) ? (int)$row['id'] : 0;
-            if ($currentId > $existingId) {
-                $rowsByKey[$dedupKey] = $row;
-            }
-        }
-    }
-
-    $data = [];
-    $no = 1;
-    foreach ($rowsByKey as $row) {
         $sourceValue = $row['columns_display'] ?? $row['source_columns'] ?? '';
         // 优先使用 formula_operators（原始公式，可能包含 $2 / 引用格式），
         // 这样 Maintenance - Formula 的 Formula 列显示的是符号公式而不是代入数值后的结果。
@@ -185,21 +158,60 @@ function mapRowsToDisplay(array $rows) {
         if ($descriptionName !== '') {
             $processDisplay = $processCode . ' (' . $descriptionName . ')';
         }
-        $data[] = [
-            'no' => $no++,
-            'id' => (int)$row['id'],
-            'process' => $processDisplay,
-            'account' => $row['account_code'] ?? ($row['account_display'] ?? ''),
-            'account_id' => $row['account_id'],
-            'account_name' => $row['account_name'] ?? '',
-            'currency' => $row['currency_code'] ?? ($row['currency_display'] ?? ''),
-            'source' => $sourceValue,
-            'product' => $row['id_product'] ?? '',
-            'input_method' => $row['input_method'] ?? '',
-            'formula' => $formulaValue,
-            'description' => $row['description'] ?? '',
-            'product_type' => $row['product_type'] ?? 'main'
+        $accountDisplay = $row['account_code'] ?? ($row['account_display'] ?? '');
+        $currencyDisplay = $row['currency_code'] ?? ($row['currency_display'] ?? '');
+        $product = $row['id_product'] ?? '';
+        $inputMethod = $row['input_method'] ?? '';
+        $description = $row['description'] ?? '';
+        $productType = $row['product_type'] ?? 'main';
+
+        // 只要界面上显示完全一样（Process / Account / Currency / Source / Product / Input Method / Formula / Description / 类型），
+        // 就视为同一行，只保留最新一条（id 最大），避免出现「看起来一模一样但计数多 1 条」的情况。
+        $keyParts = [
+            mb_strtolower(trim((string)$processDisplay)),
+            mb_strtolower(trim((string)$accountDisplay)),
+            mb_strtolower(trim((string)$currencyDisplay)),
+            mb_strtolower(trim((string)$sourceValue)),
+            mb_strtolower(trim((string)$product)),
+            mb_strtolower(trim((string)$inputMethod)),
+            mb_strtolower(trim((string)$formulaValue)),
+            mb_strtolower(trim((string)$description)),
+            $productType,
         ];
+        $dedupKey = implode('|', $keyParts);
+
+        $currentId = isset($row['id']) ? (int)$row['id'] : 0;
+        if (!isset($displayRowsByKey[$dedupKey])) {
+            $displayRowsByKey[$dedupKey] = [
+                'id' => $currentId,
+                'process' => $processDisplay,
+                'account' => $accountDisplay,
+                'account_id' => $row['account_id'],
+                'account_name' => $row['account_name'] ?? '',
+                'currency' => $currencyDisplay,
+                'source' => $sourceValue,
+                'product' => $product,
+                'input_method' => $inputMethod,
+                'formula' => $formulaValue,
+                'description' => $description,
+                'product_type' => $productType
+            ];
+        } else {
+            // 同一个界面组合只保留最新一条，避免历史重复记录在列表中多占一行
+            $existingId = (int)$displayRowsByKey[$dedupKey]['id'];
+            if ($currentId > $existingId) {
+                $displayRowsByKey[$dedupKey]['id'] = $currentId;
+            }
+        }
+    }
+
+    // 重新生成顺序号 no
+    $data = [];
+    $no = 1;
+    foreach ($displayRowsByKey as $row) {
+        $row['no'] = $no++;
+        $row['id'] = (int)$row['id'];
+        $data[] = $row;
     }
     return $data;
 }
