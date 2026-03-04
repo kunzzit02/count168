@@ -14591,6 +14591,14 @@ if (!targetRow && templateAccountId) {
     }
 }
 
+// 如果模板是「按账号」定义的（templateAccountId 有值），但在上面的规则里完全找不到匹配的行，
+// 为了安全起见，直接跳过，不再退回到仅按 row_index / 第一个候选行的兜底，避免把
+// 「MG95-45 + MEGA888」一类的模板套到「MG95-45 + JB-VINCENT」这样的行上。
+if (!targetRow && templateAccountId) {
+    console.warn('applyMainTemplateToRow: No row matched account-specific template. Skip applying for account_id =', templateAccountId, 'idProduct =', idProduct);
+    return;
+}
+
 // Priority 4: Match by row_index only (fallback when account_id not available)
 // Prefer rows not yet assigned a template in this round to avoid one row getting two templates
 if (!targetRow && templateRowIndex !== null) {
