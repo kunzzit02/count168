@@ -1,6 +1,7 @@
 let isSelecting = false;
         let startCell = null;
         let selectedCells = new Set();
+        let mouseUpBound = false;
         
         // 构造 API 绝对 URL（与 processlist.js 一致，避免 404）
         function buildApiUrl(pathAndQuery) {
@@ -3284,8 +3285,11 @@ let isSelecting = false;
             
             console.log('Table initialized successfully. Created', rows, 'rows with', cols, 'columns each.');
             
-            // Add mouse release event
-            document.addEventListener('mouseup', handleMouseUp);
+            // Add mouse release event（只绑定一次）
+            if (!mouseUpBound) {
+                document.addEventListener('mouseup', handleMouseUp);
+                mouseUpBound = true;
+            }
         }
         
         // Add global click listener to deactivate table when clicking outside
