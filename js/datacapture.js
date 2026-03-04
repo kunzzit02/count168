@@ -3160,7 +3160,12 @@ let isSelecting = false;
             tableBody.innerHTML = '';
             
             // Generate column headers
-            const headerRow = tableHeader.querySelector('tr');
+            let headerRow = tableHeader.querySelector('tr');
+            // 如果表头行不存在（HTML 结构被改坏或尚未渲染），创建一个新的 tr 以避免报错
+            if (!headerRow) {
+                headerRow = document.createElement('tr');
+                tableHeader.appendChild(headerRow);
+            }
             headerRow.innerHTML = '<th></th>'; // Keep first empty header
             
             for (let j = 0; j < cols; j++) {
