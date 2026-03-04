@@ -1447,10 +1447,8 @@ function createChart(canvas, chartData) {
                                         day = d.getDate();
                                     }
 
-                                    // 只在每个月的第 1 天显示标签，其它日期不显示
-                                    if (day !== 1) return '';
-                                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                                    return `${monthNames[month - 1]} ${year}`;
+                                    // 日级别视图：直接显示“几号”（1,2,3,...）
+                                    return String(day || '');
                                 } catch (e) {
                                     return '';
                                 }
