@@ -3153,8 +3153,9 @@ let isSelecting = false;
                 return;
             }
             
-            // 重建表格前，清空所有选中状态和内部 selectedCells 记录
+            // 重建表格前，清空所有选中状态和内部粘贴历史，避免旧版本表格的撤销记录作用到新结构
             clearAllSelections();
+            pasteHistory = [];
             
             // Clear existing content
             tableBody.innerHTML = '';
