@@ -1410,30 +1410,37 @@ function createChart(canvas, chartData) {
                             // 多月/年份范围：按月份显示刻度；短范围仍按天，但只在每月1号显示标签
                             callback: function(value, index) {
                                 try {
-                                    const dateStr = (chartData.labels && chartData.labels[index]) || sortedDates[index];
-                                    if (!dateStr) return '';
+                                    // 优先使用 sortedDates 中的原始日期键（与数据一一对应）
+                                    const rawDate = (sortedDates && sortedDates[index]) ||
+                                                    (chartData.labels && chartData.labels[index]);
+                                    if (!rawDate) return '';
 
-                                    // 按月份聚合时：labels 已经是月份简称，直接返回
-                                    if (shouldAggregateByMonth() && dateStr.match(/^[A-Za-z]{3}$/)) {
-                                        return dateStr;
+                                    // 多月/年份范围：rawDate 为 "YYYY-MM"，显示 "Mon YYYY"
+                                    if (shouldAggregateByMonth() && rawDate.match(/^\d{4}-\d{2}$/)) {
+                                        const [yearStr, monthStr] = rawDate.split('-');
+                                        const year = parseInt(yearStr, 10);
+                                        const month = parseInt(monthStr, 10);
+                                        if (!year || !month) return '';
+                                        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                        return `${monthNames[month - 1]} ${year}`;
                                     }
 
-                                    // 其它情况：dateStr 可能是 "YYYY-MM-DD" 或 "DD/MM"
+                                    // 其它情况：rawDate 可能是 "YYYY-MM-DD" 或 "DD/MM"
                                     let year, month, day;
-                                    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                    if (rawDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
                                         // YYYY-MM-DD
-                                        const parts = dateStr.split('-');
+                                        const parts = rawDate.split('-');
                                         year = parseInt(parts[0], 10);
                                         month = parseInt(parts[1], 10);
                                         day = parseInt(parts[2], 10);
-                                    } else if (dateStr.match(/^\d{1,2}\/\d{1,2}$/)) {
+                                    } else if (rawDate.match(/^\d{1,2}\/\d{1,2}$/)) {
                                         // DD/MM（无年份，用当前年份兜底）
-                                        const parts = dateStr.split('/');
+                                        const parts = rawDate.split('/');
                                         day = parseInt(parts[0], 10);
                                         month = parseInt(parts[1], 10);
                                         year = new Date().getFullYear();
                                     } else {
-                                        const d = new Date(dateStr);
+                                        const d = new Date(rawDate);
                                         if (isNaN(d.getTime())) return '';
                                         year = d.getFullYear();
                                         month = d.getMonth() + 1;
