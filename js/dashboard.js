@@ -37,6 +37,28 @@ let selectedChartDataType = 'all';
 // 当前选择的范围类型（用于判断是否按月份显示）
 let currentRangeType = null; // 'year' 表示年份范围，null 表示其他范围
 
+// 判断当前是否应按月份聚合显示图表（年份范围或跨越多个月的自定义范围）
+function shouldAggregateByMonth() {
+    try {
+        if (currentRangeType === 'year') return true;
+        if (!dateRange || !dateRange.startDate || !dateRange.endDate) return false;
+        const start = new Date(dateRange.startDate);
+        const end = new Date(dateRange.endDate);
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) return false;
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+        // 计算跨越的月份数（含首尾），例如 2025-11 ~ 2026-02 → 4 个月
+        const monthSpan =
+            (end.getFullYear() - start.getFullYear()) * 12 +
+            (end.getMonth() - start.getMonth()) +
+            1;
+        // 跨越 3 个月及以上时按月聚合；1-2 个月仍按天显示
+        return monthSpan >= 3;
+    } catch (e) {
+        return false;
+    }
+}
+
 // 初始化增强日期选择器
 function initEnhancedDatePickers() {
     const today = new Date();
@@ -1059,9 +1081,9 @@ function updateChart(data) {
     const expensesData = [];
     const profitData = [];
     
-    // 检查是否是年份范围，如果是则按月份聚合
-    if (currentRangeType === 'year' && dateRange.startDate && dateRange.endDate) {
-        // 年份范围：按月份聚合数据
+    // 检查是否应按月份聚合（年份范围或跨越多个月）
+    if (shouldAggregateByMonth() && dateRange.startDate && dateRange.endDate) {
+        // 按月份聚合数据
         const startDate = new Date(dateRange.startDate);
         const endDate = new Date(dateRange.endDate);
         startDate.setHours(0, 0, 0, 0);
@@ -1272,19 +1294,19 @@ function updateChart(data) {
     const chartData = {
         labels: dates.map(d => {
             try {
-                // 如果是年份范围，d 是 "YYYY-MM" 格式
-                if (currentRangeType === 'year' && d.match(/^\d{4}-\d{2}$/)) {
+                // 按月份聚合时（年份范围或跨越多个月），d 是 "YYYY-MM" 格式
+                if (shouldAggregateByMonth() && d.match(/^\d{4}-\d{2}$/)) {
                     const [year, month] = d.split('-');
                     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    return monthNames[parseInt(month) - 1];
+                    return monthNames[parseInt(month, 10) - 1];
                 }
                 // 否则是日期格式 "YYYY-MM-DD"
                 const date = new Date(d);
                 if (isNaN(date.getTime())) return d;
-                // 只显示日期，不显示年份（如果日期范围在同一年）
-return `${date.getDate()}/${date.getMonth() + 1}`;
-                        } catch (e) {
-                            return d;
+                // 显示为 "DD/MM"
+                return `${date.getDate()}/${date.getMonth() + 1}`;
+            } catch (e) {
+                return d;
             }
         }),
         datasets: filteredDatasets
@@ -1385,14 +1407,14 @@ function createChart(canvas, chartData) {
                             minRotation: 0,
                             autoSkip: false,
                             maxTicksLimit: undefined,
-                            // 只按月份显示刻度，不再逐天显示
+                            // 多月/年份范围：按月份显示刻度；短范围仍按天，但只在每月1号显示标签
                             callback: function(value, index) {
                                 try {
                                     const dateStr = (chartData.labels && chartData.labels[index]) || sortedDates[index];
                                     if (!dateStr) return '';
 
-                                    // 年份范围：labels 已经是月份简称，直接返回
-                                    if (currentRangeType === 'year' && dateStr.match(/^[A-Za-z]{3}$/)) {
+                                    // 按月份聚合时：labels 已经是月份简称，直接返回
+                                    if (shouldAggregateByMonth() && dateStr.match(/^[A-Za-z]{3}$/)) {
                                         return dateStr;
                                     }
 
@@ -1447,8 +1469,8 @@ function createChart(canvas, chartData) {
                                     const date = sortedDates[dataIndex];
                                     if (date) {
                                         try {
-                                            // 如果是年份范围，date 是 "YYYY-MM" 格式
-                                            if (currentRangeType === 'year' && date.match(/^\d{4}-\d{2}$/)) {
+                                            // 按月份聚合时，date 是 "YYYY-MM" 格式
+                                            if (shouldAggregateByMonth() && date.match(/^\d{4}-\d{2}$/)) {
                                                 const [year, month] = date.split('-');
                                                 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
                                                 return `${monthNames[parseInt(month) - 1]} ${year}`;
