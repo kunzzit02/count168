@@ -168,14 +168,14 @@ function mapRowsToDisplay(array $rows) {
         // 只要界面上显示完全一样（Process / Account / Currency / Source / Product / Input Method / Formula / Description / 类型），
         // 就视为同一行，只保留最新一条（id 最大），避免出现「看起来一模一样但计数多 1 条」的情况。
         $keyParts = [
-            mb_strtolower(trim((string)$processDisplay)),
-            mb_strtolower(trim((string)$accountDisplay)),
-            mb_strtolower(trim((string)$currencyDisplay)),
-            mb_strtolower(trim((string)$sourceValue)),
-            mb_strtolower(trim((string)$product)),
-            mb_strtolower(trim((string)$inputMethod)),
-            mb_strtolower(trim((string)$formulaValue)),
-            mb_strtolower(trim((string)$description)),
+            strtolower(trim((string)$processDisplay)),
+            strtolower(trim((string)$accountDisplay)),
+            strtolower(trim((string)$currencyDisplay)),
+            strtolower(trim((string)$sourceValue)),
+            strtolower(trim((string)$product)),
+            strtolower(trim((string)$inputMethod)),
+            strtolower(trim((string)$formulaValue)),
+            strtolower(trim((string)$description)),
             $productType,
         ];
         $dedupKey = implode('|', $keyParts);
