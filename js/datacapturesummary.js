@@ -13759,14 +13759,44 @@ uniqueIds.forEach(normalizedIdProduct => {
         if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
             if (summaryTableBody) {
                 const allRows = summaryTableBody.querySelectorAll('tr');
+
+                // 统计当前 id_product 在 Summary 表中的 main 行数量，
+                // 以及该 id_product 在模板里涉及到多少个不同的 account_id。
+                let candidateRowCount = 0;
+                const templateAccountIds = new Set();
+
                 allRows.forEach((r) => {
                     const productType = r.getAttribute('data-product-type') || 'main';
                     if (productType !== 'main') return;
                     const idCell = r.querySelector('td:first-child');
                     const pv = idCell ? getProductValuesFromCell(idCell) : {};
                     const mainNorm = normalizeIdProductText(pv.main || '');
-                    if (mainNorm === normalizedIdProduct) r.removeAttribute('data-template-applied');
+                    if (mainNorm === normalizedIdProduct) {
+                        candidateRowCount += 1;
+                        r.removeAttribute('data-template-applied');
+                    }
                 });
+
+                template.allMains.forEach(m => {
+                    if (m && m.account_id) {
+                        templateAccountIds.add(String(m.account_id));
+                    }
+                });
+
+                // 安全保护：
+                // 如果同一个 id_product 在模板里有多个不同账号的 main 公式，
+                // 但 Summary 表中当前只有 1 行可以套用，
+                // 为避免把「A 账号的模板」错误套到「B 账号」这一行上，
+                // 直接跳过自动套模板，让用户手动选择账号和公式。
+                if (candidateRowCount === 1 && templateAccountIds.size > 1) {
+                    console.warn(
+                        'Skip auto-populate templates for id_product with multiple accounts but single row:',
+                        normalizedIdProduct,
+                        'account_ids=',
+                        Array.from(templateAccountIds)
+                    );
+                    return;
+                }
             }
             // Sort templates by row_index to apply them in the correct order
             const sortedTemplates = [...template.allMains].sort((a, b) => {
