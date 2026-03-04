@@ -1211,7 +1211,7 @@ function updateCurrencyButtonsState() {
 }
 
 // ==================== 搜索功能 ====================
-// isInitialLoad: 首次进入页面自动搜当天数据时传 true，仅用于显示 "Loading today's data..."
+// isInitialLoad: 首次进入页面自动搜当天数据时传 true
 function searchTransactions(isInitialLoad) {
     const dateFrom = document.getElementById('date_from').value;
     const dateTo = document.getElementById('date_to').value;
@@ -1262,7 +1262,7 @@ function searchTransactions(isInitialLoad) {
         tablesSection.style.flexDirection = 'column';
     }
     if (loadingEl) {
-        loadingEl.textContent = isInitialLoad ? "Loading today's data..." : 'Loading...';
+        loadingEl.textContent = 'Loading data';
         loadingEl.style.display = 'flex';
     }
     if (defaultTables) defaultTables.style.display = 'none';
