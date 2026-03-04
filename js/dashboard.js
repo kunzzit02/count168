@@ -52,8 +52,8 @@ function shouldAggregateByMonth() {
             (end.getFullYear() - start.getFullYear()) * 12 +
             (end.getMonth() - start.getMonth()) +
             1;
-        // 跨越 2 个月及以上时按月聚合；1 个月以内仍按天显示
-        return monthSpan >= 2;
+        // 跨越 3 个月及以上时按月聚合；1-2 个月仍按天显示
+        return monthSpan >= 3;
     } catch (e) {
         return false;
     }
