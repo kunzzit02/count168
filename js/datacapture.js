@@ -482,13 +482,6 @@ let isSelecting = false;
         // Handle column header mouse over (for drag selection)
         function handleColumnHeaderMouseOver(e, colIndex) {
             if (isSelectingColumns && startColumnIndex !== null) {
-                selectColumn(startColumnIndex, colIndex);
-            }
-        }
-
-        // Handle column header mouse over (for drag selection)
-        function handleColumnHeaderMouseOver(e, colIndex) {
-            if (isSelectingColumns && startColumnIndex !== null) {
                 // Get actual column index from DOM position
                 const actualColIndex = getColumnIndexFromHeader(e.target);
                 const finalColIndex = actualColIndex >= 0 ? actualColIndex : colIndex;
