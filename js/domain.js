@@ -1367,6 +1367,37 @@ function updateRowNumbers() {
     initializePagination();
 }
 
+// 同步现有 DOM 中的删除勾选框显示规则：仅当不包含受保护 Company（如 C168）时才允许删除
+function syncDeleteCheckboxProtection() {
+    const cards = document.querySelectorAll('#domainTableBody .domain-card');
+    cards.forEach(card => {
+        const lastItem = card.querySelector('.card-item:last-child');
+        if (!lastItem) return;
+        
+        const existingCheckbox = lastItem.querySelector('.domain-checkbox');
+        const protectedOwner = cardHasProtectedCompany(card);
+        
+        if (protectedOwner) {
+            // 受保护：移除任何已有的删除勾选框
+            if (existingCheckbox) {
+                existingCheckbox.remove();
+            }
+        } else {
+            // 非受保护：如果没有勾选框，则补一个
+            if (!existingCheckbox) {
+                const id = card.getAttribute('data-id');
+                if (!id) return;
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'domain-checkbox';
+                cb.value = id;
+                cb.addEventListener('change', updateDeleteButton);
+                lastItem.appendChild(cb);
+            }
+        }
+    });
+}
+
 // 初始化公司点击事件
 function initializeCompanyClickHandlers() {
     // 选择所有 company-badge
@@ -1448,6 +1479,8 @@ function closeCompanyExpirationModal() {
 document.addEventListener('DOMContentLoaded', function() {
     setupSearch();
     initializePagination();
+    // 确保现有列表的删除勾选框与受保护 Company 规则（如 C168）保持一致
+    syncDeleteCheckboxProtection();
     updateDeleteButton(); // 初始化删除按钮状态
     initializeCompanyClickHandlers(); // 初始化公司点击事件
 
