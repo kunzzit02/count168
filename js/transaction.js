@@ -1262,7 +1262,7 @@ function searchTransactions(isInitialLoad) {
         tablesSection.style.flexDirection = 'column';
     }
     if (loadingEl) {
-        loadingEl.textContent = isInitialLoad ? "Loading data..." : 'Loading...';
+        loadingEl.textContent = isInitialLoad ? "Loading today's data..." : 'Loading...';
         loadingEl.style.display = 'flex';
     }
     if (defaultTables) defaultTables.style.display = 'none';
