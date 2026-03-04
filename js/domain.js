@@ -1115,6 +1115,30 @@ function updateDeleteButton() {
     }
 }
 
+// 检查某个 owner 卡片是否包含受保护的 Company ID（例如 C168）
+function cardHasProtectedCompany(card) {
+    if (!card) return false;
+    const companiesColumn = card.querySelector('.companies-column');
+    if (!companiesColumn) return false;
+    
+    // 优先从 data-companies 属性中解析 company_id
+    try {
+        const dataAttr = companiesColumn.getAttribute('data-companies');
+        if (dataAttr) {
+            const companies = JSON.parse(dataAttr);
+            if (Array.isArray(companies) && companies.some(c => String(c.company_id || '').trim().toUpperCase() === 'C168')) {
+                return true;
+            }
+        }
+    } catch (err) {
+        console.warn('Error parsing companies data for delete protection:', err);
+    }
+    
+    // 回退：从文本内容中解析 company 列（例如 "95, C168, KZ"）
+    const text = (companiesColumn.textContent || '').toUpperCase();
+    return text.split(',').some(id => id.trim() === 'C168');
+}
+
 // 删除选中的域
 function deleteSelected() {
     const selectedCheckboxes = document.querySelectorAll('.domain-checkbox:checked');
@@ -1124,26 +1148,24 @@ function deleteSelected() {
         return;
     }
     
-    // 过滤掉 Owner Code 为 'K' 的账号
+    // 过滤掉包含受保护 Company ID（C168）的账号
     const invalidCheckboxes = Array.from(selectedCheckboxes).filter(cb => {
         const card = cb.closest('.domain-card');
-        const ownerCode = card.querySelectorAll('.card-item')[1].textContent.trim().toUpperCase();
-        return ownerCode === 'K';
+        return cardHasProtectedCompany(card);
     });
     
     const validCheckboxes = Array.from(selectedCheckboxes).filter(cb => {
         const card = cb.closest('.domain-card');
-        const ownerCode = card.querySelectorAll('.card-item')[1].textContent.trim().toUpperCase();
-        return ownerCode !== 'K';
+        return !cardHasProtectedCompany(card);
     });
     
     if (invalidCheckboxes.length > 0 && validCheckboxes.length === 0) {
-        showAlert('Cannot delete owner with code K', 'danger');
+        showAlert('Cannot delete owners linked to company C168', 'danger');
         return;
     }
     
     if (invalidCheckboxes.length > 0 && validCheckboxes.length > 0) {
-        showAlert(`Owner with code K cannot be deleted. ${validCheckboxes.length} other owner(s) will be deleted.`, 'danger');
+        showAlert(`Owners linked to company C168 cannot be deleted. ${validCheckboxes.length} other owner(s) will be deleted.`, 'danger');
     }
     
     const selectedIds = validCheckboxes.map(cb => cb.value);
@@ -1207,9 +1229,9 @@ function addDomainCard(domainData) {
     newCard.setAttribute('data-id', domainData.id);
     
     // 构建公司显示
+    const companiesFull = domainData.companies_full || [];
     let companiesHTML = '-';
     if (domainData.companies && domainData.companies !== '-') {
-        const companiesFull = domainData.companies_full || [];
         const companyList = domainData.companies.split(', ');
         companiesHTML = companyList.map((companyId, idx) => {
             const companyIdTrim = companyId.trim();
@@ -1219,9 +1241,18 @@ function addDomainCard(domainData) {
             return '<span class="company-badge"' + expAttr + '>' + companyIdTrim + '</span>' + (idx < companyList.length - 1 ? ', ' : '');
         }).join('');
     }
-
-    const companiesFull = domainData.companies_full || [];
+    
     const companiesDataAttr = JSON.stringify(companiesFull);
+    
+    // 判断该 owner 是否包含受保护的 Company ID（C168）
+    let hasProtectedCompany = false;
+    if (Array.isArray(companiesFull) && companiesFull.length > 0) {
+        hasProtectedCompany = companiesFull.some(c => String(c.company_id || '').trim().toUpperCase() === 'C168');
+    } else if (domainData.companies) {
+        hasProtectedCompany = domainData.companies
+            .split(',')
+            .some(id => id.trim().toUpperCase() === 'C168');
+    }
     
     newCard.innerHTML = `
         <div class="card-item">1</div>
@@ -1234,7 +1265,7 @@ function addDomainCard(domainData) {
             <button class="btn btn-edit edit-btn" onclick="editDomain(${domainData.id})" aria-label="Edit">
                 <img src="images/edit.svg" alt="Edit">
             </button>
-            ${domainData.owner_code.toUpperCase() !== 'K' ? `<input type="checkbox" class="domain-checkbox" value="${domainData.id}" onchange="updateDeleteButton()">` : ''}
+            ${!hasProtectedCompany ? `<input type="checkbox" class="domain-checkbox" value="${domainData.id}" onchange="updateDeleteButton()">` : ''}
         </div>
     `;
     
