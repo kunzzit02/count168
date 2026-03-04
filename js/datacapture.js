@@ -1,6 +1,7 @@
 let isSelecting = false;
         let startCell = null;
         let selectedCells = new Set();
+        let mouseUpBound = false;
         
         // 构造 API 绝对 URL（与 processlist.js 一致，避免 404）
         function buildApiUrl(pathAndQuery) {
@@ -475,13 +476,6 @@ let isSelecting = false;
                 isSelectingRows = true;
                 startRowIndex = finalRowIndex;
                 selectRow(finalRowIndex, null, false);
-            }
-        }
-
-        // Handle column header mouse over (for drag selection)
-        function handleColumnHeaderMouseOver(e, colIndex) {
-            if (isSelectingColumns && startColumnIndex !== null) {
-                selectColumn(startColumnIndex, colIndex);
             }
         }
 
@@ -2164,28 +2158,22 @@ let isSelecting = false;
             
             let html = '';
             submittedProcesses.forEach((process, index) => {
-                // Format date and time using created_at (actual submission time)
-                // This shows when the record was actually submitted, not the selected date
+                // 使用 created_at（实际提交时刻）显示日期+时间，顾客可看到「这笔账是几月几号几点才 submit」
+                // 若员工遗忘提交，例如 2 号的账 4 号才 submit，列表会显示 04/03/2026，便于发现问题
                 let dateObj;
                 let timeObj;
-                
                 if (process.created_at) {
-                    // Use created_at for both date and time display
                     const createdDate = new Date(process.created_at);
                     dateObj = createdDate;
                     timeObj = createdDate;
                 } else {
-                    // Fallback to current date/time if created_at is not available
                     dateObj = new Date();
                     timeObj = new Date();
                 }
-                
                 const day = String(dateObj.getDate()).padStart(2, '0');
                 const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                 const year = dateObj.getFullYear();
                 const formattedDate = `${day}/${month}/${year}`;
-                
-                // Format time from created_at
                 const hours = String(timeObj.getHours()).padStart(2, '0');
                 const minutes = String(timeObj.getMinutes()).padStart(2, '0');
                 const formattedTime = `${hours}:${minutes}`;
@@ -3165,11 +3153,20 @@ let isSelecting = false;
                 return;
             }
             
+            // 重建表格前，清空所有选中状态和内部粘贴历史，避免旧版本表格的撤销记录作用到新结构
+            clearAllSelections();
+            pasteHistory = [];
+            
             // Clear existing content
             tableBody.innerHTML = '';
             
             // Generate column headers
-            const headerRow = tableHeader.querySelector('tr');
+            let headerRow = tableHeader.querySelector('tr');
+            // 如果表头行不存在（HTML 结构被改坏或尚未渲染），创建一个新的 tr 以避免报错
+            if (!headerRow) {
+                headerRow = document.createElement('tr');
+                tableHeader.appendChild(headerRow);
+            }
             headerRow.innerHTML = '<th></th>'; // Keep first empty header
             
             for (let j = 0; j < cols; j++) {
@@ -3290,8 +3287,11 @@ let isSelecting = false;
             
             console.log('Table initialized successfully. Created', rows, 'rows with', cols, 'columns each.');
             
-            // Add mouse release event
-            document.addEventListener('mouseup', handleMouseUp);
+            // Add mouse release event（只绑定一次）
+            if (!mouseUpBound) {
+                document.addEventListener('mouseup', handleMouseUp);
+                mouseUpBound = true;
+            }
         }
         
         // Add global click listener to deactivate table when clicking outside
@@ -24009,6 +24009,7 @@ let isSelecting = false;
             if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
 
             // 关键：阻止默认粘贴，避免<table>被贴到页面其它位置
+            e._formatTablePasteHandled = true;
             e.preventDefault();
             e.stopPropagation();
 
@@ -24056,6 +24057,9 @@ let isSelecting = false;
 
         // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴
         document.addEventListener('paste', function(e) {
+            // 如果已经被 2.Format 全局粘贴处理过，则不再重复处理
+            if (e._formatTablePasteHandled) return;
+
             const target = e.target;
             if (target && target.contentEditable === 'true' && target.closest('#dataTable')) {
                 console.log('Global paste event triggered on table cell');

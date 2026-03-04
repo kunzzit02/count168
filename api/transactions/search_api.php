@@ -160,6 +160,28 @@ if (empty($target_account_ids) && $isMemberUser) {
     $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
     $date_to_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
     
+    // 短期缓存（60 秒）：相同条件再次请求直接返回，减轻首屏/刷新等待
+    $cache_ttl = 60;
+    $cache_key = md5(
+        ($_SESSION['user_id'] ?? '') . '|' . $company_id . '|' . $date_from_db . '|' . $date_to_db . '|' .
+        implode(',', $currency_filters) . '|' . ($category ?? '') . '|' . ($show_inactive ? '1' : '0') . '|' .
+        ($show_capture_only ? '1' : '0') . '|' . ($hide_zero_balance ? '1' : '0') . '|' .
+        implode(',', $target_account_ids)
+    );
+    $cache_dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search';
+    if (!is_dir($cache_dir)) {
+        @mkdir($cache_dir, 0755, true);
+    }
+    $cache_file = $cache_dir . DIRECTORY_SEPARATOR . $cache_key;
+    if (file_exists($cache_file) && (time() - filemtime($cache_file)) < $cache_ttl) {
+        $cached = @file_get_contents($cache_file);
+        if ($cached !== false) {
+            header('Content-Type: application/json');
+            echo $cached;
+            exit;
+        }
+    }
+
     // 构建账户查询条件
     $where_conditions = [];
     $params = [];
@@ -719,7 +741,7 @@ if (!empty($target_account_ids)) {
     ];
     
     // 返回结果（含 active_currency_codes：Edit Account 里勾选的货币，Show 0 balance 时只显示这些）
-    echo json_encode([
+    $payload = [
         'success' => true,
         'data' => [
             'left_table' => $left_table,
@@ -731,8 +753,13 @@ if (!empty($target_account_ids)) {
             ],
             'active_currency_codes' => $active_currency_codes
         ]
-    ]);
-    
+    ];
+    $json = json_encode($payload);
+    if (isset($cache_file) && $json !== false) {
+        @file_put_contents($cache_file, $json, LOCK_EX);
+    }
+    echo $json;
+
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode([

@@ -223,54 +223,62 @@ return null;
 // Flag: set true when navigating away by Back or Submit so beforeunload does not save rate values
 window.isNavigatingAwayByBackOrSubmit = false;
 
+// 用 id_product + Account 生成唯一 key，避免行顺序变化时恢复错位
+function getSummaryRowKey(row) {
+    const cells = row.querySelectorAll('td');
+    const idProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+    const account = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
+    return idProduct + '\t' + account;
+}
+
 // Save current Rate Value column to localStorage (for refresh only; cleared on Back/Submit)
+// 按 id_product + Account 存，恢复时按 key 匹配，避免行顺序变化错位
 function saveRateValuesForRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
-    const rateValues = [];
+    const byKey = {};
     rows.forEach(row => {
+        const key = getSummaryRowKey(row);
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
         const val = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
-        rateValues.push(val);
+        byKey[key] = val;
     });
     try {
-        localStorage.setItem('capturedTableRateValues', JSON.stringify(rateValues));
+        localStorage.setItem('capturedTableRateValues', JSON.stringify(byKey));
     } catch (e) {
         console.warn('saveRateValuesForRefresh:', e);
     }
 }
 
-// Save Formula + Source (and data attrs) per row by id_product for restore after refresh.
-// Also saves current process so restore only applies when the same process is displayed (avoids showing another process's formulas).
+// Save Formula + Source (and data attrs) per row by id_product + Account for restore after refresh.
+// 按 id_product + Account 存，恢复时按 key 匹配，避免行顺序变化导致 formula 贴错行。
 function saveFormulaSourceForRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const processId = getCurrentProcessId();
     const processCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
     const rows = summaryTableBody.querySelectorAll('tr');
-    const byIndex = [];
+    const byKey = {};
     rows.forEach(row => {
+        const key = getSummaryRowKey(row);
         const cells = row.querySelectorAll('td');
-        const idProductCell = cells[0];
-        const idProduct = idProductCell ? idProductCell.textContent.trim() : '';
         const formulaCell = cells[4];
         let formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const sourceCell = cells[5];
         const source = sourceCell ? sourceCell.textContent.trim() : '';
-        byIndex.push({
-            idProduct,
+        byKey[key] = {
             formula: formula || '',
             source: source || '',
             sourceColumns: (row.getAttribute('data-source-columns') || ''),
             formulaOperators: (row.getAttribute('data-formula-operators') || ''),
             sourcePercent: (row.getAttribute('data-source-percent') || '')
-        });
+        };
     });
     try {
-        const payload = { processId: processId != null ? processId : null, processCode, rows: byIndex };
+        const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey };
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
     } catch (e) {
         console.warn('saveFormulaSourceForRefresh:', e);
@@ -278,7 +286,7 @@ function saveFormulaSourceForRefresh() {
 }
 
 // Restore Formula + Source from localStorage after load (only set by refresh/beforeunload).
-// Only applies when saved process matches current process, so a process without formulas does not show another process's formulas.
+// 按 id_product + Account 匹配恢复，行顺序变化也不会贴错行。
 function restoreFormulaSourceFromRefresh() {
     let saved;
     try {
@@ -288,15 +296,17 @@ function restoreFormulaSourceFromRefresh() {
     } catch (e) {
         return;
     }
-    // New format: { processId, processCode, rows }. Only restore when same process.
-    // Old format: plain array (no process) — do not restore to avoid applying another process's formulas.
     if (Array.isArray(saved)) {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
         return;
     }
-    const byIndex = (saved && typeof saved === 'object' && Array.isArray(saved.rows)) ? saved.rows : null;
-    if (!byIndex || byIndex.length === 0) {
-        try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
+    // 新格式：按 id_product + Account 的 key 恢复
+    const byKey = (saved && typeof saved === 'object' && saved.rowsByKey && typeof saved.rowsByKey === 'object') ? saved.rowsByKey : null;
+    if (!byKey || Object.keys(byKey).length === 0) {
+        // 旧格式 saved.rows (array) 不再按 index 恢复，避免错位
+        if (saved && saved.rows && Array.isArray(saved.rows)) {
+            try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
+        }
         return;
     }
     const currentId = getCurrentProcessId();
@@ -309,7 +319,6 @@ function restoreFormulaSourceFromRefresh() {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
         return;
     }
-    // 仅当当前 process 在 Maintenance 有模板时才恢复 formula 缓存；全新 process（无模板）不恢复，避免显示之前误恢复留下的 formula
     if (window.currentProcessHadTemplates !== true) {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
         return;
@@ -317,8 +326,9 @@ function restoreFormulaSourceFromRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
-    rows.forEach((row, i) => {
-        const data = byIndex[i];
+    rows.forEach((row) => {
+        const key = getSummaryRowKey(row);
+        const data = byKey[key];
         if (!data) return;
         const cells = row.querySelectorAll('td');
         let formula = data.formula != null ? String(data.formula) : '';
@@ -329,7 +339,6 @@ function restoreFormulaSourceFromRefresh() {
         if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
         if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
         if (data.enableInputMethod != null) row.setAttribute('data-enable-input-method', String(data.enableInputMethod));
-        // source_percent == 1 时只显示基础公式，不显示 *(1) 或 *(0.05)
         const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
         if (srcPct !== '' && formula && Math.abs(parseFloat(srcPct) - 1) < 0.0001 && typeof removeTrailingSourcePercentExpression === 'function') {
             formula = removeTrailingSourcePercentExpression(formula) || formula;
@@ -375,25 +384,45 @@ function restoreRateValuesFromRefresh() {
     } catch (e) {
         return;
     }
-    if (!Array.isArray(saved) || saved.length === 0) return;
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
-    rows.forEach((row, i) => {
-        const val = saved[i];
-        if (val === undefined || val === null || String(val).trim() === '') return;
-        const cells = row.querySelectorAll('td');
-        const rateValueCell = cells[7];
-        const processedAmountCell = cells[8];
-        if (!rateValueCell) return;
-        rateValueCell.textContent = String(val).trim();
-        const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
-        if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
-            const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-            processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
-            processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
-        }
-    });
+    // 新格式：按 id_product + Account 的 key 恢复
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+        rows.forEach((row) => {
+            const key = getSummaryRowKey(row);
+            const val = saved[key];
+            if (val === undefined || val === null || String(val).trim() === '') return;
+            const cells = row.querySelectorAll('td');
+            const rateValueCell = cells[7];
+            const processedAmountCell = cells[8];
+            if (!rateValueCell) return;
+            rateValueCell.textContent = String(val).trim();
+            const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
+            if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
+                const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+                processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
+                processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+            }
+        });
+    } else if (Array.isArray(saved) && saved.length > 0) {
+        // 旧格式：按 index 恢复（兼容已有缓存，仅此一次）
+        rows.forEach((row, i) => {
+            const val = saved[i];
+            if (val === undefined || val === null || String(val).trim() === '') return;
+            const cells = row.querySelectorAll('td');
+            const rateValueCell = cells[7];
+            const processedAmountCell = cells[8];
+            if (!rateValueCell) return;
+            rateValueCell.textContent = String(val).trim();
+            const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
+            if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
+                const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+                processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
+                processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+            }
+        });
+    }
     try {
         localStorage.removeItem('capturedTableRateValues');
     } catch (e) {}
@@ -14560,6 +14589,16 @@ if (!targetRow && templateAccountId) {
             }
         }
     }
+}
+
+// 如果模板是「按账号」定义的（templateAccountId 有值），但在上面的规则里完全找不到匹配的行：
+// - 当同一个 id_product 只有 1 行（candidateRows.length === 1）时：仍允许后面的 row_index 兜底匹配，
+//   因为无论如何都只有这一行，不会出现「套到错误账号」的问题。
+// - 当同一个 id_product 有多行（candidateRows.length > 1）且都匹配不到账号时：为安全起见直接跳过，
+//   避免把「MG95-45 + MEGA888」一类的模板套到「MG95-45 + JB-VINCENT」这样的行上。
+if (!targetRow && templateAccountId && candidateRows.length > 1) {
+    console.warn('applyMainTemplateToRow: No row matched account-specific template among multiple rows. Skip applying for account_id =', templateAccountId, 'idProduct =', idProduct);
+    return;
 }
 
 // Priority 4: Match by row_index only (fallback when account_id not available)

@@ -343,44 +343,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // 绑定 Middle-Man Amount 自动计算
     initMiddleManAmountCalculation();
     
-    // 🆕 加载分类列表和 company 列表，完成后加载 currency，然后加载账户列表并自动执行搜索
+    // 🆕 加载分类列表和 company 列表 → 先加载 currency（再搜，保证带 currency 参数）→ 账户与搜索
     Promise.all([
         loadCategories(),
         loadOwnerCompanies()
     ]).then(() => {
-        // 确保 currentCompanyId 已设置
         console.log('🔍 loadOwnerCompanies 完成后，currentCompanyId:', currentCompanyId);
-        
-        // 如果 currentCompanyId 还是 null，等待一下再加载 currency
+        ensureDefaultDates();
+
         if (!currentCompanyId) {
             console.warn('⚠️ currentCompanyId 为 null，短暂延迟后加载 currency');
             return new Promise(resolve => {
                 setTimeout(() => loadCompanyCurrencies().then(resolve), 50);
             });
         }
-        
-        // 先加载 currency，一就绪就发起搜索（不等待账户列表），表格数据更快「直接显示」
         return loadCompanyCurrencies();
     }).then(() => {
-        // 有 currency 即触发搜索，账户下拉稍后由 loadAccounts + initCustomSelects 补全
         if (currencyList.length === 0) {
             showNotification('No currency available for current company', 'info');
             return loadAccounts().then(() => { initCustomSelects(); });
         }
-        if (!showAllCurrencies && selectedCurrencies.length === 0) {
-            setTimeout(() => {
-                if (!showAllCurrencies && selectedCurrencies.length === 0) return;
-                loadContraInbox();
-                searchTransactions();
-            }, 80);
-        } else {
-            loadContraInbox();
-            searchTransactions();
-        }
-        return loadAccounts().then(() => {
-            initCustomSelects();
-            console.log('✅ 初始数据加载完成');
-        });
+        // Contra Inbox 延后到用户点击再加载
+        loadAccounts().then(() => { initCustomSelects(); console.log('✅ 初始数据加载完成'); });
+        searchTransactions(true);
     }).catch(error => {
         console.error('❌ 初始数据加载失败:', error);
         showNotification('Failed to load initial data', 'error');
@@ -1226,7 +1211,8 @@ function updateCurrencyButtonsState() {
 }
 
 // ==================== 搜索功能 ====================
-function searchTransactions() {
+// isInitialLoad: 首次进入页面自动搜当天数据时传 true
+function searchTransactions(isInitialLoad) {
     const dateFrom = document.getElementById('date_from').value;
     const dateTo = document.getElementById('date_to').value;
     const category = document.getElementById('filter_category').value;
@@ -1241,10 +1227,12 @@ function searchTransactions() {
         return;
     }
     
-    // 如果没有选中任何 currency 且没有选择 All，不显示表格
+    // 没有选 currency 时不发起搜索（首次进入会先等 loadCompanyCurrencies 再搜，保证带 currency）
     if (!showAllCurrencies && selectedCurrencies.length === 0) {
-        document.querySelector('.transaction-tables-section').style.display = 'none';
-        document.querySelector('.transaction-summary-section').style.display = 'none';
+        const tablesSection = document.querySelector('.transaction-tables-section');
+        const summarySection = document.querySelector('.transaction-summary-section');
+        if (tablesSection) tablesSection.style.display = 'none';
+        if (summarySection) summarySection.style.display = 'none';
         showNotification('Please select at least one Currency or select All', 'info');
         return;
     }
@@ -1273,7 +1261,10 @@ function searchTransactions() {
         tablesSection.style.display = 'flex';
         tablesSection.style.flexDirection = 'column';
     }
-    if (loadingEl) loadingEl.style.display = 'flex';
+    if (loadingEl) {
+        loadingEl.textContent = 'Loading data';
+        loadingEl.style.display = 'flex';
+    }
     if (defaultTables) defaultTables.style.display = 'none';
     if (groupedTables) groupedTables.style.display = 'none';
     const summarySection = document.querySelector('.transaction-summary-section');
@@ -2773,6 +2764,21 @@ function handleConfirmSubmit() {
 }
 
 // ==================== 日期选择器 ====================
+// 若 Capture Date 未填，则默认设为今天（保证首次进入页面自动搜「当天」）
+function ensureDefaultDates() {
+    const df = document.getElementById('date_from');
+    const dt = document.getElementById('date_to');
+    if (!df || !dt) return;
+    if ((df.value || '').trim() && (dt.value || '').trim()) return;
+    const today = new Date();
+    const d = today.getDate();
+    const m = today.getMonth() + 1;
+    const y = today.getFullYear();
+    const str = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+    if (!(df.value || '').trim()) df.value = str;
+    if (!(dt.value || '').trim()) dt.value = str;
+}
+
 function initDatePickers() {
     if (typeof flatpickr === 'undefined') {
         console.error('Flatpickr library not loaded');
@@ -2807,6 +2813,7 @@ function initDatePickers() {
     } else {
         console.warn('MaintenanceDateRangePicker not found. Ensure js/date-range-picker.js is loaded before transaction.js.');
     }
+    ensureDefaultDates();
 }
 
 // ==================== Middle-Man Amount 和 Currency To Amount 自动计算 ====================
