@@ -2366,6 +2366,12 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $processIdForTemplates = isset($data['processId']) && (is_numeric($data['processId']) || (is_string($data['processId']) && trim($data['processId']) !== '')) ? $data['processId'] : null;
             if ($processIdForTemplates !== null) {
                 $templateMainSeen = [];
+                // 记录本次 Submit 中，针对当前 process + company 真正存在的「公式组合」
+                // 组合维度与 Maintenance - Formula 列表保持一致：
+                // product_type + id_product + parent_id_product + account_id + currency_id
+                $currentTemplateCombos = [];
+                $currentTemplateProducts = [];
+
                 foreach ($data['summaryRows'] as $summaryRow) {
                     $idProductMain = $summaryRow['idProductMain'] ?? null;
                     $idProductSub = $summaryRow['idProductSub'] ?? null;
@@ -2433,6 +2439,27 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         'data_capture_id' => null,
                         'last_processed_amount' => isset($summaryRow['processedAmount']) ? $summaryRow['processedAmount'] : 0,
                     ];
+
+                    // 记录当前 Submit 中出现过的「唯一公式组合」及产品，用于后面清理多余模板
+                    $comboKeyParts = [
+                        $templatePayload['product_type'],
+                        strtolower(trim((string)$templatePayload['id_product'])),
+                        strtolower(trim((string)($templatePayload['parent_id_product'] ?? ''))),
+                        (int)$templatePayload['account_id'],
+                        (int)($templatePayload['currency_id'] ?? 0),
+                    ];
+                    $comboKey = implode('|', $comboKeyParts);
+                    $currentTemplateCombos[$comboKey] = true;
+
+                    $productKey = strtolower(trim((string)$templatePayload['id_product']));
+                    if ($productKey !== '') {
+                        $currentTemplateProducts[$productKey] = true;
+                    }
+                    if (!empty($templatePayload['parent_id_product'])) {
+                        $parentKey = strtolower(trim((string)$templatePayload['parent_id_product']));
+                        $currentTemplateProducts[$parentKey] = true;
+                    }
+
                     try {
                         // 之前这里在保存 sub 模板时会删除同一 id_product_main + account 的 main 模板，
                         // 会导致「第一次 Submit 有 main，一旦有 sub 再 Submit，main 模板被删，下一次生成 Summary 时 main 行公式消失」。
@@ -2441,6 +2468,52 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     } catch (Exception $e) {
                         error_log('Submit: save template for Maintenance - ' . $e->getMessage());
                     }
+                }
+
+                // ⚠ 保证「Data Summary 行数 == Maintenance - Formula 行数」
+                // 对于当前 process + company + 本次涉及到的产品，只保留此次 Submit 中实际存在的组合，
+                // 把已经没有对应 Summary 行的旧模板删掉，避免列表多出一行「孤立公式」。
+                try {
+                    if (!empty($currentTemplateProducts) && !empty($currentTemplateCombos)) {
+                        $productPlaceholders = implode(',', array_fill(0, count($currentTemplateProducts), '?'));
+                        $productParams = array_keys($currentTemplateProducts);
+
+                        $existingStmt = $pdo->prepare("
+                            SELECT id, product_type, id_product, parent_id_product, account_id, currency_id
+                            FROM data_capture_templates
+                            WHERE company_id = ?
+                              AND process_id = ?
+                              AND LOWER(TRIM(id_product)) IN ($productPlaceholders)
+                        ");
+
+                        $params = array_merge([(int)$companyId, (int)$processIdForTemplates], $productParams);
+                        $existingStmt->execute($params);
+
+                        $idsToDelete = [];
+                        while ($row = $existingStmt->fetch(PDO::FETCH_ASSOC)) {
+                            $keyParts = [
+                                $row['product_type'] ?? 'main',
+                                strtolower(trim((string)($row['id_product'] ?? ''))),
+                                strtolower(trim((string)($row['parent_id_product'] ?? ''))),
+                                (int)($row['account_id'] ?? 0),
+                                (int)($row['currency_id'] ?? 0),
+                            ];
+                            $key = implode('|', $keyParts);
+                            if (!isset($currentTemplateCombos[$key])) {
+                                $idsToDelete[] = (int)$row['id'];
+                            }
+                        }
+
+                        if (!empty($idsToDelete)) {
+                            $deletePlaceholders = implode(',', array_fill(0, count($idsToDelete), '?'));
+                            $deleteStmt = $pdo->prepare("DELETE FROM data_capture_templates WHERE id IN ($deletePlaceholders)");
+                            $deleteStmt->execute($idsToDelete);
+                            error_log('Submit: cleaned up ' . count($idsToDelete) . ' obsolete template row(s) for process_id ' . $processIdForTemplates);
+                        }
+                    }
+                } catch (Exception $cleanupEx) {
+                    // 清理失败不影响提交主流程，只记录日志
+                    error_log('Submit: template cleanup warning - ' . $cleanupEx->getMessage());
                 }
             }
             
