@@ -2164,36 +2164,22 @@ let isSelecting = false;
             
             let html = '';
             submittedProcesses.forEach((process, index) => {
-                // 日期使用用户选择的 date_submitted/capture_date，时间使用 created_at（实际提交时刻）
-                // 这样列表显示的是「为哪一天提交」+「几点提交」，不会因服务器时区显示成「今天」
+                // 使用 created_at（实际提交时刻）显示日期+时间，顾客可看到「这笔账是几月几号几点才 submit」
+                // 若员工遗忘提交，例如 2 号的账 4 号才 submit，列表会显示 04/03/2026，便于发现问题
                 let dateObj;
                 let timeObj;
-                const dateSource = process.date_submitted || process.capture_date;
-                if (dateSource) {
-                    // date_submitted/capture_date 可能为 "YYYY-MM-DD" 或 "YYYY-MM-DD HH:mm:ss"
-                    const dateOnly = String(dateSource).trim().split(/[\sT]/)[0];
-                    if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
-                        const [y, m, d] = dateOnly.split('-').map(Number);
-                        dateObj = new Date(y, m - 1, d);
-                    } else {
-                        dateObj = new Date(dateSource);
-                    }
-                } else {
-                    dateObj = null;
-                }
                 if (process.created_at) {
-                    timeObj = new Date(process.created_at);
-                    if (!dateObj || isNaN(dateObj.getTime())) dateObj = timeObj;
+                    const createdDate = new Date(process.created_at);
+                    dateObj = createdDate;
+                    timeObj = createdDate;
                 } else {
-                    timeObj = dateObj && !isNaN(dateObj.getTime()) ? dateObj : new Date();
-                    if (!dateObj || isNaN(dateObj.getTime())) dateObj = timeObj;
+                    dateObj = new Date();
+                    timeObj = new Date();
                 }
-                
                 const day = String(dateObj.getDate()).padStart(2, '0');
                 const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                 const year = dateObj.getFullYear();
                 const formattedDate = `${day}/${month}/${year}`;
-                
                 const hours = String(timeObj.getHours()).padStart(2, '0');
                 const minutes = String(timeObj.getMinutes()).padStart(2, '0');
                 const formattedTime = `${hours}:${minutes}`;
