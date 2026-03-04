@@ -2164,20 +2164,29 @@ let isSelecting = false;
             
             let html = '';
             submittedProcesses.forEach((process, index) => {
-                // Format date and time using created_at (actual submission time)
-                // This shows when the record was actually submitted, not the selected date
+                // 日期使用用户选择的 date_submitted/capture_date，时间使用 created_at（实际提交时刻）
+                // 这样列表显示的是「为哪一天提交」+「几点提交」，不会因服务器时区显示成「今天」
                 let dateObj;
                 let timeObj;
-                
-                if (process.created_at) {
-                    // Use created_at for both date and time display
-                    const createdDate = new Date(process.created_at);
-                    dateObj = createdDate;
-                    timeObj = createdDate;
+                const dateSource = process.date_submitted || process.capture_date;
+                if (dateSource) {
+                    // date_submitted/capture_date 可能为 "YYYY-MM-DD" 或 "YYYY-MM-DD HH:mm:ss"
+                    const dateOnly = String(dateSource).trim().split(/[\sT]/)[0];
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+                        const [y, m, d] = dateOnly.split('-').map(Number);
+                        dateObj = new Date(y, m - 1, d);
+                    } else {
+                        dateObj = new Date(dateSource);
+                    }
                 } else {
-                    // Fallback to current date/time if created_at is not available
-                    dateObj = new Date();
-                    timeObj = new Date();
+                    dateObj = null;
+                }
+                if (process.created_at) {
+                    timeObj = new Date(process.created_at);
+                    if (!dateObj || isNaN(dateObj.getTime())) dateObj = timeObj;
+                } else {
+                    timeObj = dateObj && !isNaN(dateObj.getTime()) ? dateObj : new Date();
+                    if (!dateObj || isNaN(dateObj.getTime())) dateObj = timeObj;
                 }
                 
                 const day = String(dateObj.getDate()).padStart(2, '0');
@@ -2185,7 +2194,6 @@ let isSelecting = false;
                 const year = dateObj.getFullYear();
                 const formattedDate = `${day}/${month}/${year}`;
                 
-                // Format time from created_at
                 const hours = String(timeObj.getHours()).padStart(2, '0');
                 const minutes = String(timeObj.getMinutes()).padStart(2, '0');
                 const formattedTime = `${hours}:${minutes}`;
