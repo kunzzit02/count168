@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 绑定 Middle-Man Amount 自动计算
     initMiddleManAmountCalculation();
     
-    // 🆕 加载分类列表和 company 列表，然后并行：currency、账户、搜索（不先等 currency，首屏更快）
+    // 🆕 加载分类列表和 company 列表 → 先加载 currency（再搜，保证带 currency 参数）→ 账户与搜索
     Promise.all([
         loadCategories(),
         loadOwnerCompanies()
@@ -355,20 +355,16 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn('⚠️ currentCompanyId 为 null，短暂延迟后加载 currency');
             return new Promise(resolve => {
                 setTimeout(() => loadCompanyCurrencies().then(resolve), 50);
-            }).then(() => {
-                if (currencyList.length === 0) {
-                    showNotification('No currency available for current company', 'info');
-                    return loadAccounts().then(() => { initCustomSelects(); });
-                }
-                loadAccounts().then(() => { initCustomSelects(); console.log('✅ 初始数据加载完成'); });
-                searchTransactions(true);
             });
         }
-
-        // 有 company：currency、账户、搜索并行，不先等 get_company_currencies（约省 0.5s）
-        loadCompanyCurrencies();
+        return loadCompanyCurrencies();
+    }).then(() => {
+        if (currencyList.length === 0) {
+            showNotification('No currency available for current company', 'info');
+            return loadAccounts().then(() => { initCustomSelects(); });
+        }
+        // Contra Inbox 延后到用户点击再加载
         loadAccounts().then(() => { initCustomSelects(); console.log('✅ 初始数据加载完成'); });
-        // Contra Inbox 延后到用户点击再加载，减少首屏请求
         searchTransactions(true);
     }).catch(error => {
         console.error('❌ 初始数据加载失败:', error);
@@ -1231,8 +1227,8 @@ function searchTransactions(isInitialLoad) {
         return;
     }
     
-    // 首次进入页面时允许不选 currency 就搜（只传 company_id + 日期，后端返回全部 currency）
-    if (!isInitialLoad && !showAllCurrencies && selectedCurrencies.length === 0) {
+    // 没有选 currency 时不发起搜索（首次进入会先等 loadCompanyCurrencies 再搜，保证带 currency）
+    if (!showAllCurrencies && selectedCurrencies.length === 0) {
         const tablesSection = document.querySelector('.transaction-tables-section');
         const summarySection = document.querySelector('.transaction-summary-section');
         if (tablesSection) tablesSection.style.display = 'none';
