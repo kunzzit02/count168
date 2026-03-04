@@ -14591,11 +14591,13 @@ if (!targetRow && templateAccountId) {
     }
 }
 
-// 如果模板是「按账号」定义的（templateAccountId 有值），但在上面的规则里完全找不到匹配的行，
-// 为了安全起见，直接跳过，不再退回到仅按 row_index / 第一个候选行的兜底，避免把
-// 「MG95-45 + MEGA888」一类的模板套到「MG95-45 + JB-VINCENT」这样的行上。
-if (!targetRow && templateAccountId) {
-    console.warn('applyMainTemplateToRow: No row matched account-specific template. Skip applying for account_id =', templateAccountId, 'idProduct =', idProduct);
+// 如果模板是「按账号」定义的（templateAccountId 有值），但在上面的规则里完全找不到匹配的行：
+// - 当同一个 id_product 只有 1 行（candidateRows.length === 1）时：仍允许后面的 row_index 兜底匹配，
+//   因为无论如何都只有这一行，不会出现「套到错误账号」的问题。
+// - 当同一个 id_product 有多行（candidateRows.length > 1）且都匹配不到账号时：为安全起见直接跳过，
+//   避免把「MG95-45 + MEGA888」一类的模板套到「MG95-45 + JB-VINCENT」这样的行上。
+if (!targetRow && templateAccountId && candidateRows.length > 1) {
+    console.warn('applyMainTemplateToRow: No row matched account-specific template among multiple rows. Skip applying for account_id =', templateAccountId, 'idProduct =', idProduct);
     return;
 }
 
