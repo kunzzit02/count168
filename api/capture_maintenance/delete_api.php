@@ -155,6 +155,45 @@ try {
 
     backupToDeletedLog($pdo, $company_id, $validCaptureIds, $deletedByUserId, $deletedByOwnerId);
 
+    // 同步删除 submitted_processes 里对应的「已提交记录」，
+    // 确保当某个 Data Capture 被维护页删除后，Data Capture 页面右侧的 Submitted Processes 也不再显示这条记录。
+    // 只按 company + process + capture_date 精准删除，不影响其他功能或历史记录。
+    $placeholders = str_repeat('?,', count($validCaptureIds) - 1) . '?';
+    $captureMetaSql = "
+        SELECT dc.id AS capture_id, dc.process_id, dc.capture_date
+        FROM data_captures dc
+        INNER JOIN process p ON dc.process_id = p.id
+        WHERE dc.company_id = ? AND p.company_id = ? AND dc.id IN ($placeholders)
+    ";
+    $captureMetaParams = array_merge([$company_id, $company_id], $validCaptureIds);
+    $captureMetaStmt = $pdo->prepare($captureMetaSql);
+    $captureMetaStmt->execute($captureMetaParams);
+    $captureMetaRows = $captureMetaStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!empty($captureMetaRows)) {
+        $deleteSubmittedStmt = $pdo->prepare("
+            DELETE FROM submitted_processes
+            WHERE company_id = ?
+              AND process_id = ?
+              AND (
+                    (DATE(capture_date) = ?)
+                 OR (capture_date IS NULL AND DATE(date_submitted) = ?)
+              )
+        ");
+        foreach ($captureMetaRows as $metaRow) {
+            $procId = isset($metaRow['process_id']) ? (int)$metaRow['process_id'] : 0;
+            $capDate = $metaRow['capture_date'] ?? null;
+            if ($procId > 0 && $capDate) {
+                $deleteSubmittedStmt->execute([
+                    $company_id,
+                    $procId,
+                    $capDate,
+                    $capDate
+                ]);
+            }
+        }
+    }
+
     $placeholders = str_repeat('?,', count($validCaptureIds) - 1) . '?';
     $params = array_merge([$company_id], $validCaptureIds);
     $deleteSql = "DELETE FROM data_capture_details WHERE company_id = ? AND capture_id IN ($placeholders)";
