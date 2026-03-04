@@ -24003,6 +24003,7 @@ let isSelecting = false;
             if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
 
             // 关键：阻止默认粘贴，避免<table>被贴到页面其它位置
+            e._formatTablePasteHandled = true;
             e.preventDefault();
             e.stopPropagation();
 
@@ -24050,6 +24051,9 @@ let isSelecting = false;
 
         // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴
         document.addEventListener('paste', function(e) {
+            // 如果已经被 2.Format 全局粘贴处理过，则不再重复处理
+            if (e._formatTablePasteHandled) return;
+
             const target = e.target;
             if (target && target.contentEditable === 'true' && target.closest('#dataTable')) {
                 console.log('Global paste event triggered on table cell');
