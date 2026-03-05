@@ -8,6 +8,38 @@
         /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
         const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
 
+        // Bank Supplier 列的排序状态（A→Z / Z→A）
+        let bankSupplierSortDirection = 'asc'; // 'asc' | 'desc'
+
+        function sortBankProcessesBySupplier() {
+            if (!Array.isArray(processes) || processes.length === 0) return;
+            processes.sort(function (a, b) {
+                const aKey = String(a.card_lower || a.supplier || '').toLowerCase();
+                const bKey = String(b.card_lower || b.supplier || '').toLowerCase();
+                let result = 0;
+                if (aKey < bKey) result = -1;
+                else if (aKey > bKey) result = 1;
+                if (bankSupplierSortDirection === 'desc') result = -result;
+                return result;
+            });
+        }
+
+        function updateBankSupplierSortIndicator() {
+            const indicator = document.getElementById('bankSupplierSortIndicator');
+            if (!indicator) return;
+            indicator.textContent = bankSupplierSortDirection === 'asc' ? '▲' : '▼';
+        }
+
+        function toggleBankSupplierSort() {
+            if (selectedPermission !== 'Bank') return;
+            bankSupplierSortDirection = bankSupplierSortDirection === 'asc' ? 'desc' : 'asc';
+            sortBankProcessesBySupplier();
+            currentPage = 1;
+            renderBankTable();
+            renderPagination();
+            updateBankSupplierSortIndicator();
+        }
+
         // 构造 API 绝对 URL（始终基于站点根目录，避免相对路径解析错误）
         function buildApiUrl(fileName) {
             const pathname = window.location.pathname || '/';
@@ -67,14 +99,8 @@
                     processes = result.data;
                     // 根据类别进行不同的排序
                     if (selectedPermission === 'Bank') {
-                        // Bank 类别的排序逻辑（可以根据需要调整）
-                        processes.sort((a, b) => {
-                            const aKey = String(a.supplier || '').toLowerCase();
-                            const bKey = String(b.supplier || '').toLowerCase();
-                            if (aKey < bKey) return -1;
-                            if (aKey > bKey) return 1;
-                            return 0;
-                        });
+                        // Bank 类别：按 Supplier（显示在表中第二列的 card_lower / supplier）排序
+                        sortBankProcessesBySupplier();
                     } else {
                         // Games 类别的排序逻辑（原有逻辑）
                         processes.sort((a, b) => {
@@ -181,6 +207,14 @@
             const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
             headRow.innerHTML = thLabels.map((label, i) => {
                 if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
+                if (label === 'Supplier') {
+                    return '<th class="bank-th-supplier bank-th-sortable" onclick="toggleBankSupplierSort()">' +
+                        '<span class="bank-th-supplier-text">' + escapeHtml(label) + '</span>' +
+                        ' <span class="bank-sort-indicator" id="bankSupplierSortIndicator">' +
+                        (bankSupplierSortDirection === 'asc' ? '▲' : '▼') +
+                        '</span>' +
+                        '</th>';
+                }
                 if (label === 'Country') return '<th class="bank-th-country">' + escapeHtml(label) + '</th>';
                 if (label === 'Types') return '<th class="bank-th-types">' + escapeHtml(label) + '</th>';
                 if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
