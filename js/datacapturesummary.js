@@ -9612,7 +9612,8 @@ function formatNegativeNumbersInFormula(formula) {
 function evaluateExpression(expression) {
     try {
         if (!expression || typeof expression !== 'string') {
-            console.error('Invalid expression:', expression);
+            // 使用 warn 避免在控制台显示严重错误，但保持返回 0 的逻辑
+            console.warn('Invalid expression:', expression);
             return 0;
         }
         
@@ -9627,7 +9628,7 @@ function evaluateExpression(expression) {
         // Validate that the expression doesn't contain invalid characters
         // Allow: numbers, operators (+-*/), parentheses, decimal points, spaces
         if (!/^[0-9+\-*/().\s]+$/.test(jsExpression)) {
-            console.error('Expression contains invalid characters:', jsExpression);
+            console.warn('Expression contains invalid characters:', jsExpression);
             return 0;
         }
         
@@ -9652,7 +9653,7 @@ function evaluateExpression(expression) {
         const parsedResult = parseFloat(result);
         
         if (isNaN(parsedResult) || !Number.isFinite(parsedResult)) {
-            console.error('Invalid result from expression:', result, 'Original expression:', expression);
+            console.warn('Invalid result from expression:', result, 'Original expression:', expression);
             return 0;
         }
         
@@ -9660,7 +9661,7 @@ function evaluateExpression(expression) {
         return parsedResult;
         
     } catch (error) {
-        console.error('Error evaluating expression:', error, 'Expression:', expression);
+        console.warn('Error evaluating expression:', error, 'Expression:', expression);
         return 0;
     }
 }
@@ -14215,7 +14216,10 @@ if (mainTemplate && !hasExistingData) {
         return;
     }
 
-    const sourcePercentRaw = mainTemplate.source_percent || '';
+    const existingSourcePercentAttr = targetRow.getAttribute('data-source-percent') || '';
+    const sourcePercentRaw = existingSourcePercentAttr && existingSourcePercentAttr.trim() !== ''
+        ? existingSourcePercentAttr
+        : (mainTemplate.source_percent || '');
     let percentValue = sourcePercentRaw.toString();
     // Convert old percentage format to new decimal format if needed
     if (percentValue) {
@@ -15017,7 +15021,10 @@ if (currentSourceData && currentSourceData.trim() !== '') {
         return mainTemplate; // 仍然返回模板以便后续子行处理
     }
 
-    const sourcePercentRaw = mainTemplate.source_percent || '';
+    const existingSourcePercentAttr = targetRow.getAttribute('data-source-percent') || '';
+    const sourcePercentRaw = existingSourcePercentAttr && existingSourcePercentAttr.trim() !== ''
+        ? existingSourcePercentAttr
+        : (mainTemplate.source_percent || '');
     let percentValue = sourcePercentRaw.toString();
 // Convert old percentage format to new decimal format if needed
 // IMPORTANT: New format uses decimal (1 = 100%), so values like 1, 0.5, 1.2 are already in decimal format
@@ -16120,7 +16127,10 @@ if (currentSourceData && currentSourceData.trim() !== '') {
     console.log('No source data available (sub)');
 }
 
-const sourcePercentRaw = template.source_percent || '';
+const existingSourcePercentAttr = targetRow.getAttribute('data-source-percent') || '';
+const sourcePercentRaw = existingSourcePercentAttr && existingSourcePercentAttr.trim() !== ''
+    ? existingSourcePercentAttr
+    : (template.source_percent || '');
 let percentValue = sourcePercentRaw.toString();
 // Convert old percentage format to new decimal format if needed
 // Only convert if value is >= 10 (likely old percentage format like 100 = 100%)

@@ -215,12 +215,30 @@
     background-color: #1976d2;
     color: white;
 }
- .no-countries {
+.no-countries {
     text-align: center;
     color: #6c757d;
     font-size: clamp(10px, 0.78vw, 15px);
     font-style: italic;
     padding: clamp(20px, 2.08vw, 40px) 20px;
+}
+
+/* Bank Supplier 排序表头样式，箭头与 Account List 一致 */
+.bank-th-supplier {
+    position: relative;
+    cursor: pointer;
+}
+.bank-th-supplier-text {
+    pointer-events: none;
+}
+.bank-sort-indicator {
+    font-size: clamp(8px, 0.6vw, 12px);
+    color: rgba(255, 255, 255, 0.8);
+    display: inline;
+    margin-left: 4px;
+}
+.bank-sort-indicator[style*="display: inline"] {
+    display: inline !important;
 }
  /* Bank Selection Modal (layout: left = Add/Available, right = Selected) */
 .bank-selection-modal .modal-content {
