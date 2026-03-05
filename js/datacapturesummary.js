@@ -10960,7 +10960,7 @@ function updateFormulaAndProcessedAmount(row, data) {
             rawFormula = data.formula;
             formulaText = formatNegativeNumbersInFormula(data.formula);
         }
-
+        
         // If formula is empty, try to get from formulaOperators
         if (!formulaText || formulaText.trim() === '') {
             const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
@@ -11110,6 +11110,39 @@ function updateFormulaAndProcessedAmount(row, data) {
         // If formula is still empty, don't display "Formula" text, just leave it empty
         if (!formulaText || formulaText.trim() === '' || formulaText === 'Formula') {
             formulaText = '';
+        }
+
+        // Special handling: for MG95-96 + KL-ELSON, display processed amount as formula
+        if (isMg95ElsonSpecialRow(data, row)) {
+            let specialAmount = (data.processedAmount !== undefined && data.processedAmount !== null)
+                ? Number(data.processedAmount)
+                : NaN;
+            if (isNaN(specialAmount)) {
+                const baseAttr = row.getAttribute('data-base-processed-amount');
+                if (baseAttr !== null && baseAttr !== undefined && baseAttr !== '') {
+                    const num = parseFloat(baseAttr);
+                    if (!isNaN(num)) {
+                        specialAmount = num;
+                    }
+                }
+            }
+            if (isNaN(specialAmount) && cells[8]) {
+                const text = (cells[8].textContent || '').replace(/,/g, '');
+                const num = parseFloat(text);
+                if (!isNaN(num)) {
+                    specialAmount = num;
+                }
+            }
+            if (!isNaN(specialAmount)) {
+                const rounded = typeof roundProcessedAmountTo2Decimals === 'function'
+                    ? roundProcessedAmountTo2Decimals(Number(specialAmount))
+                    : Number(specialAmount);
+                const displayVal = typeof formatNumberWithThousands === 'function'
+                    ? formatNumberWithThousands(rounded)
+                    : String(rounded);
+                formulaText = displayVal;
+                rawFormula = displayVal;
+            }
         }
         
         if (!rawFormula) rawFormula = formulaText;
@@ -13233,6 +13266,26 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     updateProcessedAmountTotal();
 }
 
+// Special case helper: MG95-96 + KL-ELSON row uses processed amount as formula display
+function isMg95ElsonSpecialRow(data, row) {
+    try {
+        const cells = row ? row.querySelectorAll('td') : null;
+        const idProductFromData = data && data.idProduct ? String(data.idProduct) : '';
+        const accountFromData = data && data.account ? String(data.account) : '';
+        const idProductFromCell = cells && cells[0]
+            ? ((cells[0].textContent || cells[0].getAttribute('data-main-product') || ''))
+            : '';
+        const accountFromCell = cells && cells[1] ? (cells[1].textContent || '') : '';
+
+        const idProductText = (idProductFromData || idProductFromCell || '').toUpperCase();
+        const accountText = (accountFromData || accountFromCell || '').toUpperCase();
+
+        return idProductText.indexOf('MG95-96') >= 0 && accountText.indexOf('KL-ELSON') >= 0;
+    } catch (e) {
+        return false;
+    }
+}
+
 // Update all cells in the summary table row
 function updateSummaryTableRow(processValue, data, targetRow = null) {
     let row = targetRow;
@@ -13363,96 +13416,120 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             
             // 无 data.formula 时再从 sourceColumns 重建（如从 API 只返回 sourceColumns 时）
             if (!formulaText) {
-            // IMPORTANT: Get sourceColumns from data parameter first (from API), then from row attribute
-            const sourceColumnsValue = (data.sourceColumns !== undefined && data.sourceColumns !== null)
-                ? data.sourceColumns
-                : (row.getAttribute('data-source-columns') || '');
-            const formulaOperatorsValue = (data.formulaOperators !== undefined && data.formulaOperators !== null)
-                ? data.formulaOperators
-                : (row.getAttribute('data-formula-operators') || '');
-            
-            // If sourceColumns is available, rebuild formula display from it
-            if (sourceColumnsValue && sourceColumnsValue.trim() !== '' && processValue) {
-                const referenceExpression = buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, row);
-                if (referenceExpression) {
-                    // Parse reference format to actual values for display
-                    // buildSourceExpressionFromTable returns format like: [OVERALL : 7] + [ABC123 : 3]
-                    // We need to parse this and convert to actual cell values
-                    let parsedExpression = referenceExpression;
-                    
-                    // Parse [id_product : column_number] format (from buildSourceExpressionFromTable)
-                    const colonPattern = /\[([^:]+)\s*:\s*(\d+)\]/g;
-                    let match;
-                    const colonMatches = [];
-                    
-                    colonPattern.lastIndex = 0;
-                    while ((match = colonPattern.exec(parsedExpression)) !== null) {
-                        const fullMatch = match[0]; // e.g., "[OVERALL : 7]"
-                        const idProduct = match[1].trim(); // e.g., "OVERALL"
-                        const displayColumnIndex = parseInt(match[2]); // e.g., 7
-                        const matchIndex = match.index;
+                // IMPORTANT: Get sourceColumns from data parameter first (from API), then from row attribute
+                const sourceColumnsValue = (data.sourceColumns !== undefined && data.sourceColumns !== null)
+                    ? data.sourceColumns
+                    : (row.getAttribute('data-source-columns') || '');
+                const formulaOperatorsValue = (data.formulaOperators !== undefined && data.formulaOperators !== null)
+                    ? data.formulaOperators
+                    : (row.getAttribute('data-formula-operators') || '');
+                
+                // If sourceColumns is available, rebuild formula display from it
+                if (sourceColumnsValue && sourceColumnsValue.trim() !== '' && processValue) {
+                    const referenceExpression = buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, row);
+                    if (referenceExpression) {
+                        // Parse reference format to actual values for display
+                        // buildSourceExpressionFromTable returns format like: [OVERALL : 7] + [ABC123 : 3]
+                        // We need to parse this and convert to actual cell values
+                        let parsedExpression = referenceExpression;
                         
-                        if (!isNaN(displayColumnIndex) && displayColumnIndex > 0) {
-                            colonMatches.push({
-                                fullMatch: fullMatch,
-                                idProduct: idProduct,
-                                displayColumnIndex: displayColumnIndex,
-                                index: matchIndex
-                            });
+                        // Parse [id_product : column_number] format (from buildSourceExpressionFromTable)
+                        const colonPattern = /\[([^:]+)\s*:\s*(\d+)\]/g;
+                        let match;
+                        const colonMatches = [];
+                        
+                        colonPattern.lastIndex = 0;
+                        while ((match = colonPattern.exec(parsedExpression)) !== null) {
+                            const fullMatch = match[0]; // e.g., "[OVERALL : 7]"
+                            const idProduct = match[1].trim(); // e.g., "OVERALL"
+                            const displayColumnIndex = parseInt(match[2]); // e.g., 7
+                            const matchIndex = match.index;
+                            
+                            if (!isNaN(displayColumnIndex) && displayColumnIndex > 0) {
+                                colonMatches.push({
+                                    fullMatch: fullMatch,
+                                    idProduct: idProduct,
+                                    displayColumnIndex: displayColumnIndex,
+                                    index: matchIndex
+                                });
+                            }
                         }
-                    }
-                    
-                    // Replace [id_product : column_number] with actual values (from back to front)
-                    colonMatches.sort((a, b) => b.index - a.index);
-                    for (let i = 0; i < colonMatches.length; i++) {
-                        const colonMatch = colonMatches[i];
-                        const dataColumnIndex = colonMatch.displayColumnIndex - 1;
                         
-                        // Get cell value using id_product and column index
-                        // Try to get row label from processValue for better matching
-                        const rowLabel = getRowLabelFromProcessValue(colonMatch.idProduct);
-                        const columnValue = getCellValueByIdProductAndColumn(colonMatch.idProduct, dataColumnIndex, rowLabel);
+                        // Replace [id_product : column_number] with actual values (from back to front)
+                        colonMatches.sort((a, b) => b.index - a.index);
+                        for (let i = 0; i < colonMatches.length; i++) {
+                            const colonMatch = colonMatches[i];
+                            const dataColumnIndex = colonMatch.displayColumnIndex - 1;
+                            
+                            // Get cell value using id_product and column index
+                            // Try to get row label from processValue for better matching
+                            const rowLabel = getRowLabelFromProcessValue(colonMatch.idProduct);
+                            const columnValue = getCellValueByIdProductAndColumn(colonMatch.idProduct, dataColumnIndex, rowLabel);
+                            
+                            if (columnValue !== null && columnValue !== '') {
+                                parsedExpression = parsedExpression.substring(0, colonMatch.index) + 
+                                              columnValue + 
+                                              parsedExpression.substring(colonMatch.index + colonMatch.fullMatch.length);
+                            } else {
+                                console.warn(`Cell value not found for [${colonMatch.idProduct} : ${colonMatch.displayColumnIndex}]`);
+                                parsedExpression = parsedExpression.substring(0, colonMatch.index) + 
+                                              '0' + 
+                                              parsedExpression.substring(colonMatch.index + colonMatch.fullMatch.length);
+                            }
+                        }
                         
-                        if (columnValue !== null && columnValue !== '') {
-                            parsedExpression = parsedExpression.substring(0, colonMatch.index) + 
-                                          columnValue + 
-                                          parsedExpression.substring(colonMatch.index + colonMatch.fullMatch.length);
+                        // Get source percent for display
+                        const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
+                            ? data.sourcePercent.toString().trim() 
+                            : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                        const enableSourcePercent = data.enableSourcePercent !== undefined 
+                            ? data.enableSourcePercent 
+                            : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                        
+                        // Create formula display with source percent if enabled
+                        if (enableSourcePercent && sourcePercentText) {
+                            formulaText = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, true);
                         } else {
-                            console.warn(`Cell value not found for [${colonMatch.idProduct} : ${colonMatch.displayColumnIndex}]`);
-                            parsedExpression = parsedExpression.substring(0, colonMatch.index) + 
-                                          '0' + 
-                                          parsedExpression.substring(colonMatch.index + colonMatch.fullMatch.length);
+                            formulaText = formatNegativeNumbersInFormula(parsedExpression);
                         }
+                        console.log('updateSummaryTableRow: Rebuilt formula from sourceColumns:', sourceColumnsValue, '->', formulaText);
                     }
-                    
-                    // Get source percent for display
-                    const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
-                        ? data.sourcePercent.toString().trim() 
+                }
+                
+                // 无 sourceColumns 时用 formulaOperators 解析展示
+                if (!formulaText && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
+                    const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
+                        ? data.sourcePercent.toString().trim()
                         : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
-                    const enableSourcePercent = data.enableSourcePercent !== undefined 
-                        ? data.enableSourcePercent 
+                    const enableSourcePercent = data.enableSourcePercent !== undefined
+                        ? data.enableSourcePercent
                         : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                    
-                    // Create formula display with source percent if enabled
-                    if (enableSourcePercent && sourcePercentText) {
-                        formulaText = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, true);
-                    } else {
-                        formulaText = formatNegativeNumbersInFormula(parsedExpression);
-                    }
-                    console.log('updateSummaryTableRow: Rebuilt formula from sourceColumns:', sourceColumnsValue, '->', formulaText);
+                    formulaText = createFormulaDisplayFromExpression(formulaOperatorsValue, sourcePercentText, enableSourcePercent);
                 }
             }
-            
-            // 无 sourceColumns 时用 formulaOperators 解析展示
-            if (!formulaText && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
-                const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
-                    ? data.sourcePercent.toString().trim()
-                    : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
-                const enableSourcePercent = data.enableSourcePercent !== undefined
-                    ? data.enableSourcePercent
-                    : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                formulaText = createFormulaDisplayFromExpression(formulaOperatorsValue, sourcePercentText, enableSourcePercent);
-            }
+
+            // Special handling: for MG95-96 + KL-ELSON, display processed amount as formula
+            if (isMg95ElsonSpecialRow(data, row)) {
+                let specialAmount = (data.processedAmount !== undefined && data.processedAmount !== null)
+                    ? Number(data.processedAmount)
+                    : NaN;
+                if (isNaN(specialAmount) && cells[8]) {
+                    const text = (cells[8].textContent || '').replace(/,/g, '');
+                    const num = parseFloat(text);
+                    if (!isNaN(num)) {
+                        specialAmount = num;
+                    }
+                }
+                if (!isNaN(specialAmount)) {
+                    const rounded = typeof roundProcessedAmountTo2Decimals === 'function'
+                        ? roundProcessedAmountTo2Decimals(Number(specialAmount))
+                        : Number(specialAmount);
+                    const displayVal = typeof formatNumberWithThousands === 'function'
+                        ? formatNumberWithThousands(rounded)
+                        : String(rounded);
+                    formulaText = displayVal;
+                    rawFormula = displayVal;
+                }
             }
             
             if (!rawFormula) rawFormula = formulaText;
