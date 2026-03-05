@@ -14139,7 +14139,10 @@ if (mainTemplate && !hasExistingData) {
         return;
     }
 
-    const sourcePercentRaw = mainTemplate.source_percent || '';
+    const existingSourcePercentAttr = targetRow.getAttribute('data-source-percent') || '';
+    const sourcePercentRaw = existingSourcePercentAttr && existingSourcePercentAttr.trim() !== ''
+        ? existingSourcePercentAttr
+        : (mainTemplate.source_percent || '');
     let percentValue = sourcePercentRaw.toString();
     // Convert old percentage format to new decimal format if needed
     if (percentValue) {
@@ -14941,7 +14944,10 @@ if (currentSourceData && currentSourceData.trim() !== '') {
         return mainTemplate; // 仍然返回模板以便后续子行处理
     }
 
-    const sourcePercentRaw = mainTemplate.source_percent || '';
+    const existingSourcePercentAttr = targetRow.getAttribute('data-source-percent') || '';
+    const sourcePercentRaw = existingSourcePercentAttr && existingSourcePercentAttr.trim() !== ''
+        ? existingSourcePercentAttr
+        : (mainTemplate.source_percent || '');
     let percentValue = sourcePercentRaw.toString();
 // Convert old percentage format to new decimal format if needed
 // IMPORTANT: New format uses decimal (1 = 100%), so values like 1, 0.5, 1.2 are already in decimal format
@@ -16044,7 +16050,10 @@ if (currentSourceData && currentSourceData.trim() !== '') {
     console.log('No source data available (sub)');
 }
 
-const sourcePercentRaw = template.source_percent || '';
+const existingSourcePercentAttr = targetRow.getAttribute('data-source-percent') || '';
+const sourcePercentRaw = existingSourcePercentAttr && existingSourcePercentAttr.trim() !== ''
+    ? existingSourcePercentAttr
+    : (template.source_percent || '');
 let percentValue = sourcePercentRaw.toString();
 // Convert old percentage format to new decimal format if needed
 // Only convert if value is >= 10 (likely old percentage format like 100 = 100%)
