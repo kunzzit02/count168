@@ -39,6 +39,42 @@ $company_id = $_SESSION['company_id'] ?? null;
     <link rel="stylesheet" href="css/datacapturesummary.css?v=<?php echo time(); ?>">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
+    <script>
+        // 在 Data Capture Summary 页面中：
+        // - 页面中间的「Back」按钮：保留现有 goBackToDataCapture() 行为（带 ?restore=1，可返回上一轮）
+        // - 侧边栏的 Data Capture：视为「开始新一轮」，清掉上一轮的本地缓存，跳转到全新 Data Capture
+        function navigateToDataCaptureFresh() {
+            window.isNavigatingAwayByBackOrSubmit = true;
+            try {
+                localStorage.removeItem('capturedTableData');
+                localStorage.removeItem('capturedProcessData');
+                localStorage.removeItem('capturedDataCaptureType');
+                localStorage.removeItem('capturedFormatPreviewHtml');
+                localStorage.removeItem('captured655PreviewHtml');
+                localStorage.removeItem('capturedTableRateValues');
+                localStorage.removeItem('capturedTableFormulaSourceForRefresh');
+                localStorage.removeItem('capturedCaptureId');
+            } catch (e) {}
+            // 不带 restore 参数，Data Capture 不会尝试恢复旧数据
+            window.location.href = 'datacapture.php';
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            try {
+                var dcSection = document.getElementById('sidebar-datacapture-section');
+                if (!dcSection) return;
+                var dcTitle = dcSection.querySelector('.informationmenu-section-title');
+                if (!dcTitle) return;
+                dcTitle.onclick = function (e) {
+                    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+                    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+                    navigateToDataCaptureFresh();
+                };
+            } catch (err) {
+                console.error('Failed to bind sidebar Data Capture click on summary page:', err);
+            }
+        });
+    </script>
 </head>
 <body>
     <div class="container">
