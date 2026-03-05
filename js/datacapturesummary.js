@@ -9612,7 +9612,8 @@ function formatNegativeNumbersInFormula(formula) {
 function evaluateExpression(expression) {
     try {
         if (!expression || typeof expression !== 'string') {
-            console.error('Invalid expression:', expression);
+            // 使用 warn 避免在控制台显示严重错误，但保持返回 0 的逻辑
+            console.warn('Invalid expression:', expression);
             return 0;
         }
         
@@ -9627,7 +9628,7 @@ function evaluateExpression(expression) {
         // Validate that the expression doesn't contain invalid characters
         // Allow: numbers, operators (+-*/), parentheses, decimal points, spaces
         if (!/^[0-9+\-*/().\s]+$/.test(jsExpression)) {
-            console.error('Expression contains invalid characters:', jsExpression);
+            console.warn('Expression contains invalid characters:', jsExpression);
             return 0;
         }
         
@@ -9652,7 +9653,7 @@ function evaluateExpression(expression) {
         const parsedResult = parseFloat(result);
         
         if (isNaN(parsedResult) || !Number.isFinite(parsedResult)) {
-            console.error('Invalid result from expression:', result, 'Original expression:', expression);
+            console.warn('Invalid result from expression:', result, 'Original expression:', expression);
             return 0;
         }
         
@@ -9660,7 +9661,7 @@ function evaluateExpression(expression) {
         return parsedResult;
         
     } catch (error) {
-        console.error('Error evaluating expression:', error, 'Expression:', expression);
+        console.warn('Error evaluating expression:', error, 'Expression:', expression);
         return 0;
     }
 }
