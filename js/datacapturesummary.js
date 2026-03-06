@@ -13886,9 +13886,9 @@ uniqueIds.forEach(normalizedIdProduct => {
             // Apply each main template to its corresponding row based on account_id and row_index
             // Use mainTemplate.id_product so we find the correct row when multiple mains (e.g. "ABC (AAA)", "ABC (TTT)")
             let anySubsApplied = false;
-            sortedTemplates.forEach(mainTemplate => {
+            sortedTemplates.forEach((mainTemplate, accountOrderIndex) => {
                 const mainIdProduct = mainTemplate.id_product || originalIdProduct;
-                const mainRow = applyMainTemplateToRow(mainIdProduct, mainTemplate);
+                const mainRow = applyMainTemplateToRow(mainIdProduct, mainTemplate, accountOrderIndex);
                 // Apply subs whose parent matches this main row. Exact match (after stripping leading "N " from DB) or when only one main, allow normalized match.
                 if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
                     const mainTrimmed = (mainIdProduct || '').trim();
@@ -14530,7 +14530,7 @@ console.error('Failed to apply template for', idProduct, error);
 // 3. account_id only
 // 4. row_index only (fallback when account_id not available)
 // This ensures templates are matched to the correct id_product + account combination regardless of row position changes
-function applyMainTemplateToRow(idProduct, mainTemplate) {
+function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
 try {
 const summaryTableBody = document.getElementById('summaryTableBody');
 if (!summaryTableBody) {
@@ -14667,12 +14667,18 @@ if (!targetRow && templateAccountId && templateFormulaVariant) {
 }
 
 // Priority 3: Match by account_id only (if formula_variant not available)
+// 同时匹配：行有 data-account-id，或行仅有显示文本但包含 account_id（如 "CITIZENX [3300]" 未写 data-account-id）
 if (!targetRow && templateAccountId) {
-    // First, try exact match by account_id
     for (const candidate of candidateRows) {
         if (candidate.accountId === templateAccountId) {
             targetRow = candidate.row;
             console.log('Matched row by account_id:', templateAccountId);
+            break;
+        }
+        const displayHasId = candidate.accountDisplay && (String(candidate.accountDisplay).indexOf('[' + templateAccountId + ']') >= 0 || String(candidate.accountDisplay).trim() === templateAccountId);
+        if (displayHasId) {
+            targetRow = candidate.row;
+            console.log('Matched row by account_id in display text:', templateAccountId);
             break;
         }
     }
@@ -14705,11 +14711,38 @@ if (!targetRow && templateAccountId) {
 // 如果模板是「按账号」定义的（templateAccountId 有值），但在上面的规则里完全找不到匹配的行：
 // - 当同一个 id_product 只有 1 行（candidateRows.length === 1）时：仍允许后面的 row_index 兜底匹配，
 //   因为无论如何都只有这一行，不会出现「套到错误账号」的问题。
-// - 当同一个 id_product 有多行（candidateRows.length > 1）且都匹配不到账号时：为安全起见直接跳过，
-//   避免把「MG95-45 + MEGA888」一类的模板套到「MG95-45 + JB-VINCENT」这样的行上。
+// - 当同一个 id_product 有多行（candidateRows.length > 1）且都匹配不到账号时：
+//   - 若所有候选行的 account 都未设置（新建表刚填充、尚未选账号）：按行顺序依次套用模板，避免全部跳过导致公式丢失。
+//   - 若存在已设置 account 的行但仍无匹配：为安全起见直接跳过，避免套到错误账号。
+// 仅当「所有」候选行都无 account 时才允许按顺序套用，避免已有账号的行被套错模板（原问题不复发）
+const allCandidatesWithoutAccount = candidateRows.length > 1 && candidateRows.every(c => !c.accountId || String(c.accountId).trim() === '');
 if (!targetRow && templateAccountId && candidateRows.length > 1) {
-    console.warn('applyMainTemplateToRow: No row matched account-specific template among multiple rows. Skip applying for account_id =', templateAccountId, 'idProduct =', idProduct);
-    return;
+    const sortedByRowIndex = [...candidateRows].sort((a, b) => {
+        const ai = a.rowIndex !== null && a.rowIndex !== undefined ? a.rowIndex : 999999;
+        const bi = b.rowIndex !== null && b.rowIndex !== undefined ? b.rowIndex : 999999;
+        if (ai !== bi) return ai - bi;
+        return a.index - b.index;
+    });
+    if (allCandidatesWithoutAccount) {
+        // 多行且均无 account：按 row_index、再按 DOM 顺序选第一个尚未在本轮套用过的行，使模板按顺序套用
+        const firstUnapplied = sortedByRowIndex.find(c => !c.alreadyApplied);
+        if (firstUnapplied) {
+            targetRow = firstUnapplied.row;
+            console.log('applyMainTemplateToRow: Multiple rows with no account — applying by order for account_id =', templateAccountId, 'idProduct =', idProduct);
+        }
+    }
+    // 若仍有未匹配且存在「未设置账号且未套用」的行：套用到第一个这样的行，避免 account_id 未写入 data-account-id 时被跳过（如 H8221 + 3300）
+    if (!targetRow) {
+        const firstEmptyUnapplied = sortedByRowIndex.find(c => (!c.accountId || String(c.accountId).trim() === '') && !c.alreadyApplied);
+        if (firstEmptyUnapplied) {
+            targetRow = firstEmptyUnapplied.row;
+            console.log('applyMainTemplateToRow: No account match — applying to first empty unapplied row for account_id =', templateAccountId, 'idProduct =', idProduct);
+        }
+    }
+    if (!targetRow) {
+        console.warn('applyMainTemplateToRow: No row matched account-specific template among multiple rows. Skip applying for account_id =', templateAccountId, 'idProduct =', idProduct);
+        return;
+    }
 }
 
 // Priority 4: Match by row_index only (fallback when account_id not available)
@@ -14817,6 +14850,11 @@ const shouldApply = !hasExistingData || (templateAccountId && rowAccountId && ro
 if (!shouldApply && hasExistingData) {
     console.log('applyMainTemplateToRow: Skipping row with existing data that doesn\'t match account_id');
     return;
+}
+
+// 同一 id_product 多账号时排序用：先套用的为 main（在上），后套用的为 sub（在下）
+if (accountOrderIndex !== undefined && accountOrderIndex !== null) {
+    targetRow.setAttribute('data-account-order', String(accountOrderIndex));
 }
 
 // Apply the template (reuse the logic from applyTemplateToSummaryRow)
@@ -15570,6 +15608,8 @@ const rowData = rows.map((row, originalIndex) => {
     const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : originalIndex * 1000000;
     const subOrderAttr = row.getAttribute('data-sub-order');
     const subOrder = (subOrderAttr && subOrderAttr !== '' && !Number.isNaN(Number(subOrderAttr))) ? Number(subOrderAttr) : null;
+    const accountOrderAttr = row.getAttribute('data-account-order');
+    const accountOrder = (accountOrderAttr !== null && accountOrderAttr !== '' && !Number.isNaN(Number(accountOrderAttr))) ? Number(accountOrderAttr) : 999999;
 
     let dataCapturePosition = 999999;
     if (normalizedMain && dataCaptureTableOrder.length > 0) {
@@ -15587,6 +15627,7 @@ const rowData = rows.map((row, originalIndex) => {
         accountId,
         creationOrder,
         subOrder,
+        accountOrder,
         dataCapturePosition
     };
 });
@@ -15595,62 +15636,31 @@ const rowData = rows.map((row, originalIndex) => {
 const withIndex = rowData.filter(r => r.rowIndex !== null);
 const withoutIndex = rowData.filter(r => r.rowIndex === null);
 
-// IMPORTANT: Sort rows to ensure all SUB id_Product rows follow their corresponding MAIN rows
-// 重要：排序确保所有 SUB 的 id_Product 行都紧跟在对应的 MAIN 行后面
+// IMPORTANT: Sort rows to follow Data Capture Table row order (console "Preserved existing row_index" order),
+// and within same row position: main before sub, then account_order so sub stays under main.
+// 重要：先按 Data Capture Table 行顺序（row_index）排列，与 console 的 row 顺序一致；同一行内 main 在 sub 前。
 withIndex.sort((a, b) => {
-    // Primary sort: by normalizedMain (id_product) to group same id_product together
-    // 首先按 normalizedMain（id_product）分组，确保同一个 id_product 的所有行在一起
-    if (a.normalizedMain !== b.normalizedMain) {
-        // Different id_product: sort by Data Capture Table position
-        // 不同的 id_product：按 Data Capture Table 位置排序
-        return a.dataCapturePosition - b.dataCapturePosition;
-    }
-    
-    // Same id_product: ensure main rows come before sub rows
-    // 同一个 id_product：确保 main 行在 sub 行前面
-    const aIsSub = a.productType === 'sub';
-    const bIsSub = b.productType === 'sub';
-    
-    // If one is main and one is sub, main comes first
-    // 如果一个是 main，一个是 sub，main 排在前面
-    if (!aIsSub && bIsSub) {
-        // a is main, b is sub - a comes first
-        return -1;
-    }
-    if (aIsSub && !bIsSub) {
-        // a is sub, b is main - b comes first
-        return 1;
-    }
-    
-    // Both are main rows: sort by row_index, then by creation order
-    // 都是 main 行：按 row_index 排序，然后按 creation order
-    if (!aIsSub && !bIsSub) {
-        if (a.rowIndex !== b.rowIndex) {
-            return a.rowIndex - b.rowIndex;
-        }
-        return a.creationOrder - b.creationOrder;
-    }
-    
-    // Both are sub rows: sort by row_index first, then by sub_order, then by creation order
-    // 都是 sub 行：先按 row_index 排序，然后按 sub_order，最后按 creation order
+    // Primary sort: by row_index so order matches Data Capture Table (0, 1, 2, 3...), e.g. citibet submit
+    // 主排序：按 row_index，使 Summary 表顺序与 Data Capture Table 一致（如 0 HD6221, 1 HM6221, 2 MY EARNINGS, 3 HD6221...）
     if (a.rowIndex !== b.rowIndex) {
         return a.rowIndex - b.rowIndex;
     }
     
-    // Same row_index for sub rows: sort by sub_order first
-    if (a.subOrder !== null && b.subOrder !== null) {
-        if (a.subOrder !== b.subOrder) {
-            return a.subOrder - b.subOrder;
-        }
-    } else if (a.subOrder !== null) {
-        // a has sub_order, b doesn't - a comes first
-        return -1;
-    } else if (b.subOrder !== null) {
-        // b has sub_order, a doesn't - b comes first
-        return 1;
+    // Same row_index (e.g. multiple entries from one cell): main before sub, then account_order, creation order
+    // 同一 row_index（如同一格拆多行）：main 在 sub 前，再按 account_order、creation order
+    const aIsSub = a.productType === 'sub';
+    const bIsSub = b.productType === 'sub';
+    if (!aIsSub && bIsSub) return -1;
+    if (aIsSub && !bIsSub) return 1;
+    
+    if (!aIsSub && !bIsSub) {
+        if (a.accountOrder !== b.accountOrder) return a.accountOrder - b.accountOrder;
+        return a.creationOrder - b.creationOrder;
     }
     
-    // If both have no sub_order or same sub_order, sort by creation order
+    if (a.subOrder !== null && b.subOrder !== null && a.subOrder !== b.subOrder) return a.subOrder - b.subOrder;
+    if (a.subOrder !== null) return -1;
+    if (b.subOrder !== null) return 1;
     return a.creationOrder - b.creationOrder;
 });
 
