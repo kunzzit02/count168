@@ -14708,6 +14708,7 @@ if (!targetRow && templateAccountId) {
 // - 当同一个 id_product 有多行（candidateRows.length > 1）且都匹配不到账号时：
 //   - 若所有候选行的 account 都未设置（新建表刚填充、尚未选账号）：按行顺序依次套用模板，避免全部跳过导致公式丢失。
 //   - 若存在已设置 account 的行但仍无匹配：为安全起见直接跳过，避免套到错误账号。
+// 仅当「所有」候选行都无 account 时才允许按顺序套用，避免已有账号的行被套错模板（原问题不复发）
 const allCandidatesWithoutAccount = candidateRows.length > 1 && candidateRows.every(c => !c.accountId || String(c.accountId).trim() === '');
 if (!targetRow && templateAccountId && candidateRows.length > 1) {
     if (allCandidatesWithoutAccount) {
