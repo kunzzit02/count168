@@ -15538,7 +15538,14 @@ const rowData = rows.map((row, originalIndex) => {
     const idProductCell = row.querySelector('td:first-child');
     const productValues = getProductValuesFromCell(idProductCell);
     const mainTextRaw = (productValues.main || '').trim();
-    const productType = row.getAttribute('data-product-type') || 'main';
+    // 兼容旧/异常数据：如果标记为 main 但带有 parent-id，则视为 sub，保证 main / sub 不会被拆散到不同分组
+    let productType = row.getAttribute('data-product-type') || 'main';
+    if (productType === 'main') {
+        const parentAttr = row.getAttribute('data-parent-id-product');
+        if (parentAttr && parentAttr.trim() !== '') {
+            productType = 'sub';
+        }
+    }
     
     let normalizedMain = '';
     if (productType === 'sub') {
