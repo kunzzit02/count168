@@ -15657,8 +15657,9 @@ const rowData = rows.map((row, originalIndex) => {
 // IMPORTANT: 全局排序逻辑说明：
 // 1. 先按 data-row-index 排序，保证顺序总体跟 Data Capture Table 一致
 // 2. 有 row_index 的永远排在没有 row_index 的前面
-// 3. 在相同 row_index 下，优先按 dataCapturePosition / creationOrder / subOrder / accountOrder，再按 originalIndex 稳定排序
-// 4. 对于没有 row_index 但能在 Data Capture Table 中找到的行，仍按 dataCapturePosition 排序，避免 main / sub 被打乱
+// 3. 在「有 row_index」的行里：不同 row_index 只看 row_index；同一个 row_index 内按 creationOrder / subOrder / accountOrder / originalIndex
+//    ——也就是 Console 里 "Preserved existing row_index" 的顺序为准，不再用 dataCapturePosition 重新洗牌
+// 4. 只有「没有 row_index」的行，才使用 dataCapturePosition 辅助排序，避免 main / sub 被打乱
 const orderedRows = rowData
     .slice()
     .sort((a, b) => {
@@ -15674,11 +15675,16 @@ const orderedRows = rowData
             return a.rowIndex - b.rowIndex;
         }
 
-        // 到这里要么：1) 两个都没有 row_index，2) row_index 相同
-        // 按 Data Capture Table 的位置（同一个 main 的所有行会聚在一起）
-        if (a.dataCapturePosition !== b.dataCapturePosition) {
+        // 到这里要么：
+        // 1) 两个都没有 row_index
+        // 2) 两个都有 row_index 且 row_index 相同
+        //
+        // 情况 1（都没有 row_index）：可以按 Data Capture Table 的位置排序，避免 main/sub 被打散
+        if (!aHasIndex && !bHasIndex && a.dataCapturePosition !== b.dataCapturePosition) {
             return a.dataCapturePosition - b.dataCapturePosition;
         }
+
+        // 情况 2（都有 row_index 且相同）：完全尊重「已有 row_index + 创建顺序」，不再用 dataCapturePosition 重新调整顺序
 
         // 再按创建顺序（模板 / 手动新增都会带 creationOrder）
         if (a.creationOrder !== b.creationOrder) {
