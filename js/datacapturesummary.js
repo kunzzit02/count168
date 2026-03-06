@@ -15665,20 +15665,30 @@ const orderedRows = rowData
     .sort((a, b) => {
         const aPos = a.dataCapturePosition;
         const bPos = b.dataCapturePosition;
-
         const aHasValidPos = aPos !== null && aPos !== undefined && !Number.isNaN(aPos) && aPos < 999999;
         const bHasValidPos = bPos !== null && bPos !== undefined && !Number.isNaN(bPos) && bPos < 999999;
 
-        // 先按是否在 Data Capture Table 中找到位置（有位置的始终在前）
-        if (aHasValidPos && !bHasValidPos) return -1;
-        if (!aHasValidPos && bHasValidPos) return 1;
+        // 如果是同一组（同一个 Main 的 main/sub），不要用 dataCapturePosition 把它们拆开
+        const sameGroup =
+            a.normalizedMain &&
+            b.normalizedMain &&
+            a.normalizedMain === b.normalizedMain;
 
-        // 双方都有有效 dataCapturePosition：完全以 Data Capture 行号排序
-        if (aHasValidPos && bHasValidPos && aPos !== bPos) {
-            return aPos - bPos;
+        if (!sameGroup) {
+            // 先按是否在 Data Capture Table 中找到位置（有位置的始终在前）
+            if (aHasValidPos && !bHasValidPos) return -1;
+            if (!aHasValidPos && bHasValidPos) return 1;
+
+            // 双方都有有效 dataCapturePosition：完全以 Data Capture 行号排序
+            if (aHasValidPos && bHasValidPos && aPos !== bPos) {
+                return aPos - bPos;
+            }
         }
 
-        // 走到这里，要么两边都没有有效位置，要么位置相同
+        // 走到这里，要么：
+        // - 两边都没有有效位置，或
+        // - 位置相同，或
+        // - 同一 Id Product 分组（sameGroup=true），我们有意忽略 dataCapturePosition 差异
         const aHasIndex = a.rowIndex !== null;
         const bHasIndex = b.rowIndex !== null;
 
@@ -15687,7 +15697,7 @@ const orderedRows = rowData
             return a.rowIndex - b.rowIndex;
         }
 
-        // 其它所有情况：保持当前 DOM 的相对顺序
+        // 其它所有情况：保持当前 DOM 的相对顺序（保证 main/sub 连在一起）
         return a.originalIndex - b.originalIndex;
     })
     .map(data => data.row);
