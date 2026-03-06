@@ -6410,14 +6410,11 @@ function extractRowDataForTemplate(row, formData) {
         }
         
         // If no existing row_index, try to find it from Data Capture Table
-        // IMPORTANT: Use full Id Product (including brackets like (SV)/(KM)) so each variant maps
-        // to其在 Data Capture Table 中的独立位置，而不是被截成同一个基名。
         if (rowIndex === null) {
-            const idProductRaw = productType === 'sub'
-                ? (idProductSub || (formData.processValue || ''))
-                : (idProductMain || (formData.processValue || ''));
-            // 用去空格后的完整 Id 作为匹配 key，避免 ALLBET95SMS(SV)/MYR 等被合并
-            const normalizedIdProduct = idProductRaw.toString().trim().replace(/\s+/g, '');
+            const idProduct = productType === 'sub' 
+                ? (idProductSub || normalizeIdProductText(formData.processValue))
+                : (idProductMain || normalizeIdProductText(formData.processValue));
+            const normalizedIdProduct = normalizeIdProductText(idProduct);
             
             if (normalizedIdProduct) {
                 const capturedTableBody = document.getElementById('capturedTableBody');
@@ -6428,7 +6425,7 @@ function extractRowDataForTemplate(row, formData) {
                         const capturedRow = capturedRows[i];
                         const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                         if (capturedIdProductCell) {
-                            const capturedIdProduct = (capturedIdProductCell.textContent || '').toString().trim().replace(/\s+/g, '');
+                            const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
                             if (capturedIdProduct === normalizedIdProduct) {
                                 rowIndex = i;
                                 console.log('Computed row_index from Data Capture Table position:', rowIndex, 'for id_product:', normalizedIdProduct);
@@ -13761,20 +13758,18 @@ if (summaryTableBody && capturedTableBody) {
     const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
     
     // Recalculate row_index for each Summary Table row based on Data Capture Table position
-    // IMPORTANT: 使用“完整 Id 去空格”的方式做匹配，保证 ALLBET95SMS(SV)/MYR、ALLBET95SMS(KM)/MYR 等
-    // 作为独立 Id 存在，各自对应 Data Capture Table 里的各自行号。
-    // All rows with the same full id_product (after removing spaces) share the same row_index.
-    const idProductToRowIndex = new Map(); // Cache id_product_key -> row_index mapping
+    // IMPORTANT: All rows with the same id_product should use the same row_index (their position in Data Capture Table)
+    // This ensures they are grouped together and sorted correctly
+    const idProductToRowIndex = new Map(); // Cache id_product -> row_index mapping
     
     // First pass: Build mapping from Data Capture Table
     capturedRows.forEach((capturedRow, capturedIndex) => {
         const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
         if (capturedIdProductCell) {
-            const raw = (capturedIdProductCell.textContent || '').toString().trim();
-            const capturedIdKey = raw.replace(/\s+/g, '');
-            if (capturedIdKey && !idProductToRowIndex.has(capturedIdKey)) {
+            const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+            if (capturedIdProduct && !idProductToRowIndex.has(capturedIdProduct)) {
                 // Store the first occurrence (position in Data Capture Table)
-                idProductToRowIndex.set(capturedIdKey, capturedIndex);
+                idProductToRowIndex.set(capturedIdProduct, capturedIndex);
             }
         }
     });
@@ -13787,9 +13782,7 @@ if (summaryTableBody && capturedTableBody) {
         if (!summaryIdProductCell) return;
         
         const productValues = getProductValuesFromCell(summaryIdProductCell);
-        const fullSummaryText = (productValues.main || '').toString().trim();
-        // 用完整 Id 去空格作为 key，避免不同括号版本被合并
-        const summaryIdKey = fullSummaryText.replace(/\s+/g, '');
+        const summaryIdProduct = normalizeIdProductText(productValues.main || '');
         
         // Check if row already has a valid row_index - if so, preserve it
         const existingRowIndex = summaryRow.getAttribute('data-row-index');
@@ -13797,13 +13790,13 @@ if (summaryTableBody && capturedTableBody) {
             const existingIndexNum = Number(existingRowIndex);
             if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
                 // Row already has a valid row_index, preserve it（输出完整 id_product 便于控制台查看）
-                const idProductFull = fullSummaryText;
-                console.log('Preserved existing row_index:', existingRowIndex, idProductFull || summaryIdKey);
+                const idProductFull = (productValues.main || '').trim();
+                console.log('Preserved existing row_index:', existingRowIndex, idProductFull || summaryIdProduct);
                 return; // Keep existing row_index - don't recalculate
             }
         }
         
-        if (!summaryIdKey) {
+        if (!summaryIdProduct) {
             // For rows without id_product, use fallback
             if (!existingRowIndex || existingRowIndex === '') {
                 summaryRow.setAttribute('data-row-index', '999999');
@@ -13811,11 +13804,11 @@ if (summaryTableBody && capturedTableBody) {
             return;
         }
         
-        // Get row_index from cache (all rows with same full id_product key get same row_index)
-        const matchedIndex = idProductToRowIndex.get(summaryIdKey);
+        // Get row_index from cache (all rows with same id_product get same row_index)
+        const matchedIndex = idProductToRowIndex.get(summaryIdProduct);
         
         // Set row_index based on Data Capture Table position (only if not already set)
-        const idProductFullForLog = fullSummaryText || summaryIdKey;
+        const idProductFullForLog = (productValues.main || '').trim() || summaryIdProduct;
         if (matchedIndex !== undefined && matchedIndex >= 0) {
             summaryRow.setAttribute('data-row-index', String(matchedIndex));
             console.log('Set row_index:', matchedIndex, 'for id_product:', idProductFullForLog, 'based on Data Capture Table position');
