@@ -1328,11 +1328,12 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
                             console.log('getCellValueByIdProductAndColumn: Verified id_product - match:', rowIndexIdProductMatches);
                             
                             if (!rowIndexIdProductMatches) {
-                                console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch! rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected:', idProductTrimmed, 'found:', cellIdProductText, 'Will fallback to id_product search');
+                                // 在实际逻辑上依然回退到 id_product 搜索，但不再用 warn 污染控制台
+                                console.log('getCellValueByIdProductAndColumn: row_label found but id_product mismatch, will fallback to id_product search. rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected:', idProductTrimmed, 'found:', cellIdProductText);
                                 rowIndex = null; // Reset rowIndex if id_product doesn't match
                             }
                         } else {
-                            console.warn('getCellValueByIdProductAndColumn: idProductCell not found for row_label:', rowLabel, 'Will fallback to id_product search');
+                            console.log('getCellValueByIdProductAndColumn: idProductCell not found for row_label, will fallback to id_product search. rowLabel:', rowLabel);
                             rowIndex = null; // Reset rowIndex if id_product cell not found
                         }
                         break;
@@ -1346,7 +1347,7 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
                 processRow = findProcessRow(parsedTableData, idProductResolved, rowIndex);
                 console.log('getCellValueByIdProductAndColumn: Found row by row_label:', rowLabel, 'rowIndex:', rowIndex, 'id_product:', idProductResolved, 'processRow:', processRow ? 'found' : 'not found');
             } else {
-                console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch or row_label not found:', rowLabel, 'falling back to id_product search');
+                console.log('getCellValueByIdProductAndColumn: row_label not usable, falling back to id_product search. rowLabel:', rowLabel);
             }
         }
         
@@ -1355,7 +1356,7 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
         if (!processRow) {
             processRow = findProcessRow(parsedTableData, idProductResolved);
             if (rowLabel) {
-                console.warn('getCellValueByIdProductAndColumn: Row not found by row_label or id_product mismatch, falling back to first matching row for id_product:', idProductResolved);
+                console.log('getCellValueByIdProductAndColumn: Row not found by row_label, falling back to first matching row for id_product:', idProductResolved);
             }
         }
         
@@ -7801,10 +7802,17 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
                 return row;
             } else {
                 // CRITICAL: If id_product doesn't match, DO NOT use this row
-                console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValueResolved, 'Found:', rowValue, '. Falling back to id_product search.');
+                // 逻辑保持不变，仅降级为 log，避免在正常回退场景下刷 warn
+                console.log('findProcessRow: rowIndex provided but id_product mismatch, falling back to id_product search.', {
+                    rowIndex,
+                    expected: processValueResolved,
+                    found: rowValue
+                });
             }
         } else {
-            console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but row is invalid. Falling back to id_product search.');
+            console.log('findProcessRow: rowIndex provided but row is invalid, falling back to id_product search.', {
+                rowIndex
+            });
         }
     }
 
