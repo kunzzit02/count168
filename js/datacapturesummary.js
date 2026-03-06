@@ -12604,9 +12604,14 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
     
     // Id Product column (merged main and sub)
     const idProductCell = document.createElement('td');
-    idProductCell.textContent = '';
+    // 显示与父 MAIN 相同的 Id Product 文本，但通过 sub-id-product class 做视觉缩进
+    const parentDisplayId = (parentProcessValue || '').trim();
+    idProductCell.textContent = parentDisplayId;
     idProductCell.className = 'id-product sub-id-product';
-    idProductCell.setAttribute('data-main-product', (parentProcessValue || '').trim());
+    if (parentDisplayId) {
+        idProductCell.setAttribute('title', parentDisplayId);
+    }
+    idProductCell.setAttribute('data-main-product', parentDisplayId);
     idProductCell.setAttribute('data-sub-product', '');
     row.appendChild(idProductCell);
     
@@ -13247,8 +13252,17 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     row.setAttribute('data-product-type', data.productType || 'sub');
     row.setAttribute('data-parent-id-product', processValue);
     const idProductCellForSub = row.querySelector('td:first-child');
-    if (idProductCellForSub && !idProductCellForSub.classList.contains('sub-id-product')) {
-        idProductCellForSub.classList.add('sub-id-product');
+    if (idProductCellForSub) {
+        if (!idProductCellForSub.classList.contains('sub-id-product')) {
+            idProductCellForSub.classList.add('sub-id-product');
+        }
+        // 确保 Sub 行的 Id Product 文本与父 MAIN 一致，避免出现空白导致“分开”的视觉效果
+        const parentDisplayId = (processValue || '').trim();
+        if (parentDisplayId && !idProductCellForSub.textContent.trim()) {
+            idProductCellForSub.textContent = parentDisplayId;
+            idProductCellForSub.setAttribute('data-main-product', parentDisplayId);
+            idProductCellForSub.setAttribute('title', parentDisplayId);
+        }
     }
     
     // Preserve sub_order if provided, otherwise keep existing value
