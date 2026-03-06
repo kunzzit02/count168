@@ -13886,9 +13886,9 @@ uniqueIds.forEach(normalizedIdProduct => {
             // Apply each main template to its corresponding row based on account_id and row_index
             // Use mainTemplate.id_product so we find the correct row when multiple mains (e.g. "ABC (AAA)", "ABC (TTT)")
             let anySubsApplied = false;
-            sortedTemplates.forEach(mainTemplate => {
+            sortedTemplates.forEach((mainTemplate, accountOrderIndex) => {
                 const mainIdProduct = mainTemplate.id_product || originalIdProduct;
-                const mainRow = applyMainTemplateToRow(mainIdProduct, mainTemplate);
+                const mainRow = applyMainTemplateToRow(mainIdProduct, mainTemplate, accountOrderIndex);
                 // Apply subs whose parent matches this main row. Exact match (after stripping leading "N " from DB) or when only one main, allow normalized match.
                 if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
                     const mainTrimmed = (mainIdProduct || '').trim();
@@ -14530,7 +14530,7 @@ console.error('Failed to apply template for', idProduct, error);
 // 3. account_id only
 // 4. row_index only (fallback when account_id not available)
 // This ensures templates are matched to the correct id_product + account combination regardless of row position changes
-function applyMainTemplateToRow(idProduct, mainTemplate) {
+function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
 try {
 const summaryTableBody = document.getElementById('summaryTableBody');
 if (!summaryTableBody) {
@@ -14836,6 +14836,11 @@ const shouldApply = !hasExistingData || (templateAccountId && rowAccountId && ro
 if (!shouldApply && hasExistingData) {
     console.log('applyMainTemplateToRow: Skipping row with existing data that doesn\'t match account_id');
     return;
+}
+
+// 同一 id_product 多账号时排序用：先套用的为 main（在上），后套用的为 sub（在下）
+if (accountOrderIndex !== undefined && accountOrderIndex !== null) {
+    targetRow.setAttribute('data-account-order', String(accountOrderIndex));
 }
 
 // Apply the template (reuse the logic from applyTemplateToSummaryRow)
@@ -15582,6 +15587,8 @@ const rowData = rows.map((row, originalIndex) => {
     const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : originalIndex * 1000000;
     const subOrderAttr = row.getAttribute('data-sub-order');
     const subOrder = (subOrderAttr && subOrderAttr !== '' && !Number.isNaN(Number(subOrderAttr))) ? Number(subOrderAttr) : null;
+    const accountOrderAttr = row.getAttribute('data-account-order');
+    const accountOrder = (accountOrderAttr !== null && accountOrderAttr !== '' && !Number.isNaN(Number(accountOrderAttr))) ? Number(accountOrderAttr) : 999999;
 
     let dataCapturePosition = 999999;
     if (normalizedMain && dataCaptureTableOrder.length > 0) {
@@ -15599,6 +15606,7 @@ const rowData = rows.map((row, originalIndex) => {
         accountId,
         creationOrder,
         subOrder,
+        accountOrder,
         dataCapturePosition
     };
 });
@@ -15634,11 +15642,14 @@ withIndex.sort((a, b) => {
         return 1;
     }
     
-    // Both are main rows: sort by row_index, then by creation order
-    // 都是 main 行：按 row_index 排序，然后按 creation order
+    // Both are main rows: sort by row_index, then by account_order (template order: first = main on top, second = sub below), then creation order
+    // 都是 main 行：按 row_index，再按 data-account-order（模板套用顺序，先套的在上、后套的在下），最后 creation order
     if (!aIsSub && !bIsSub) {
         if (a.rowIndex !== b.rowIndex) {
             return a.rowIndex - b.rowIndex;
+        }
+        if (a.accountOrder !== b.accountOrder) {
+            return a.accountOrder - b.accountOrder;
         }
         return a.creationOrder - b.creationOrder;
     }
