@@ -15654,52 +15654,63 @@ const rowData = rows.map((row, originalIndex) => {
     };
 });
 
-// Separate rows with and without row_index
-const withIndex = rowData.filter(r => r.rowIndex !== null);
-const withoutIndex = rowData.filter(r => r.rowIndex === null);
+// IMPORTANT: 全局排序逻辑说明：
+// 1. 先按 data-row-index 排序，保证顺序总体跟 Data Capture Table 一致
+// 2. 有 row_index 的永远排在没有 row_index 的前面
+// 3. 在相同 row_index 下，优先按 dataCapturePosition / creationOrder / subOrder / accountOrder，再按 originalIndex 稳定排序
+// 4. 对于没有 row_index 但能在 Data Capture Table 中找到的行，仍按 dataCapturePosition 排序，避免 main / sub 被打乱
+const orderedRows = rowData
+    .slice()
+    .sort((a, b) => {
+        const aHasIndex = a.rowIndex !== null;
+        const bHasIndex = b.rowIndex !== null;
 
-// IMPORTANT: Sort rows to follow Data Capture Table row order (console "Preserved existing row_index" order),
-// and within same row position: main before sub, then account_order so sub stays under main.
-// 重要：先按 Data Capture Table 行顺序（row_index）排列，与 console 的 row 顺序一致；同一行内 main 在 sub 前。
-withIndex.sort((a, b) => {
-    // Primary sort: by row_index so order matches Data Capture Table (0, 1, 2, 3...), e.g. citibet submit
-    // 主排序：按 row_index，使 Summary 表顺序与 Data Capture Table 一致（如 0 HD6221, 1 HM6221, 2 MY EARNINGS, 3 HD6221...）
-    if (a.rowIndex !== b.rowIndex) {
-        return a.rowIndex - b.rowIndex;
-    }
-    
-    // Same row_index (e.g. multiple entries from one cell): main before sub, then account_order, creation order
-    // 同一 row_index（如同一格拆多行）：main 在 sub 前，再按 account_order、creation order
-    const aIsSub = a.productType === 'sub';
-    const bIsSub = b.productType === 'sub';
-    if (!aIsSub && bIsSub) return -1;
-    if (aIsSub && !bIsSub) return 1;
-    
-    if (!aIsSub && !bIsSub) {
-        if (a.accountOrder !== b.accountOrder) return a.accountOrder - b.accountOrder;
-        return a.creationOrder - b.creationOrder;
-    }
-    
-    if (a.subOrder !== null && b.subOrder !== null && a.subOrder !== b.subOrder) return a.subOrder - b.subOrder;
-    if (a.subOrder !== null) return -1;
-    if (b.subOrder !== null) return 1;
-    return a.creationOrder - b.creationOrder;
-});
+        // 先按「是否有 row_index」分组：有 index 的始终在前
+        if (aHasIndex && !bHasIndex) return -1;
+        if (!aHasIndex && bHasIndex) return 1;
 
-// Get ordered rows with index
-const orderedRowsWithIndex = withIndex.map(data => data.row);
+        // 两个都有 row_index：直接按 row_index 排
+        if (aHasIndex && bHasIndex && a.rowIndex !== b.rowIndex) {
+            return a.rowIndex - b.rowIndex;
+        }
 
-// Sort rows without row_index by originalIndex (maintain their current order)
-withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
-const orderedRowsWithoutIndex = withoutIndex.map(data => data.row);
+        // 到这里要么：1) 两个都没有 row_index，2) row_index 相同
+        // 按 Data Capture Table 的位置（同一个 main 的所有行会聚在一起）
+        if (a.dataCapturePosition !== b.dataCapturePosition) {
+            return a.dataCapturePosition - b.dataCapturePosition;
+        }
 
-// Combine: rows with index first (sorted by Data Capture Table order), then rows without index
-const orderedRows = [...orderedRowsWithIndex, ...orderedRowsWithoutIndex];
+        // 再按创建顺序（模板 / 手动新增都会带 creationOrder）
+        if (a.creationOrder !== b.creationOrder) {
+            return a.creationOrder - b.creationOrder;
+        }
 
-// Re-append rows in new order
+        // 再按 sub_order（同一个 main 下的 sub 有明确 sub_order 时使用）
+        const aHasSubOrder = a.subOrder !== null;
+        const bHasSubOrder = b.subOrder !== null;
+        if (aHasSubOrder && !bHasSubOrder) return -1;
+        if (!aHasSubOrder && bHasSubOrder) return 1;
+        if (aHasSubOrder && bHasSubOrder && a.subOrder !== b.subOrder) {
+            return a.subOrder - b.subOrder;
+        }
+
+        // 再按账号顺序
+        if (a.accountOrder !== b.accountOrder) {
+            return a.accountOrder - b.accountOrder;
+        }
+
+        // 最后兜底：按当前 DOM 的先后顺序，保证排序稳定，不会影响其它功能
+        return a.originalIndex - b.originalIndex;
+    })
+    .map(data => data.row);
+
+// 按新顺序重新挂载行
 orderedRows.forEach(row => summaryTableBody.appendChild(row));
 
-console.log('Reordered rows by Data Capture Table order. Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length);
+console.log(
+    'Reordered rows by Data Capture Table order.',
+    'Total rows:', orderedRows.length
+);
 } catch (e) {
 console.warn('Failed to reorder summary rows by row_index', e);
 }
