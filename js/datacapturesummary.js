@@ -15697,7 +15697,16 @@ const orderedRows = rowData
             return a.rowIndex - b.rowIndex;
         }
 
-        // 其它所有情况：保持当前 DOM 的相对顺序（保证 main/sub 连在一起）
+        // 在同一 Id Product 分组里，main 永远排在 sub 上面
+        if (sameGroup) {
+            const aType = a.productType || 'main';
+            const bType = b.productType || 'main';
+            if (aType !== bType) {
+                return aType === 'main' ? -1 : 1;
+            }
+        }
+
+        // 其它所有情况：保持当前 DOM 的相对顺序（保证 main/sub 连在一起且 main 在前）
         return a.originalIndex - b.originalIndex;
     })
     .map(data => data.row);
