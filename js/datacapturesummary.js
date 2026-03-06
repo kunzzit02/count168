@@ -15654,34 +15654,40 @@ const rowData = rows.map((row, originalIndex) => {
     };
 });
 
-// IMPORTANT: 全局排序逻辑说明（简化版，完全以 row_index 为主）：
-// 1. 先按 data-row-index 排序，保证顺序总体跟 Data Capture Table 一致
-// 2. 有 row_index 的永远排在没有 row_index 的前面
-// 3. 对于有 row_index 的行：不同 row_index 只看 row_index，row_index 相同时仅按 originalIndex 排序
-//    ——严格尊重 Console 里 "Preserved existing row_index" / "Set row_index" 之后 DOM 当前的相对顺序
-// 4. 对于没有 row_index 的行：使用 dataCapturePosition 辅助排序，避免 main / sub 被打乱，其次用 originalIndex 兜底
+// IMPORTANT: 全局排序逻辑说明（以 Data Capture 行顺序为绝对基准）：
+// 1. Primary Key：dataCapturePosition（来自 Data Capture Table 行号，基于完整 Id Product 去空格）
+//    ——保证 Summary 中不同 Id Product 之间的顺序，与 Data Capture Table 完全一致
+// 2. Secondary Key：row_index（旧逻辑中已经写入的行索引，用作兼容 / 兜底）
+// 3. 在同一 dataCapturePosition + row_index 内，只按 originalIndex 排序，保持当前 DOM 中 main/sub 的相对顺序
+// 4. 对于找不到 dataCapturePosition 的行（999999），整体排在最后，再按 row_index / originalIndex 排序
 const orderedRows = rowData
     .slice()
     .sort((a, b) => {
+        const aPos = a.dataCapturePosition;
+        const bPos = b.dataCapturePosition;
+
+        const aHasValidPos = aPos !== null && aPos !== undefined && !Number.isNaN(aPos) && aPos < 999999;
+        const bHasValidPos = bPos !== null && bPos !== undefined && !Number.isNaN(bPos) && bPos < 999999;
+
+        // 先按是否在 Data Capture Table 中找到位置（有位置的始终在前）
+        if (aHasValidPos && !bHasValidPos) return -1;
+        if (!aHasValidPos && bHasValidPos) return 1;
+
+        // 双方都有有效 dataCapturePosition：完全以 Data Capture 行号排序
+        if (aHasValidPos && bHasValidPos && aPos !== bPos) {
+            return aPos - bPos;
+        }
+
+        // 走到这里，要么两边都没有有效位置，要么位置相同
         const aHasIndex = a.rowIndex !== null;
         const bHasIndex = b.rowIndex !== null;
 
-        // 先按「是否有 row_index」分组：有 index 的始终在前
-        if (aHasIndex && !bHasIndex) return -1;
-        if (!aHasIndex && bHasIndex) return 1;
-
-        // 两个都有 row_index：先按 row_index，再按当前 DOM 的先后顺序
-        if (aHasIndex && bHasIndex) {
-            if (a.rowIndex !== b.rowIndex) {
-                return a.rowIndex - b.rowIndex;
-            }
-            return a.originalIndex - b.originalIndex;
+        // 再按 row_index（如果双方都有）
+        if (aHasIndex && bHasIndex && a.rowIndex !== b.rowIndex) {
+            return a.rowIndex - b.rowIndex;
         }
 
-        // 两个都没有 row_index：按 Data Capture Table 的位置排序，其次按 DOM 先后
-        if (a.dataCapturePosition !== b.dataCapturePosition) {
-            return a.dataCapturePosition - b.dataCapturePosition;
-        }
+        // 其它所有情况：保持当前 DOM 的相对顺序
         return a.originalIndex - b.originalIndex;
     })
     .map(data => data.row);
