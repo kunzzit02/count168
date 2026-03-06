@@ -15629,65 +15629,31 @@ const rowData = rows.map((row, originalIndex) => {
 const withIndex = rowData.filter(r => r.rowIndex !== null);
 const withoutIndex = rowData.filter(r => r.rowIndex === null);
 
-// IMPORTANT: Sort rows to ensure all SUB id_Product rows follow their corresponding MAIN rows
-// 重要：排序确保所有 SUB 的 id_Product 行都紧跟在对应的 MAIN 行后面
+// IMPORTANT: Sort rows to follow Data Capture Table row order (console "Preserved existing row_index" order),
+// and within same row position: main before sub, then account_order so sub stays under main.
+// 重要：先按 Data Capture Table 行顺序（row_index）排列，与 console 的 row 顺序一致；同一行内 main 在 sub 前。
 withIndex.sort((a, b) => {
-    // Primary sort: by normalizedMain (id_product) to group same id_product together
-    // 首先按 normalizedMain（id_product）分组，确保同一个 id_product 的所有行在一起
-    if (a.normalizedMain !== b.normalizedMain) {
-        // Different id_product: sort by Data Capture Table position
-        // 不同的 id_product：按 Data Capture Table 位置排序
-        return a.dataCapturePosition - b.dataCapturePosition;
-    }
-    
-    // Same id_product: ensure main rows come before sub rows
-    // 同一个 id_product：确保 main 行在 sub 行前面
-    const aIsSub = a.productType === 'sub';
-    const bIsSub = b.productType === 'sub';
-    
-    // If one is main and one is sub, main comes first
-    // 如果一个是 main，一个是 sub，main 排在前面
-    if (!aIsSub && bIsSub) {
-        // a is main, b is sub - a comes first
-        return -1;
-    }
-    if (aIsSub && !bIsSub) {
-        // a is sub, b is main - b comes first
-        return 1;
-    }
-    
-    // Both are main rows: sort by row_index, then by account_order (template order: first = main on top, second = sub below), then creation order
-    // 都是 main 行：按 row_index，再按 data-account-order（模板套用顺序，先套的在上、后套的在下），最后 creation order
-    if (!aIsSub && !bIsSub) {
-        if (a.rowIndex !== b.rowIndex) {
-            return a.rowIndex - b.rowIndex;
-        }
-        if (a.accountOrder !== b.accountOrder) {
-            return a.accountOrder - b.accountOrder;
-        }
-        return a.creationOrder - b.creationOrder;
-    }
-    
-    // Both are sub rows: sort by row_index first, then by sub_order, then by creation order
-    // 都是 sub 行：先按 row_index 排序，然后按 sub_order，最后按 creation order
+    // Primary sort: by row_index so order matches Data Capture Table (0, 1, 2, 3...), e.g. citibet submit
+    // 主排序：按 row_index，使 Summary 表顺序与 Data Capture Table 一致（如 0 HD6221, 1 HM6221, 2 MY EARNINGS, 3 HD6221...）
     if (a.rowIndex !== b.rowIndex) {
         return a.rowIndex - b.rowIndex;
     }
     
-    // Same row_index for sub rows: sort by sub_order first
-    if (a.subOrder !== null && b.subOrder !== null) {
-        if (a.subOrder !== b.subOrder) {
-            return a.subOrder - b.subOrder;
-        }
-    } else if (a.subOrder !== null) {
-        // a has sub_order, b doesn't - a comes first
-        return -1;
-    } else if (b.subOrder !== null) {
-        // b has sub_order, a doesn't - b comes first
-        return 1;
+    // Same row_index (e.g. multiple entries from one cell): main before sub, then account_order, creation order
+    // 同一 row_index（如同一格拆多行）：main 在 sub 前，再按 account_order、creation order
+    const aIsSub = a.productType === 'sub';
+    const bIsSub = b.productType === 'sub';
+    if (!aIsSub && bIsSub) return -1;
+    if (aIsSub && !bIsSub) return 1;
+    
+    if (!aIsSub && !bIsSub) {
+        if (a.accountOrder !== b.accountOrder) return a.accountOrder - b.accountOrder;
+        return a.creationOrder - b.creationOrder;
     }
     
-    // If both have no sub_order or same sub_order, sort by creation order
+    if (a.subOrder !== null && b.subOrder !== null && a.subOrder !== b.subOrder) return a.subOrder - b.subOrder;
+    if (a.subOrder !== null) return -1;
+    if (b.subOrder !== null) return 1;
     return a.creationOrder - b.creationOrder;
 });
 
