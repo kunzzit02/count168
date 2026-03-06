@@ -14628,11 +14628,29 @@ if (!targetRow && templateAccountId) {
 // 如果模板是「按账号」定义的（templateAccountId 有值），但在上面的规则里完全找不到匹配的行：
 // - 当同一个 id_product 只有 1 行（candidateRows.length === 1）时：仍允许后面的 row_index 兜底匹配，
 //   因为无论如何都只有这一行，不会出现「套到错误账号」的问题。
-// - 当同一个 id_product 有多行（candidateRows.length > 1）且都匹配不到账号时：为安全起见直接跳过，
-//   避免把「MG95-45 + MEGA888」一类的模板套到「MG95-45 + JB-VINCENT」这样的行上。
+// - 当同一个 id_product 有多行（candidateRows.length > 1）且都匹配不到账号时：
+//   - 若所有候选行的 account 都未设置（新建表刚填充、尚未选账号）：按行顺序依次套用模板，避免全部跳过导致公式丢失。
+//   - 若存在已设置 account 的行但仍无匹配：为安全起见直接跳过，避免套到错误账号。
+const allCandidatesWithoutAccount = candidateRows.length > 1 && candidateRows.every(c => !c.accountId || String(c.accountId).trim() === '');
 if (!targetRow && templateAccountId && candidateRows.length > 1) {
-    console.warn('applyMainTemplateToRow: No row matched account-specific template among multiple rows. Skip applying for account_id =', templateAccountId, 'idProduct =', idProduct);
-    return;
+    if (allCandidatesWithoutAccount) {
+        // 多行且均无 account：按 row_index、再按 DOM 顺序选第一个尚未在本轮套用过的行，使模板按顺序套用
+        const sortedByRowIndex = [...candidateRows].sort((a, b) => {
+            const ai = a.rowIndex !== null && a.rowIndex !== undefined ? a.rowIndex : 999999;
+            const bi = b.rowIndex !== null && b.rowIndex !== undefined ? b.rowIndex : 999999;
+            if (ai !== bi) return ai - bi;
+            return a.index - b.index;
+        });
+        const firstUnapplied = sortedByRowIndex.find(c => !c.alreadyApplied);
+        if (firstUnapplied) {
+            targetRow = firstUnapplied.row;
+            console.log('applyMainTemplateToRow: Multiple rows with no account — applying by order for account_id =', templateAccountId, 'idProduct =', idProduct);
+        }
+    }
+    if (!targetRow) {
+        console.warn('applyMainTemplateToRow: No row matched account-specific template among multiple rows. Skip applying for account_id =', templateAccountId, 'idProduct =', idProduct);
+        return;
+    }
 }
 
 // Priority 4: Match by row_index only (fallback when account_id not available)
