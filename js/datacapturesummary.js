@@ -15654,11 +15654,12 @@ const rowData = rows.map((row, originalIndex) => {
     };
 });
 
-// IMPORTANT: 全局排序逻辑说明：
+// IMPORTANT: 全局排序逻辑说明（简化版，完全以 row_index 为主）：
 // 1. 先按 data-row-index 排序，保证顺序总体跟 Data Capture Table 一致
 // 2. 有 row_index 的永远排在没有 row_index 的前面
-// 3. 在相同 row_index 下，优先按 dataCapturePosition / creationOrder / subOrder / accountOrder，再按 originalIndex 稳定排序
-// 4. 对于没有 row_index 但能在 Data Capture Table 中找到的行，仍按 dataCapturePosition 排序，避免 main / sub 被打乱
+// 3. 对于有 row_index 的行：不同 row_index 只看 row_index，row_index 相同时仅按 originalIndex 排序
+//    ——严格尊重 Console 里 "Preserved existing row_index" / "Set row_index" 之后 DOM 当前的相对顺序
+// 4. 对于没有 row_index 的行：使用 dataCapturePosition 辅助排序，避免 main / sub 被打乱，其次用 originalIndex 兜底
 const orderedRows = rowData
     .slice()
     .sort((a, b) => {
@@ -15669,37 +15670,18 @@ const orderedRows = rowData
         if (aHasIndex && !bHasIndex) return -1;
         if (!aHasIndex && bHasIndex) return 1;
 
-        // 两个都有 row_index：直接按 row_index 排
-        if (aHasIndex && bHasIndex && a.rowIndex !== b.rowIndex) {
-            return a.rowIndex - b.rowIndex;
+        // 两个都有 row_index：先按 row_index，再按当前 DOM 的先后顺序
+        if (aHasIndex && bHasIndex) {
+            if (a.rowIndex !== b.rowIndex) {
+                return a.rowIndex - b.rowIndex;
+            }
+            return a.originalIndex - b.originalIndex;
         }
 
-        // 到这里要么：1) 两个都没有 row_index，2) row_index 相同
-        // 按 Data Capture Table 的位置（同一个 main 的所有行会聚在一起）
+        // 两个都没有 row_index：按 Data Capture Table 的位置排序，其次按 DOM 先后
         if (a.dataCapturePosition !== b.dataCapturePosition) {
             return a.dataCapturePosition - b.dataCapturePosition;
         }
-
-        // 再按创建顺序（模板 / 手动新增都会带 creationOrder）
-        if (a.creationOrder !== b.creationOrder) {
-            return a.creationOrder - b.creationOrder;
-        }
-
-        // 再按 sub_order（同一个 main 下的 sub 有明确 sub_order 时使用）
-        const aHasSubOrder = a.subOrder !== null;
-        const bHasSubOrder = b.subOrder !== null;
-        if (aHasSubOrder && !bHasSubOrder) return -1;
-        if (!aHasSubOrder && bHasSubOrder) return 1;
-        if (aHasSubOrder && bHasSubOrder && a.subOrder !== b.subOrder) {
-            return a.subOrder - b.subOrder;
-        }
-
-        // 再按账号顺序
-        if (a.accountOrder !== b.accountOrder) {
-            return a.accountOrder - b.accountOrder;
-        }
-
-        // 最后兜底：按当前 DOM 的先后顺序，保证排序稳定，不会影响其它功能
         return a.originalIndex - b.originalIndex;
     })
     .map(data => data.row);
