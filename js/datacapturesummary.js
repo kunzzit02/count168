@@ -14667,12 +14667,18 @@ if (!targetRow && templateAccountId && templateFormulaVariant) {
 }
 
 // Priority 3: Match by account_id only (if formula_variant not available)
+// 同时匹配：行有 data-account-id，或行仅有显示文本但包含 account_id（如 "CITIZENX [3300]" 未写 data-account-id）
 if (!targetRow && templateAccountId) {
-    // First, try exact match by account_id
     for (const candidate of candidateRows) {
         if (candidate.accountId === templateAccountId) {
             targetRow = candidate.row;
             console.log('Matched row by account_id:', templateAccountId);
+            break;
+        }
+        const displayHasId = candidate.accountDisplay && (String(candidate.accountDisplay).indexOf('[' + templateAccountId + ']') >= 0 || String(candidate.accountDisplay).trim() === templateAccountId);
+        if (displayHasId) {
+            targetRow = candidate.row;
+            console.log('Matched row by account_id in display text:', templateAccountId);
             break;
         }
     }
@@ -14711,18 +14717,26 @@ if (!targetRow && templateAccountId) {
 // 仅当「所有」候选行都无 account 时才允许按顺序套用，避免已有账号的行被套错模板（原问题不复发）
 const allCandidatesWithoutAccount = candidateRows.length > 1 && candidateRows.every(c => !c.accountId || String(c.accountId).trim() === '');
 if (!targetRow && templateAccountId && candidateRows.length > 1) {
+    const sortedByRowIndex = [...candidateRows].sort((a, b) => {
+        const ai = a.rowIndex !== null && a.rowIndex !== undefined ? a.rowIndex : 999999;
+        const bi = b.rowIndex !== null && b.rowIndex !== undefined ? b.rowIndex : 999999;
+        if (ai !== bi) return ai - bi;
+        return a.index - b.index;
+    });
     if (allCandidatesWithoutAccount) {
         // 多行且均无 account：按 row_index、再按 DOM 顺序选第一个尚未在本轮套用过的行，使模板按顺序套用
-        const sortedByRowIndex = [...candidateRows].sort((a, b) => {
-            const ai = a.rowIndex !== null && a.rowIndex !== undefined ? a.rowIndex : 999999;
-            const bi = b.rowIndex !== null && b.rowIndex !== undefined ? b.rowIndex : 999999;
-            if (ai !== bi) return ai - bi;
-            return a.index - b.index;
-        });
         const firstUnapplied = sortedByRowIndex.find(c => !c.alreadyApplied);
         if (firstUnapplied) {
             targetRow = firstUnapplied.row;
             console.log('applyMainTemplateToRow: Multiple rows with no account — applying by order for account_id =', templateAccountId, 'idProduct =', idProduct);
+        }
+    }
+    // 若仍有未匹配且存在「未设置账号且未套用」的行：套用到第一个这样的行，避免 account_id 未写入 data-account-id 时被跳过（如 H8221 + 3300）
+    if (!targetRow) {
+        const firstEmptyUnapplied = sortedByRowIndex.find(c => (!c.accountId || String(c.accountId).trim() === '') && !c.alreadyApplied);
+        if (firstEmptyUnapplied) {
+            targetRow = firstEmptyUnapplied.row;
+            console.log('applyMainTemplateToRow: No account match — applying to first empty unapplied row for account_id =', templateAccountId, 'idProduct =', idProduct);
         }
     }
     if (!targetRow) {
