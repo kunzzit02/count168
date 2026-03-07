@@ -987,22 +987,22 @@
 #profitSharingModal .form-actions.bank-actions {
     justify-content: center;
 }
-/* Profit Sharing 弹窗：第一行仅 Account | Amount；后续行为 Account | Amount | Delete row */
+/* Profit Sharing 弹窗：所有行统一三列（Account | Amount | 占位/删除），保证列宽一致 */
 #profitSharingModal #profitSharingRowsContainer .profit-sharing-row {
     grid-template-columns: 1fr 1fr auto;
     align-items: end;
-}
-#profitSharingModal #profitSharingRowsContainer .profit-sharing-row:first-child {
-    grid-template-columns: 1fr 1fr;
 }
 #profitSharingModal .profit-sharing-delete-cell {
     flex-direction: row;
     align-items: center;
     min-width: 0;
-    min-width: 24px;
-    max-width: 48px;
-    align-items: center;
+    min-width: 28px;
+    max-width: 40px;
     padding-bottom: 10px;
+}
+#profitSharingModal .profit-sharing-first-row-spacer {
+    min-width: 28px;
+    max-width: 40px;
 }
 #profitSharingModal .profit-sharing-delete-label {
     width: 0;

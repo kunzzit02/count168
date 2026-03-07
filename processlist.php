@@ -1155,6 +1155,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01"
                                     min="0">
                             </div>
+                            <div class="form-group profit-sharing-delete-cell profit-sharing-first-row-spacer" aria-hidden="true"></div>
                         </div>
                     </div>
                     <div class="profit-sharing-add-row-wrap" style="margin-top: 10px;">
