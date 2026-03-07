@@ -999,7 +999,7 @@
     min-width: 24px;
     max-width: 48px;
     align-items: center;
-    padding-bottom: 10px
+    padding-bottom: 10px;
 }
 #profitSharingModal .profit-sharing-delete-label {
     width: 0;
