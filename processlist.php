@@ -1155,10 +1155,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                     class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01"
                                     min="0">
                             </div>
-                            <div class="form-group profit-sharing-delete-cell">
-                                <label class="profit-sharing-delete-label">&nbsp;</label>
-                                <button type="button" class="profit-sharing-delete-row-btn" onclick="removeProfitSharingModalRow(this)" title="Delete row">−</button>
-                            </div>
                         </div>
                     </div>
                     <div class="profit-sharing-add-row-wrap" style="margin-top: 10px;">
