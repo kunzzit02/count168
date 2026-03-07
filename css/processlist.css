@@ -987,6 +987,48 @@
 #profitSharingModal .form-actions.bank-actions {
     justify-content: center;
 }
+/* Profit Sharing 弹窗：每行三列（Account | Amount | Delete row） */
+#profitSharingModal #profitSharingRowsContainer .profit-sharing-row {
+    grid-template-columns: 1fr 1fr auto;
+    align-items: end;
+}
+#profitSharingModal .profit-sharing-delete-cell {
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+}
+#profitSharingModal .profit-sharing-delete-label {
+    width: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    height: 0;
+}
+#profitSharingModal .profit-sharing-delete-row-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #6b7280;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+#profitSharingModal .profit-sharing-delete-row-btn:hover {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+#profitSharingModal .profit-sharing-delete-row-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+}
 
 /* SOP Modal：固定弹窗尺寸与底部按钮 */
 .sop-modal .sop-modal-content {
