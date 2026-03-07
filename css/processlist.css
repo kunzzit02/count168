@@ -972,7 +972,7 @@
 }
 /* 列表区域最高约 7 行高度，再多 Account 行时出现垂直滚动条 */
 #profitSharingModal #profitSharingRowsContainer {
-    max-height: 380px;
+    max-height: 500px;
     overflow-y: auto !important;
     overflow-x: visible;
 }
