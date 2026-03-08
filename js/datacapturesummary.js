@@ -12852,14 +12852,22 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
             console.log('Set sub_order:', subOrder, 'for new sub row inserted after row at index:', insertAfterIndex);
         }
         
-        // Set creation order based on insertion position so reorderSummaryRowsByRowIndex keeps main/sub 在一起
-        // 若被插入行无 data-creation-order，用「插入位置」推导，避免新行被排到最底
-        let creationOrder = (insertAfterIndex + 1) * 1000000; // 与 reorder 里 originalIndex*1e6 一致，保证新行紧挨父行
+        // 点击哪一行的 +，新行就排在那一行底下：用 creation_order 保证重排后仍在被点击行正下方
+        // 若被插入行无 data-creation-order（如 main 行），用 0.5 使新行排在 main(0) 下、其余 sub(1,2,3) 前
+        let creationOrder = 0.5;
         if (insertAfterRow) {
             const insertAfterCreationOrderAttr = insertAfterRow.getAttribute('data-creation-order');
             if (insertAfterCreationOrderAttr && insertAfterCreationOrderAttr !== '' && !Number.isNaN(Number(insertAfterCreationOrderAttr))) {
                 const insertAfterCreationOrder = Number(insertAfterCreationOrderAttr);
-                creationOrder = insertAfterCreationOrder + 1;
+                // 若有下一行，插在两者之间；否则插在后面
+                const nextRow = insertAfterRow.nextElementSibling;
+                const nextOrderAttr = nextRow ? nextRow.getAttribute('data-creation-order') : null;
+                const nextOrder = (nextOrderAttr && nextOrderAttr !== '' && !Number.isNaN(Number(nextOrderAttr))) ? Number(nextOrderAttr) : null;
+                if (nextOrder !== null && nextOrder > insertAfterCreationOrder) {
+                    creationOrder = (insertAfterCreationOrder + nextOrder) / 2;
+                } else {
+                    creationOrder = insertAfterCreationOrder + 1;
+                }
             }
         }
         row.setAttribute('data-creation-order', String(creationOrder));
