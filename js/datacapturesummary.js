@@ -12852,16 +12852,13 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
             console.log('Set sub_order:', subOrder, 'for new sub row inserted after row at index:', insertAfterIndex);
         }
         
-        // Set creation order based on insertion position
-        // Get creation order from the row we inserted after, and use a value slightly larger
-        // This ensures the new row appears right after the insertAfterRow when sorted by creation_order
-        let creationOrder = Date.now();
+        // Set creation order based on insertion position so reorderSummaryRowsByRowIndex keeps main/sub 在一起
+        // 若被插入行无 data-creation-order，用「插入位置」推导，避免新行被排到最底
+        let creationOrder = (insertAfterIndex + 1) * 1000000; // 与 reorder 里 originalIndex*1e6 一致，保证新行紧挨父行
         if (insertAfterRow) {
             const insertAfterCreationOrderAttr = insertAfterRow.getAttribute('data-creation-order');
-            if (insertAfterCreationOrderAttr) {
+            if (insertAfterCreationOrderAttr && insertAfterCreationOrderAttr !== '' && !Number.isNaN(Number(insertAfterCreationOrderAttr))) {
                 const insertAfterCreationOrder = Number(insertAfterCreationOrderAttr);
-                // Use a value slightly larger than the row we inserted after
-                // This ensures new row appears right after it when rows have same row_index
                 creationOrder = insertAfterCreationOrder + 1;
             }
         }
