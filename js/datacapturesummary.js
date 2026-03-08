@@ -231,6 +231,24 @@ function getSummaryRowKey(row) {
     return idProduct + '\t' + account;
 }
 
+// 按刷新前保存的 rowOrder 重排 Summary 表行顺序，解决 refresh 后位置错乱
+function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
+    if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
+    const currentRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+    const keyToRow = new Map();
+    currentRows.forEach(r => {
+        keyToRow.set(getSummaryRowKey(r), r);
+    });
+    const savedOrderSet = new Set(savedOrder);
+    const orderedKeys = savedOrder.filter(k => keyToRow.has(k));
+    const newKeys = currentRows.map(r => getSummaryRowKey(r)).filter(k => !savedOrderSet.has(k));
+    const finalOrder = orderedKeys.concat(newKeys);
+    finalOrder.forEach(k => {
+        const row = keyToRow.get(k);
+        if (row) summaryTableBody.appendChild(row);
+    });
+}
+
 // Save current Rate Value column to localStorage (for refresh only; cleared on Back/Submit)
 // 按 id_product + Account 存，恢复时按 key 匹配，避免行顺序变化错位
 function saveRateValuesForRefresh() {
@@ -261,8 +279,10 @@ function saveFormulaSourceForRefresh() {
     const processCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
     const rows = summaryTableBody.querySelectorAll('tr');
     const byKey = {};
+    const rowOrder = [];
     rows.forEach(row => {
         const key = getSummaryRowKey(row);
+        rowOrder.push(key);
         const cells = row.querySelectorAll('td');
         const formulaCell = cells[4];
         let formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
@@ -278,7 +298,7 @@ function saveFormulaSourceForRefresh() {
         };
     });
     try {
-        const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey };
+        const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder };
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
     } catch (e) {
         console.warn('saveFormulaSourceForRefresh:', e);
@@ -368,6 +388,10 @@ function restoreFormulaSourceFromRefresh() {
             cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
         }
     });
+    // 按刷新前保存的行顺序重排，避免 refresh 后位置变到最后一格等问题
+    if (saved.rowOrder && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0 && typeof reorderSummaryRowsBySavedOrder === 'function') {
+        reorderSummaryRowsBySavedOrder(summaryTableBody, saved.rowOrder);
+    }
     try {
         localStorage.removeItem('capturedTableFormulaSourceForRefresh');
     } catch (e) {}
