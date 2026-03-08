@@ -237,24 +237,6 @@ function normalizeSummaryRowKey(key) {
     return key.split('\t').map(p => (p || '').trim().replace(/\s+/g, ' ')).join('\t');
 }
 
-// 取 Data Capture 表 id_product 顺序（与 reorderSummaryRowsByRowIndex 一致），用于组顺序
-function getDataCaptureIdProductOrder() {
-    const capturedTableBody = document.getElementById('capturedTableBody');
-    if (!capturedTableBody) return [];
-    const normalizeSpaces = (s) => (s || '').trim().replace(/\s+/g, '');
-    const order = [];
-    const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
-    capturedRows.forEach((capturedRow) => {
-        const cell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
-        if (cell) {
-            const raw = (cell.textContent || '').trim();
-            const idProduct = normalizeSpaces(raw);
-            if (idProduct) order.push(idProduct);
-        }
-    });
-    return order;
-}
-
 // 按刷新前保存的 rowOrder 重排 Summary 表行顺序，且不拆散同一 Id Product 的 main/sub 组
 function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
@@ -267,8 +249,7 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     });
     const savedOrderNormalized = savedOrder.map(k => normalizeSummaryRowKey(k)).filter(Boolean);
     const savedOrderSet = new Set(savedOrderNormalized);
-    const normalizeSpaces = (s) => (s || '').trim().replace(/\s+/g, '');
-    // 按 id_product 分组，且保持 saved 里组内顺序
+    // 按 id_product 分组，组顺序与组内顺序都严格按 saved 首次出现顺序，不按 Data Capture 表重排，避免「本在 M99M 和 NO 之间的数据」refresh 后跑到 NO 底下
     const idProductToKeys = new Map();
     const groupOrder = [];
     const seenGroup = new Set();
@@ -284,23 +265,6 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         }
         idProductToKeys.get(idProduct).push(k);
     });
-    // 组顺序优先跟随 Data Capture 表：在 Data table 排第一的 Id Product 在 Summary 也应在前面，不排到最后
-    let dataCaptureOrder = getDataCaptureIdProductOrder();
-    if (dataCaptureOrder.length === 0 && typeof window._summaryColumnAOrder !== 'undefined' && Array.isArray(window._summaryColumnAOrder)) {
-        dataCaptureOrder = window._summaryColumnAOrder.map(id => (id || '').trim().replace(/\s+/g, '')).filter(Boolean);
-    }
-    if (dataCaptureOrder.length > 0) {
-        const orderIndex = new Map();
-        dataCaptureOrder.forEach((id, idx) => orderIndex.set(normalizeSpaces(id), idx));
-        groupOrder.sort((a, b) => {
-            const aNorm = normalizeSpaces(a);
-            const bNorm = normalizeSpaces(b);
-            const aIdx = orderIndex.has(aNorm) ? orderIndex.get(aNorm) : 999999;
-            const bIdx = orderIndex.has(bNorm) ? orderIndex.get(bNorm) : 999999;
-            if (aIdx !== bIdx) return aIdx - bIdx;
-            return 0;
-        });
-    }
     const finalOrder = [];
     groupOrder.forEach(idProduct => {
         (idProductToKeys.get(idProduct) || []).forEach(k => {
