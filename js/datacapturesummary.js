@@ -434,12 +434,17 @@ function restoreFormulaSourceFromRefresh() {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
         return;
     }
-    if (window.currentProcessHadTemplates !== true) {
-        try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
-        return;
-    }
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
+    // 无论是否有模板，都先按保存的 rowOrder 重排行顺序，避免点击侧栏 Data Capture 再进入时 NO/API GSC 等顺序错乱
+    if (saved.rowOrder && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0 && typeof reorderSummaryRowsBySavedOrder === 'function') {
+        reorderSummaryRowsBySavedOrder(summaryTableBody, saved.rowOrder);
+    }
+    if (window.currentProcessHadTemplates !== true) {
+        try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
+        if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
+        return;
+    }
     const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach((row) => {
         const key = getSummaryRowKey(row);
@@ -488,10 +493,6 @@ function restoreFormulaSourceFromRefresh() {
             cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
         }
     });
-    // 按刷新前保存的行顺序重排，避免 refresh 后位置变到最后一格等问题
-    if (saved.rowOrder && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0 && typeof reorderSummaryRowsBySavedOrder === 'function') {
-        reorderSummaryRowsBySavedOrder(summaryTableBody, saved.rowOrder);
-    }
     try {
         localStorage.removeItem('capturedTableFormulaSourceForRefresh');
     } catch (e) {}
