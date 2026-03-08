@@ -1737,22 +1737,57 @@ if ($action === 'delete_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmt = $pdo->prepare($sql);
         } else {
-            $sql = "
-                DELETE FROM data_capture_templates 
+            // 无 template_id 且无 formula_variant 时，不能按 template_key+product_type 批量删除，否则会误删同 key 的其他行（如 main 与 sub、或同 id_product 多 account）
+            // 先查询匹配的行数；仅当恰好 1 条时按该行 id 删除，保证「没有勾选 delete 的数据都保留」
+            $selSql = "
+                SELECT id, id_product, account_id, product_type, formula_variant, sub_order, process_id 
+                FROM data_capture_templates 
                 WHERE company_id = :company_id
                   AND product_type = :product_type 
                   AND template_key = :template_key
             ";
-            $params = [
+            $selParams = [
                 ':company_id' => $companyId,
                 ':product_type' => $productType,
                 ':template_key' => $templateKey
             ];
             if ($sourceProcessId) {
-                $sql .= " AND process_id = :process_id";
-                $params[':process_id'] = $sourceProcessId;
+                $selSql .= " AND process_id = :process_id";
+                $selParams[':process_id'] = $sourceProcessId;
             }
+            $selStmt = $pdo->prepare($selSql);
+            $selStmt->execute($selParams);
+            $matchingRows = $selStmt->fetchAll(PDO::FETCH_ASSOC);
+            $matchCount = count($matchingRows);
+            if ($matchCount > 1) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Multiple rows match (template_key + product_type). Please delete by selecting the specific row with template_id.',
+                    'deleted_count' => 0
+                ]);
+                exit;
+            }
+            if ($matchCount === 0) {
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Template not found (may have been already deleted)',
+                    'deleted_count' => 0
+                ]);
+                exit;
+            }
+            $singleRow = $matchingRows[0];
+            $rowForSync = $singleRow;
+            $templateId = (int)$singleRow['id'];
+            $sql = "
+                DELETE FROM data_capture_templates 
+                WHERE company_id = :company_id
+                  AND id = :template_id
+            ";
             $stmt = $pdo->prepare($sql);
+            $params = [
+                ':company_id' => $companyId,
+                ':template_id' => $templateId
+            ];
         }
         
         $stmt->execute($params);

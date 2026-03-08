@@ -17112,19 +17112,22 @@ function deleteSelectedRows() {
         async function() {
             // Extract template information from rows before deletion
             const templatesToDelete = [];
+            // 只删除勾选的行：必须传 template_id（或 formula_variant）以便后端按单行精确删除，避免误删同 id_product 的 sub 或其他行
             validRowsToDelete.forEach(item => {
                 const row = item.row;
                 const templateKey = row.getAttribute('data-template-key');
-                const templateId = row.getAttribute('data-template-id');
-                const formulaVariant = row.getAttribute('data-formula-variant');
+                const templateIdRaw = row.getAttribute('data-template-id');
+                const templateId = templateIdRaw && templateIdRaw.trim() !== '' ? (parseInt(templateIdRaw, 10) || null) : null;
+                const formulaVariantRaw = row.getAttribute('data-formula-variant');
+                const formulaVariant = formulaVariantRaw && formulaVariantRaw.trim() !== '' ? (parseInt(formulaVariantRaw, 10) || null) : null;
                 const productType = row.getAttribute('data-product-type') || 'main';
                 
                 // Only delete template if template_key exists (row has been saved)
                 if (templateKey) {
                     templatesToDelete.push({
                         template_key: templateKey,
-                        template_id: templateId || null,
-                        formula_variant: formulaVariant || null,
+                        template_id: templateId,
+                        formula_variant: formulaVariant,
                         product_type: productType
                     });
                 }
