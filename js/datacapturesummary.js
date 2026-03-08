@@ -231,7 +231,7 @@ function getSummaryRowKey(row) {
     return idProduct + '\t' + account;
 }
 
-// 按刷新前保存的 rowOrder 重排 Summary 表行顺序，解决 refresh 后位置错乱
+// 按刷新前保存的 rowOrder 重排 Summary 表行顺序，且不拆散同一 Id Product 的 main/sub 组
 function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
     const currentRows = Array.from(summaryTableBody.querySelectorAll('tr'));
@@ -240,9 +240,30 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         keyToRow.set(getSummaryRowKey(r), r);
     });
     const savedOrderSet = new Set(savedOrder);
-    const orderedKeys = savedOrder.filter(k => keyToRow.has(k));
+    // 按 id_product 分组，且保持 saved 里「组」的先后顺序、组内顺序，避免 main/sub 被拆开
+    const idProductToKeys = new Map(); // id_product -> keys 在 saved 中的顺序
+    const groupOrder = []; // 组首次出现的顺序
+    const seenGroup = new Set();
+    savedOrder.forEach(k => {
+        const idProduct = (k && k.split('\t')[0]) ? k.split('\t')[0].trim() : '';
+        if (!idProduct) return;
+        if (!idProductToKeys.has(idProduct)) {
+            idProductToKeys.set(idProduct, []);
+            if (!seenGroup.has(idProduct)) {
+                seenGroup.add(idProduct);
+                groupOrder.push(idProduct);
+            }
+        }
+        idProductToKeys.get(idProduct).push(k);
+    });
+    const finalOrder = [];
+    groupOrder.forEach(idProduct => {
+        (idProductToKeys.get(idProduct) || []).forEach(k => {
+            if (keyToRow.has(k)) finalOrder.push(k);
+        });
+    });
     const newKeys = currentRows.map(r => getSummaryRowKey(r)).filter(k => !savedOrderSet.has(k));
-    const finalOrder = orderedKeys.concat(newKeys);
+    finalOrder.push(...newKeys);
     finalOrder.forEach(k => {
         const row = keyToRow.get(k);
         if (row) summaryTableBody.appendChild(row);
