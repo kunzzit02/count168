@@ -486,12 +486,24 @@ function restoreRateValuesFromRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
+    let appliedCount = 0;
     // 新格式：按 id_product + Account 的 key 恢复（规范化 key 匹配，兼容刷新后 Account 格式略差）
     if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+        const savedKeys = Object.keys(saved);
         rows.forEach((row) => {
             const key = getSummaryRowKey(row);
             const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-            const val = saved[normKey] ?? saved[key];
+            let val = saved[normKey] ?? saved[key];
+            // 若仍无匹配：按 id_product 唯一匹配（同一 id_product 仅一条保存时），避免刷新后 Account 格式差异导致丢失
+            if ((val === undefined || val === null || String(val).trim() === '') && normKey) {
+                const idPart = normKey.split('\t')[0] || '';
+                const idNorm = (idPart || '').trim().replace(/\s+/g, ' ');
+                const matchingKeys = savedKeys.filter(k => {
+                    const p = (k.split('\t')[0] || '').trim().replace(/\s+/g, ' ');
+                    return p === idNorm && saved[k] != null && String(saved[k]).trim() !== '';
+                });
+                if (matchingKeys.length === 1) val = saved[matchingKeys[0]];
+            }
             if (val === undefined || val === null || String(val).trim() === '') return;
             const cells = row.querySelectorAll('td');
             const rateValueCell = cells[7];
@@ -504,6 +516,7 @@ function restoreRateValuesFromRefresh() {
                 processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
                 processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
             }
+            appliedCount++;
         });
     } else if (Array.isArray(saved) && saved.length > 0) {
         // 旧格式：按 index 恢复（兼容已有缓存，仅此一次）
@@ -521,11 +534,15 @@ function restoreRateValuesFromRefresh() {
                 processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
                 processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
             }
+            appliedCount++;
         });
     }
-    try {
-        localStorage.removeItem('capturedTableRateValues');
-    } catch (e) {}
+    // 仅在有成功恢复时才清除缓存，避免首次恢复因时序未命中时二次恢复仍可生效
+    if (appliedCount > 0) {
+        try {
+            localStorage.removeItem('capturedTableRateValues');
+        } catch (e) {}
+    }
     if (typeof updateProcessedAmountTotal === 'function') {
         updateProcessedAmountTotal();
     }
@@ -1083,6 +1100,10 @@ function populateOriginalTableWithColumnAData(tableData) {
         .finally(() => {
             restoreRateValuesFromRefresh();
             restoreFormulaSourceFromRefresh();
+            // 延迟再执行一次 Rate Value 恢复，避免首次执行时 DOM/Account 尚未就绪导致未命中
+            if (typeof restoreRateValuesFromRefresh === 'function') {
+                setTimeout(restoreRateValuesFromRefresh, 80);
+            }
             // Maintenance 没有该 process 的 formula 时，Summary 不显示任何 formula（最终保障）
             if (window.currentProcessHadTemplates !== true) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
