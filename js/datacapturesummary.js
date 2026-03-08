@@ -1018,13 +1018,6 @@ function preserveSourceStructure(savedSourceExpression, newSourceData) {
             return newSourceData || savedSourceExpression || '';
         }
 
-        // 若 newSourceData 为引用格式（如 [MEPLAY88 (SEXY) MYR : 11]），不要从中提取数字，避免误解析出 88、11 导致 Base number count mismatch
-        const isReferenceFormat = typeof newSourceData === 'string' && (/\[[^\]]*\s*:\s*\d+\]/.test(newSourceData) || /\s:\s*\d+(\s|$)/.test(newSourceData));
-        if (isReferenceFormat) {
-            console.log('preserveSourceStructure: newSourceData is reference format, keeping savedSourceExpression');
-            return savedSourceExpression;
-        }
-
         // Extract numbers from newSourceData (remove thousands separators first)
         const cleanSourceData = removeThousandsSeparators(newSourceData);
         const numberMatches = getFormulaNumberMatches(cleanSourceData);
@@ -1321,15 +1314,12 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
                         
                         // CRITICAL: Verify id_product matches - if not, ignore this rowIndex
                         // 完整 id_product（如含 RSLOTS、(T07)）必须精确匹配，避免 4DDMYMYR (T07) 与 AB4D55MYR (T38) 串行
-                        // 但当行只有基名（如 MEPLAY88）时，与模板完整 id（MEPLAY88 (SEXY)MYR）仍视为匹配
                         const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
                         if (idProductCell) {
                             const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
                             const idProductTrimmed = (idProductResolved || '').trim();
                             if (typeof isFullIdProduct === 'function' && isFullIdProduct(idProductResolved)) {
-                                const cellHasFullId = (cellIdProductText && cellIdProductText.indexOf('(') >= 0);
-                                rowIndexIdProductMatches = (cellIdProductText === idProductTrimmed)
-                                    || (!cellHasFullId && normalizeIdProductText(cellIdProductText) === normalizeIdProductText(idProductTrimmed));
+                                rowIndexIdProductMatches = (cellIdProductText === idProductTrimmed);
                             } else {
                                 const cellIdProduct = normalizeIdProductText(cellIdProductText);
                                 const normalizedIdProduct = normalizeIdProductText(idProductResolved);
@@ -7806,8 +7796,7 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
             const rowValue = row[1].value;
             const normalizedRowValue = normalizeIdProductText(rowValue);
             const exactMatch = (rowValue === processValueResolved);
-            const rowHasFullId = (rowValue && String(rowValue).indexOf('(') >= 0);
-            const normalizedMatch = (normalizedRowValue && normalizedRowValue === normalizedProcessValue) && (!useExactOnly || !rowHasFullId);
+            const normalizedMatch = !useExactOnly && normalizedRowValue && normalizedRowValue === normalizedProcessValue;
             if (exactMatch || normalizedMatch) {
                 console.log('findProcessRow: Found row by rowIndex:', rowIndex, 'id_product matches:', processValueResolved);
                 return row;
@@ -7828,7 +7817,6 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
     }
 
     // 完整 id_product（ALLBET95MS(SV)MYR / (KM) / (SEXY) 等）只做精确或去空格匹配，不归一成同一 base
-    // 但当表中行只有基名（如 MEPLAY88）时，仍按基名匹配，避免找不到行
     const normalizeSpaces = (s) => (s || '').trim().replace(/\s+/g, '');
     console.log('findProcessRow: Searching all rows for id_product:', processValueResolved);
     for (let i = 0; i < tableData.rows.length; i++) {
@@ -7842,17 +7830,6 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
             if (useExactOnly && normalizeSpaces(rowValue) === normalizeSpaces(processValueResolved)) {
                 console.log('findProcessRow: Found row at index:', i, 'by normalize-spaces match');
                 return row;
-            }
-            // 当模板为完整 id 但表中该行只有基名（无括号）时，仍按基名匹配
-            if (useExactOnly) {
-                const rowHasFullId = (rowValue && String(rowValue).indexOf('(') >= 0);
-                if (!rowHasFullId) {
-                    const normalizedRowValue = normalizeIdProductText(rowValue);
-                    if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
-                        console.log('findProcessRow: Found row at index:', i, 'by normalized match (row has base id only)');
-                        return row;
-                    }
-                }
             }
             if (!useExactOnly) {
                 const normalizedRowValue = normalizeIdProductText(rowValue);
@@ -14613,12 +14590,8 @@ allRows.forEach((row, index) => {
     const mainRaw = (productValues.main || '').trim();
     let idMatches = mainCellText === normalizedTargetId
         || (normalizedTargetId && mainRaw.indexOf(' - ') >= 0 && (mainRaw === normalizedTargetId || mainRaw.startsWith(normalizedTargetId + ' ') || mainRaw.startsWith(normalizedTargetId + '(')));
-    // 仅当行本身也是完整 id（含括号）时才要求严格完整匹配，避免「模板为 MEPLAY88 (SEXY)MYR、行只有 MEPLAY88」时找不到行
     if (idMatches && typeof isFullIdProduct === 'function' && isFullIdProduct(idProduct)) {
-        const rowHasFullId = (mainRaw && mainRaw.indexOf('(') >= 0);
-        if (rowHasFullId) {
-            idMatches = normalizeSpacesId(mainRaw) === normalizeSpacesId((idProduct || '').trim());
-        }
+        idMatches = normalizeSpacesId(mainRaw) === normalizeSpacesId((idProduct || '').trim());
     }
     if (idMatches) {
         const accountCell = row.querySelector('td:nth-child(2)');
