@@ -272,7 +272,20 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         });
     });
     const newKeys = currentRows.map(r => normalizeSummaryRowKey(getSummaryRowKey(r))).filter(k => k && !savedOrderSet.has(k));
-    finalOrder.push(...newKeys);
+    // 未在 savedOrder 里的行（如 key 略有不匹配）：插到「同 id_product 组的最后」而不是整表最后，避免 refresh 后跑到最后一格
+    newKeys.forEach(nk => {
+        const idProduct = (nk && nk.split('\t')[0]) ? nk.split('\t')[0].trim() : '';
+        let insertAfterIndex = -1;
+        for (let i = finalOrder.length - 1; i >= 0; i--) {
+            const existingId = (finalOrder[i] && finalOrder[i].split('\t')[0]) ? finalOrder[i].split('\t')[0].trim() : '';
+            if (existingId && existingId === idProduct) {
+                insertAfterIndex = i;
+                break;
+            }
+        }
+        if (insertAfterIndex >= 0) finalOrder.splice(insertAfterIndex + 1, 0, nk);
+        else finalOrder.push(nk);
+    });
     const appended = new Set();
     finalOrder.forEach(k => {
         const row = keyToRow.get(k);
