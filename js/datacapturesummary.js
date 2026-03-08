@@ -487,12 +487,21 @@ function restoreFormulaSourceFromRefresh() {
     if (saved.rowOrder && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0 && typeof reorderSummaryRowsBySavedOrder === 'function') {
         reorderSummaryRowsBySavedOrder(summaryTableBody, saved.rowOrder);
     }
+    const rows = summaryTableBody.querySelectorAll('tr');
+    // 即使当前 process 无 Maintenance 模板，也先按 rowsByKey 恢复每行的 Rate Value，避免从 Data Capture submit 进来后全部 rate 消失
     if (window.currentProcessHadTemplates !== true) {
+        rows.forEach((row) => {
+            const key = getSummaryRowKey(row);
+            const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+            const data = byKey[normKey] || byKey[key];
+            if (!data || !data.rateValue || String(data.rateValue).trim() === '') return;
+            const cells = row.querySelectorAll('td');
+            if (cells[7]) cells[7].textContent = String(data.rateValue).trim();
+        });
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
         if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
         return;
     }
-    const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach((row) => {
         const key = getSummaryRowKey(row);
         const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
