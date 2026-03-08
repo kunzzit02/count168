@@ -244,6 +244,17 @@ function normalizeAccountForOrder(account) {
         .replace(/\s*\[\s*/g, ' (').replace(/\s*\]\s*/g, ') ');
 }
 
+// Account 核心部分（括号前），用于顺序匹配回退（如 "NO" 与 "NO [NO]" / "NO (NO)" 视为同一行）
+function accountCoreForOrder(account) {
+    if (!account || typeof account !== 'string') return '';
+    const s = account.trim().replace(/\s+/g, ' ');
+    const open = Math.min(
+        s.indexOf(' (') >= 0 ? s.indexOf(' (') : s.length,
+        s.indexOf(' [') >= 0 ? s.indexOf(' [') : s.length
+    );
+    return (open > 0 ? s.substring(0, open) : s).trim();
+}
+
 // 按刷新前保存的 rowOrder 重排 Summary 表行顺序，且不拆散同一 Id Product 的 main/sub 组
 function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
@@ -252,14 +263,14 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     currentRows.forEach(r => {
         const rawKey = getSummaryRowKey(r);
         const normKey = normalizeSummaryRowKey(rawKey);
-        if (normKey) {
-            keyToRow.set(normKey, r);
-            // Edge 等环境下 Account 可能显示为 [NO] 与保存时的 (NO) 不一致，用规范化 key 再存一份便于匹配
-            const parts = normKey.split('\t');
-            if (parts.length >= 2) {
-                const orderKey = (parts[0] || '').trim() + '\t' + normalizeAccountForOrder(parts[1] || '');
-                if (orderKey && orderKey !== normKey) keyToRow.set(orderKey, r);
-            }
+        const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim() : '';
+        if (!normKey || !idPart) return; // 只参与数据行重排，排除无 id_product 的行（如总计行误入 tbody 时）
+        keyToRow.set(normKey, r);
+        // Edge 等环境下 Account 可能显示为 [NO] 与保存时的 (NO) 不一致，用规范化 key 再存一份便于匹配
+        const parts = normKey.split('\t');
+        if (parts.length >= 2) {
+            const orderKey = (parts[0] || '').trim() + '\t' + normalizeAccountForOrder(parts[1] || '');
+            if (orderKey && orderKey !== normKey) keyToRow.set(orderKey, r);
         }
     });
     const savedOrderNormalized = savedOrder.map(k => normalizeSummaryRowKey(k)).filter(Boolean);
@@ -306,9 +317,13 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
             const savedKey = item.savedKey || '';
             const savedAccount = savedKey.split('\t')[1] || '';
             const savedOrderNorm = normalizeAccountForOrder(savedAccount);
+            const savedCore = accountCoreForOrder(savedAccount);
             let matched = null;
             if (arr && arr.length > 0) {
-                const idx = arr.findIndex(nk => normalizeAccountForOrder((nk.split('\t')[1] || '')) === savedOrderNorm);
+                let idx = arr.findIndex(nk => normalizeAccountForOrder((nk.split('\t')[1] || '')) === savedOrderNorm);
+                if (idx < 0 && savedCore) {
+                    idx = arr.findIndex(nk => accountCoreForOrder(nk.split('\t')[1] || '') === savedCore);
+                }
                 if (idx >= 0) {
                     matched = arr.splice(idx, 1)[0];
                 } else {
