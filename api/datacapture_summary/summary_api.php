@@ -1212,6 +1212,82 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
     return $templates;
 }
 
+/**
+ * 用 account 表解析模板中的 account_display，与 Maintenance - Formula 的 Account 列一致，避免 Summary 显示错误。
+ */
+function resolveAccountDisplayInTemplates(PDO $pdo, int $companyId, array &$templates) {
+    $accountIds = [];
+    foreach ($templates as $key => $group) {
+        if (!empty($group['main']) && !empty($group['main']['account_id'])) {
+            $aid = $group['main']['account_id'];
+            $accountIds[(is_string($aid) ? $aid : (string)$aid)] = true;
+        }
+        foreach ($group['allMains'] ?? [] as $m) {
+            if (!empty($m['account_id'])) {
+                $aid = $m['account_id'];
+                $accountIds[(is_string($aid) ? $aid : (string)$aid)] = true;
+            }
+        }
+        foreach ($group['subs'] ?? [] as $s) {
+            if (!empty($s['account_id'])) {
+                $aid = $s['account_id'];
+                $accountIds[(is_string($aid) ? $aid : (string)$aid)] = true;
+            }
+        }
+    }
+    $accountIds = array_keys($accountIds);
+    if (empty($accountIds)) {
+        return;
+    }
+    $placeholders = implode(',', array_fill(0, count($accountIds), '?'));
+    $stmt = $pdo->prepare("
+        SELECT a.id, a.account_id AS code, a.name
+        FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE ac.company_id = ? AND a.id IN ($placeholders)
+    ");
+    $stmt->execute(array_merge([$companyId], $accountIds));
+    $map = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $id = (int)$row['id'];
+        $code = isset($row['code']) ? trim((string)$row['code']) : '';
+        $name = isset($row['name']) ? trim((string)$row['name']) : '';
+        $map[$id] = $map[(string)$id] = ($code !== '' && $name !== '') ? ($code . ' [' . $name . ']') : ($code !== '' ? $code : (string)$id);
+    }
+    foreach ($templates as $key => &$group) {
+        if (!empty($group['main']['account_id'])) {
+            $aid = $group['main']['account_id'];
+            $sid = is_numeric($aid) ? (int)$aid : $aid;
+            if (isset($map[$sid]) || isset($map[(string)$aid])) {
+                $group['main']['account_display'] = $map[$sid] ?? $map[(string)$aid];
+            }
+        }
+        if (isset($group['allMains'])) {
+            foreach ($group['allMains'] as $i => $m) {
+                if (!empty($m['account_id'])) {
+                    $aid = $m['account_id'];
+                    $sid = is_numeric($aid) ? (int)$aid : $aid;
+                    if (isset($map[$sid]) || isset($map[(string)$aid])) {
+                        $templates[$key]['allMains'][$i]['account_display'] = $map[$sid] ?? $map[(string)$aid];
+                    }
+                }
+            }
+        }
+        if (isset($group['subs'])) {
+            foreach ($group['subs'] as $i => $s) {
+                if (!empty($s['account_id'])) {
+                    $aid = $s['account_id'];
+                    $sid = is_numeric($aid) ? (int)$aid : $aid;
+                    if (isset($map[$sid]) || isset($map[(string)$aid])) {
+                        $templates[$key]['subs'][$i]['account_display'] = $map[$sid] ?? $map[(string)$aid];
+                    }
+                }
+            }
+        }
+    }
+    unset($group);
+}
+
 function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
     if (empty($ids) || $processId === null || $processId <= 0) {
         return [];
@@ -1793,6 +1869,11 @@ if ($action === 'templates') {
 
         if ($captureId !== null && $captureId > 0 && $company_id) {
             $templates = mergeDetailOnlyTemplates($pdo, (int)$company_id, $captureId, $ids, $templates);
+        }
+
+        // 用 account 表统一解析 account_display，与 Maintenance - Formula 的 Account 列一致
+        if ($company_id) {
+            resolveAccountDisplayInTemplates($pdo, (int)$company_id, $templates);
         }
 
         echo json_encode([
