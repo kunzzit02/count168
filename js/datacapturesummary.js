@@ -266,11 +266,13 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim() : '';
         if (!normKey || !idPart) return; // 只参与数据行重排，排除无 id_product 的行（如总计行误入 tbody 时）
         keyToRow.set(normKey, r);
-        // Edge 等环境下 Account 可能显示为 [NO] 与保存时的 (NO) 不一致，用规范化 key 再存一份便于匹配
         const parts = normKey.split('\t');
         if (parts.length >= 2) {
             const orderKey = (parts[0] || '').trim() + '\t' + normalizeAccountForOrder(parts[1] || '');
             if (orderKey && orderKey !== normKey) keyToRow.set(orderKey, r);
+            // 只按 Account 前面部分（如 NO）匹配，后面的 [NO] 不参与，解决排列错乱
+            const coreKey = (parts[0] || '').trim() + '\t' + (typeof accountCoreForOrder === 'function' ? accountCoreForOrder(parts[1] || '') : (parts[1] || ''));
+            if (coreKey && coreKey !== normKey && coreKey !== orderKey) keyToRow.set(coreKey, r);
         }
     });
     const savedOrderNormalized = savedOrder.map(k => normalizeSummaryRowKey(k)).filter(Boolean);
@@ -396,7 +398,10 @@ function saveFormulaSourceForRefresh(opts) {
     rows.forEach(row => {
         const key = getSummaryRowKey(row);
         const normKey = normalizeSummaryRowKey(key);
-        rowOrder.push(normKey);
+        const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim() : '';
+        const accountPart = (normKey && normKey.split('\t')[1]) ? normKey.split('\t')[1] : '';
+        // 行顺序只按「Account 前面部分」保存（如 NO），后面的 [NO]/(NO) 不参与，避免排列错乱
+        rowOrder.push(idPart ? (idPart + '\t' + (typeof accountCoreForOrder === 'function' ? accountCoreForOrder(accountPart) : accountPart)) : normKey);
         const cells = row.querySelectorAll('td');
         const formulaCell = cells[4];
         let formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
