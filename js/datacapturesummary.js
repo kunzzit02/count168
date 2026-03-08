@@ -7436,11 +7436,7 @@ function saveFormula() {
                         subOrder: subOrderNumber
                     }, newRow);
                     window.lastCreatedRowForTemplateSave = newRow;
-                    setTimeout(() => {
-                        if (typeof reorderSummaryRowsByRowIndex === 'function') {
-                            reorderSummaryRowsByRowIndex();
-                        }
-                    }, 10);
+                    // main 无数据时不再重排，避免新行被排到底部，保持插在该行正下方
                 }
             }
         } else {
