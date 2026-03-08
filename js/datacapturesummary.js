@@ -231,20 +231,29 @@ function getSummaryRowKey(row) {
     return idProduct + '\t' + account;
 }
 
+// 规范化 key：trim + 合并多余空格，避免刷新后 Account 显示略差导致匹配失败、行被排到最后
+function normalizeSummaryRowKey(key) {
+    if (!key || typeof key !== 'string') return '';
+    return key.split('\t').map(p => (p || '').trim().replace(/\s+/g, ' ')).join('\t');
+}
+
 // 按刷新前保存的 rowOrder 重排 Summary 表行顺序，且不拆散同一 Id Product 的 main/sub 组
 function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
     const currentRows = Array.from(summaryTableBody.querySelectorAll('tr'));
     const keyToRow = new Map();
     currentRows.forEach(r => {
-        keyToRow.set(getSummaryRowKey(r), r);
+        const rawKey = getSummaryRowKey(r);
+        const normKey = normalizeSummaryRowKey(rawKey);
+        if (normKey) keyToRow.set(normKey, r);
     });
-    const savedOrderSet = new Set(savedOrder);
+    const savedOrderNormalized = savedOrder.map(k => normalizeSummaryRowKey(k)).filter(Boolean);
+    const savedOrderSet = new Set(savedOrderNormalized);
     // 按 id_product 分组，且保持 saved 里「组」的先后顺序、组内顺序，避免 main/sub 被拆开
-    const idProductToKeys = new Map(); // id_product -> keys 在 saved 中的顺序
-    const groupOrder = []; // 组首次出现的顺序
+    const idProductToKeys = new Map();
+    const groupOrder = [];
     const seenGroup = new Set();
-    savedOrder.forEach(k => {
+    savedOrderNormalized.forEach(k => {
         const idProduct = (k && k.split('\t')[0]) ? k.split('\t')[0].trim() : '';
         if (!idProduct) return;
         if (!idProductToKeys.has(idProduct)) {
@@ -262,11 +271,15 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
             if (keyToRow.has(k)) finalOrder.push(k);
         });
     });
-    const newKeys = currentRows.map(r => getSummaryRowKey(r)).filter(k => !savedOrderSet.has(k));
+    const newKeys = currentRows.map(r => normalizeSummaryRowKey(getSummaryRowKey(r))).filter(k => k && !savedOrderSet.has(k));
     finalOrder.push(...newKeys);
+    const appended = new Set();
     finalOrder.forEach(k => {
         const row = keyToRow.get(k);
-        if (row) summaryTableBody.appendChild(row);
+        if (row && !appended.has(row)) {
+            appended.add(row);
+            summaryTableBody.appendChild(row);
+        }
     });
 }
 
@@ -303,14 +316,15 @@ function saveFormulaSourceForRefresh() {
     const rowOrder = [];
     rows.forEach(row => {
         const key = getSummaryRowKey(row);
-        rowOrder.push(key);
+        const normKey = normalizeSummaryRowKey(key);
+        rowOrder.push(normKey);
         const cells = row.querySelectorAll('td');
         const formulaCell = cells[4];
         let formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const sourceCell = cells[5];
         const source = sourceCell ? sourceCell.textContent.trim() : '';
-        byKey[key] = {
+        byKey[normKey] = {
             formula: formula || '',
             source: source || '',
             sourceColumns: (row.getAttribute('data-source-columns') || ''),
@@ -369,7 +383,8 @@ function restoreFormulaSourceFromRefresh() {
     const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach((row) => {
         const key = getSummaryRowKey(row);
-        const data = byKey[key];
+        const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+        const data = byKey[normKey] || byKey[key];
         if (!data) return;
         const cells = row.querySelectorAll('td');
         let formula = data.formula != null ? String(data.formula) : '';
