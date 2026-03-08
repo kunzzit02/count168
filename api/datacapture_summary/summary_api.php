@@ -1075,7 +1075,7 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
         $hasDisplayOrder = $colStmt && $colStmt->fetch(PDO::FETCH_ASSOC);
     } catch (Exception $e) { /* ignore */ }
     $orderBy = $hasDisplayOrder ? "ORDER BY COALESCE(display_order, 999), id" : "ORDER BY id";
-    $cols = $hasDisplayOrder ? "id_product_main, id_product_sub, product_type, account_id, display_order" : "id_product_main, id_product_sub, product_type, account_id";
+    $cols = $hasDisplayOrder ? "id_product_main, id_product_sub, product_type, account_id, display_order, rate" : "id_product_main, id_product_sub, product_type, account_id, rate";
     $detailStmt = $pdo->prepare("
         SELECT $cols
         FROM data_capture_details
@@ -1086,6 +1086,7 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
     $details = $detailStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $pairsByKey = [];
+    $detailIndex = 0;
     foreach ($details as $row) {
         $accountId = isset($row['account_id']) ? trim((string)$row['account_id']) : '';
         if ($accountId === '') {
@@ -1113,11 +1114,14 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
         if (!isset($pairsByKey[$key])) {
             $pairsByKey[$key] = [];
         }
+        $displayOrder = $hasDisplayOrder && isset($row['display_order']) ? (int)$row['display_order'] : $detailIndex;
         $pairsByKey[$key][$accountId] = [
             'id_product' => $idForKey,
             'account_id' => $accountId,
-            'display_order' => $hasDisplayOrder && isset($row['display_order']) ? (int)$row['display_order'] : null,
+            'display_order' => $displayOrder,
+            'rate' => isset($row['rate']) && $row['rate'] !== null && $row['rate'] !== '' ? (string)$row['rate'] : null,
         ];
+        $detailIndex++;
     }
 
     $accountIds = [];
@@ -1208,10 +1212,29 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
                 'sub_order' => null,
                 'formula_variant' => 1,
                 'updated_at' => null,
+                'rate' => $info['rate'] ?? null,
             ];
             $allMains[] = $synthetic;
             $existingAccountIds[(string)$accId] = true;
         }
+        // 按 display_order（来自 data_capture_details）重排 allMains，避免从 Data Capture Submit 进入后 NO/API GSC 等行顺序错乱
+        usort($allMains, function ($a, $b) use ($key, $pairs) {
+            $aOrder = isset($pairs[(string)($a['account_id'] ?? '')]['display_order'])
+                ? (int)$pairs[(string)($a['account_id'] ?? '')]['display_order']
+                : (isset($a['row_index']) && $a['row_index'] !== null ? (int)$a['row_index'] : 999999);
+            $bOrder = isset($pairs[(string)($b['account_id'] ?? '')]['display_order'])
+                ? (int)$pairs[(string)($b['account_id'] ?? '')]['display_order']
+                : (isset($b['row_index']) && $b['row_index'] !== null ? (int)$b['row_index'] : 999999);
+            return $aOrder - $bOrder;
+        });
+        // 为来自 templates 的 main 行补充 rate（从 details 取），以便前端显示 Rate Value
+        foreach ($allMains as &$m) {
+            $accId = (string)($m['account_id'] ?? '');
+            if ($accId !== '' && isset($pairs[$accId]['rate']) && $pairs[$accId]['rate'] !== null && $pairs[$accId]['rate'] !== '') {
+                $m['rate'] = $pairs[$accId]['rate'];
+            }
+        }
+        unset($m);
         $templates[$key]['allMains'] = $allMains;
         if ($templates[$key]['main'] === null && !empty($allMains)) {
             $templates[$key]['main'] = $allMains[0];

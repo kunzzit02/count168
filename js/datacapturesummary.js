@@ -13276,14 +13276,17 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
             rateInput.value = data.rate;
         }
         
-        // If checkbox is checked, display rateInput value in Rate Value cell
+        // If checkbox is checked, display rateInput value in Rate Value cell (from template/API or global rateInput)
         const rateValueCell = cells[7];
         if (rateCheckbox.checked && rateValueCell) {
             const hasRateValueInput = rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '';
             if (!hasRateValueInput) {
-                const currentRateInput = document.getElementById('rateInput');
-                if (currentRateInput && currentRateInput.value.trim() !== '') {
-                    rateValueCell.textContent = currentRateInput.value.trim();
+                const valueToShow = (hasRateValue && data.rate != null && String(data.rate).trim() !== '')
+                    ? String(data.rate).trim()
+                    : (document.getElementById('rateInput') && document.getElementById('rateInput').value.trim() !== ''
+                        ? document.getElementById('rateInput').value.trim() : '');
+                if (valueToShow !== '') {
+                    rateValueCell.textContent = valueToShow;
                 }
             }
         }
@@ -15735,7 +15738,8 @@ const data = {
     rowIndex: (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null)
         ? Number(mainTemplate.row_index)
         : null,
-    preserveIdProductDisplay: true
+    preserveIdProductDisplay: true,
+    rate: (mainTemplate.rate != null && mainTemplate.rate !== '') ? String(mainTemplate.rate) : undefined
 };
 
 updateSummaryTableRow(idProduct, data, targetRow);
