@@ -363,12 +363,15 @@ function saveFormulaSourceForRefresh() {
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const sourceCell = cells[5];
         const source = sourceCell ? sourceCell.textContent.trim() : '';
+        const rateValueCell = cells[7];
+        const rateValue = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
         byKey[normKey] = {
             formula: formula || '',
             source: source || '',
             sourceColumns: (row.getAttribute('data-source-columns') || ''),
             formulaOperators: (row.getAttribute('data-formula-operators') || ''),
-            sourcePercent: (row.getAttribute('data-source-percent') || '')
+            sourcePercent: (row.getAttribute('data-source-percent') || ''),
+            rateValue: rateValue || ''
         };
     });
     try {
@@ -456,6 +459,10 @@ function restoreFormulaSourceFromRefresh() {
             ? calculateFormulaResultFromExpression(formula, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent)
             : 0;
         row.setAttribute('data-base-processed-amount', (baseProcessedAmount != null && !isNaN(baseProcessedAmount)) ? baseProcessedAmount.toString() : '0');
+        // 同时恢复 Rate Value（与 Formula/Source 同 key，刷新后不再丢失）
+        if (data.rateValue != null && String(data.rateValue).trim() !== '' && cells[7]) {
+            cells[7].textContent = String(data.rateValue).trim();
+        }
         if (cells[8] && typeof applyRateToProcessedAmount === 'function') {
             const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
             const rounded = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount);
