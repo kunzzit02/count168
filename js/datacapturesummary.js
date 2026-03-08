@@ -345,7 +345,9 @@ function saveRateValuesForRefresh() {
 
 // Save Formula + Source (and data attrs) per row by id_product + Account for restore after refresh.
 // 按 id_product + Account 存，恢复时按 key 匹配，避免行顺序变化导致 formula 贴错行。
-function saveFormulaSourceForRefresh() {
+// includeRateValue: 默认 true；为 false 时只保存公式/Source/行顺序，不写入 Rate（Rate 仅随 Rate 的 Submit 持久化）
+function saveFormulaSourceForRefresh(opts) {
+    const includeRateValue = opts && opts.includeRateValue === false ? false : true;
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const processId = getCurrentProcessId();
@@ -364,7 +366,7 @@ function saveFormulaSourceForRefresh() {
         const sourceCell = cells[5];
         const source = sourceCell ? sourceCell.textContent.trim() : '';
         const rateValueCell = cells[7];
-        const rateValue = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
+        const rateValue = includeRateValue && rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
         byKey[normKey] = {
             formula: formula || '',
             source: source || '',
@@ -374,27 +376,31 @@ function saveFormulaSourceForRefresh() {
             rateValue: rateValue || ''
         };
     });
-    // 按 id_product 分行序保存 Rate Value，刷新后即使 Account 不一致也能按行序恢复
+    // 按 id_product 分行序保存 Rate Value（仅当 includeRateValue 时）
     const rateValuesByProductId = {};
-    rows.forEach(row => {
-        const key = getSummaryRowKey(row);
-        const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-        const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim().replace(/\s+/g, ' ') : '';
-        if (!idPart) return;
-        const cells = row.querySelectorAll('td');
-        const rateValueCell = cells[7];
-        const rv = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
-        if (!rateValuesByProductId[idPart]) rateValuesByProductId[idPart] = [];
-        rateValuesByProductId[idPart].push(rv);
-    });
+    if (includeRateValue) {
+        rows.forEach(row => {
+            const key = getSummaryRowKey(row);
+            const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+            const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim().replace(/\s+/g, ' ') : '';
+            if (!idPart) return;
+            const cells = row.querySelectorAll('td');
+            const rateValueCell = cells[7];
+            const rv = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
+            if (!rateValuesByProductId[idPart]) rateValuesByProductId[idPart] = [];
+            rateValuesByProductId[idPart].push(rv);
+        });
+    }
     try {
         const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder, rateValuesByProductId: rateValuesByProductId };
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
-        localStorage.setItem('capturedTableRateValuesByProductId', JSON.stringify({
-            processId: processId != null ? processId : null,
-            processCode: processCode,
-            rateValuesByProductId: rateValuesByProductId
-        }));
+        if (includeRateValue && Object.keys(rateValuesByProductId).length > 0) {
+            localStorage.setItem('capturedTableRateValuesByProductId', JSON.stringify({
+                processId: processId != null ? processId : null,
+                processCode: processCode,
+                rateValuesByProductId: rateValuesByProductId
+            }));
+        }
     } catch (e) {
         console.warn('saveFormulaSourceForRefresh:', e);
     }
@@ -7653,9 +7659,8 @@ function saveFormula() {
     
     const actionText = wasEditMode ? 'updated' : 'saved';
     showNotification('Success', `Formula ${actionText} successfully! Processed Amount: ${typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(processedAmount) : processedAmount}`, 'success');
-    // Formula/Source 保存后立即持久化，保证再次进入时数据和顺序一致
-    if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
-    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
+    // 除 Rate 外：Formula/Source/排列 设置好即马上保存（Rate 仅随 Rate 的 Submit 持久化）
+    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh({ includeRateValue: false });
 }
 
 // Calculate processed amount based on source columns and formula
@@ -10484,9 +10489,7 @@ function attachRateValueEditListener(cell, row) {
                     cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                     updateProcessedAmountTotal();
                 }
-                // 单元格编辑完成后立即持久化，保证再次进入时数据一致
-                if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
-                if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
+                // Rate Value 仅在选择行后点 Rate 的 Submit 才持久化，此处不保存
             } else {
                 // Cancel: restore original value
                 cellElement.textContent = savedOriginalValue;
