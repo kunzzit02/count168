@@ -237,6 +237,13 @@ function normalizeSummaryRowKey(key) {
     return key.split('\t').map(p => (p || '').trim().replace(/\s+/g, ' ')).join('\t');
 }
 
+// Account 显示规范化：统一方括号与圆括号，便于 reorder 时匹配（如 "NO [NO]" 与 "NO (NO)" 视为同一行）
+function normalizeAccountForOrder(account) {
+    if (!account || typeof account !== 'string') return '';
+    return account.trim().replace(/\s+/g, ' ')
+        .replace(/\s*\[\s*/g, ' (').replace(/\s*\]\s*/g, ') ');
+}
+
 // 按刷新前保存的 rowOrder 重排 Summary 表行顺序，且不拆散同一 Id Product 的 main/sub 组
 function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
@@ -245,7 +252,15 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     currentRows.forEach(r => {
         const rawKey = getSummaryRowKey(r);
         const normKey = normalizeSummaryRowKey(rawKey);
-        if (normKey) keyToRow.set(normKey, r);
+        if (normKey) {
+            keyToRow.set(normKey, r);
+            // Edge 等环境下 Account 可能显示为 [NO] 与保存时的 (NO) 不一致，用规范化 key 再存一份便于匹配
+            const parts = normKey.split('\t');
+            if (parts.length >= 2) {
+                const orderKey = (parts[0] || '').trim() + '\t' + normalizeAccountForOrder(parts[1] || '');
+                if (orderKey && orderKey !== normKey) keyToRow.set(orderKey, r);
+            }
+        }
     });
     const savedOrderNormalized = savedOrder.map(k => normalizeSummaryRowKey(k)).filter(Boolean);
     const savedOrderSet = new Set(savedOrderNormalized);
@@ -265,14 +280,14 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         }
         idProductToKeys.get(idProduct).push(k);
     });
-    // 先按 saved 顺序产出 key；若某 key 当前表里匹配不到（如 [AWC API] vs (AWC API)），用占位符占位，再后用同组 newKey 按序填入，避免「本在 M99M 和 NO 之间」的行被排到组末
+    // 先按 saved 顺序产出 key；若某 key 当前表里匹配不到（如 NO [NO] vs NO (NO)），用占位符并记下 savedKey，再按 Account 规范化匹配同组 current key，保证顺序正确
     const finalOrder = [];
     groupOrder.forEach(idProduct => {
         (idProductToKeys.get(idProduct) || []).forEach(k => {
             if (keyToRow.has(k)) {
                 finalOrder.push(k);
             } else {
-                finalOrder.push({ placeholder: true, idProduct: (idProduct || '').trim() });
+                finalOrder.push({ placeholder: true, idProduct: (idProduct || '').trim(), savedKey: k });
             }
         });
     });
@@ -288,11 +303,19 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         const item = finalOrder[i];
         if (item && typeof item === 'object' && item.placeholder) {
             const arr = newKeysByGroup.get(item.idProduct);
+            const savedKey = item.savedKey || '';
+            const savedAccount = savedKey.split('\t')[1] || '';
+            const savedOrderNorm = normalizeAccountForOrder(savedAccount);
+            let matched = null;
             if (arr && arr.length > 0) {
-                finalOrder[i] = arr.shift();
-            } else {
-                finalOrder[i] = null;
+                const idx = arr.findIndex(nk => normalizeAccountForOrder((nk.split('\t')[1] || '')) === savedOrderNorm);
+                if (idx >= 0) {
+                    matched = arr.splice(idx, 1)[0];
+                } else {
+                    matched = arr.shift();
+                }
             }
+            finalOrder[i] = matched || null;
         }
     }
     const finalOrderFiltered = finalOrder.filter(x => x !== null && typeof x === 'string');
