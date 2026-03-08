@@ -14172,8 +14172,26 @@ if (summaryTableBody) {
     });
 }
 
-// After applying all templates, reorder rows globally by row_index
-reorderSummaryRowsByRowIndex();
+// After applying all templates, reorder rows by row_index — 但若本地有已保存的行顺序待恢复，则跳过，避免覆盖用户顺序（NO/API GSC 等）
+let skipRowIndexReorder = false;
+try {
+    const savedRaw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
+    if (savedRaw) {
+        const saved = JSON.parse(savedRaw);
+        if (saved && typeof saved === 'object' && !Array.isArray(saved) && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0) {
+            const currentId = getCurrentProcessId();
+            const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
+            const savedId = saved.processId != null ? saved.processId : null;
+            const savedCode = (typeof saved.processCode === 'string' ? saved.processCode : '').trim();
+            const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
+            const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+            if (idMatch && codeMatch) skipRowIndexReorder = true;
+        }
+    }
+} catch (e) {}
+if (!skipRowIndexReorder && typeof reorderSummaryRowsByRowIndex === 'function') {
+    reorderSummaryRowsByRowIndex();
+}
 } catch (error) {
 console.error('Error auto-populating summary rows:', error);
 }
