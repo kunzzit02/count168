@@ -265,29 +265,54 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         }
         idProductToKeys.get(idProduct).push(k);
     });
+    // 先按 saved 顺序产出 key；若某 key 当前表里匹配不到（如 [AWC API] vs (AWC API)），用占位符占位，再后用同组 newKey 按序填入，避免「本在 M99M 和 NO 之间」的行被排到组末
     const finalOrder = [];
     groupOrder.forEach(idProduct => {
         (idProductToKeys.get(idProduct) || []).forEach(k => {
-            if (keyToRow.has(k)) finalOrder.push(k);
+            if (keyToRow.has(k)) {
+                finalOrder.push(k);
+            } else {
+                finalOrder.push({ placeholder: true, idProduct: (idProduct || '').trim() });
+            }
         });
     });
     const newKeys = currentRows.map(r => normalizeSummaryRowKey(getSummaryRowKey(r))).filter(k => k && !savedOrderSet.has(k));
-    // 未在 savedOrder 里的行（如 key 略有不匹配）：插到「同 id_product 组的最后」而不是整表最后，避免 refresh 后跑到最后一格
+    const newKeysByGroup = new Map();
     newKeys.forEach(nk => {
         const idProduct = (nk && nk.split('\t')[0]) ? nk.split('\t')[0].trim() : '';
-        let insertAfterIndex = -1;
-        for (let i = finalOrder.length - 1; i >= 0; i--) {
-            const existingId = (finalOrder[i] && finalOrder[i].split('\t')[0]) ? finalOrder[i].split('\t')[0].trim() : '';
-            if (existingId && existingId === idProduct) {
-                insertAfterIndex = i;
-                break;
+        if (!idProduct) return;
+        if (!newKeysByGroup.has(idProduct)) newKeysByGroup.set(idProduct, []);
+        newKeysByGroup.get(idProduct).push(nk);
+    });
+    for (let i = 0; i < finalOrder.length; i++) {
+        const item = finalOrder[i];
+        if (item && typeof item === 'object' && item.placeholder) {
+            const arr = newKeysByGroup.get(item.idProduct);
+            if (arr && arr.length > 0) {
+                finalOrder[i] = arr.shift();
+            } else {
+                finalOrder[i] = null;
             }
         }
-        if (insertAfterIndex >= 0) finalOrder.splice(insertAfterIndex + 1, 0, nk);
-        else finalOrder.push(nk);
+    }
+    const finalOrderFiltered = finalOrder.filter(x => x !== null && typeof x === 'string');
+    newKeysByGroup.forEach((keys, idProduct) => {
+        keys.forEach(nk => {
+            if (!nk) return;
+            let insertAfterIndex = -1;
+            for (let i = finalOrderFiltered.length - 1; i >= 0; i--) {
+                const existingId = (finalOrderFiltered[i] && finalOrderFiltered[i].split('\t')[0]) ? finalOrderFiltered[i].split('\t')[0].trim() : '';
+                if (existingId && existingId === idProduct) {
+                    insertAfterIndex = i;
+                    break;
+                }
+            }
+            if (insertAfterIndex >= 0) finalOrderFiltered.splice(insertAfterIndex + 1, 0, nk);
+            else finalOrderFiltered.push(nk);
+        });
     });
     const appended = new Set();
-    finalOrder.forEach(k => {
+    finalOrderFiltered.forEach(k => {
         const row = keyToRow.get(k);
         if (row && !appended.has(row)) {
             appended.add(row);
