@@ -13645,18 +13645,31 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
 }
 
 // Auto-populate summary table rows from saved templates
+// 优先精确匹配整串 id_product（如 GAMS(SV)HKD），避免与 GAMS(SV)MYR 等仅 normalize 相同的行混用
 function findSummaryRowByIdProduct(idProduct) {
 const summaryTableBody = document.getElementById('summaryTableBody');
 if (!summaryTableBody) {
 return null;
 }
 
+const idProductTrimmed = (idProduct || '').trim();
 const desired = normalizeIdProductText(idProduct);
-if (!desired) {
+if (!desired && !idProductTrimmed) {
 return null;
 }
 
 const rows = summaryTableBody.querySelectorAll('tr');
+// 1) 先找整串完全一致的行，避免 GAMS(SV)HKD 匹配到 GAMS(SV)MYR
+for (const row of rows) {
+const idProductCell = row.querySelector('td:first-child');
+const productValues = getProductValuesFromCell(idProductCell);
+const mainRaw = (productValues.main || '').trim();
+const subRaw = (productValues.sub || '').trim();
+if (idProductTrimmed && (mainRaw === idProductTrimmed || subRaw === idProductTrimmed)) {
+    return row;
+}
+}
+// 2) 再按 normalize 匹配（兼容旧逻辑）
 for (const row of rows) {
 const idProductCell = row.querySelector('td:first-child');
 const productValues = getProductValuesFromCell(idProductCell);
@@ -13917,17 +13930,24 @@ uniqueIds.forEach(normalizedIdProduct => {
                     }
                 }
             });
-            // Fallback: when we have subs but none were applied (e.g. 2 main templates but only 1 physical row, so second main had no row), apply subs to the first row for this id_product
+            // Fallback: when we have subs but none were applied (e.g. main row was deleted), only apply subs to a row whose main id_product **exactly** matches the sub's parent (e.g. GAMS(SV)HKD), never to another id_product (e.g. GAMS(SV)MYR), otherwise sub 会跑去和别的 id_product mix
             if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
                 const firstRow = findSummaryRowByIdProduct(originalIdProduct);
-                if (firstRow && normalizeIdProductText(originalIdProduct || '') === normalizedIdProduct) {
-                    const mainNorm = normalizedIdProduct;
-                    const subsToApply = template.subs.filter(sub => {
-                        const subParentNorm = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
-                        return mainNorm && normalizeIdProductText(subParentNorm) === mainNorm;
-                    });
-                    if (subsToApply.length > 0) {
-                        applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
+                if (firstRow) {
+                    const idProductCell = firstRow.querySelector('td:first-child');
+                    const productValues = getProductValuesFromCell(idProductCell);
+                    const rowMainId = (productValues.main || '').trim();
+                    // 必须整串一致才套用：避免 GAMS(SV)HKD 的 sub 被套到 GAMS(SV)MYR 行（normalize 后都是 GAMS）
+                    const rowIsExactParent = rowMainId === (originalIdProduct || '').trim();
+                    if (rowIsExactParent) {
+                        const mainNorm = normalizedIdProduct;
+                        const subsToApply = template.subs.filter(sub => {
+                            const subParentNorm = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
+                            return mainNorm && normalizeIdProductText(subParentNorm) === mainNorm;
+                        });
+                        if (subsToApply.length > 0) {
+                            applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
+                        }
                     }
                 }
             }
