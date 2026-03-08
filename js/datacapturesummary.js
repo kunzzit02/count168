@@ -14590,8 +14590,12 @@ allRows.forEach((row, index) => {
     const mainRaw = (productValues.main || '').trim();
     let idMatches = mainCellText === normalizedTargetId
         || (normalizedTargetId && mainRaw.indexOf(' - ') >= 0 && (mainRaw === normalizedTargetId || mainRaw.startsWith(normalizedTargetId + ' ') || mainRaw.startsWith(normalizedTargetId + '(')));
+    // 仅当行本身也是完整 id（含括号）时才要求严格完整匹配，避免「模板为 MEPLAY88 (SEXY)MYR、行只有 MEPLAY88」时找不到行
     if (idMatches && typeof isFullIdProduct === 'function' && isFullIdProduct(idProduct)) {
-        idMatches = normalizeSpacesId(mainRaw) === normalizeSpacesId((idProduct || '').trim());
+        const rowHasFullId = (mainRaw && mainRaw.indexOf('(') >= 0);
+        if (rowHasFullId) {
+            idMatches = normalizeSpacesId(mainRaw) === normalizeSpacesId((idProduct || '').trim());
+        }
     }
     if (idMatches) {
         const accountCell = row.querySelector('td:nth-child(2)');
