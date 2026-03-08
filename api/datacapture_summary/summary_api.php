@@ -1102,9 +1102,13 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
         if ($idForKey === '') {
             continue;
         }
-        $key = baseIdProductForKeyNormalized($idForKey);
+        // 与 fetchTemplates 一致：用完整 id 作 key，避免 GAMS(SV)HKD 与 GAMS(SV)MYR 混组
+        $key = trim((string) $idForKey);
         if ($key === '') {
-            $key = $idForKey;
+            $key = baseIdProductForKeyNormalized($idForKey);
+            if ($key === '') {
+                $key = $idForKey;
+            }
         }
         if (!isset($pairsByKey[$key])) {
             $pairsByKey[$key] = [];
@@ -1146,8 +1150,12 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
 
     $requestedKeys = [];
     foreach ($ids as $id) {
-        $n = baseIdProductForKeyNormalized(trim((string)$id));
-        if ($n !== '') {
+        $tid = trim((string) $id);
+        if ($tid !== '') {
+            $requestedKeys[$tid] = true;
+        }
+        $n = baseIdProductForKeyNormalized($tid);
+        if ($n !== '' && $n !== $tid) {
             $requestedKeys[$n] = true;
         }
     }
@@ -1293,8 +1301,21 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
         return [];
     }
 
+    // 查询时同时匹配完整 id 与 base（括号前），便于库中既有完整也有简写时都能取到
+    $expandedIds = [];
+    foreach ($ids as $id) {
+        $tid = trim((string) $id);
+        if ($tid !== '' && !in_array($tid, $expandedIds, true)) {
+            $expandedIds[] = $tid;
+        }
+        $base = $tid !== '' ? baseIdProductForKey($tid) : '';
+        if ($base !== '' && !in_array($base, $expandedIds, true)) {
+            $expandedIds[] = $base;
+        }
+    }
+    $ids = array_values($expandedIds);
+
     // Build case-insensitive query to match all case variants
-    // Use LOWER() for comparison but return original case from database
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $lowerIds = array_map('strtolower', $ids);
 
@@ -1388,17 +1409,16 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
 
         if ($productType === 'sub') {
             $parentId = $row['parent_id_product'] ?? $row['id_product'];
-            // 与 main 一致：用基名（第一个括号前）作 key，前端用 ALLBET95MS 才能取到 parent 为 ALLBET95MS(KM)MYR 的 sub
-            // 使用 baseIdProductForKeyNormalized 使 "XXX : (YYY)" 的 key 为 "XXX"，与前端一致
-            $parentKey = baseIdProductForKeyNormalized($parentId);
+            // 用完整 parent_id_product 作 key，避免 GAMS(SV)HKD 与 GAMS(SV)MYR 混在同一组（只检测 GAMS 会混掉）
+            $parentKey = trim((string) $parentId);
             if ($parentKey === '') {
-                $parentKey = baseIdProductForKey($parentId);
-            }
-            if ($parentKey === '') {
-                $parentKey = normalizeIdProductForKey($parentId);
-            }
-            if ($parentKey === '') {
-                $parentKey = $parentId;
+                $parentKey = baseIdProductForKeyNormalized($parentId);
+                if ($parentKey === '') {
+                    $parentKey = baseIdProductForKey($parentId);
+                }
+                if ($parentKey === '') {
+                    $parentKey = $parentId;
+                }
             }
             if (!isset($templates[$parentKey])) {
                 $templates[$parentKey] = [
@@ -1438,17 +1458,16 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             }
         } else {
             $idProduct = $row['id_product'];
-            // 用「基名」（第一个括号前）作 key，与前端 normalizeIdProductText 一致；
-            // 使用 baseIdProductForKeyNormalized 使 "MY EARNINGS : (RINGGIT...)" 的 key 为 "MY EARNINGS"，刷新后能取回
-            $mainKey = baseIdProductForKeyNormalized($idProduct);
+            // 用完整 id_product 作 key，避免 GAMS(SV)HKD 与 GAMS(SV)MYR 混在同一组（不要只检测 GAMS 前面）
+            $mainKey = trim((string) $idProduct);
             if ($mainKey === '') {
-                $mainKey = baseIdProductForKey($idProduct);
-            }
-            if ($mainKey === '') {
-                $mainKey = normalizeIdProductForKey($idProduct);
-            }
-            if ($mainKey === '') {
-                $mainKey = $idProduct;
+                $mainKey = baseIdProductForKeyNormalized($idProduct);
+                if ($mainKey === '') {
+                    $mainKey = baseIdProductForKey($idProduct);
+                }
+                if ($mainKey === '') {
+                    $mainKey = $idProduct;
+                }
             }
             if (!isset($templates[$mainKey])) {
                 $templates[$mainKey] = [

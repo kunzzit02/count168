@@ -13694,26 +13694,8 @@ if (!Array.isArray(idProducts)) {
     return;
 }
 
-// Build a map of normalized id -> original display value
-const normalizedIdMap = new Map();
-idProducts.forEach(value => {
-    if (!value) {
-        return;
-    }
-    const trimmed = value.trim();
-    if (!trimmed) {
-        return;
-    }
-    const normalized = normalizeIdProductText(trimmed);
-    if (!normalized) {
-        return;
-    }
-    if (!normalizedIdMap.has(normalized)) {
-        normalizedIdMap.set(normalized, trimmed);
-    }
-});
-
-const uniqueIds = Array.from(normalizedIdMap.keys());
+// 用完整 id_product 列表请求，不按「括号前」合并，保证 GAMS(SV)HKD 与 GAMS(SV)MYR 分开
+const uniqueIds = [...new Set(idProducts.map(v => (v || '').trim()).filter(Boolean))];
 
 if (uniqueIds.length === 0) {
     return;
@@ -13850,23 +13832,11 @@ if (summaryTableBody && capturedTableBody) {
     });
 }
 
-// Match templates using original case-sensitive idProduct
-// But use normalized version to find the row in the table
-// IMPORTANT: Use original full idProduct value (from normalizedIdMap) when applying templates
-// to preserve complete text (e.g., "AG(AGIN) - OP7AUD=SLOT" instead of just "AG")
-// 兼容：API 可能用短 id（如 G8:GAMEPLAY）作 key，行 id 为完整串；用 templateKey 匹配「行 id 以 templateKey 开头」的项
-uniqueIds.forEach(normalizedIdProduct => {
-    let template = templates[normalizedIdProduct];
-    let originalIdProduct = normalizedIdMap.get(normalizedIdProduct) || normalizedIdProduct;
-    if (!template && normalizedIdProduct.indexOf(' - ') >= 0) {
-        for (const templateKey of Object.keys(templates)) {
-            if (templateKey === normalizedIdProduct || normalizedIdProduct.startsWith(templateKey + ' ') || normalizedIdProduct.startsWith(templateKey + '(')) {
-                template = templates[templateKey];
-                originalIdProduct = normalizedIdMap.get(normalizedIdProduct) || normalizedIdProduct;
-                break;
-            }
-        }
-    }
+// API 已按完整 id_product 分组，直接按 template key（完整 id，如 GAMS(SV)HKD）迭代，不要只检测 GAMS 前面
+Object.keys(templates).forEach(templateKey => {
+    const template = templates[templateKey];
+    const originalIdProduct = templateKey;
+    const normalizedIdProduct = normalizeIdProductText(templateKey);
     if (template) {
         // Check if there are multiple main templates for the same id_product (different accounts)
         if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
@@ -13967,12 +13937,12 @@ if (summaryTableBody) {
         if (!idCell) return;
         const productValues = getProductValuesFromCell(idCell);
         const mainId = (productValues.main || '').trim();
-        const normalizedId = normalizeIdProductText(mainId);
-        if (!normalizedId) return;
-        let hasTemplate = !!templates[normalizedId];
-        if (!hasTemplate && normalizedId.indexOf(' - ') >= 0) {
+        if (!mainId) return;
+        // 按完整 id 检测是否有模板，避免 GAMS(SV)HKD 只匹配到 GAMS 而误判
+        let hasTemplate = !!templates[mainId];
+        if (!hasTemplate) {
             for (const templateKey of Object.keys(templates)) {
-                if (templateKey === normalizedId || normalizedId.startsWith(templateKey + ' ') || normalizedId.startsWith(templateKey + '(')) {
+                if (templateKey === mainId || mainId.startsWith(templateKey + ' ') || mainId.startsWith(templateKey + '(')) {
                     hasTemplate = true;
                     break;
                 }
