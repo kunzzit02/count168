@@ -13865,6 +13865,7 @@ uniqueIds.forEach(normalizedIdProduct => {
                 let candidateRowCount = 0;
                 const templateAccountIds = new Set();
 
+                let singleRowHasStoredFormula = false;
                 allRows.forEach((r) => {
                     const productType = r.getAttribute('data-product-type') || 'main';
                     if (productType !== 'main') return;
@@ -13874,6 +13875,14 @@ uniqueIds.forEach(normalizedIdProduct => {
                     if (mainNorm === normalizedIdProduct) {
                         candidateRowCount += 1;
                         r.removeAttribute('data-template-applied');
+                        // 检查该行是否有储存的 formula（有则不要 skip，保留并套用）
+                        const cells = r.querySelectorAll('td');
+                        const formulaCell = cells[4];
+                        const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim() || '') : '';
+                        const hasSourceColumns = (r.getAttribute('data-source-columns') || '').trim() !== '';
+                        if (formulaText !== '' || hasSourceColumns) {
+                            singleRowHasStoredFormula = true;
+                        }
                     }
                 });
 
@@ -13883,12 +13892,8 @@ uniqueIds.forEach(normalizedIdProduct => {
                     }
                 });
 
-                // 安全保护：
-                // 如果同一个 id_product 在模板里有多个不同账号的 main 公式，
-                // 但 Summary 表中当前只有 1 行可以套用，
-                // 为避免把「A 账号的模板」错误套到「B 账号」这一行上，
-                // 直接跳过自动套模板，让用户手动选择账号和公式。
-                if (candidateRowCount === 1 && templateAccountIds.size > 1) {
+                // 安全保护：多账号单行时跳过自动套模板；但若该行已有储存的 formula 则不 skip，继续套用以保留公式。
+                if (candidateRowCount === 1 && templateAccountIds.size > 1 && !singleRowHasStoredFormula) {
                     console.log(
                         'Skip auto-populate templates for id_product with multiple accounts but single row:',
                         normalizedIdProduct,
