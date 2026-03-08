@@ -17178,10 +17178,9 @@ function deleteSelectedRows() {
     
     showConfirmDelete(
         `Are you sure you want to delete ${validRowsToDelete.length} selected row(s)? This action cannot be undone.`,
-        async function() {
-            // Extract template information from rows before deletion
+        function() {
+            // 先收集 template 信息再删 DOM，否则 row 引用会失效
             const templatesToDelete = [];
-            // 只删除勾选的行：必须传 template_id（或 formula_variant）以便后端按单行精确删除，避免误删同 id_product 的 sub 或其他行
             validRowsToDelete.forEach(item => {
                 const row = item.row;
                 const templateKey = row.getAttribute('data-template-key');
@@ -17190,8 +17189,6 @@ function deleteSelectedRows() {
                 const formulaVariantRaw = row.getAttribute('data-formula-variant');
                 const formulaVariant = formulaVariantRaw && formulaVariantRaw.trim() !== '' ? (parseInt(formulaVariantRaw, 10) || null) : null;
                 const productType = row.getAttribute('data-product-type') || 'main';
-                
-                // Only delete template if template_key exists (row has been saved)
                 if (templateKey) {
                     templatesToDelete.push({
                         template_key: templateKey,
@@ -17201,40 +17198,26 @@ function deleteSelectedRows() {
                     });
                 }
             });
-            
-            // Delete templates from database asynchronously
-            if (templatesToDelete.length > 0) {
-                const deletePromises = templatesToDelete.map(template => 
-                    deleteTemplateAsync(template.template_key, template.product_type, template.template_id, template.formula_variant)
-                );
-                
-                try {
-                    await Promise.all(deletePromises);
-                    console.log(`Deleted ${templatesToDelete.length} template(s) from database`);
-                } catch (error) {
-                    console.error('Error deleting templates:', error);
-                    // Don't block UI if template deletion fails
-                }
-            }
-            
-            // Remove selected rows from the table
+            // 先立刻从表格移除行并更新 UI，再在后台调 API，避免等 5～10 秒
             validRowsToDelete.forEach(item => {
-                const row = item.row;
-                const addCell = row.querySelector('td:nth-child(3)'); // Add column
-                const hasAddButton = addCell && addCell.querySelector('.add-account-btn');
-                
-                // If this is a sub row with + button, we need to add a new empty sub row
-                row.remove();
+                if (item.row && item.row.parentNode) item.row.remove();
             });
-            // Rebuild used accounts after deletions
             rebuildUsedAccountIds();
-            
-            // Update delete button state
             updateDeleteButton();
-            
             updateProcessedAmountTotal();
-            
             showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
+            // 后台删除模板，不阻塞界面
+            if (templatesToDelete.length > 0) {
+                const deletePromises = templatesToDelete.map(t => 
+                    deleteTemplateAsync(t.template_key, t.product_type, t.template_id, t.formula_variant)
+                );
+                Promise.all(deletePromises).then(() => {
+                    console.log('Deleted', templatesToDelete.length, 'template(s) from database');
+                }).catch(err => {
+                    console.error('Error deleting templates:', err);
+                    showNotification('Warning', 'Row(s) removed from table; some template cleanup failed. You may refresh to sync.', 'warning');
+                });
+            }
         }
     );
 }
