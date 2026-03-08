@@ -7122,7 +7122,9 @@ function saveFormula() {
     const row = currentButton ? currentButton.closest('tr') : null;
     const idProductCell = row ? row.querySelector('td:first-child') : null;
     const productValues = getProductValuesFromCell(idProductCell);
-    const isSubIdProduct = !productValues.main || !productValues.main.trim();
+    // 优先用 data-product-type 判断：点击 sub 行的 + 时新行必须插在该 sub 底下；否则用单元格 main 是否为空
+    const clickedRowIsSub = row && (row.getAttribute('data-product-type') || 'main') === 'sub';
+    const isSubIdProduct = clickedRowIsSub || !productValues.main || !productValues.main.trim();
     const oldAccountDbId = (isEditMode && window.currentEditRow) ? (window.currentEditRow.querySelector('td:nth-child(2)')?.getAttribute('data-account-id') || null) : null;
     
     console.log('Formula data:', {
@@ -7544,7 +7546,7 @@ function saveFormula() {
                 }, targetRow);
             }
         } else {
-            // 主行已有账号：为该 Id Product 在当前主行之后新增一条 sub 行
+            // 主行已有账号：为该 Id Product 在「点击的那一行」之后新增一条 sub 行（点击 main 则插在 main 下，点击 sub 则插在该 sub 下）
             const baseRow = currentButton ? currentButton.closest('tr') : null;
             const newRow = addSubIdProductRow(processValue, baseRow);
             // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
@@ -15916,6 +15918,12 @@ const orderedRows = rowData
             if (aType !== bType) {
                 return aType === 'main' ? -1 : 1;
             }
+            // 同组内均为 sub 时，按 sub_order 升序（与数据库一致：sub_order 1 在 2 上面）
+            if (aType === 'sub' && bType === 'sub') {
+                const aSub = a.subOrder != null && !Number.isNaN(Number(a.subOrder)) ? Number(a.subOrder) : 999999;
+                const bSub = b.subOrder != null && !Number.isNaN(Number(b.subOrder)) ? Number(b.subOrder) : 999999;
+                if (aSub !== bSub) return aSub - bSub;
+            }
         }
 
         // 其它所有情况：保持当前 DOM 的相对顺序（保证 main/sub 连在一起且 main 在前）
@@ -16091,7 +16099,10 @@ let lastRowInGroup = mainRow;
 validSubTemplates.forEach((template, templateIndex) => {
 let insertAfterRow = lastRowInGroup;
 
-if (template.row_index !== undefined && template.row_index !== null) {
+// 仅当上一行是 main 时，才用 row_index 选择插入位置（决定挂在哪个 main 下）；
+// 若上一行已是 sub，说明正在按 sub_order 顺序追加，不再改回 main，保证 sub_order 1 在 sub_order 2 上面
+const lastIsSub = lastRowInGroup && (lastRowInGroup.getAttribute('data-product-type') || 'main') === 'sub';
+if (!lastIsSub && template.row_index !== undefined && template.row_index !== null) {
     const desiredIndex = Number(template.row_index);
     if (!Number.isNaN(desiredIndex)) {
         // 在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
