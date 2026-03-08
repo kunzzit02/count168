@@ -7402,42 +7402,31 @@ function saveFormula() {
         const mainHasData = !!accountText;
 
         if (!mainHasData) {
-            // 主行还没有数据：在该行下方新增一条 sub 行并填充，使「新数据在第一行之下」
+            // main 无数据：直接填充该 main 行（不新增行）
             if (targetRow) {
-                const newRow = addSubIdProductRow(processValue, targetRow);
-                if (newRow) {
-                    const targetRowSourceCols = targetRow.getAttribute('data-source-columns') || '';
-                    const finalSourceColumnsForSub = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
-                    const newRowIndex = newRow.getAttribute('data-row-index');
-                    const rowIndexValue = (newRowIndex && newRowIndex !== '' && newRowIndex !== '999999') ? Number(newRowIndex) : null;
-                    const subOrderValue = newRow.getAttribute('data-sub-order');
-                    const subOrderNumber = subOrderValue && subOrderValue !== '' && !Number.isNaN(Number(subOrderValue)) ? Number(subOrderValue) : null;
-                    updateSubIdProductRow(processValue, {
-                        idProduct: processValue,
-                        description: descriptionValue,
-                        originalDescription: descriptionValue,
-                        account: accountId || 'Account',
-                        accountDbId: accountValue,
-                        currency: currencyName || 'Currency',
-                        currencyDbId: currencyValue,
-                        columns: columnsDisplay,
-                        sourceColumns: finalSourceColumnsForSub,
-                        batchSelection: batchSelectionChecked,
-                        source: formulaValue || 'Source',
-                        sourcePercent: sourcePercentValue || '1',
-                        formula: formulaDisplay,
-                        formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '',
-                        processedAmount: processedAmount,
-                        inputMethod: inputMethodValue,
-                        enableInputMethod: enableValue,
-                        enableSourcePercent: sourcePercentEnableValue,
-                        productType: 'sub',
-                        rowIndex: rowIndexValue,
-                        subOrder: subOrderNumber
-                    }, newRow);
-                    window.lastCreatedRowForTemplateSave = newRow;
-                    // main 无数据时不再重排，避免新行被排到底部，保持插在该行正下方
-                }
+                const targetRowSourceCols = targetRow.getAttribute('data-source-columns') || '';
+                const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
+                updateSummaryTableRow(processValue, {
+                    idProduct: processValue,
+                    description: descriptionValue,
+                    originalDescription: descriptionValue,
+                    account: accountId || 'Account',
+                    accountDbId: accountValue,
+                    currency: currencyName || 'Currency',
+                    currencyDbId: currencyValue,
+                    columns: columnsDisplay,
+                    sourceColumns: finalSourceColumnsForMain,
+                    batchSelection: batchSelectionChecked,
+                    source: formulaValue || 'Source',
+                    sourcePercent: sourcePercentValue || '1',
+                    formula: formulaDisplay,
+                    formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '',
+                    processedAmount: processedAmount,
+                    inputMethod: inputMethodValue,
+                    enableInputMethod: enableValue,
+                    enableSourcePercent: sourcePercentEnableValue,
+                    productType: 'main'
+                }, targetRow);
             }
         } else {
             // 主行已有账号：为该 Id Product 在当前主行之后新增一条 sub 行
