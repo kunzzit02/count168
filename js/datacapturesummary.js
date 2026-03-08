@@ -14850,15 +14850,16 @@ if (!targetRow) {
     return;
 }
 
-// 确保 main 行的 Id Product 单元格有显示（DB 有数据时从 template 恢复，否则用查找时用的 idProduct）
-const mainDisplayId = (mainTemplate.id_product && mainTemplate.id_product.trim()) || (idProduct && idProduct.trim()) || '';
-if (mainDisplayId) {
-    const idCell = targetRow.querySelector('td:first-child');
-    if (idCell) {
-        idCell.setAttribute('data-main-product', mainDisplayId);
+// 保持与 Data Capture Table 一致：Id Product 以表格 A 列为准，不替换为模板的 id_product
+const idCell = targetRow.querySelector('td:first-child');
+if (idCell) {
+    const fromTable = (idCell.textContent || '').trim() || (idCell.getAttribute('data-main-product') || '').trim();
+    const displayId = fromTable || (mainTemplate.id_product && mainTemplate.id_product.trim()) || (idProduct && idProduct.trim()) || '';
+    if (displayId) {
+        idCell.setAttribute('data-main-product', displayId);
         idCell.setAttribute('data-sub-product', '');
-        idCell.textContent = mainDisplayId;
-        idCell.setAttribute('title', mainDisplayId);
+        idCell.textContent = displayId;
+        idCell.setAttribute('title', displayId);
     }
 }
 
