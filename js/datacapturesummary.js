@@ -374,9 +374,27 @@ function saveFormulaSourceForRefresh() {
             rateValue: rateValue || ''
         };
     });
+    // 按 id_product 分行序保存 Rate Value，刷新后即使 Account 不一致也能按行序恢复
+    const rateValuesByProductId = {};
+    rows.forEach(row => {
+        const key = getSummaryRowKey(row);
+        const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+        const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim().replace(/\s+/g, ' ') : '';
+        if (!idPart) return;
+        const cells = row.querySelectorAll('td');
+        const rateValueCell = cells[7];
+        const rv = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
+        if (!rateValuesByProductId[idPart]) rateValuesByProductId[idPart] = [];
+        rateValuesByProductId[idPart].push(rv);
+    });
     try {
-        const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder };
+        const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder, rateValuesByProductId: rateValuesByProductId };
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
+        localStorage.setItem('capturedTableRateValuesByProductId', JSON.stringify({
+            processId: processId != null ? processId : null,
+            processCode: processCode,
+            rateValuesByProductId: rateValuesByProductId
+        }));
     } catch (e) {
         console.warn('saveFormulaSourceForRefresh:', e);
     }
@@ -482,74 +500,100 @@ function restoreFormulaSourceFromRefresh() {
     }
 }
 function restoreRateValuesFromRefresh() {
-    let saved;
-    try {
-        const raw = localStorage.getItem('capturedTableRateValues');
-        if (!raw) return;
-        saved = JSON.parse(raw);
-    } catch (e) {
-        return;
-    }
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
     let appliedCount = 0;
-    // 新格式：按 id_product + Account 的 key 恢复（规范化 key 匹配，兼容刷新后 Account 格式略差）
-    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-        const savedKeys = Object.keys(saved);
-        rows.forEach((row) => {
-            const key = getSummaryRowKey(row);
-            const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-            let val = saved[normKey] ?? saved[key];
-            // 若仍无匹配：按 id_product 唯一匹配（同一 id_product 仅一条保存时），避免刷新后 Account 格式差异导致丢失
-            if ((val === undefined || val === null || String(val).trim() === '') && normKey) {
-                const idPart = normKey.split('\t')[0] || '';
-                const idNorm = (idPart || '').trim().replace(/\s+/g, ' ');
-                const matchingKeys = savedKeys.filter(k => {
-                    const p = (k.split('\t')[0] || '').trim().replace(/\s+/g, ' ');
-                    return p === idNorm && saved[k] != null && String(saved[k]).trim() !== '';
+
+    function applyRateToRow(row, val) {
+        const cells = row.querySelectorAll('td');
+        const rateValueCell = cells[7];
+        const processedAmountCell = cells[8];
+        if (!rateValueCell || val === undefined || val === null || String(val).trim() === '') return false;
+        rateValueCell.textContent = String(val).trim();
+        const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
+        if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
+            const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+            processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
+            processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+        }
+        return true;
+    }
+
+    // 1) 按 key（id_product + Account）恢复
+    try {
+        const raw = localStorage.getItem('capturedTableRateValues');
+        if (raw) {
+            const saved = JSON.parse(raw);
+            if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+                const savedKeys = Object.keys(saved);
+                rows.forEach((row) => {
+                    const key = getSummaryRowKey(row);
+                    const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+                    let val = saved[normKey] ?? saved[key];
+                    if ((val === undefined || val === null || String(val).trim() === '') && normKey) {
+                        const idPart = normKey.split('\t')[0] || '';
+                        const idNorm = (idPart || '').trim().replace(/\s+/g, ' ');
+                        const matchingKeys = savedKeys.filter(k => {
+                            const p = (k.split('\t')[0] || '').trim().replace(/\s+/g, ' ');
+                            return p === idNorm && saved[k] != null && String(saved[k]).trim() !== '';
+                        });
+                        if (matchingKeys.length === 1) val = saved[matchingKeys[0]];
+                    }
+                    if (applyRateToRow(row, val)) appliedCount++;
                 });
-                if (matchingKeys.length === 1) val = saved[matchingKeys[0]];
+            } else if (Array.isArray(saved) && saved.length > 0) {
+                rows.forEach((row, i) => {
+                    if (applyRateToRow(row, saved[i])) appliedCount++;
+                });
             }
-            if (val === undefined || val === null || String(val).trim() === '') return;
+            if (appliedCount > 0) {
+                try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
+            }
+        }
+    } catch (e) {}
+
+    // 2) 按 id_product + 行序恢复（不依赖 Account 文本，刷新后必能对上）
+    try {
+        const rawByProduct = localStorage.getItem('capturedTableRateValuesByProductId');
+        if (!rawByProduct) {
+            if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
+            return;
+        }
+        const savedByProduct = JSON.parse(rawByProduct);
+        const rateValuesByProductId = savedByProduct && savedByProduct.rateValuesByProductId && typeof savedByProduct.rateValuesByProductId === 'object' ? savedByProduct.rateValuesByProductId : null;
+        if (!rateValuesByProductId || Object.keys(rateValuesByProductId).length === 0) {
+            try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+            if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
+            return;
+        }
+        const currentId = getCurrentProcessId();
+        const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
+        const savedId = savedByProduct.processId != null ? savedByProduct.processId : null;
+        const savedCode = (typeof savedByProduct.processCode === 'string' ? savedByProduct.processCode : '').trim();
+        const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
+        const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+        if (!idMatch || !codeMatch) {
+            try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+            if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
+            return;
+        }
+        const productIndex = {};
+        rows.forEach((row) => {
             const cells = row.querySelectorAll('td');
-            const rateValueCell = cells[7];
-            const processedAmountCell = cells[8];
-            if (!rateValueCell) return;
-            rateValueCell.textContent = String(val).trim();
-            const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
-            if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
-                const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
-                processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
-            }
-            appliedCount++;
+            const idProductCell = cells[0];
+            const idPart = idProductCell && idProductCell.textContent ? idProductCell.textContent.trim().replace(/\s+/g, ' ') : '';
+            if (!idPart) return;
+            const idx = productIndex[idPart] || 0;
+            productIndex[idPart] = idx + 1;
+            const arr = rateValuesByProductId[idPart];
+            if (!arr || idx >= arr.length) return;
+            const val = arr[idx];
+            if (applyRateToRow(row, val)) appliedCount++;
         });
-    } else if (Array.isArray(saved) && saved.length > 0) {
-        // 旧格式：按 index 恢复（兼容已有缓存，仅此一次）
-        rows.forEach((row, i) => {
-            const val = saved[i];
-            if (val === undefined || val === null || String(val).trim() === '') return;
-            const cells = row.querySelectorAll('td');
-            const rateValueCell = cells[7];
-            const processedAmountCell = cells[8];
-            if (!rateValueCell) return;
-            rateValueCell.textContent = String(val).trim();
-            const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
-            if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
-                const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
-                processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
-            }
-            appliedCount++;
-        });
-    }
-    // 仅在有成功恢复时才清除缓存，避免首次恢复因时序未命中时二次恢复仍可生效
-    if (appliedCount > 0) {
-        try {
-            localStorage.removeItem('capturedTableRateValues');
-        } catch (e) {}
-    }
+        try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+    } catch (e) {}
+
     if (typeof updateProcessedAmountTotal === 'function') {
         updateProcessedAmountTotal();
     }
@@ -560,6 +604,7 @@ function goBackToDataCapture() {
     window.isNavigatingAwayByBackOrSubmit = true;
     try {
         localStorage.removeItem('capturedTableRateValues');
+        localStorage.removeItem('capturedTableRateValuesByProductId');
         localStorage.removeItem('capturedTableFormulaSourceForRefresh');
     } catch (e) {}
     window.location.href = 'datacapture.php?restore=1';
@@ -18338,6 +18383,8 @@ async function submitSummaryData() {
             setTimeout(() => {
                 window.isNavigatingAwayByBackOrSubmit = true;
                 try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
+                try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+                try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
                 try { localStorage.removeItem('capturedCaptureId'); } catch (e) {}
                 localStorage.removeItem('capturedTableData');
                 localStorage.removeItem('capturedProcessData');
