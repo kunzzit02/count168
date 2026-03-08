@@ -13865,7 +13865,6 @@ uniqueIds.forEach(normalizedIdProduct => {
                 let candidateRowCount = 0;
                 const templateAccountIds = new Set();
 
-                let singleRowHasStoredFormula = false;
                 allRows.forEach((r) => {
                     const productType = r.getAttribute('data-product-type') || 'main';
                     if (productType !== 'main') return;
@@ -13875,14 +13874,6 @@ uniqueIds.forEach(normalizedIdProduct => {
                     if (mainNorm === normalizedIdProduct) {
                         candidateRowCount += 1;
                         r.removeAttribute('data-template-applied');
-                        // 检查该行是否有储存的 formula（有则不要 skip，保留并套用）
-                        const cells = r.querySelectorAll('td');
-                        const formulaCell = cells[4];
-                        const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim() || '') : '';
-                        const hasSourceColumns = (r.getAttribute('data-source-columns') || '').trim() !== '';
-                        if (formulaText !== '' || hasSourceColumns) {
-                            singleRowHasStoredFormula = true;
-                        }
                     }
                 });
 
@@ -13892,16 +13883,7 @@ uniqueIds.forEach(normalizedIdProduct => {
                     }
                 });
 
-                // 安全保护：多账号单行时跳过自动套模板；但若该行已有储存的 formula 则不 skip，继续套用以保留公式。
-                if (candidateRowCount === 1 && templateAccountIds.size > 1 && !singleRowHasStoredFormula) {
-                    console.log(
-                        'Skip auto-populate templates for id_product with multiple accounts but single row:',
-                        normalizedIdProduct,
-                        'account_ids=',
-                        Array.from(templateAccountIds)
-                    );
-                    return;
-                }
+                // 不再因「多账号单行」而跳过：始终套用模板，单行由 applyMainTemplateToRow 按 account_id/row_index 匹配其中一个模板，确保有储存的 formula 能套上且不丢失。
             }
             // Sort templates by row_index to apply them in the correct order
             const sortedTemplates = [...template.allMains].sort((a, b) => {
