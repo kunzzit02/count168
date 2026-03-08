@@ -7289,59 +7289,46 @@ function saveFormula() {
         const mainHasData = !!accountText;
 
         if (!mainHasData) {
-            // 主行还没有数据：直接填充主行
+            // 主行还没有数据：在该行下方新增一条 sub 行并填充，使「新数据在第一行之下」
             if (targetRow) {
-                const targetRowSourceCols = targetRow.getAttribute('data-source-columns') || '';
-                // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
-                // CRITICAL: 如果公式中没有 $ 符号，清空 sourceColumns，不使用旧的 targetRowSourceCols
-                const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
-                updateSummaryTableRow(processValue, {
-                    idProduct: processValue,
-                    description: descriptionValue,
-                    originalDescription: descriptionValue, // Store original description separately
-                    account: accountId || 'Account',
-                    accountDbId: accountValue, // Database ID
-                    currency: currencyName || 'Currency',
-                    currencyDbId: currencyValue, // Database ID
-                    columns: columnsDisplay,
-                    sourceColumns: finalSourceColumnsForMain, // Store clicked column numbers
-                    batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
-                    source: formulaValue || 'Source', // Use formula as source
-                    sourcePercent: sourcePercentValue || '1',
-                    formula: formulaDisplay,
-                    formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '', // Store the full formula expression (including empty string)
-                    processedAmount: processedAmount,
-                    inputMethod: inputMethodValue,
-                    enableInputMethod: enableValue,
-                    enableSourcePercent: sourcePercentEnableValue,
-                    productType: 'main'
-                }, targetRow);
-            } else {
-                const baseSourceCols = targetRow ? (targetRow.getAttribute('data-source-columns') || '') : '';
-                // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
-                // CRITICAL: 如果公式中没有 $ 符号，清空 sourceColumns，不使用旧的 baseSourceCols
-                const finalSourceColumnsForMain2 = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || baseSourceCols || '');
-                updateSummaryTableRow(processValue, {
-                    idProduct: processValue,
-                    description: descriptionValue,
-                    originalDescription: descriptionValue, // Store original description separately
-                    account: accountId || 'Account',
-                    accountDbId: accountValue, // Database ID
-                    currency: currencyName || 'Currency',
-                    currencyDbId: currencyValue, // Database ID
-                    columns: columnsDisplay,
-                    sourceColumns: finalSourceColumnsForMain2, // Store clicked column numbers
-                    batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
-                    source: formulaValue || 'Source', // Use formula as source
-                    sourcePercent: sourcePercentValue || '1',
-                    formula: formulaDisplay,
-                    formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '', // Store the full formula expression (including empty string)
-                    processedAmount: processedAmount,
-                    inputMethod: inputMethodValue,
-                    enableInputMethod: enableValue,
-                    enableSourcePercent: sourcePercentEnableValue,
-                    productType: 'main'
-                });
+                const newRow = addSubIdProductRow(processValue, targetRow);
+                if (newRow) {
+                    const targetRowSourceCols = targetRow.getAttribute('data-source-columns') || '';
+                    const finalSourceColumnsForSub = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
+                    const newRowIndex = newRow.getAttribute('data-row-index');
+                    const rowIndexValue = (newRowIndex && newRowIndex !== '' && newRowIndex !== '999999') ? Number(newRowIndex) : null;
+                    const subOrderValue = newRow.getAttribute('data-sub-order');
+                    const subOrderNumber = subOrderValue && subOrderValue !== '' && !Number.isNaN(Number(subOrderValue)) ? Number(subOrderValue) : null;
+                    updateSubIdProductRow(processValue, {
+                        idProduct: processValue,
+                        description: descriptionValue,
+                        originalDescription: descriptionValue,
+                        account: accountId || 'Account',
+                        accountDbId: accountValue,
+                        currency: currencyName || 'Currency',
+                        currencyDbId: currencyValue,
+                        columns: columnsDisplay,
+                        sourceColumns: finalSourceColumnsForSub,
+                        batchSelection: batchSelectionChecked,
+                        source: formulaValue || 'Source',
+                        sourcePercent: sourcePercentValue || '1',
+                        formula: formulaDisplay,
+                        formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '',
+                        processedAmount: processedAmount,
+                        inputMethod: inputMethodValue,
+                        enableInputMethod: enableValue,
+                        enableSourcePercent: sourcePercentEnableValue,
+                        productType: 'sub',
+                        rowIndex: rowIndexValue,
+                        subOrder: subOrderNumber
+                    }, newRow);
+                    window.lastCreatedRowForTemplateSave = newRow;
+                    setTimeout(() => {
+                        if (typeof reorderSummaryRowsByRowIndex === 'function') {
+                            reorderSummaryRowsByRowIndex();
+                        }
+                    }, 10);
+                }
             }
         } else {
             // 主行已有账号：为该 Id Product 在当前主行之后新增一条 sub 行
