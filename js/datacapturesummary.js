@@ -322,7 +322,7 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
 }
 
 // Save current Rate Value column to localStorage (for refresh only; cleared on Back/Submit)
-// 按 id_product + Account 存，恢复时按 key 匹配，避免行顺序变化错位
+// 按 id_product + Account 存（使用规范化 key），恢复时按 key 匹配，避免刷新后 Account 格式略差导致匹配失败
 function saveRateValuesForRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
@@ -330,10 +330,11 @@ function saveRateValuesForRefresh() {
     const byKey = {};
     rows.forEach(row => {
         const key = getSummaryRowKey(row);
+        const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
         const val = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
-        byKey[key] = val;
+        if (val !== '') byKey[normKey] = val;
     });
     try {
         localStorage.setItem('capturedTableRateValues', JSON.stringify(byKey));
@@ -485,11 +486,12 @@ function restoreRateValuesFromRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
-    // 新格式：按 id_product + Account 的 key 恢复
+    // 新格式：按 id_product + Account 的 key 恢复（规范化 key 匹配，兼容刷新后 Account 格式略差）
     if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
         rows.forEach((row) => {
             const key = getSummaryRowKey(row);
-            const val = saved[key];
+            const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+            const val = saved[normKey] ?? saved[key];
             if (val === undefined || val === null || String(val).trim() === '') return;
             const cells = row.querySelectorAll('td');
             const rateValueCell = cells[7];
