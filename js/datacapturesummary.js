@@ -13889,7 +13889,7 @@ uniqueIds.forEach(normalizedIdProduct => {
                 // 为避免把「A 账号的模板」错误套到「B 账号」这一行上，
                 // 直接跳过自动套模板，让用户手动选择账号和公式。
                 if (candidateRowCount === 1 && templateAccountIds.size > 1) {
-                    console.warn(
+                    console.log(
                         'Skip auto-populate templates for id_product with multiple accounts but single row:',
                         normalizedIdProduct,
                         'account_ids=',
@@ -14591,7 +14591,11 @@ allRows.forEach((row, index) => {
     let idMatches = mainCellText === normalizedTargetId
         || (normalizedTargetId && mainRaw.indexOf(' - ') >= 0 && (mainRaw === normalizedTargetId || mainRaw.startsWith(normalizedTargetId + ' ') || mainRaw.startsWith(normalizedTargetId + '(')));
     if (idMatches && typeof isFullIdProduct === 'function' && isFullIdProduct(idProduct)) {
-        idMatches = normalizeSpacesId(mainRaw) === normalizeSpacesId((idProduct || '').trim());
+        // 当模板是完整 id（如 WINBEST (KM)MYR）而表格行只有基础 id（如 WINBEST）时，仍视为候选行，由后续 account_id/row_index 区分
+        const rowIsFull = isFullIdProduct(mainRaw);
+        if (rowIsFull) {
+            idMatches = normalizeSpacesId(mainRaw) === normalizeSpacesId((idProduct || '').trim());
+        }
     }
     if (idMatches) {
         const accountCell = row.querySelector('td:nth-child(2)');
