@@ -2311,6 +2311,9 @@ function submitRateValues() {
     
     if (updatedCount > 0) {
         showNotification('Success', `Rate Value updated for ${updatedCount} row(s)`, 'success');
+        // 设置好后立即持久化，保证再次进入或刷新时数据和顺序一致
+        if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+        if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     } else {
         showNotification('Info', 'No rows with Rate checkbox checked', 'info');
     }
@@ -7650,6 +7653,9 @@ function saveFormula() {
     
     const actionText = wasEditMode ? 'updated' : 'saved';
     showNotification('Success', `Formula ${actionText} successfully! Processed Amount: ${typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(processedAmount) : processedAmount}`, 'success');
+    // Formula/Source 保存后立即持久化，保证再次进入时数据和顺序一致
+    if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
 }
 
 // Calculate processed amount based on source columns and formula
@@ -10478,6 +10484,9 @@ function attachRateValueEditListener(cell, row) {
                     cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                     updateProcessedAmountTotal();
                 }
+                // 单元格编辑完成后立即持久化，保证再次进入时数据一致
+                if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+                if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
             } else {
                 // Cancel: restore original value
                 cellElement.textContent = savedOriginalValue;
