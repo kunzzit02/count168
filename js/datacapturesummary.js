@@ -419,29 +419,27 @@ function saveFormulaSourceForRefresh(opts) {
             rateValue: rateValue || ''
         };
     });
-    // 按 id_product 分行序保存 Rate Value（仅当 includeRateValue 时）
-    const rateValuesByProductId = {};
+    // 按「id_product + Account」独立 key 保存 Rate Value，每行一份，删除其他行不会导致本行 rate 丢失
+    const rateValuesByKey = {};
     if (includeRateValue) {
         rows.forEach(row => {
             const key = getSummaryRowKey(row);
             const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-            const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim().replace(/\s+/g, ' ') : '';
-            if (!idPart) return;
+            if (!normKey) return;
             const cells = row.querySelectorAll('td');
             const rateValueCell = cells[7];
             const rv = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
-            if (!rateValuesByProductId[idPart]) rateValuesByProductId[idPart] = [];
-            rateValuesByProductId[idPart].push(rv);
+            rateValuesByKey[normKey] = rv;
         });
     }
     try {
-        const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder, rateValuesByProductId: rateValuesByProductId };
+        const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey };
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
-        if (includeRateValue && Object.keys(rateValuesByProductId).length > 0) {
+        if (includeRateValue && Object.keys(rateValuesByKey).length > 0) {
             localStorage.setItem('capturedTableRateValuesByProductId', JSON.stringify({
                 processId: processId != null ? processId : null,
                 processCode: processCode,
-                rateValuesByProductId: rateValuesByProductId
+                rateValuesByKey: rateValuesByKey
             }));
         }
     } catch (e) {
@@ -603,7 +601,7 @@ function restoreRateValuesFromRefresh() {
         }
     } catch (e) {}
 
-    // 2) 按 id_product + 行序恢复（不依赖 Account 文本，刷新后必能对上）
+    // 2) 按「id_product + Account」key 恢复（每行独立，删除其他行不影响本行）
     try {
         const rawByProduct = localStorage.getItem('capturedTableRateValuesByProductId');
         if (!rawByProduct) {
@@ -611,12 +609,8 @@ function restoreRateValuesFromRefresh() {
             return;
         }
         const savedByProduct = JSON.parse(rawByProduct);
-        const rateValuesByProductId = savedByProduct && savedByProduct.rateValuesByProductId && typeof savedByProduct.rateValuesByProductId === 'object' ? savedByProduct.rateValuesByProductId : null;
-        if (!rateValuesByProductId || Object.keys(rateValuesByProductId).length === 0) {
-            try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
-            if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
-            return;
-        }
+        const rateValuesByKey = savedByProduct && savedByProduct.rateValuesByKey && typeof savedByProduct.rateValuesByKey === 'object' ? savedByProduct.rateValuesByKey : null;
+        const rateValuesByProductIdLegacy = savedByProduct && savedByProduct.rateValuesByProductId && typeof savedByProduct.rateValuesByProductId === 'object' ? savedByProduct.rateValuesByProductId : null;
         const currentId = getCurrentProcessId();
         const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
         const savedId = savedByProduct.processId != null ? savedByProduct.processId : null;
@@ -628,20 +622,31 @@ function restoreRateValuesFromRefresh() {
             if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
             return;
         }
-        const productIndex = {};
-        rows.forEach((row) => {
-            const cells = row.querySelectorAll('td');
-            const idProductCell = cells[0];
-            const idPart = idProductCell && idProductCell.textContent ? idProductCell.textContent.trim().replace(/\s+/g, ' ') : '';
-            if (!idPart) return;
-            const idx = productIndex[idPart] || 0;
-            productIndex[idPart] = idx + 1;
-            const arr = rateValuesByProductId[idPart];
-            if (!arr || idx >= arr.length) return;
-            const val = arr[idx];
-            if (applyRateToRow(row, val)) appliedCount++;
-        });
-        try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+        if (rateValuesByKey && Object.keys(rateValuesByKey).length > 0) {
+            rows.forEach((row) => {
+                const key = getSummaryRowKey(row);
+                const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+                if (!normKey) return;
+                const val = rateValuesByKey[normKey] ?? rateValuesByKey[key];
+                if (applyRateToRow(row, val)) appliedCount++;
+            });
+            try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+        } else if (rateValuesByProductIdLegacy && Object.keys(rateValuesByProductIdLegacy).length > 0) {
+            const productIndex = {};
+            rows.forEach((row) => {
+                const cells = row.querySelectorAll('td');
+                const idProductCell = cells[0];
+                const idPart = idProductCell && idProductCell.textContent ? idProductCell.textContent.trim().replace(/\s+/g, ' ') : '';
+                if (!idPart) return;
+                const idx = productIndex[idPart] || 0;
+                productIndex[idPart] = idx + 1;
+                const arr = rateValuesByProductIdLegacy[idPart];
+                if (!arr || !Array.isArray(arr) || idx >= arr.length) return;
+                const val = arr[idx];
+                if (applyRateToRow(row, val)) appliedCount++;
+            });
+            try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+        }
     } catch (e) {}
 
     if (typeof updateProcessedAmountTotal === 'function') {
