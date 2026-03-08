@@ -600,13 +600,11 @@ function restoreRateValuesFromRefresh() {
 }
 
 // Go back to datacapture page, preserving localStorage data
+// 离开前先保存当前 Rate/Formula/行顺序，以便用户再次进入 Summary 时能恢复（不清除缓存）
 function goBackToDataCapture() {
+    if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     window.isNavigatingAwayByBackOrSubmit = true;
-    try {
-        localStorage.removeItem('capturedTableRateValues');
-        localStorage.removeItem('capturedTableRateValuesByProductId');
-        localStorage.removeItem('capturedTableFormulaSourceForRefresh');
-    } catch (e) {}
     window.location.href = 'datacapture.php?restore=1';
 }
 
