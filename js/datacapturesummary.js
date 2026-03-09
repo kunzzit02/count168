@@ -233,12 +233,36 @@ return null;
 // Flag: set true when navigating away by Back or Submit so beforeunload does not save rate values
 window.isNavigatingAwayByBackOrSubmit = false;
 
-// 用 id_product + Account 生成唯一 key，避免行顺序变化时恢复错位
+// 用「Id Product + Account + Currency + Formula + Source + Rate Value」生成唯一 key，
+// 确保同一 Id + Account 下，不同币种 / 公式 / 来源 / Rate Value 的多行不会互相覆盖
 function getSummaryRowKey(row) {
     const cells = row.querySelectorAll('td');
+
     const idProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
     const account = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
-    return idProduct + '\t' + account;
+    const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
+
+    let formula = '';
+    if (cells[4]) {
+        const formulaSpan = cells[4].querySelector('.formula-text');
+        if (formulaSpan && formulaSpan.textContent) {
+            formula = formulaSpan.textContent.trim();
+        } else if (cells[4].textContent) {
+            formula = cells[4].textContent.trim();
+        }
+    }
+
+    const source = (cells[5] && cells[5].textContent ? cells[5].textContent.trim() : '');
+    const rateValue = (cells[7] && cells[7].textContent ? cells[7].textContent.trim() : '');
+
+    return [
+        idProduct,
+        account,
+        currency,
+        formula,
+        source,
+        rateValue
+    ].map(v => (v || '').trim()).join('\t');
 }
 
 // 规范化 key：trim + 合并多余空格，避免刷新后 Account 显示略差导致匹配失败、行被排到最后
@@ -493,10 +517,19 @@ function restoreFormulaSourceFromRefresh() {
     }
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
-    // 无论是否有模板，都先按保存的 rowOrder 重排行顺序，避免点击侧栏 Data Capture 再进入时 NO/API GSC 等顺序错乱
-    if (saved.rowOrder && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0 && typeof reorderSummaryRowsBySavedOrder === 'function') {
-        reorderSummaryRowsBySavedOrder(summaryTableBody, saved.rowOrder);
+
+    const hasSavedRowOrder = saved.rowOrder && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0 && typeof reorderSummaryRowsBySavedOrder === 'function';
+    // 顺序恢复策略：
+    // - 无 Maintenance 模板时：保持原有行为，在恢复数值前就按 rowOrder 重排
+    // - 有 Maintenance 模板时：先恢复 Formula/Source/Rate，再在函数末尾按 rowOrder 重排，避免 key 还未就绪导致顺序错乱
+    if (hasSavedRowOrder && window.currentProcessHadTemplates !== true) {
+        try {
+            reorderSummaryRowsBySavedOrder(summaryTableBody, saved.rowOrder);
+        } catch (e) {
+            console.warn('Failed to reorder summary rows by saved rowOrder before restoring values', e);
+        }
     }
+
     const rows = summaryTableBody.querySelectorAll('tr');
     // 即使当前 process 无 Maintenance 模板，也先按 rowsByKey 恢复每行的 Rate Value，避免从 Data Capture submit 进来后全部 rate 消失
     if (window.currentProcessHadTemplates !== true) {
@@ -563,6 +596,15 @@ function restoreFormulaSourceFromRefresh() {
     try {
         localStorage.removeItem('capturedTableFormulaSourceForRefresh');
     } catch (e) {}
+
+    if (hasSavedRowOrder && window.currentProcessHadTemplates === true) {
+        try {
+            reorderSummaryRowsBySavedOrder(summaryTableBody, saved.rowOrder);
+        } catch (e) {
+            console.warn('Failed to reorder summary rows by saved rowOrder after restoring formulas', e);
+        }
+    }
+
     if (typeof updateProcessedAmountTotal === 'function') {
         updateProcessedAmountTotal();
     }
