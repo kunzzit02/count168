@@ -7591,14 +7591,6 @@ function saveFormula() {
 
         // 记录刚创建的 sub 行，供后面的模板保存使用
         window.lastCreatedRowForTemplateSave = newRow;
-        
-        // Reorder rows after adding new sub row to ensure correct position
-        // Use setTimeout to ensure DOM is updated first
-        setTimeout(() => {
-            if (typeof reorderSummaryRowsByRowIndex === 'function') {
-                reorderSummaryRowsByRowIndex();
-            }
-        }, 10);
     } else {
         // main 行点击 +：如果主行还没有账号，就更新主行；否则为该 Id Product 新增一条 sub 行
         const targetRow = currentButton ? currentButton.closest('tr') : null;
@@ -7675,14 +7667,6 @@ function saveFormula() {
 
             // 记录刚创建的 sub 行，供后面的模板保存使用
             window.lastCreatedRowForTemplateSave = newRow;
-            
-            // Reorder rows after adding new sub row to ensure correct position
-            // Use setTimeout to ensure DOM is updated first
-            setTimeout(() => {
-                if (typeof reorderSummaryRowsByRowIndex === 'function') {
-                    reorderSummaryRowsByRowIndex();
-                }
-            }, 10);
         }
     }
     
