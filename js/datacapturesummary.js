@@ -289,8 +289,8 @@ function accountCoreForOrder(account) {
     return (open > 0 ? s.substring(0, open) : s).trim();
 }
 
-// 行顺序专用 key：只依赖不会因为公式/Rate 编辑而变化的字段，确保 refresh 后仍能匹配到同一行
-// 结构：id_product\taccountCore\tcurrency\tproductType\tsubOrder
+// 行顺序专用 key：只依赖不会因为公式/Rate 或 sub_order 重新计算而变化的字段，确保 refresh 后仍能匹配到同一行
+// 结构：id_product\taccountCore\tcurrency\tproductType
 function getSummaryRowOrderKey(row) {
     const cells = row.querySelectorAll('td');
     const idProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
@@ -300,15 +300,12 @@ function getSummaryRowOrderKey(row) {
         ? accountCoreForOrder(accountRaw)
         : accountRaw;
     const productType = row.getAttribute('data-product-type') || 'main';
-    const subOrderAttr = row.getAttribute('data-sub-order');
-    const subOrder = (subOrderAttr !== null && subOrderAttr !== undefined) ? String(subOrderAttr) : '';
 
     return [
         idProduct,
         accountCore,
         currency,
-        productType,
-        subOrder
+        productType
     ].map(v => (v || '').trim().replace(/\s+/g, ' ')).join('\t');
 }
 
