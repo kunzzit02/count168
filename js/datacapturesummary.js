@@ -15960,8 +15960,11 @@ const rowData = rows.map((row, originalIndex) => {
 // 1. Primary Key：dataCapturePosition（来自 Data Capture Table 行号，基于完整 Id Product 去空格）
 //    ——保证 Summary 中不同 Id Product 之间的顺序，与 Data Capture Table 完全一致
 // 2. Secondary Key：row_index（旧逻辑中已经写入的行索引，用作兼容 / 兜底）
-// 3. 在同一 dataCapturePosition + row_index 内，只按 originalIndex 排序，保持当前 DOM 中 main/sub 的相对顺序
-// 4. 对于找不到 dataCapturePosition 的行（999999），整体排在最后，再按 row_index / originalIndex 排序
+// 3. 同一 Id Product 分组（sameGroup）内：
+//    - main 永远排在 sub 上面
+//    - sub 之间按 creation_order 升序（点击哪一行的 +，新行 creation_order 介于该行及下一行之间，保证始终排在被点击行正下方）
+//    - 若 creation_order 缺失，则回退按 sub_order 升序
+// 4. 对于找不到 dataCapturePosition 的行（999999），整体排在最后，再按 row_index / creation_order / originalIndex 排序
 const orderedRows = rowData
     .slice()
     .sort((a, b) => {
@@ -16006,8 +16009,16 @@ const orderedRows = rowData
             if (aType !== bType) {
                 return aType === 'main' ? -1 : 1;
             }
-            // 同组内均为 sub 时，按 sub_order 升序（与数据库一致：sub_order 1 在 2 上面）
+            // 同组内均为 sub 时，优先按 creation_order 升序：
+            // - 模板加载时，creation_order 按模板顺序生成，保证 DB 中的顺序得到还原
+            // - 用户点击某一行的 + 新增 sub 时，creation_order 介于被点击行及下一行之间，保证新行始终紧跟在被点击行之后
             if (aType === 'sub' && bType === 'sub') {
+                const aCreation = a.creationOrder != null && !Number.isNaN(Number(a.creationOrder)) ? Number(a.creationOrder) : null;
+                const bCreation = b.creationOrder != null && !Number.isNaN(Number(b.creationOrder)) ? Number(b.creationOrder) : null;
+                if (aCreation !== null && bCreation !== null && aCreation !== bCreation) {
+                    return aCreation - bCreation;
+                }
+                // 若 creation_order 不可用，则回退按 sub_order 升序（与数据库一致：sub_order 1 在 2 上面）
                 const aSub = a.subOrder != null && !Number.isNaN(Number(a.subOrder)) ? Number(a.subOrder) : 999999;
                 const bSub = b.subOrder != null && !Number.isNaN(Number(b.subOrder)) ? Number(b.subOrder) : 999999;
                 if (aSub !== bSub) return aSub - bSub;
