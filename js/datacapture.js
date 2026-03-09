@@ -4768,6 +4768,53 @@ let isSelecting = false;
                 const currentPasteChanges = [];
                 let successCount = 0;
                 
+                // 修正列顺序：只粘贴数据时，剪贴板中 No./User 可能被放在最后。先按表头检测，没有表头则按数据内容检测（最后两列 = 序号 + 用户ID 则挪到最前）
+                let columnOrder = null;
+                const numCols = (function() {
+                    const firstRow = allRows[0];
+                    if (!firstRow) return 0;
+                    const cells = firstRow.querySelectorAll('td, th');
+                    let c = 0;
+                    cells.forEach(cell => { c += parseInt(cell.getAttribute('colspan') || '1', 10); });
+                    return c;
+                })();
+                if (numCols >= 3) {
+                    // 1) 表头有 No. / User 且不在前两列 → 按表头重排
+                    for (let hi = 0; hi < Math.min(3, allRows.length); hi++) {
+                        const headerCells = allRows[hi].querySelectorAll('td, th');
+                        const headerTexts = Array.from(headerCells).map(c => (c.textContent || '').trim());
+                        const noIdx = headerTexts.findIndex(t => /^no\.?$/i.test(t));
+                        const userIdx = headerTexts.findIndex(t => /^user$/i.test(t));
+                        if (noIdx >= 0 && userIdx >= 0 && (noIdx !== 0 || userIdx !== 1)) {
+                            const otherIndices = headerTexts.map((_, i) => i).filter(i => i !== noIdx && i !== userIdx);
+                            columnOrder = [noIdx, userIdx].concat(otherIndices);
+                            console.log(modeName + ': Reordering columns by header (No./User). Order:', columnOrder);
+                            break;
+                        }
+                        if (noIdx >= 0 && userIdx >= 0) break;
+                    }
+                    // 2) 没有表头：看数据行最后两列是否像「序号 + 用户ID」
+                    if (!columnOrder) {
+                        const looksLikeRowNo = (s) => { const t = (s || '').trim(); return /^\d+$/.test(t) && t.length <= 6; };
+                        const looksLikeUserId = (s) => { const t = (s || '').trim(); return t.length >= 2 && /^[a-zA-Z0-9_]+$/.test(t) && /[a-zA-Z]/.test(t) && /\d/.test(t); };
+                        let matchCount = 0;
+                        const checkRows = Math.min(5, allRows.length);
+                        for (let ri = 0; ri < checkRows; ri++) {
+                            const cells = allRows[ri].querySelectorAll('td, th');
+                            const n = cells.length;
+                            if (n < 3) continue;
+                            const secondLast = (cells[n - 2].textContent || '').trim();
+                            const last = (cells[n - 1].textContent || '').trim();
+                            if (looksLikeRowNo(secondLast) && looksLikeUserId(last)) matchCount++;
+                        }
+                        if (matchCount >= 2) {
+                            const n = allRows[0].querySelectorAll('td, th').length;
+                            columnOrder = [n - 2, n - 1].concat(Array.from({ length: n - 2 }, (_, i) => i));
+                            console.log(modeName + ': Reordering columns by data (last two = No.+User). Order:', columnOrder);
+                        }
+                    }
+                }
+                
                 allRows.forEach((sourceRow, rowIndex) => {
                     const actualRowIndex = startRow + rowIndex;
                     const tableRow = tableBody.children[actualRowIndex];
@@ -4789,7 +4836,10 @@ let isSelecting = false;
                         // 不再从行或第一个单元格复制背景色
                     }
                     
-                    const sourceCells = sourceRow.querySelectorAll('td, th');
+                    const rawCells = sourceRow.querySelectorAll('td, th');
+                    const sourceCells = (columnOrder && rawCells.length >= columnOrder.length)
+                        ? columnOrder.map(i => rawCells[i])
+                        : Array.from(rawCells);
                     let currentCol = startCol;
                     
                     sourceCells.forEach(sourceCell => {
