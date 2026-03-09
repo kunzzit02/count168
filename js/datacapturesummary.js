@@ -309,12 +309,11 @@ function getSummaryRowOrderKey(row) {
     ].map(v => (v || '').trim().replace(/\s+/g, ' ')).join('\t');
 }
 
-// 重新编号同一 Id Product + row_index 组内的 sub_order，使其始终为 1,2,3...
+// 重新编号同一 Id Product 组内的 sub_order，使其始终为 1,2,3...
 // main 固定 sub_order=0，sub 从 1 开始按当前 DOM 顺序递增
 function resequenceSubOrdersForGroup(idProduct, rowIndex) {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return [];
-    if (rowIndex === null || rowIndex === undefined || Number.isNaN(Number(rowIndex))) return [];
 
     const rows = Array.from(summaryTableBody.querySelectorAll('tr'));
     const groupRows = [];
@@ -322,11 +321,17 @@ function resequenceSubOrdersForGroup(idProduct, rowIndex) {
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
         const idText = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
-        const rowIdxAttr = row.getAttribute('data-row-index');
-        const rowIdx = (rowIdxAttr !== null && rowIdxAttr !== '' && !Number.isNaN(Number(rowIdxAttr)))
-            ? Number(rowIdxAttr)
-            : null;
-        if (idText === idProduct && rowIdx === Number(rowIndex)) {
+        const productType = row.getAttribute('data-product-type') || 'main';
+        // 对 main：直接按 Id Product 匹配
+        // 对 sub：优先按 data-parent-id-product 匹配，若无则退回首列文本
+        let groupKey = idText;
+        if (productType === 'sub') {
+            const parentAttr = (row.getAttribute('data-parent-id-product') || '').trim();
+            if (parentAttr) {
+                groupKey = parentAttr;
+            }
+        }
+        if (groupKey === idProduct) {
             groupRows.push(row);
         }
     });
