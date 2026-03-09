@@ -21362,8 +21362,24 @@ let isSelecting = false;
 
             // 后处理：移除每行前面的空列或非标识符列，将第一个标识符列移到第一列
             // 标识符列通常是：以字母开头的代码（如CKZ03, CKZ16），或者第一列应该是标识符
-            console.log('Post-processing: Removing leading empty/non-identifier columns...');
+            // 1.Text 模式且前两列已是「序号+用户ID」时跳过，保持 No./User 在前，不把 JDB 等移到第一列
+            let skipIdentifierShift = false;
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.Text' && dataMatrix.length >= 2) {
+                const looksLikeRowNo = (s) => { const t = (s || '').trim(); return /^\d+$/.test(t) && t.length <= 6; };
+                const looksLikeUserId = (s) => { const t = (s || '').trim(); return t.length >= 2 && /^[a-zA-Z0-9_]+$/.test(t) && /[a-zA-Z]/.test(t) && /\d/.test(t); };
+                let matchCount = 0;
+                for (let ri = 0; ri < Math.min(3, dataMatrix.length); ri++) {
+                    const r = dataMatrix[ri];
+                    if (r && r.length >= 2 && looksLikeRowNo(r[0]) && looksLikeUserId(r[1])) matchCount++;
+                }
+                if (matchCount >= 2) {
+                    skipIdentifierShift = true;
+                    console.log('1.Text: First columns are No.+User, skipping identifier shift to preserve order.');
+                }
+            }
             let shiftedRowsCount = 0;
+            if (!skipIdentifierShift) {
+            console.log('Post-processing: Removing leading empty/non-identifier columns...');
             
             // 定义标识符的模式：通常是以字母开头，可能包含数字，或者特殊的关键词
             const isIdentifier = (value) => {
@@ -21509,6 +21525,7 @@ let isSelecting = false;
                 console.log(`Post-processing complete: Shifted ${shiftedRowsCount} row(s) to align identifier columns`);
             } else {
                 console.log('Post-processing: No shifts needed (all rows start with identifier or empty)');
+            }
             }
             
             // 过滤掉完全为空的行，避免出现 "空白行" 被粘贴到表格
