@@ -16020,19 +16020,20 @@ const orderedRows = rowData
             if (aType !== bType) {
                 return aType === 'main' ? -1 : 1;
             }
-            // 同组内均为 sub 时，优先按 creation_order 升序：
-            // - 模板加载时，creation_order 按模板顺序生成，保证 DB 中的顺序得到还原
-            // - 用户点击某一行的 + 新增 sub 时，creation_order 介于被点击行及下一行之间，保证新行始终紧跟在被点击行之后
+            // 同组内均为 sub 时，优先按 sub_order 升序（与数据库一致，保证刷新后顺序稳定）
+            // 用户点击某一行的 + 新增 sub 时，sub_order 会被设置为当前行与下一行之间的数值（或下一个整数），
+            // 因此仅按 sub_order 排序即可保证新行始终紧跟在被点击行之后；creation_order 仅在 sub_order 缺失时兜底。
             if (aType === 'sub' && bType === 'sub') {
+                const aSub = a.subOrder != null && !Number.isNaN(Number(a.subOrder)) ? Number(a.subOrder) : 999999;
+                const bSub = b.subOrder != null && !Number.isNaN(Number(b.subOrder)) ? Number(b.subOrder) : 999999;
+                if (aSub !== bSub) return aSub - bSub;
+
+                // 若 sub_order 相同或缺失，再按 creation_order 升序做细微排序，保证同 sub_order 情况下点击顺序稳定
                 const aCreation = a.creationOrder != null && !Number.isNaN(Number(a.creationOrder)) ? Number(a.creationOrder) : null;
                 const bCreation = b.creationOrder != null && !Number.isNaN(Number(b.creationOrder)) ? Number(b.creationOrder) : null;
                 if (aCreation !== null && bCreation !== null && aCreation !== bCreation) {
                     return aCreation - bCreation;
                 }
-                // 若 creation_order 不可用，则回退按 sub_order 升序（与数据库一致：sub_order 1 在 2 上面）
-                const aSub = a.subOrder != null && !Number.isNaN(Number(a.subOrder)) ? Number(a.subOrder) : 999999;
-                const bSub = b.subOrder != null && !Number.isNaN(Number(b.subOrder)) ? Number(b.subOrder) : 999999;
-                if (aSub !== bSub) return aSub - bSub;
             }
         }
 
