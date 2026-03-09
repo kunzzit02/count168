@@ -90,6 +90,16 @@ document.addEventListener('DOMContentLoaded', function() {
         companyFilter.style.display = 'none';
     }
     
+    // Pre-load account list so Account column shows [name] only for upline/member/agent when table is built
+    if (typeof fetchSummaryAccountList === 'function') {
+        fetchSummaryAccountList().then(function(accounts) {
+            if (accounts && accounts.length) {
+                window.__accountListWithRoles = accounts;
+                if (typeof applyAccountDisplayByRoleToAllRows === 'function') applyAccountDisplayByRoleToAllRows();
+            }
+        }).catch(function() {});
+    }
+    
     // Load captured table data and render it
     loadAndRenderCapturedTable();
     
@@ -549,6 +559,7 @@ function restoreFormulaSourceFromRefresh() {
             cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
         }
     });
+    if (typeof applyAccountDisplayByRoleToAllRows === 'function') applyAccountDisplayByRoleToAllRows();
     try {
         localStorage.removeItem('capturedTableFormulaSourceForRefresh');
     } catch (e) {}
@@ -2713,6 +2724,9 @@ async function loadFormData() {
                     }
                     
                     console.log('Account custom select populated with', result.accounts.length, 'options');
+                    // Cache for getAccountDisplayByRole (only show [name] for upline/member/agent)
+                    window.__accountListWithRoles = result.accounts;
+                    if (typeof applyAccountDisplayByRoleToAllRows === 'function') applyAccountDisplayByRoleToAllRows();
                 }
             } else {
                 console.warn('No accounts found in API response');
@@ -13186,7 +13200,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
 
     // Account column (index 1)
     if (cells[1]) {
-        cells[1].textContent = data.account;
+        cells[1].textContent = getAccountDisplayByRole(data.account, data.accountDbId);
         if (data.accountDbId) {
             cells[1].setAttribute('data-account-id', data.accountDbId);
         }
@@ -13599,7 +13613,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         }
         
         if (cells[1]) { // Account (now index 1)
-            cells[1].textContent = data.account;
+            cells[1].textContent = getAccountDisplayByRole(data.account, data.accountDbId);
             // Store account database ID as data attribute
             if (data.accountDbId) {
                 cells[1].setAttribute('data-account-id', data.accountDbId);
@@ -18513,6 +18527,50 @@ async function submitSummaryData() {
         
         showNotification('Error', `Submission failed: ${errorMessage}`, 'error');
     }
+}
+
+// Only upline, member, agent show "Account [name]"; other roles show account_id only.
+const ROLES_TO_SHOW_ACCOUNT_NAME = ['upline', 'agent', 'member'];
+
+// Format account display by role: strip [name] for roles not in ROLES_TO_SHOW_ACCOUNT_NAME.
+// accountList: optional array with { id, account_id, name, role }; uses window.__accountListWithRoles or __summaryAccountListCache if not provided.
+function getAccountDisplayByRole(accountDisplay, accountDbId, accountList) {
+    if (!accountDisplay || typeof accountDisplay !== 'string') return accountDisplay || '';
+    const list = accountList || window.__accountListWithRoles || window.__summaryAccountListCache;
+    if (!list || !Array.isArray(list) || list.length === 0) return accountDisplay;
+    const trimmed = accountDisplay.trim();
+    const accountIdFromDisplay = trimmed.split(/\s*[(\[]/)[0].trim();
+    let acc = null;
+    for (const a of list) {
+        const aid = (a.account_id || '').trim();
+        const id = a.id != null ? String(a.id) : '';
+        if (id && accountDbId && id === String(accountDbId)) { acc = a; break; }
+        if (aid && (aid === accountIdFromDisplay || aid === trimmed)) { acc = a; break; }
+    }
+    if (!acc) return accountDisplay;
+    const role = (acc.role || '').toLowerCase();
+    if (ROLES_TO_SHOW_ACCOUNT_NAME.includes(role) && acc.name) {
+        return (acc.account_id || '').trim() + ' [' + (acc.name || '').trim() + ']';
+    }
+    return (acc.account_id || '').trim() || accountDisplay;
+}
+
+// Re-apply account display by role to all summary table rows (call after account list is loaded).
+function applyAccountDisplayByRoleToAllRows() {
+    const list = window.__accountListWithRoles || window.__summaryAccountListCache;
+    if (!list || !Array.isArray(list) || list.length === 0) return;
+    const tbody = document.getElementById('summaryTableBody');
+    if (!tbody) return;
+    tbody.querySelectorAll('tr').forEach(function(row) {
+        const cells = row.querySelectorAll('td');
+        const accountCell = cells[1];
+        if (!accountCell) return;
+        const currentText = (accountCell.textContent || '').trim();
+        if (!currentText || currentText === '+') return;
+        const accountDbId = accountCell.getAttribute('data-account-id');
+        const formatted = getAccountDisplayByRole(currentText, accountDbId, list);
+        if (formatted !== currentText) accountCell.textContent = formatted;
+    });
 }
 
 // Helper function to get account ID by account text.
