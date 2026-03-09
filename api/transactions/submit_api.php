@@ -74,6 +74,31 @@ function insertTransactionRow(PDO $pdo, array $data): int
     return (int)$pdo->lastInsertId();
 }
 
+/**
+ * 删除 Transaction List 搜索缓存
+ *
+ * Transaction List 使用 api/transactions/search_api.php，并在系统临时目录下
+ * 的 count168_tx_search 目录里做 60 秒文件缓存。
+ * 当这里提交新交易（PAYMENT / RECEIVE / CONTRA / RATE 等）后，需要清掉这些缓存文件，
+ * 不然在缓存过期前再次搜索会拿到旧数据，看不到刚提交的余额变化。
+ */
+function clearTransactionSearchCache(): void
+{
+    $cacheDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search';
+    if (!is_dir($cacheDir)) {
+        return;
+    }
+    foreach (scandir($cacheDir) as $file) {
+        if ($file === '.' || $file === '..') {
+            continue;
+        }
+        $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
+        if (is_file($fullPath)) {
+            @unlink($fullPath);
+        }
+    }
+}
+
 try {
     // 检查用户登录
     if (!isset($_SESSION['user_id'])) {
@@ -766,7 +791,10 @@ try {
 
             // 提交事务
             $pdo->commit();
-            
+
+            // 提交成功后，清理 Transaction List 搜索缓存，保证前端立刻能搜到最新余额
+            clearTransactionSearchCache();
+
             // 返回成功响应
             echo json_encode([
                 'success' => true,
@@ -858,7 +886,10 @@ try {
         
         // 提交事务
         $pdo->commit();
-        
+
+        // 提交成功后，清理 Transaction List 搜索缓存，保证前端立刻能搜到最新余额
+        clearTransactionSearchCache();
+
         // 返回成功响应
         echo json_encode([
             'success' => true,
