@@ -380,21 +380,36 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         }
     });
 
-    // 2) 对于当前多出来的新行（本次有、上次没有），按「同 Id Product 组内接在最后一条之后」的规则插入
+    // 2) 对于当前多出来的新行（本次有、上次没有），按「同 Id Product 组内接在最后一条之后」的规则插入，
+    //    同时考虑 main/sub 关系：如果是 sub 行，优先按 data-parent-id-product 归组，
+    //    确保所有 sub 都紧挨着对应的 main，而不会因为 Id Product 文本不同而被排到表格最后。
     currentRows.forEach(row => {
         if (appendedRows.has(row)) return;
         const idCell = row.querySelector('td:first-child');
         const idProduct = idCell && idCell.textContent ? idCell.textContent.trim() : '';
-        if (!idProduct) {
+
+        // 计算本行所属分组的 groupId：
+        // - main 行：直接使用自身 Id Product
+        // - sub 行：优先使用 data-parent-id-product（如果存在），否则退回自身 Id Product
+        const productType = row.getAttribute('data-product-type') || 'main';
+        const parentIdProduct = (row.getAttribute('data-parent-id-product') || '').trim();
+        const groupId = (productType === 'sub' && parentIdProduct) ? parentIdProduct : idProduct;
+
+        if (!groupId) {
             finalRows.push(row);
             appendedRows.add(row);
             return;
         }
         let insertAfterIndex = -1;
         for (let i = finalRows.length - 1; i >= 0; i--) {
-            const existingIdCell = finalRows[i].querySelector('td:first-child');
-            const existingId = existingIdCell && existingIdCell.textContent ? existingIdCell.textContent.trim() : '';
-            if (existingId === idProduct) {
+            const existingRow = finalRows[i];
+            const existingIdCell = existingRow.querySelector('td:first-child');
+            const existingIdProduct = existingIdCell && existingIdCell.textContent ? existingIdCell.textContent.trim() : '';
+            const existingType = existingRow.getAttribute('data-product-type') || 'main';
+            const existingParent = (existingRow.getAttribute('data-parent-id-product') || '').trim();
+            const existingGroupId = (existingType === 'sub' && existingParent) ? existingParent : existingIdProduct;
+
+            if (existingGroupId === groupId) {
                 insertAfterIndex = i;
                 break;
             }
