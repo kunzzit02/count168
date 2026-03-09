@@ -540,6 +540,25 @@ function restoreFormulaSourceFromRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
 
+    // 在按照 rowOrder 重排之前，先根据保存的 rowsByKey 为当前 DOM 行补上 data-row-uid。
+    // 这样在「无 Maintenance 模板」场景下，reorderSummaryRowsBySavedOrder 也能正确匹配到同一行，
+    // 避免每次刷新都把某些行当作“新行”追加到最后一行。
+    try {
+        const rowsForUidRestore = summaryTableBody.querySelectorAll('tr');
+        rowsForUidRestore.forEach((row) => {
+            // 已经有稳定 rowUid 的行直接跳过
+            if (row.getAttribute('data-row-uid')) return;
+            const key = getSummaryRowKey(row);
+            const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+            const dataForUid = byKey[normKey] || byKey[key];
+            if (dataForUid && dataForUid.rowUid) {
+                row.setAttribute('data-row-uid', dataForUid.rowUid);
+            }
+        });
+    } catch (e) {
+        console.warn('restoreFormulaSourceFromRefresh: failed to restore rowUid before reordering', e);
+    }
+
     const hasSavedRowOrder = saved.rowOrder && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0 && typeof reorderSummaryRowsBySavedOrder === 'function';
     // 顺序恢复策略：
     // - 无 Maintenance 模板时：保持原有行为，在恢复数值前就按 rowOrder 重排
