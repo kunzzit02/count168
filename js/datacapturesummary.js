@@ -380,45 +380,35 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
         }
     });
 
-    // 2) 对于当前多出来的新行（本次有、上次没有），按「同 Id Product 组内接在最后一条之后」的规则插入，
-    //    同时考虑 main/sub 关系：如果是 sub 行，优先按 data-parent-id-product 归组，
-    //    确保所有 sub 都紧挨着对应的 main，而不会因为 Id Product 文本不同而被排到表格最后。
-    currentRows.forEach(row => {
+    // 2) 对于当前多出来的新行（本次有、上次没有），尽量保持「当前 DOM 中的相对顺序」：
+    //    - 先找它在 currentRows 中最近的、已经 append 过的前一行，把它插在那一行之后；
+    //    - 如果前面都没有已 append 的，就直接追加到末尾。
+    // 这样可以保证：
+    //    - main 与 sub 保持用户在界面上看到的先后关系（sub 仍然紧贴对应 main）；
+    //    - 又不会因为 Id Product 文本差异导致整组被移动到表格最后。
+    currentRows.forEach((row, idx) => {
         if (appendedRows.has(row)) return;
-        const idCell = row.querySelector('td:first-child');
-        const idProduct = idCell && idCell.textContent ? idCell.textContent.trim() : '';
 
-        // 计算本行所属分组的 groupId：
-        // - main 行：直接使用自身 Id Product
-        // - sub 行：优先使用 data-parent-id-product（如果存在），否则退回自身 Id Product
-        const productType = row.getAttribute('data-product-type') || 'main';
-        const parentIdProduct = (row.getAttribute('data-parent-id-product') || '').trim();
-        const groupId = (productType === 'sub' && parentIdProduct) ? parentIdProduct : idProduct;
-
-        if (!groupId) {
-            finalRows.push(row);
-            appendedRows.add(row);
-            return;
-        }
         let insertAfterIndex = -1;
-        for (let i = finalRows.length - 1; i >= 0; i--) {
-            const existingRow = finalRows[i];
-            const existingIdCell = existingRow.querySelector('td:first-child');
-            const existingIdProduct = existingIdCell && existingIdCell.textContent ? existingIdCell.textContent.trim() : '';
-            const existingType = existingRow.getAttribute('data-product-type') || 'main';
-            const existingParent = (existingRow.getAttribute('data-parent-id-product') || '').trim();
-            const existingGroupId = (existingType === 'sub' && existingParent) ? existingParent : existingIdProduct;
-
-            if (existingGroupId === groupId) {
-                insertAfterIndex = i;
+        // 向前查找在 currentRows 中最近的一个已 append 的前驱行
+        for (let j = idx - 1; j >= 0; j--) {
+            const prevRow = currentRows[j];
+            if (appendedRows.has(prevRow)) {
+                // 在 finalRows 中找到这个前驱行的位置
+                const k = finalRows.indexOf(prevRow);
+                if (k >= 0) {
+                    insertAfterIndex = k;
+                }
                 break;
             }
         }
+
         if (insertAfterIndex >= 0) {
             finalRows.splice(insertAfterIndex + 1, 0, row);
         } else {
             finalRows.push(row);
         }
+
         appendedRows.add(row);
     });
 
