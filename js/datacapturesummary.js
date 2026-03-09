@@ -2423,9 +2423,8 @@ async function loadFormData() {
                     
                     // Add account options
                     result.accounts.forEach(account => {
-                        // If role is upline, agent, member, or company, display "Account [name]"
-                        // Otherwise, display only account_id
-                        const rolesToShowName = ['upline', 'agent', 'member', 'company'];
+                        // Only for upline, agent, member: display "Account [name]"; other roles show account_id only
+                        const rolesToShowName = ['upline', 'agent', 'member'];
                         let displayText;
                         if (account.role && rolesToShowName.includes(account.role.toLowerCase()) && account.name) {
                             displayText = account.account_id + ' [' + account.name + ']';
