@@ -313,101 +313,57 @@ function getSummaryRowOrderKey(row) {
 function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
     const currentRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-    const keyToRow = new Map();
-    currentRows.forEach(r => {
-        // 行顺序统一使用 getSummaryRowOrderKey，避免 main/sub 多行因为相同 Account 被映射到同一 key 上
-        const rawKey = typeof getSummaryRowOrderKey === 'function' ? getSummaryRowOrderKey(r) : getSummaryRowKey(r);
-        const normKey = normalizeSummaryRowKey(rawKey);
-        const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim() : '';
-        if (!normKey || !idPart) return; // 只参与数据行重排，排除无 id_product 的行（如总计行误入 tbody 时）
-        keyToRow.set(normKey, r);
+    const keyToRow = new Map(); // key: idProduct + '\t' + rowUid
+
+    currentRows.forEach(row => {
+        const idCell = row.querySelector('td:first-child');
+        const idProduct = idCell && idCell.textContent ? idCell.textContent.trim() : '';
+        const rowUid = row.getAttribute('data-row-uid');
+        if (!idProduct || !rowUid) return;
+        const key = idProduct + '\t' + rowUid;
+        keyToRow.set(key, row);
     });
-    const savedOrderNormalized = savedOrder.map(k => normalizeSummaryRowKey(k)).filter(Boolean);
-    const savedOrderSet = new Set(savedOrderNormalized);
-    // 按 id_product 分组，组顺序与组内顺序都严格按 saved 首次出现顺序，不按 Data Capture 表重排，避免「本在 M99M 和 NO 之间的数据」refresh 后跑到 NO 底下
-    const idProductToKeys = new Map();
-    const groupOrder = [];
-    const seenGroup = new Set();
-    savedOrderNormalized.forEach(k => {
-        const idProduct = (k && k.split('\t')[0]) ? k.split('\t')[0].trim() : '';
-        if (!idProduct) return;
-        if (!idProductToKeys.has(idProduct)) {
-            idProductToKeys.set(idProduct, []);
-            if (!seenGroup.has(idProduct)) {
-                seenGroup.add(idProduct);
-                groupOrder.push(idProduct);
-            }
-        }
-        idProductToKeys.get(idProduct).push(k);
-    });
-    // 先按 saved 顺序产出 key；若某 key 当前表里匹配不到（如 NO [NO] vs NO (NO)），用占位符并记下 savedKey，再按 Account 规范化匹配同组 current key，保证顺序正确
-    const finalOrder = [];
-    groupOrder.forEach(idProduct => {
-        (idProductToKeys.get(idProduct) || []).forEach(k => {
-            if (keyToRow.has(k)) {
-                finalOrder.push(k);
-            } else {
-                finalOrder.push({ placeholder: true, idProduct: (idProduct || '').trim(), savedKey: k });
-            }
-        });
-    });
-    const newKeys = currentRows
-        .map(r => normalizeSummaryRowKey(typeof getSummaryRowOrderKey === 'function' ? getSummaryRowOrderKey(r) : getSummaryRowKey(r)))
-        .filter(k => k && !savedOrderSet.has(k));
-    const newKeysByGroup = new Map();
-    newKeys.forEach(nk => {
-        const idProduct = (nk && nk.split('\t')[0]) ? nk.split('\t')[0].trim() : '';
-        if (!idProduct) return;
-        if (!newKeysByGroup.has(idProduct)) newKeysByGroup.set(idProduct, []);
-        newKeysByGroup.get(idProduct).push(nk);
-    });
-    for (let i = 0; i < finalOrder.length; i++) {
-        const item = finalOrder[i];
-        if (item && typeof item === 'object' && item.placeholder) {
-            const arr = newKeysByGroup.get(item.idProduct);
-            const savedKey = item.savedKey || '';
-            const savedAccount = savedKey.split('\t')[1] || '';
-            const savedOrderNorm = normalizeAccountForOrder(savedAccount);
-            const savedCore = accountCoreForOrder(savedAccount);
-            let matched = null;
-            if (arr && arr.length > 0) {
-                let idx = arr.findIndex(nk => normalizeAccountForOrder((nk.split('\t')[1] || '')) === savedOrderNorm);
-                if (idx < 0 && savedCore) {
-                    idx = arr.findIndex(nk => accountCoreForOrder(nk.split('\t')[1] || '') === savedCore);
-                }
-                if (idx >= 0) {
-                    matched = arr.splice(idx, 1)[0];
-                } else {
-                    matched = arr.shift();
-                }
-            }
-            finalOrder[i] = matched || null;
-        }
-    }
-    const finalOrderFiltered = finalOrder.filter(x => x !== null && typeof x === 'string');
-    newKeysByGroup.forEach((keys, idProduct) => {
-        keys.forEach(nk => {
-            if (!nk) return;
-            let insertAfterIndex = -1;
-            for (let i = finalOrderFiltered.length - 1; i >= 0; i--) {
-                const existingId = (finalOrderFiltered[i] && finalOrderFiltered[i].split('\t')[0]) ? finalOrderFiltered[i].split('\t')[0].trim() : '';
-                if (existingId && existingId === idProduct) {
-                    insertAfterIndex = i;
-                    break;
-                }
-            }
-            if (insertAfterIndex >= 0) finalOrderFiltered.splice(insertAfterIndex + 1, 0, nk);
-            else finalOrderFiltered.push(nk);
-        });
-    });
-    const appended = new Set();
-    finalOrderFiltered.forEach(k => {
-        const row = keyToRow.get(k);
-        if (row && !appended.has(row)) {
-            appended.add(row);
-            summaryTableBody.appendChild(row);
+
+    const finalRows = [];
+    const appendedRows = new Set();
+
+    // 1) 按保存时的顺序（rowOrder）依次 append 对应行
+    savedOrder.forEach(savedKey => {
+        const row = keyToRow.get(savedKey);
+        if (row && !appendedRows.has(row)) {
+            finalRows.push(row);
+            appendedRows.add(row);
         }
     });
+
+    // 2) 对于当前多出来的新行（本次有、上次没有），按「同 Id Product 组内接在最后一条之后」的规则插入
+    currentRows.forEach(row => {
+        if (appendedRows.has(row)) return;
+        const idCell = row.querySelector('td:first-child');
+        const idProduct = idCell && idCell.textContent ? idCell.textContent.trim() : '';
+        if (!idProduct) {
+            finalRows.push(row);
+            appendedRows.add(row);
+            return;
+        }
+        let insertAfterIndex = -1;
+        for (let i = finalRows.length - 1; i >= 0; i--) {
+            const existingIdCell = finalRows[i].querySelector('td:first-child');
+            const existingId = existingIdCell && existingIdCell.textContent ? existingIdCell.textContent.trim() : '';
+            if (existingId === idProduct) {
+                insertAfterIndex = i;
+                break;
+            }
+        }
+        if (insertAfterIndex >= 0) {
+            finalRows.splice(insertAfterIndex + 1, 0, row);
+        } else {
+            finalRows.push(row);
+        }
+        appendedRows.add(row);
+    });
+
+    finalRows.forEach(row => summaryTableBody.appendChild(row));
 }
 
 // Save current Rate Value column to localStorage (for refresh only; cleared on Back/Submit)
@@ -447,10 +403,15 @@ function saveFormulaSourceForRefresh(opts) {
     rows.forEach(row => {
         const key = getSummaryRowKey(row);
         const normKey = normalizeSummaryRowKey(key);
-        // 行顺序专用 key：只使用稳定字段（id + accountCore + currency + productType + subOrder），避免 main/sub 多行互相覆盖
-        const orderKey = typeof getSummaryRowOrderKey === 'function'
-            ? getSummaryRowOrderKey(row)
-            : normKey;
+        // 为每一行分配稳定且唯一的 rowUid，用于在 refresh 前后精确识别同一行
+        let rowUid = row.getAttribute('data-row-uid');
+        if (!rowUid) {
+            rowUid = 'r_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 1e8).toString(36);
+            row.setAttribute('data-row-uid', rowUid);
+        }
+        // 行顺序只保存「Id Product + rowUid」，既能分组又保证唯一
+        const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim() : '';
+        const orderKey = idPart ? (idPart + '\t' + rowUid) : rowUid;
         rowOrder.push(orderKey);
         const cells = row.querySelectorAll('td');
         const formulaCell = cells[4];
@@ -466,7 +427,8 @@ function saveFormulaSourceForRefresh(opts) {
             sourceColumns: (row.getAttribute('data-source-columns') || ''),
             formulaOperators: (row.getAttribute('data-formula-operators') || ''),
             sourcePercent: (row.getAttribute('data-source-percent') || ''),
-            rateValue: rateValue || ''
+            rateValue: rateValue || '',
+            rowUid: rowUid
         };
     });
     // 按「id_product + Account」独立 key 保存 Rate Value，每行一份，删除其他行不会导致本行 rate 丢失
@@ -566,6 +528,10 @@ function restoreFormulaSourceFromRefresh() {
         const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
         const data = byKey[normKey] || byKey[key];
         if (!data) return;
+        // 恢复 rowUid，确保 refresh 前后同一行具有相同的唯一 ID，便于按 rowOrder 重排
+        if (data.rowUid) {
+            row.setAttribute('data-row-uid', data.rowUid);
+        }
         const cells = row.querySelectorAll('td');
         let formula = data.formula != null ? String(data.formula) : '';
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
