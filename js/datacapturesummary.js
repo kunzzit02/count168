@@ -16008,8 +16008,10 @@ const orderedRows = rowData
         const aHasIndex = a.rowIndex !== null;
         const bHasIndex = b.rowIndex !== null;
 
-        // 再按 row_index（如果双方都有）
-        if (aHasIndex && bHasIndex && a.rowIndex !== b.rowIndex) {
+        // 再按 row_index（如果双方都有且不在同一 Id Product 分组）
+        // 注意：同一分组（sameGroup=true）时，不使用 row_index 拆散 main / sub，
+        // 只在不同 Id Product 之间用 row_index 作为次级排序条件。
+        if (!sameGroup && aHasIndex && bHasIndex && a.rowIndex !== b.rowIndex) {
             return a.rowIndex - b.rowIndex;
         }
 
