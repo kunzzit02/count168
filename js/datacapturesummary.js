@@ -309,6 +309,45 @@ function getSummaryRowOrderKey(row) {
     ].map(v => (v || '').trim().replace(/\s+/g, ' ')).join('\t');
 }
 
+// 重新编号同一 Id Product + row_index 组内的 sub_order，使其始终为 1,2,3...
+// main 固定 sub_order=0，sub 从 1 开始按当前 DOM 顺序递增
+function resequenceSubOrdersForGroup(idProduct, rowIndex) {
+    const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) return [];
+    if (rowIndex === null || rowIndex === undefined || Number.isNaN(Number(rowIndex))) return [];
+
+    const rows = Array.from(summaryTableBody.querySelectorAll('tr'));
+    const groupRows = [];
+
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const idText = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+        const rowIdxAttr = row.getAttribute('data-row-index');
+        const rowIdx = (rowIdxAttr !== null && rowIdxAttr !== '' && !Number.isNaN(Number(rowIdxAttr)))
+            ? Number(rowIdxAttr)
+            : null;
+        if (idText === idProduct && rowIdx === Number(rowIndex)) {
+            groupRows.push(row);
+        }
+    });
+
+    if (groupRows.length === 0) return [];
+
+    let order = 0;
+    groupRows.forEach(row => {
+        const type = row.getAttribute('data-product-type') || 'main';
+        if (type === 'main') {
+            row.setAttribute('data-sub-order', '0');
+            order = 0;
+        } else {
+            order += 1;
+            row.setAttribute('data-sub-order', String(order));
+        }
+    });
+
+    return groupRows;
+}
+
 // 按刷新前保存的 rowOrder 重排 Summary 表行顺序，且不拆散同一 Id Product 的 main/sub 组
 function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
@@ -6833,7 +6872,8 @@ function extractRowDataForTemplate(row, formData) {
 
 // Save template asynchronously
 // rowElement: optional DOM row element to update with template_key after save
-async function saveTemplateAsync(rowData, rowElement = null) {
+// options.skipResequence: true 时不触发同组 sub_order 重排（用于内部调用避免递归）
+async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
     try {
         // Account、Currency、Formula 必填：任一项空则不保存到后端
         const hasAccount = rowData.account_id != null && String(rowData.account_id).trim() !== '';
@@ -6886,6 +6926,30 @@ async function saveTemplateAsync(rowData, rowElement = null) {
                 if (result.formula_variant) {
                     targetRow.setAttribute('data-formula-variant', result.formula_variant);
                     console.log('Updated data-formula-variant on row:', result.formula_variant);
+                }
+                // 对 sub 行：保存成功后，按当前 DOM 顺序重排同组 sub_order，并将新顺序同步回后端
+                if (!options.skipResequence && rowData.product_type === 'sub' && typeof resequenceSubOrdersForGroup === 'function') {
+                    try {
+                        const idCell = targetRow.querySelector('td:first-child');
+                        const idProduct = idCell && idCell.textContent ? idCell.textContent.trim() : '';
+                        const rowIdxAttr = targetRow.getAttribute('data-row-index');
+                        const rowIdx = (rowIdxAttr !== null && rowIdxAttr !== '' && !Number.isNaN(Number(rowIdxAttr)))
+                            ? Number(rowIdxAttr)
+                            : null;
+                        const groupRows = resequenceSubOrdersForGroup(idProduct, rowIdx) || [];
+                        groupRows.forEach(gr => {
+                            const type = gr.getAttribute('data-product-type') || 'main';
+                            // 只对有实际数据的行持久化顺序（空 sub 行跳过）
+                            if (type === 'sub' && typeof isSubRowEmpty === 'function' && isSubRowEmpty(gr)) return;
+                            const formDataForGroup = buildFormDataFromRow(gr);
+                            const rowDataForGroup = getRowDataForTemplate(gr, formDataForGroup);
+                            // 内部调用禁止再次触发重排，避免递归
+                            saveTemplateAsync(rowDataForGroup, gr, { skipResequence: true })
+                                .catch(err => console.warn('Failed to sync sub_order for group row', err));
+                        });
+                    } catch (e) {
+                        console.warn('Failed to resequence sub_order after saving template', e);
+                    }
                 }
             } else {
                 console.warn('Could not find row to update template attributes');
