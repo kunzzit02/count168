@@ -2431,7 +2431,14 @@ function submitAction() {
                 ensureDefaultDates();
             }
 
-            console.log('🔄 提交成功后立即刷新 Transaction List');
+            // 为了保证刚刚提交的 PAYMENT / RECEIVE / CONTRA 等交易账号即使余额变成 0 也能看到，
+            // 自动刷新这一次强制勾选「Show 0 balance」，让列表显示所有账号。
+            const showZeroCheckbox = document.getElementById('show_zero_balance');
+            if (showZeroCheckbox && !showZeroCheckbox.checked) {
+                showZeroCheckbox.checked = true;
+            }
+
+            console.log('🔄 提交成功后立即刷新 Transaction List（含 0 balance）');
             if (typeof searchTransactions === 'function') {
                 searchTransactions();
             }
