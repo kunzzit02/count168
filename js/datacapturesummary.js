@@ -233,8 +233,8 @@ return null;
 // Flag: set true when navigating away by Back or Submit so beforeunload does not save rate values
 window.isNavigatingAwayByBackOrSubmit = false;
 
-// 用「Id Product + Account + Currency + Formula + Source + Rate Value」生成唯一 key，
-// 确保同一 Id + Account 下，不同币种 / 公式 / 来源 / Rate Value 的多行不会互相覆盖
+// 用「Id Product + Account + Currency + Formula + Source + Rate Value」生成内容 key，
+// 确保同一 Id + Account 下，不同币种 / 公式 / 来源 / Rate Value 的多行不会互相覆盖（用于保存公式/Rate 等内容）
 function getSummaryRowKey(row) {
     const cells = row.querySelectorAll('td');
 
@@ -289,25 +289,41 @@ function accountCoreForOrder(account) {
     return (open > 0 ? s.substring(0, open) : s).trim();
 }
 
+// 行顺序专用 key：只依赖不会因为公式/Rate 编辑而变化的字段，确保 refresh 后仍能匹配到同一行
+// 结构：id_product\taccountCore\tcurrency\tproductType\tsubOrder
+function getSummaryRowOrderKey(row) {
+    const cells = row.querySelectorAll('td');
+    const idProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+    const accountRaw = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
+    const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
+    const accountCore = typeof accountCoreForOrder === 'function'
+        ? accountCoreForOrder(accountRaw)
+        : accountRaw;
+    const productType = row.getAttribute('data-product-type') || 'main';
+    const subOrderAttr = row.getAttribute('data-sub-order');
+    const subOrder = (subOrderAttr !== null && subOrderAttr !== undefined) ? String(subOrderAttr) : '';
+
+    return [
+        idProduct,
+        accountCore,
+        currency,
+        productType,
+        subOrder
+    ].map(v => (v || '').trim().replace(/\s+/g, ' ')).join('\t');
+}
+
 // 按刷新前保存的 rowOrder 重排 Summary 表行顺序，且不拆散同一 Id Product 的 main/sub 组
 function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
     if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
     const currentRows = Array.from(summaryTableBody.querySelectorAll('tr'));
     const keyToRow = new Map();
     currentRows.forEach(r => {
-        const rawKey = getSummaryRowKey(r);
+        // 行顺序统一使用 getSummaryRowOrderKey，避免 main/sub 多行因为相同 Account 被映射到同一 key 上
+        const rawKey = typeof getSummaryRowOrderKey === 'function' ? getSummaryRowOrderKey(r) : getSummaryRowKey(r);
         const normKey = normalizeSummaryRowKey(rawKey);
         const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim() : '';
         if (!normKey || !idPart) return; // 只参与数据行重排，排除无 id_product 的行（如总计行误入 tbody 时）
         keyToRow.set(normKey, r);
-        const parts = normKey.split('\t');
-        if (parts.length >= 2) {
-            const orderKey = (parts[0] || '').trim() + '\t' + normalizeAccountForOrder(parts[1] || '');
-            if (orderKey && orderKey !== normKey) keyToRow.set(orderKey, r);
-            // 只按 Account 前面部分（如 NO）匹配，后面的 [NO] 不参与，解决排列错乱
-            const coreKey = (parts[0] || '').trim() + '\t' + (typeof accountCoreForOrder === 'function' ? accountCoreForOrder(parts[1] || '') : (parts[1] || ''));
-            if (coreKey && coreKey !== normKey && coreKey !== orderKey) keyToRow.set(coreKey, r);
-        }
     });
     const savedOrderNormalized = savedOrder.map(k => normalizeSummaryRowKey(k)).filter(Boolean);
     const savedOrderSet = new Set(savedOrderNormalized);
@@ -338,7 +354,9 @@ function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
             }
         });
     });
-    const newKeys = currentRows.map(r => normalizeSummaryRowKey(getSummaryRowKey(r))).filter(k => k && !savedOrderSet.has(k));
+    const newKeys = currentRows
+        .map(r => normalizeSummaryRowKey(typeof getSummaryRowOrderKey === 'function' ? getSummaryRowOrderKey(r) : getSummaryRowKey(r)))
+        .filter(k => k && !savedOrderSet.has(k));
     const newKeysByGroup = new Map();
     newKeys.forEach(nk => {
         const idProduct = (nk && nk.split('\t')[0]) ? nk.split('\t')[0].trim() : '';
@@ -432,10 +450,11 @@ function saveFormulaSourceForRefresh(opts) {
     rows.forEach(row => {
         const key = getSummaryRowKey(row);
         const normKey = normalizeSummaryRowKey(key);
-        const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim() : '';
-        const accountPart = (normKey && normKey.split('\t')[1]) ? normKey.split('\t')[1] : '';
-        // 行顺序只按「Account 前面部分」保存（如 NO），后面的 [NO]/(NO) 不参与，避免排列错乱
-        rowOrder.push(idPart ? (idPart + '\t' + (typeof accountCoreForOrder === 'function' ? accountCoreForOrder(accountPart) : accountPart)) : normKey);
+        // 行顺序专用 key：只使用稳定字段（id + accountCore + currency + productType + subOrder），避免 main/sub 多行互相覆盖
+        const orderKey = typeof getSummaryRowOrderKey === 'function'
+            ? getSummaryRowOrderKey(row)
+            : normKey;
+        rowOrder.push(orderKey);
         const cells = row.querySelectorAll('td');
         const formulaCell = cells[4];
         let formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
