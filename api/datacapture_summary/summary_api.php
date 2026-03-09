@@ -1075,7 +1075,7 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
         $hasDisplayOrder = $colStmt && $colStmt->fetch(PDO::FETCH_ASSOC);
     } catch (Exception $e) { /* ignore */ }
     $orderBy = $hasDisplayOrder ? "ORDER BY COALESCE(display_order, 999), id" : "ORDER BY id";
-    $cols = $hasDisplayOrder ? "id_product_main, id_product_sub, product_type, account_id, display_order" : "id_product_main, id_product_sub, product_type, account_id";
+    $cols = $hasDisplayOrder ? "id_product_main, id_product_sub, product_type, account_id, display_order, rate" : "id_product_main, id_product_sub, product_type, account_id, rate";
     $detailStmt = $pdo->prepare("
         SELECT $cols
         FROM data_capture_details
@@ -1086,6 +1086,7 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
     $details = $detailStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $pairsByKey = [];
+    $detailIndex = 0;
     foreach ($details as $row) {
         $accountId = isset($row['account_id']) ? trim((string)$row['account_id']) : '';
         if ($accountId === '') {
@@ -1102,18 +1103,25 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
         if ($idForKey === '') {
             continue;
         }
-        $key = baseIdProductForKeyNormalized($idForKey);
+        // 与 fetchTemplates 一致：用完整 id 作 key，避免 GAMS(SV)HKD 与 GAMS(SV)MYR 混组
+        $key = trim((string) $idForKey);
         if ($key === '') {
-            $key = $idForKey;
+            $key = baseIdProductForKeyNormalized($idForKey);
+            if ($key === '') {
+                $key = $idForKey;
+            }
         }
         if (!isset($pairsByKey[$key])) {
             $pairsByKey[$key] = [];
         }
+        $displayOrder = $hasDisplayOrder && isset($row['display_order']) ? (int)$row['display_order'] : $detailIndex;
         $pairsByKey[$key][$accountId] = [
             'id_product' => $idForKey,
             'account_id' => $accountId,
-            'display_order' => $hasDisplayOrder && isset($row['display_order']) ? (int)$row['display_order'] : null,
+            'display_order' => $displayOrder,
+            'rate' => isset($row['rate']) && $row['rate'] !== null && $row['rate'] !== '' ? (string)$row['rate'] : null,
         ];
+        $detailIndex++;
     }
 
     $accountIds = [];
@@ -1146,8 +1154,12 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
 
     $requestedKeys = [];
     foreach ($ids as $id) {
-        $n = baseIdProductForKeyNormalized(trim((string)$id));
-        if ($n !== '') {
+        $tid = trim((string) $id);
+        if ($tid !== '') {
+            $requestedKeys[$tid] = true;
+        }
+        $n = baseIdProductForKeyNormalized($tid);
+        if ($n !== '' && $n !== $tid) {
             $requestedKeys[$n] = true;
         }
     }
@@ -1200,10 +1212,29 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
                 'sub_order' => null,
                 'formula_variant' => 1,
                 'updated_at' => null,
+                'rate' => $info['rate'] ?? null,
             ];
             $allMains[] = $synthetic;
             $existingAccountIds[(string)$accId] = true;
         }
+        // 按 display_order（来自 data_capture_details）重排 allMains，避免从 Data Capture Submit 进入后 NO/API GSC 等行顺序错乱
+        usort($allMains, function ($a, $b) use ($key, $pairs) {
+            $aOrder = isset($pairs[(string)($a['account_id'] ?? '')]['display_order'])
+                ? (int)$pairs[(string)($a['account_id'] ?? '')]['display_order']
+                : (isset($a['row_index']) && $a['row_index'] !== null ? (int)$a['row_index'] : 999999);
+            $bOrder = isset($pairs[(string)($b['account_id'] ?? '')]['display_order'])
+                ? (int)$pairs[(string)($b['account_id'] ?? '')]['display_order']
+                : (isset($b['row_index']) && $b['row_index'] !== null ? (int)$b['row_index'] : 999999);
+            return $aOrder - $bOrder;
+        });
+        // 为来自 templates 的 main 行补充 rate（从 details 取），以便前端显示 Rate Value
+        foreach ($allMains as &$m) {
+            $accId = (string)($m['account_id'] ?? '');
+            if ($accId !== '' && isset($pairs[$accId]['rate']) && $pairs[$accId]['rate'] !== null && $pairs[$accId]['rate'] !== '') {
+                $m['rate'] = $pairs[$accId]['rate'];
+            }
+        }
+        unset($m);
         $templates[$key]['allMains'] = $allMains;
         if ($templates[$key]['main'] === null && !empty($allMains)) {
             $templates[$key]['main'] = $allMains[0];
@@ -1212,13 +1243,102 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
     return $templates;
 }
 
+/**
+ * 用 account 表解析模板中的 account_display，与 Maintenance - Formula 的 Account 列一致，避免 Summary 显示错误。
+ */
+function resolveAccountDisplayInTemplates(PDO $pdo, int $companyId, array &$templates) {
+    $accountIds = [];
+    foreach ($templates as $key => $group) {
+        if (!empty($group['main']) && !empty($group['main']['account_id'])) {
+            $aid = $group['main']['account_id'];
+            $accountIds[(is_string($aid) ? $aid : (string)$aid)] = true;
+        }
+        foreach ($group['allMains'] ?? [] as $m) {
+            if (!empty($m['account_id'])) {
+                $aid = $m['account_id'];
+                $accountIds[(is_string($aid) ? $aid : (string)$aid)] = true;
+            }
+        }
+        foreach ($group['subs'] ?? [] as $s) {
+            if (!empty($s['account_id'])) {
+                $aid = $s['account_id'];
+                $accountIds[(is_string($aid) ? $aid : (string)$aid)] = true;
+            }
+        }
+    }
+    $accountIds = array_keys($accountIds);
+    if (empty($accountIds)) {
+        return;
+    }
+    $placeholders = implode(',', array_fill(0, count($accountIds), '?'));
+    $stmt = $pdo->prepare("
+        SELECT a.id, a.account_id AS code, a.name
+        FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE ac.company_id = ? AND a.id IN ($placeholders)
+    ");
+    $stmt->execute(array_merge([$companyId], $accountIds));
+    $map = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $id = (int)$row['id'];
+        $code = isset($row['code']) ? trim((string)$row['code']) : '';
+        $name = isset($row['name']) ? trim((string)$row['name']) : '';
+        $map[$id] = $map[(string)$id] = ($code !== '' && $name !== '') ? ($code . ' [' . $name . ']') : ($code !== '' ? $code : (string)$id);
+    }
+    foreach ($templates as $key => &$group) {
+        if (!empty($group['main']['account_id'])) {
+            $aid = $group['main']['account_id'];
+            $sid = is_numeric($aid) ? (int)$aid : $aid;
+            if (isset($map[$sid]) || isset($map[(string)$aid])) {
+                $group['main']['account_display'] = $map[$sid] ?? $map[(string)$aid];
+            }
+        }
+        if (isset($group['allMains'])) {
+            foreach ($group['allMains'] as $i => $m) {
+                if (!empty($m['account_id'])) {
+                    $aid = $m['account_id'];
+                    $sid = is_numeric($aid) ? (int)$aid : $aid;
+                    if (isset($map[$sid]) || isset($map[(string)$aid])) {
+                        $templates[$key]['allMains'][$i]['account_display'] = $map[$sid] ?? $map[(string)$aid];
+                    }
+                }
+            }
+        }
+        if (isset($group['subs'])) {
+            foreach ($group['subs'] as $i => $s) {
+                if (!empty($s['account_id'])) {
+                    $aid = $s['account_id'];
+                    $sid = is_numeric($aid) ? (int)$aid : $aid;
+                    if (isset($map[$sid]) || isset($map[(string)$aid])) {
+                        $templates[$key]['subs'][$i]['account_display'] = $map[$sid] ?? $map[(string)$aid];
+                    }
+                }
+            }
+        }
+    }
+    unset($group);
+}
+
 function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
     if (empty($ids) || $processId === null || $processId <= 0) {
         return [];
     }
 
+    // 查询时同时匹配完整 id 与 base（括号前），便于库中既有完整也有简写时都能取到
+    $expandedIds = [];
+    foreach ($ids as $id) {
+        $tid = trim((string) $id);
+        if ($tid !== '' && !in_array($tid, $expandedIds, true)) {
+            $expandedIds[] = $tid;
+        }
+        $base = $tid !== '' ? baseIdProductForKey($tid) : '';
+        if ($base !== '' && !in_array($base, $expandedIds, true)) {
+            $expandedIds[] = $base;
+        }
+    }
+    $ids = array_values($expandedIds);
+
     // Build case-insensitive query to match all case variants
-    // Use LOWER() for comparison but return original case from database
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $lowerIds = array_map('strtolower', $ids);
 
@@ -1312,17 +1432,16 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
 
         if ($productType === 'sub') {
             $parentId = $row['parent_id_product'] ?? $row['id_product'];
-            // 与 main 一致：用基名（第一个括号前）作 key，前端用 ALLBET95MS 才能取到 parent 为 ALLBET95MS(KM)MYR 的 sub
-            // 使用 baseIdProductForKeyNormalized 使 "XXX : (YYY)" 的 key 为 "XXX"，与前端一致
-            $parentKey = baseIdProductForKeyNormalized($parentId);
+            // 用完整 parent_id_product 作 key，避免 GAMS(SV)HKD 与 GAMS(SV)MYR 混在同一组（只检测 GAMS 会混掉）
+            $parentKey = trim((string) $parentId);
             if ($parentKey === '') {
-                $parentKey = baseIdProductForKey($parentId);
-            }
-            if ($parentKey === '') {
-                $parentKey = normalizeIdProductForKey($parentId);
-            }
-            if ($parentKey === '') {
-                $parentKey = $parentId;
+                $parentKey = baseIdProductForKeyNormalized($parentId);
+                if ($parentKey === '') {
+                    $parentKey = baseIdProductForKey($parentId);
+                }
+                if ($parentKey === '') {
+                    $parentKey = $parentId;
+                }
             }
             if (!isset($templates[$parentKey])) {
                 $templates[$parentKey] = [
@@ -1362,17 +1481,16 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             }
         } else {
             $idProduct = $row['id_product'];
-            // 用「基名」（第一个括号前）作 key，与前端 normalizeIdProductText 一致；
-            // 使用 baseIdProductForKeyNormalized 使 "MY EARNINGS : (RINGGIT...)" 的 key 为 "MY EARNINGS"，刷新后能取回
-            $mainKey = baseIdProductForKeyNormalized($idProduct);
+            // 用完整 id_product 作 key，避免 GAMS(SV)HKD 与 GAMS(SV)MYR 混在同一组（不要只检测 GAMS 前面）
+            $mainKey = trim((string) $idProduct);
             if ($mainKey === '') {
-                $mainKey = baseIdProductForKey($idProduct);
-            }
-            if ($mainKey === '') {
-                $mainKey = normalizeIdProductForKey($idProduct);
-            }
-            if ($mainKey === '') {
-                $mainKey = $idProduct;
+                $mainKey = baseIdProductForKeyNormalized($idProduct);
+                if ($mainKey === '') {
+                    $mainKey = baseIdProductForKey($idProduct);
+                }
+                if ($mainKey === '') {
+                    $mainKey = $idProduct;
+                }
             }
             if (!isset($templates[$mainKey])) {
                 $templates[$mainKey] = [
@@ -1661,22 +1779,57 @@ if ($action === 'delete_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmt = $pdo->prepare($sql);
         } else {
-            $sql = "
-                DELETE FROM data_capture_templates 
+            // 无 template_id 且无 formula_variant 时，不能按 template_key+product_type 批量删除，否则会误删同 key 的其他行（如 main 与 sub、或同 id_product 多 account）
+            // 先查询匹配的行数；仅当恰好 1 条时按该行 id 删除，保证「没有勾选 delete 的数据都保留」
+            $selSql = "
+                SELECT id, id_product, account_id, product_type, formula_variant, sub_order, process_id 
+                FROM data_capture_templates 
                 WHERE company_id = :company_id
                   AND product_type = :product_type 
                   AND template_key = :template_key
             ";
-            $params = [
+            $selParams = [
                 ':company_id' => $companyId,
                 ':product_type' => $productType,
                 ':template_key' => $templateKey
             ];
             if ($sourceProcessId) {
-                $sql .= " AND process_id = :process_id";
-                $params[':process_id'] = $sourceProcessId;
+                $selSql .= " AND process_id = :process_id";
+                $selParams[':process_id'] = $sourceProcessId;
             }
+            $selStmt = $pdo->prepare($selSql);
+            $selStmt->execute($selParams);
+            $matchingRows = $selStmt->fetchAll(PDO::FETCH_ASSOC);
+            $matchCount = count($matchingRows);
+            if ($matchCount > 1) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Multiple rows match (template_key + product_type). Please delete by selecting the specific row with template_id.',
+                    'deleted_count' => 0
+                ]);
+                exit;
+            }
+            if ($matchCount === 0) {
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Template not found (may have been already deleted)',
+                    'deleted_count' => 0
+                ]);
+                exit;
+            }
+            $singleRow = $matchingRows[0];
+            $rowForSync = $singleRow;
+            $templateId = (int)$singleRow['id'];
+            $sql = "
+                DELETE FROM data_capture_templates 
+                WHERE company_id = :company_id
+                  AND id = :template_id
+            ";
             $stmt = $pdo->prepare($sql);
+            $params = [
+                ':company_id' => $companyId,
+                ':template_id' => $templateId
+            ];
         }
         
         $stmt->execute($params);
@@ -1793,6 +1946,11 @@ if ($action === 'templates') {
 
         if ($captureId !== null && $captureId > 0 && $company_id) {
             $templates = mergeDetailOnlyTemplates($pdo, (int)$company_id, $captureId, $ids, $templates);
+        }
+
+        // 用 account 表统一解析 account_display，与 Maintenance - Formula 的 Account 列一致
+        if ($company_id) {
+            resolveAccountDisplayInTemplates($pdo, (int)$company_id, $templates);
         }
 
         echo json_encode([

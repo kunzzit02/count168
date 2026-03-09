@@ -964,12 +964,17 @@
 #profitSharingModal .modal-header,
 #profitSharingModal .modal-body,
 #profitSharingModal .bank-form,
-#profitSharingModal #profitSharingRowsContainer,
 #profitSharingModal .form-row,
 #profitSharingModal .form-group,
 #profitSharingModal .account-select-with-buttons,
 #profitSharingModal .custom-select-wrapper {
     overflow: visible !important;
+}
+/* 列表区域最高约 7 行高度，再多 Account 行时出现垂直滚动条 */
+#profitSharingModal #profitSharingRowsContainer {
+    max-height: 500px;
+    overflow-y: auto !important;
+    overflow-x: visible;
 }
 /* 下拉可向下溢出弹窗，不设 max-height 裁切，选项区内部滚动 */
 #profitSharingModal .custom-select-wrapper {
@@ -986,6 +991,55 @@
 }
 #profitSharingModal .form-actions.bank-actions {
     justify-content: center;
+}
+/* Profit Sharing 弹窗：所有行统一三列（Account | Amount | 占位/删除），保证列宽一致 */
+#profitSharingModal #profitSharingRowsContainer .profit-sharing-row {
+    grid-template-columns: 1fr 1fr auto;
+    align-items: end;
+}
+#profitSharingModal .profit-sharing-delete-cell {
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+    min-width: 28px;
+    max-width: 40px;
+    padding-bottom: 10px;
+}
+#profitSharingModal .profit-sharing-first-row-spacer {
+    min-width: 28px;
+    max-width: 40px;
+}
+#profitSharingModal .profit-sharing-delete-label {
+    width: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    height: 0;
+}
+#profitSharingModal .profit-sharing-delete-row-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #6b7280;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+#profitSharingModal .profit-sharing-delete-row-btn:hover {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+#profitSharingModal .profit-sharing-delete-row-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
 }
 
 /* SOP Modal：固定弹窗尺寸与底部按钮 */

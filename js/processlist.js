@@ -4455,10 +4455,22 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const amountId = 'profit_sharing_amount_' + ts;
             const row = document.createElement('div');
             row.className = 'form-row bank-row-two-cols profit-sharing-row';
-            row.innerHTML = '<div class="form-group"><label for="' + btnId + '">Account</label><input type="hidden" id="' + hiddenId + '" class="profit-sharing-account-id" name="account_id" value=""><div class="account-select-with-buttons"><div class="custom-select-wrapper"><button type="button" class="custom-select-button profit-sharing-account-btn" id="' + btnId + '" data-placeholder="Select Account">Select Account</button><div class="custom-select-dropdown" id="' + dropdownId + '"><div class="custom-select-search"><input type="text" placeholder="Search account..." autocomplete="off"></div><div class="custom-select-options"></div></div></div><button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick(\'' + btnId + '\', \'' + hiddenId + '\')" title="Add New Account">+</button></div></div><div class="form-group"><label for="' + amountId + '">Amount</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0"></div>';
+            row.innerHTML = '<div class="form-group"><label for="' + btnId + '">Account</label><input type="hidden" id="' + hiddenId + '" class="profit-sharing-account-id" name="account_id" value=""><div class="account-select-with-buttons"><div class="custom-select-wrapper"><button type="button" class="custom-select-button profit-sharing-account-btn" id="' + btnId + '" data-placeholder="Select Account">Select Account</button><div class="custom-select-dropdown" id="' + dropdownId + '"><div class="custom-select-search"><input type="text" placeholder="Search account..." autocomplete="off"></div><div class="custom-select-options"></div></div></div><button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick(\'' + btnId + '\', \'' + hiddenId + '\')" title="Add New Account">+</button></div></div><div class="form-group"><label for="' + amountId + '">Amount</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0"></div><div class="form-group profit-sharing-delete-cell"><label class="profit-sharing-delete-label">&nbsp;</label><button type="button" class="profit-sharing-delete-row-btn" onclick="removeProfitSharingModalRow(this)" title="Delete row">−</button></div>';
             container.appendChild(row);
             if (typeof initProfitSharingAccountSelect === 'function') {
                 initProfitSharingAccountSelect(btnId, dropdownId, hiddenId);
+            }
+        }
+
+        function removeProfitSharingModalRow(buttonEl) {
+            const row = buttonEl && buttonEl.closest('.profit-sharing-row');
+            const container = document.getElementById('profitSharingRowsContainer');
+            if (!row || !container) return;
+            const rows = container.querySelectorAll('.profit-sharing-row');
+            if (rows.length <= 1) return;
+            row.remove();
+            if (container.querySelectorAll('.profit-sharing-row').length === 0 && typeof addProfitSharingRow === 'function') {
+                addProfitSharingRow();
             }
         }
 

@@ -467,8 +467,7 @@ try {
         'created_by' => '-'
     ];
     
-    // 后续行：数据采集 + 交易记录
-    $current_balance = $bf;
+    // 后续行：数据采集 + 交易记录（余额在下方按币别分别累计）
     $events = [];
     $eventIndex = 0;
     
@@ -967,10 +966,21 @@ try {
         return $a['order_ts'] <=> $b['order_ts'];
     });
     
+    // 按货币分别累计余额，避免多币别时 Balance 列显示成「所有币别总和」（Member Win/Loss 每行应显示该币别 running balance）
+    $balance_by_currency = [];
+    if ($bfCurrency !== null && $bfCurrency !== '') {
+        $balance_by_currency[$bfCurrency] = (float) $bf;
+    }
+    
     foreach ($events as $event) {
-        $current_balance += $event['win_loss'] + $event['cr_dr'];
-        // 使用 event 中的 currency（从 data_capture 中获取），否则使用 B/F 的 currency
         $displayCurrency = $event['currency'] ?? $bfCurrency;
+        $curKey = ($displayCurrency !== null && (string)$displayCurrency !== '') ? (string)$displayCurrency : '-';
+        if (!isset($balance_by_currency[$curKey])) {
+            $balance_by_currency[$curKey] = 0;
+        }
+        $balance_by_currency[$curKey] += (float)($event['win_loss'] ?? 0) + (float)($event['cr_dr'] ?? 0);
+        $row_balance = $balance_by_currency[$curKey];
+        
         $history[] = [
             'row_type' => $event['row_type'],
             'transaction_id' => $event['transaction_id'],
@@ -984,7 +994,7 @@ try {
             'rate' => $event['rate'] ?? '-',
             'win_loss' => $event['win_loss'] != 0 ? number_format($event['win_loss'], 2) : '0.00',
             'cr_dr' => $event['cr_dr'] != 0 ? number_format($event['cr_dr'], 2) : '0.00',
-            'balance' => number_format($current_balance, 2),
+            'balance' => number_format($row_balance, 2),
             'description' => $event['description'],
             'sms' => $event['sms'],
             'remark' => $event['remark'] ?? null,

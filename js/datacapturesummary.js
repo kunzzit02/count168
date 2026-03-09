@@ -231,8 +231,138 @@ function getSummaryRowKey(row) {
     return idProduct + '\t' + account;
 }
 
+// 规范化 key：trim + 合并多余空格，避免刷新后 Account 显示略差导致匹配失败、行被排到最后
+function normalizeSummaryRowKey(key) {
+    if (!key || typeof key !== 'string') return '';
+    return key.split('\t').map(p => (p || '').trim().replace(/\s+/g, ' ')).join('\t');
+}
+
+// Account 显示规范化：统一方括号与圆括号，便于 reorder 时匹配（如 "NO [NO]" 与 "NO (NO)" 视为同一行）
+function normalizeAccountForOrder(account) {
+    if (!account || typeof account !== 'string') return '';
+    return account.trim().replace(/\s+/g, ' ')
+        .replace(/\s*\[\s*/g, ' (').replace(/\s*\]\s*/g, ') ');
+}
+
+// Account 核心部分（括号前），用于顺序匹配回退（如 "NO" 与 "NO [NO]" / "NO (NO)" 视为同一行）
+function accountCoreForOrder(account) {
+    if (!account || typeof account !== 'string') return '';
+    const s = account.trim().replace(/\s+/g, ' ');
+    const open = Math.min(
+        s.indexOf(' (') >= 0 ? s.indexOf(' (') : s.length,
+        s.indexOf(' [') >= 0 ? s.indexOf(' [') : s.length
+    );
+    return (open > 0 ? s.substring(0, open) : s).trim();
+}
+
+// 按刷新前保存的 rowOrder 重排 Summary 表行顺序，且不拆散同一 Id Product 的 main/sub 组
+function reorderSummaryRowsBySavedOrder(summaryTableBody, savedOrder) {
+    if (!summaryTableBody || !Array.isArray(savedOrder) || savedOrder.length === 0) return;
+    const currentRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+    const keyToRow = new Map();
+    currentRows.forEach(r => {
+        const rawKey = getSummaryRowKey(r);
+        const normKey = normalizeSummaryRowKey(rawKey);
+        const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim() : '';
+        if (!normKey || !idPart) return; // 只参与数据行重排，排除无 id_product 的行（如总计行误入 tbody 时）
+        keyToRow.set(normKey, r);
+        const parts = normKey.split('\t');
+        if (parts.length >= 2) {
+            const orderKey = (parts[0] || '').trim() + '\t' + normalizeAccountForOrder(parts[1] || '');
+            if (orderKey && orderKey !== normKey) keyToRow.set(orderKey, r);
+            // 只按 Account 前面部分（如 NO）匹配，后面的 [NO] 不参与，解决排列错乱
+            const coreKey = (parts[0] || '').trim() + '\t' + (typeof accountCoreForOrder === 'function' ? accountCoreForOrder(parts[1] || '') : (parts[1] || ''));
+            if (coreKey && coreKey !== normKey && coreKey !== orderKey) keyToRow.set(coreKey, r);
+        }
+    });
+    const savedOrderNormalized = savedOrder.map(k => normalizeSummaryRowKey(k)).filter(Boolean);
+    const savedOrderSet = new Set(savedOrderNormalized);
+    // 按 id_product 分组，组顺序与组内顺序都严格按 saved 首次出现顺序，不按 Data Capture 表重排，避免「本在 M99M 和 NO 之间的数据」refresh 后跑到 NO 底下
+    const idProductToKeys = new Map();
+    const groupOrder = [];
+    const seenGroup = new Set();
+    savedOrderNormalized.forEach(k => {
+        const idProduct = (k && k.split('\t')[0]) ? k.split('\t')[0].trim() : '';
+        if (!idProduct) return;
+        if (!idProductToKeys.has(idProduct)) {
+            idProductToKeys.set(idProduct, []);
+            if (!seenGroup.has(idProduct)) {
+                seenGroup.add(idProduct);
+                groupOrder.push(idProduct);
+            }
+        }
+        idProductToKeys.get(idProduct).push(k);
+    });
+    // 先按 saved 顺序产出 key；若某 key 当前表里匹配不到（如 NO [NO] vs NO (NO)），用占位符并记下 savedKey，再按 Account 规范化匹配同组 current key，保证顺序正确
+    const finalOrder = [];
+    groupOrder.forEach(idProduct => {
+        (idProductToKeys.get(idProduct) || []).forEach(k => {
+            if (keyToRow.has(k)) {
+                finalOrder.push(k);
+            } else {
+                finalOrder.push({ placeholder: true, idProduct: (idProduct || '').trim(), savedKey: k });
+            }
+        });
+    });
+    const newKeys = currentRows.map(r => normalizeSummaryRowKey(getSummaryRowKey(r))).filter(k => k && !savedOrderSet.has(k));
+    const newKeysByGroup = new Map();
+    newKeys.forEach(nk => {
+        const idProduct = (nk && nk.split('\t')[0]) ? nk.split('\t')[0].trim() : '';
+        if (!idProduct) return;
+        if (!newKeysByGroup.has(idProduct)) newKeysByGroup.set(idProduct, []);
+        newKeysByGroup.get(idProduct).push(nk);
+    });
+    for (let i = 0; i < finalOrder.length; i++) {
+        const item = finalOrder[i];
+        if (item && typeof item === 'object' && item.placeholder) {
+            const arr = newKeysByGroup.get(item.idProduct);
+            const savedKey = item.savedKey || '';
+            const savedAccount = savedKey.split('\t')[1] || '';
+            const savedOrderNorm = normalizeAccountForOrder(savedAccount);
+            const savedCore = accountCoreForOrder(savedAccount);
+            let matched = null;
+            if (arr && arr.length > 0) {
+                let idx = arr.findIndex(nk => normalizeAccountForOrder((nk.split('\t')[1] || '')) === savedOrderNorm);
+                if (idx < 0 && savedCore) {
+                    idx = arr.findIndex(nk => accountCoreForOrder(nk.split('\t')[1] || '') === savedCore);
+                }
+                if (idx >= 0) {
+                    matched = arr.splice(idx, 1)[0];
+                } else {
+                    matched = arr.shift();
+                }
+            }
+            finalOrder[i] = matched || null;
+        }
+    }
+    const finalOrderFiltered = finalOrder.filter(x => x !== null && typeof x === 'string');
+    newKeysByGroup.forEach((keys, idProduct) => {
+        keys.forEach(nk => {
+            if (!nk) return;
+            let insertAfterIndex = -1;
+            for (let i = finalOrderFiltered.length - 1; i >= 0; i--) {
+                const existingId = (finalOrderFiltered[i] && finalOrderFiltered[i].split('\t')[0]) ? finalOrderFiltered[i].split('\t')[0].trim() : '';
+                if (existingId && existingId === idProduct) {
+                    insertAfterIndex = i;
+                    break;
+                }
+            }
+            if (insertAfterIndex >= 0) finalOrderFiltered.splice(insertAfterIndex + 1, 0, nk);
+            else finalOrderFiltered.push(nk);
+        });
+    });
+    const appended = new Set();
+    finalOrderFiltered.forEach(k => {
+        const row = keyToRow.get(k);
+        if (row && !appended.has(row)) {
+            appended.add(row);
+            summaryTableBody.appendChild(row);
+        }
+    });
+}
+
 // Save current Rate Value column to localStorage (for refresh only; cleared on Back/Submit)
-// 按 id_product + Account 存，恢复时按 key 匹配，避免行顺序变化错位
+// 按 id_product + Account 存（使用规范化 key），恢复时按 key 匹配，避免刷新后 Account 格式略差导致匹配失败
 function saveRateValuesForRefresh() {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
@@ -240,10 +370,11 @@ function saveRateValuesForRefresh() {
     const byKey = {};
     rows.forEach(row => {
         const key = getSummaryRowKey(row);
+        const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
         const val = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
-        byKey[key] = val;
+        if (val !== '') byKey[normKey] = val;
     });
     try {
         localStorage.setItem('capturedTableRateValues', JSON.stringify(byKey));
@@ -254,32 +385,63 @@ function saveRateValuesForRefresh() {
 
 // Save Formula + Source (and data attrs) per row by id_product + Account for restore after refresh.
 // 按 id_product + Account 存，恢复时按 key 匹配，避免行顺序变化导致 formula 贴错行。
-function saveFormulaSourceForRefresh() {
+// includeRateValue: 默认 true；为 false 时只保存公式/Source/行顺序，不写入 Rate（Rate 仅随 Rate 的 Submit 持久化）
+function saveFormulaSourceForRefresh(opts) {
+    const includeRateValue = opts && opts.includeRateValue === false ? false : true;
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const processId = getCurrentProcessId();
     const processCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
     const rows = summaryTableBody.querySelectorAll('tr');
     const byKey = {};
+    const rowOrder = [];
     rows.forEach(row => {
         const key = getSummaryRowKey(row);
+        const normKey = normalizeSummaryRowKey(key);
+        const idPart = (normKey && normKey.split('\t')[0]) ? normKey.split('\t')[0].trim() : '';
+        const accountPart = (normKey && normKey.split('\t')[1]) ? normKey.split('\t')[1] : '';
+        // 行顺序只按「Account 前面部分」保存（如 NO），后面的 [NO]/(NO) 不参与，避免排列错乱
+        rowOrder.push(idPart ? (idPart + '\t' + (typeof accountCoreForOrder === 'function' ? accountCoreForOrder(accountPart) : accountPart)) : normKey);
         const cells = row.querySelectorAll('td');
         const formulaCell = cells[4];
         let formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const sourceCell = cells[5];
         const source = sourceCell ? sourceCell.textContent.trim() : '';
-        byKey[key] = {
+        const rateValueCell = cells[7];
+        const rateValue = includeRateValue && rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
+        byKey[normKey] = {
             formula: formula || '',
             source: source || '',
             sourceColumns: (row.getAttribute('data-source-columns') || ''),
             formulaOperators: (row.getAttribute('data-formula-operators') || ''),
-            sourcePercent: (row.getAttribute('data-source-percent') || '')
+            sourcePercent: (row.getAttribute('data-source-percent') || ''),
+            rateValue: rateValue || ''
         };
     });
+    // 按「id_product + Account」独立 key 保存 Rate Value，每行一份，删除其他行不会导致本行 rate 丢失
+    const rateValuesByKey = {};
+    if (includeRateValue) {
+        rows.forEach(row => {
+            const key = getSummaryRowKey(row);
+            const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+            if (!normKey) return;
+            const cells = row.querySelectorAll('td');
+            const rateValueCell = cells[7];
+            const rv = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
+            rateValuesByKey[normKey] = rv;
+        });
+    }
     try {
-        const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey };
+        const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey };
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
+        if (includeRateValue && Object.keys(rateValuesByKey).length > 0) {
+            localStorage.setItem('capturedTableRateValuesByProductId', JSON.stringify({
+                processId: processId != null ? processId : null,
+                processCode: processCode,
+                rateValuesByKey: rateValuesByKey
+            }));
+        }
     } catch (e) {
         console.warn('saveFormulaSourceForRefresh:', e);
     }
@@ -319,16 +481,31 @@ function restoreFormulaSourceFromRefresh() {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
         return;
     }
-    if (window.currentProcessHadTemplates !== true) {
-        try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
-        return;
-    }
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
+    // 无论是否有模板，都先按保存的 rowOrder 重排行顺序，避免点击侧栏 Data Capture 再进入时 NO/API GSC 等顺序错乱
+    if (saved.rowOrder && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0 && typeof reorderSummaryRowsBySavedOrder === 'function') {
+        reorderSummaryRowsBySavedOrder(summaryTableBody, saved.rowOrder);
+    }
     const rows = summaryTableBody.querySelectorAll('tr');
+    // 即使当前 process 无 Maintenance 模板，也先按 rowsByKey 恢复每行的 Rate Value，避免从 Data Capture submit 进来后全部 rate 消失
+    if (window.currentProcessHadTemplates !== true) {
+        rows.forEach((row) => {
+            const key = getSummaryRowKey(row);
+            const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+            const data = byKey[normKey] || byKey[key];
+            if (!data || !data.rateValue || String(data.rateValue).trim() === '') return;
+            const cells = row.querySelectorAll('td');
+            if (cells[7]) cells[7].textContent = String(data.rateValue).trim();
+        });
+        try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
+        if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
+        return;
+    }
     rows.forEach((row) => {
         const key = getSummaryRowKey(row);
-        const data = byKey[key];
+        const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+        const data = byKey[normKey] || byKey[key];
         if (!data) return;
         const cells = row.querySelectorAll('td');
         let formula = data.formula != null ? String(data.formula) : '';
@@ -361,6 +538,10 @@ function restoreFormulaSourceFromRefresh() {
             ? calculateFormulaResultFromExpression(formula, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent)
             : 0;
         row.setAttribute('data-base-processed-amount', (baseProcessedAmount != null && !isNaN(baseProcessedAmount)) ? baseProcessedAmount.toString() : '0');
+        // 同时恢复 Rate Value（与 Formula/Source 同 key，刷新后不再丢失）
+        if (data.rateValue != null && String(data.rateValue).trim() !== '' && cells[7]) {
+            cells[7].textContent = String(data.rateValue).trim();
+        }
         if (cells[8] && typeof applyRateToProcessedAmount === 'function') {
             const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
             const rounded = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount);
@@ -376,68 +557,118 @@ function restoreFormulaSourceFromRefresh() {
     }
 }
 function restoreRateValuesFromRefresh() {
-    let saved;
-    try {
-        const raw = localStorage.getItem('capturedTableRateValues');
-        if (!raw) return;
-        saved = JSON.parse(raw);
-    } catch (e) {
-        return;
-    }
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
-    // 新格式：按 id_product + Account 的 key 恢复
-    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-        rows.forEach((row) => {
-            const key = getSummaryRowKey(row);
-            const val = saved[key];
-            if (val === undefined || val === null || String(val).trim() === '') return;
-            const cells = row.querySelectorAll('td');
-            const rateValueCell = cells[7];
-            const processedAmountCell = cells[8];
-            if (!rateValueCell) return;
-            rateValueCell.textContent = String(val).trim();
-            const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
-            if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
-                const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
-                processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
-            }
-        });
-    } else if (Array.isArray(saved) && saved.length > 0) {
-        // 旧格式：按 index 恢复（兼容已有缓存，仅此一次）
-        rows.forEach((row, i) => {
-            const val = saved[i];
-            if (val === undefined || val === null || String(val).trim() === '') return;
-            const cells = row.querySelectorAll('td');
-            const rateValueCell = cells[7];
-            const processedAmountCell = cells[8];
-            if (!rateValueCell) return;
-            rateValueCell.textContent = String(val).trim();
-            const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
-            if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
-                const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
-                processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
-            }
-        });
+    let appliedCount = 0;
+
+    function applyRateToRow(row, val) {
+        const cells = row.querySelectorAll('td');
+        const rateValueCell = cells[7];
+        const processedAmountCell = cells[8];
+        if (!rateValueCell || val === undefined || val === null || String(val).trim() === '') return false;
+        rateValueCell.textContent = String(val).trim();
+        const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
+        if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
+            const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+            processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
+            processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+        }
+        return true;
     }
+
+    // 1) 按 key（id_product + Account）恢复
     try {
-        localStorage.removeItem('capturedTableRateValues');
+        const raw = localStorage.getItem('capturedTableRateValues');
+        if (raw) {
+            const saved = JSON.parse(raw);
+            if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+                const savedKeys = Object.keys(saved);
+                rows.forEach((row) => {
+                    const key = getSummaryRowKey(row);
+                    const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+                    let val = saved[normKey] ?? saved[key];
+                    if ((val === undefined || val === null || String(val).trim() === '') && normKey) {
+                        const idPart = normKey.split('\t')[0] || '';
+                        const idNorm = (idPart || '').trim().replace(/\s+/g, ' ');
+                        const matchingKeys = savedKeys.filter(k => {
+                            const p = (k.split('\t')[0] || '').trim().replace(/\s+/g, ' ');
+                            return p === idNorm && saved[k] != null && String(saved[k]).trim() !== '';
+                        });
+                        if (matchingKeys.length === 1) val = saved[matchingKeys[0]];
+                    }
+                    if (applyRateToRow(row, val)) appliedCount++;
+                });
+            } else if (Array.isArray(saved) && saved.length > 0) {
+                rows.forEach((row, i) => {
+                    if (applyRateToRow(row, saved[i])) appliedCount++;
+                });
+            }
+            if (appliedCount > 0) {
+                try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
+            }
+        }
     } catch (e) {}
+
+    // 2) 按「id_product + Account」key 恢复（每行独立，删除其他行不影响本行）
+    try {
+        const rawByProduct = localStorage.getItem('capturedTableRateValuesByProductId');
+        if (!rawByProduct) {
+            if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
+            return;
+        }
+        const savedByProduct = JSON.parse(rawByProduct);
+        const rateValuesByKey = savedByProduct && savedByProduct.rateValuesByKey && typeof savedByProduct.rateValuesByKey === 'object' ? savedByProduct.rateValuesByKey : null;
+        const rateValuesByProductIdLegacy = savedByProduct && savedByProduct.rateValuesByProductId && typeof savedByProduct.rateValuesByProductId === 'object' ? savedByProduct.rateValuesByProductId : null;
+        const currentId = getCurrentProcessId();
+        const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
+        const savedId = savedByProduct.processId != null ? savedByProduct.processId : null;
+        const savedCode = (typeof savedByProduct.processCode === 'string' ? savedByProduct.processCode : '').trim();
+        const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
+        const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+        if (!idMatch || !codeMatch) {
+            try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+            if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
+            return;
+        }
+        if (rateValuesByKey && Object.keys(rateValuesByKey).length > 0) {
+            rows.forEach((row) => {
+                const key = getSummaryRowKey(row);
+                const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+                if (!normKey) return;
+                const val = rateValuesByKey[normKey] ?? rateValuesByKey[key];
+                if (applyRateToRow(row, val)) appliedCount++;
+            });
+            try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+        } else if (rateValuesByProductIdLegacy && Object.keys(rateValuesByProductIdLegacy).length > 0) {
+            const productIndex = {};
+            rows.forEach((row) => {
+                const cells = row.querySelectorAll('td');
+                const idProductCell = cells[0];
+                const idPart = idProductCell && idProductCell.textContent ? idProductCell.textContent.trim().replace(/\s+/g, ' ') : '';
+                if (!idPart) return;
+                const idx = productIndex[idPart] || 0;
+                productIndex[idPart] = idx + 1;
+                const arr = rateValuesByProductIdLegacy[idPart];
+                if (!arr || !Array.isArray(arr) || idx >= arr.length) return;
+                const val = arr[idx];
+                if (applyRateToRow(row, val)) appliedCount++;
+            });
+            try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+        }
+    } catch (e) {}
+
     if (typeof updateProcessedAmountTotal === 'function') {
         updateProcessedAmountTotal();
     }
 }
 
 // Go back to datacapture page, preserving localStorage data
+// 离开前先保存当前 Rate/Formula/行顺序，以便用户再次进入 Summary 时能恢复（不清除缓存）
 function goBackToDataCapture() {
+    if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     window.isNavigatingAwayByBackOrSubmit = true;
-    try {
-        localStorage.removeItem('capturedTableRateValues');
-        localStorage.removeItem('capturedTableFormulaSourceForRefresh');
-    } catch (e) {}
     window.location.href = 'datacapture.php?restore=1';
 }
 
@@ -848,6 +1079,10 @@ function populateOriginalTableWithColumnAData(tableData) {
     });
     
     console.log('Column A data:', columnAData);
+    // 保存 Data table 列 A 顺序，恢复顺序时若 capturedTableBody 不可用则用此顺序，避免「Data 表第一行」在 Summary 排到最后
+    try {
+        window._summaryColumnAOrder = columnAData.map(v => (v || '').trim().replace(/\s+/g, '')).filter(Boolean);
+    } catch (e) {}
     
     // 每个 Id Product 均为独立的 Main（如 ALLBET95MS(SV)MYR、ALLBET95MS(KM)MYR、GAMS(SV)MYR 等），不按 base 分组为 MAIN+SUB
     // Create rows for the original table
@@ -979,6 +1214,10 @@ function populateOriginalTableWithColumnAData(tableData) {
         .finally(() => {
             restoreRateValuesFromRefresh();
             restoreFormulaSourceFromRefresh();
+            // 延迟再执行一次 Rate Value 恢复，避免首次执行时 DOM/Account 尚未就绪导致未命中
+            if (typeof restoreRateValuesFromRefresh === 'function') {
+                setTimeout(restoreRateValuesFromRefresh, 80);
+            }
             // Maintenance 没有该 process 的 formula 时，Summary 不显示任何 formula（最终保障）
             if (window.currentProcessHadTemplates !== true) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
@@ -1328,11 +1567,12 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
                             console.log('getCellValueByIdProductAndColumn: Verified id_product - match:', rowIndexIdProductMatches);
                             
                             if (!rowIndexIdProductMatches) {
-                                console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch! rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected:', idProductTrimmed, 'found:', cellIdProductText, 'Will fallback to id_product search');
+                                // 在实际逻辑上依然回退到 id_product 搜索，但不再用 warn 污染控制台
+                                console.log('getCellValueByIdProductAndColumn: row_label found but id_product mismatch, will fallback to id_product search. rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected:', idProductTrimmed, 'found:', cellIdProductText);
                                 rowIndex = null; // Reset rowIndex if id_product doesn't match
                             }
                         } else {
-                            console.warn('getCellValueByIdProductAndColumn: idProductCell not found for row_label:', rowLabel, 'Will fallback to id_product search');
+                            console.log('getCellValueByIdProductAndColumn: idProductCell not found for row_label, will fallback to id_product search. rowLabel:', rowLabel);
                             rowIndex = null; // Reset rowIndex if id_product cell not found
                         }
                         break;
@@ -1346,7 +1586,7 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
                 processRow = findProcessRow(parsedTableData, idProductResolved, rowIndex);
                 console.log('getCellValueByIdProductAndColumn: Found row by row_label:', rowLabel, 'rowIndex:', rowIndex, 'id_product:', idProductResolved, 'processRow:', processRow ? 'found' : 'not found');
             } else {
-                console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch or row_label not found:', rowLabel, 'falling back to id_product search');
+                console.log('getCellValueByIdProductAndColumn: row_label not usable, falling back to id_product search. rowLabel:', rowLabel);
             }
         }
         
@@ -1355,7 +1595,7 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
         if (!processRow) {
             processRow = findProcessRow(parsedTableData, idProductResolved);
             if (rowLabel) {
-                console.warn('getCellValueByIdProductAndColumn: Row not found by row_label or id_product mismatch, falling back to first matching row for id_product:', idProductResolved);
+                console.log('getCellValueByIdProductAndColumn: Row not found by row_label, falling back to first matching row for id_product:', idProductResolved);
             }
         }
         
@@ -2134,6 +2374,9 @@ function submitRateValues() {
     
     if (updatedCount > 0) {
         showNotification('Success', `Rate Value updated for ${updatedCount} row(s)`, 'success');
+        // 设置好后立即持久化，保证再次进入或刷新时数据和顺序一致
+        if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+        if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
     } else {
         showNotification('Info', 'No rows with Rate checkbox checked', 'info');
     }
@@ -6892,7 +7135,9 @@ function saveFormula() {
     const row = currentButton ? currentButton.closest('tr') : null;
     const idProductCell = row ? row.querySelector('td:first-child') : null;
     const productValues = getProductValuesFromCell(idProductCell);
-    const isSubIdProduct = !productValues.main || !productValues.main.trim();
+    // 优先用 data-product-type 判断：点击 sub 行的 + 时新行必须插在该 sub 底下；否则用单元格 main 是否为空
+    const clickedRowIsSub = row && (row.getAttribute('data-product-type') || 'main') === 'sub';
+    const isSubIdProduct = clickedRowIsSub || !productValues.main || !productValues.main.trim();
     const oldAccountDbId = (isEditMode && window.currentEditRow) ? (window.currentEditRow.querySelector('td:nth-child(2)')?.getAttribute('data-account-id') || null) : null;
     
     console.log('Formula data:', {
@@ -7287,62 +7532,34 @@ function saveFormula() {
         const mainHasData = !!accountText;
 
         if (!mainHasData) {
-            // 主行还没有数据：直接填充主行
+            // main 无数据：直接填充该 main 行（不新增行）
             if (targetRow) {
                 const targetRowSourceCols = targetRow.getAttribute('data-source-columns') || '';
-                // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
-                // CRITICAL: 如果公式中没有 $ 符号，清空 sourceColumns，不使用旧的 targetRowSourceCols
                 const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
                 updateSummaryTableRow(processValue, {
                     idProduct: processValue,
                     description: descriptionValue,
-                    originalDescription: descriptionValue, // Store original description separately
+                    originalDescription: descriptionValue,
                     account: accountId || 'Account',
-                    accountDbId: accountValue, // Database ID
+                    accountDbId: accountValue,
                     currency: currencyName || 'Currency',
-                    currencyDbId: currencyValue, // Database ID
+                    currencyDbId: currencyValue,
                     columns: columnsDisplay,
-                    sourceColumns: finalSourceColumnsForMain, // Store clicked column numbers
-                    batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
-                    source: formulaValue || 'Source', // Use formula as source
+                    sourceColumns: finalSourceColumnsForMain,
+                    batchSelection: batchSelectionChecked,
+                    source: formulaValue || 'Source',
                     sourcePercent: sourcePercentValue || '1',
                     formula: formulaDisplay,
-                    formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '', // Store the full formula expression (including empty string)
+                    formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '',
                     processedAmount: processedAmount,
                     inputMethod: inputMethodValue,
                     enableInputMethod: enableValue,
                     enableSourcePercent: sourcePercentEnableValue,
                     productType: 'main'
                 }, targetRow);
-            } else {
-                const baseSourceCols = targetRow ? (targetRow.getAttribute('data-source-columns') || '') : '';
-                // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
-                // CRITICAL: 如果公式中没有 $ 符号，清空 sourceColumns，不使用旧的 baseSourceCols
-                const finalSourceColumnsForMain2 = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || baseSourceCols || '');
-                updateSummaryTableRow(processValue, {
-                    idProduct: processValue,
-                    description: descriptionValue,
-                    originalDescription: descriptionValue, // Store original description separately
-                    account: accountId || 'Account',
-                    accountDbId: accountValue, // Database ID
-                    currency: currencyName || 'Currency',
-                    currencyDbId: currencyValue, // Database ID
-                    columns: columnsDisplay,
-                    sourceColumns: finalSourceColumnsForMain2, // Store clicked column numbers
-                    batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
-                    source: formulaValue || 'Source', // Use formula as source
-                    sourcePercent: sourcePercentValue || '1',
-                    formula: formulaDisplay,
-                    formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '', // Store the full formula expression (including empty string)
-                    processedAmount: processedAmount,
-                    inputMethod: inputMethodValue,
-                    enableInputMethod: enableValue,
-                    enableSourcePercent: sourcePercentEnableValue,
-                    productType: 'main'
-                });
             }
         } else {
-            // 主行已有账号：为该 Id Product 在当前主行之后新增一条 sub 行
+            // 主行已有账号：为该 Id Product 在「点击的那一行」之后新增一条 sub 行（点击 main 则插在 main 下，点击 sub 则插在该 sub 下）
             const baseRow = currentButton ? currentButton.closest('tr') : null;
             const newRow = addSubIdProductRow(processValue, baseRow);
             // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
@@ -7500,6 +7717,8 @@ function saveFormula() {
     
     const actionText = wasEditMode ? 'updated' : 'saved';
     showNotification('Success', `Formula ${actionText} successfully! Processed Amount: ${typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(processedAmount) : processedAmount}`, 'success');
+    // 除 Rate 外：Formula/Source/排列 设置好即马上保存（Rate 仅随 Rate 的 Submit 持久化）
+    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh({ includeRateValue: false });
 }
 
 // Calculate processed amount based on source columns and formula
@@ -7800,10 +8019,17 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
                 return row;
             } else {
                 // CRITICAL: If id_product doesn't match, DO NOT use this row
-                console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValueResolved, 'Found:', rowValue, '. Falling back to id_product search.');
+                // 逻辑保持不变，仅降级为 log，避免在正常回退场景下刷 warn
+                console.log('findProcessRow: rowIndex provided but id_product mismatch, falling back to id_product search.', {
+                    rowIndex,
+                    expected: processValueResolved,
+                    found: rowValue
+                });
             }
         } else {
-            console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but row is invalid. Falling back to id_product search.');
+            console.log('findProcessRow: rowIndex provided but row is invalid, falling back to id_product search.', {
+                rowIndex
+            });
         }
     }
 
@@ -10321,6 +10547,7 @@ function attachRateValueEditListener(cell, row) {
                     cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                     updateProcessedAmountTotal();
                 }
+                // Rate Value 仅在选择行后点 Rate 的 Submit 才持久化，此处不保存
             } else {
                 // Cancel: restore original value
                 cellElement.textContent = savedOriginalValue;
@@ -12603,9 +12830,14 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
     
     // Id Product column (merged main and sub)
     const idProductCell = document.createElement('td');
-    idProductCell.textContent = '';
+    // 显示与父 MAIN 相同的 Id Product 文本，但通过 sub-id-product class 做视觉缩进
+    const parentDisplayId = (parentProcessValue || '').trim();
+    idProductCell.textContent = parentDisplayId;
     idProductCell.className = 'id-product sub-id-product';
-    idProductCell.setAttribute('data-main-product', (parentProcessValue || '').trim());
+    if (parentDisplayId) {
+        idProductCell.setAttribute('title', parentDisplayId);
+    }
+    idProductCell.setAttribute('data-main-product', parentDisplayId);
     idProductCell.setAttribute('data-sub-product', '');
     row.appendChild(idProductCell);
     
@@ -12827,17 +13059,22 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
             console.log('Set sub_order:', subOrder, 'for new sub row inserted after row at index:', insertAfterIndex);
         }
         
-        // Set creation order based on insertion position
-        // Get creation order from the row we inserted after, and use a value slightly larger
-        // This ensures the new row appears right after the insertAfterRow when sorted by creation_order
-        let creationOrder = Date.now();
+        // 点击哪一行的 +，新行就排在那一行底下：用 creation_order 保证重排后仍在被点击行正下方
+        // 若被插入行无 data-creation-order（如 main 行），用 0.5 使新行排在 main(0) 下、其余 sub(1,2,3) 前
+        let creationOrder = 0.5;
         if (insertAfterRow) {
             const insertAfterCreationOrderAttr = insertAfterRow.getAttribute('data-creation-order');
-            if (insertAfterCreationOrderAttr) {
+            if (insertAfterCreationOrderAttr && insertAfterCreationOrderAttr !== '' && !Number.isNaN(Number(insertAfterCreationOrderAttr))) {
                 const insertAfterCreationOrder = Number(insertAfterCreationOrderAttr);
-                // Use a value slightly larger than the row we inserted after
-                // This ensures new row appears right after it when rows have same row_index
-                creationOrder = insertAfterCreationOrder + 1;
+                // 若有下一行，插在两者之间；否则插在后面
+                const nextRow = insertAfterRow.nextElementSibling;
+                const nextOrderAttr = nextRow ? nextRow.getAttribute('data-creation-order') : null;
+                const nextOrder = (nextOrderAttr && nextOrderAttr !== '' && !Number.isNaN(Number(nextOrderAttr))) ? Number(nextOrderAttr) : null;
+                if (nextOrder !== null && nextOrder > insertAfterCreationOrder) {
+                    creationOrder = (insertAfterCreationOrder + nextOrder) / 2;
+                } else {
+                    creationOrder = insertAfterCreationOrder + 1;
+                }
             }
         }
         row.setAttribute('data-creation-order', String(creationOrder));
@@ -13054,14 +13291,17 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
             rateInput.value = data.rate;
         }
         
-        // If checkbox is checked, display rateInput value in Rate Value cell
+        // If checkbox is checked, display rateInput value in Rate Value cell (from template/API or global rateInput)
         const rateValueCell = cells[7];
         if (rateCheckbox.checked && rateValueCell) {
             const hasRateValueInput = rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '';
             if (!hasRateValueInput) {
-                const currentRateInput = document.getElementById('rateInput');
-                if (currentRateInput && currentRateInput.value.trim() !== '') {
-                    rateValueCell.textContent = currentRateInput.value.trim();
+                const valueToShow = (hasRateValue && data.rate != null && String(data.rate).trim() !== '')
+                    ? String(data.rate).trim()
+                    : (document.getElementById('rateInput') && document.getElementById('rateInput').value.trim() !== ''
+                        ? document.getElementById('rateInput').value.trim() : '');
+                if (valueToShow !== '') {
+                    rateValueCell.textContent = valueToShow;
                 }
             }
         }
@@ -13246,8 +13486,17 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     row.setAttribute('data-product-type', data.productType || 'sub');
     row.setAttribute('data-parent-id-product', processValue);
     const idProductCellForSub = row.querySelector('td:first-child');
-    if (idProductCellForSub && !idProductCellForSub.classList.contains('sub-id-product')) {
-        idProductCellForSub.classList.add('sub-id-product');
+    if (idProductCellForSub) {
+        if (!idProductCellForSub.classList.contains('sub-id-product')) {
+            idProductCellForSub.classList.add('sub-id-product');
+        }
+        // 确保 Sub 行的 Id Product 文本与父 MAIN 一致，避免出现空白导致“分开”的视觉效果
+        const parentDisplayId = (processValue || '').trim();
+        if (parentDisplayId && !idProductCellForSub.textContent.trim()) {
+            idProductCellForSub.textContent = parentDisplayId;
+            idProductCellForSub.setAttribute('data-main-product', parentDisplayId);
+            idProductCellForSub.setAttribute('title', parentDisplayId);
+        }
     }
     
     // Preserve sub_order if provided, otherwise keep existing value
@@ -13622,18 +13871,31 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
 }
 
 // Auto-populate summary table rows from saved templates
+// 优先精确匹配整串 id_product（如 GAMS(SV)HKD），避免与 GAMS(SV)MYR 等仅 normalize 相同的行混用
 function findSummaryRowByIdProduct(idProduct) {
 const summaryTableBody = document.getElementById('summaryTableBody');
 if (!summaryTableBody) {
 return null;
 }
 
+const idProductTrimmed = (idProduct || '').trim();
 const desired = normalizeIdProductText(idProduct);
-if (!desired) {
+if (!desired && !idProductTrimmed) {
 return null;
 }
 
 const rows = summaryTableBody.querySelectorAll('tr');
+// 1) 先找整串完全一致的行，避免 GAMS(SV)HKD 匹配到 GAMS(SV)MYR
+for (const row of rows) {
+const idProductCell = row.querySelector('td:first-child');
+const productValues = getProductValuesFromCell(idProductCell);
+const mainRaw = (productValues.main || '').trim();
+const subRaw = (productValues.sub || '').trim();
+if (idProductTrimmed && (mainRaw === idProductTrimmed || subRaw === idProductTrimmed)) {
+    return row;
+}
+}
+// 2) 再按 normalize 匹配（兼容旧逻辑）
 for (const row of rows) {
 const idProductCell = row.querySelector('td:first-child');
 const productValues = getProductValuesFromCell(idProductCell);
@@ -13658,26 +13920,8 @@ if (!Array.isArray(idProducts)) {
     return;
 }
 
-// Build a map of normalized id -> original display value
-const normalizedIdMap = new Map();
-idProducts.forEach(value => {
-    if (!value) {
-        return;
-    }
-    const trimmed = value.trim();
-    if (!trimmed) {
-        return;
-    }
-    const normalized = normalizeIdProductText(trimmed);
-    if (!normalized) {
-        return;
-    }
-    if (!normalizedIdMap.has(normalized)) {
-        normalizedIdMap.set(normalized, trimmed);
-    }
-});
-
-const uniqueIds = Array.from(normalizedIdMap.keys());
+// 用完整 id_product 列表请求，不按「括号前」合并，保证 GAMS(SV)HKD 与 GAMS(SV)MYR 分开
+const uniqueIds = [...new Set(idProducts.map(v => (v || '').trim()).filter(Boolean))];
 
 if (uniqueIds.length === 0) {
     return;
@@ -13814,23 +14058,11 @@ if (summaryTableBody && capturedTableBody) {
     });
 }
 
-// Match templates using original case-sensitive idProduct
-// But use normalized version to find the row in the table
-// IMPORTANT: Use original full idProduct value (from normalizedIdMap) when applying templates
-// to preserve complete text (e.g., "AG(AGIN) - OP7AUD=SLOT" instead of just "AG")
-// 兼容：API 可能用短 id（如 G8:GAMEPLAY）作 key，行 id 为完整串；用 templateKey 匹配「行 id 以 templateKey 开头」的项
-uniqueIds.forEach(normalizedIdProduct => {
-    let template = templates[normalizedIdProduct];
-    let originalIdProduct = normalizedIdMap.get(normalizedIdProduct) || normalizedIdProduct;
-    if (!template && normalizedIdProduct.indexOf(' - ') >= 0) {
-        for (const templateKey of Object.keys(templates)) {
-            if (templateKey === normalizedIdProduct || normalizedIdProduct.startsWith(templateKey + ' ') || normalizedIdProduct.startsWith(templateKey + '(')) {
-                template = templates[templateKey];
-                originalIdProduct = normalizedIdMap.get(normalizedIdProduct) || normalizedIdProduct;
-                break;
-            }
-        }
-    }
+// API 已按完整 id_product 分组，直接按 template key（完整 id，如 GAMS(SV)HKD）迭代，不要只检测 GAMS 前面
+Object.keys(templates).forEach(templateKey => {
+    const template = templates[templateKey];
+    const originalIdProduct = templateKey;
+    const normalizedIdProduct = normalizeIdProductText(templateKey);
     if (template) {
         // Check if there are multiple main templates for the same id_product (different accounts)
         if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
@@ -13860,20 +14092,7 @@ uniqueIds.forEach(normalizedIdProduct => {
                     }
                 });
 
-                // 安全保护：
-                // 如果同一个 id_product 在模板里有多个不同账号的 main 公式，
-                // 但 Summary 表中当前只有 1 行可以套用，
-                // 为避免把「A 账号的模板」错误套到「B 账号」这一行上，
-                // 直接跳过自动套模板，让用户手动选择账号和公式。
-                if (candidateRowCount === 1 && templateAccountIds.size > 1) {
-                    console.warn(
-                        'Skip auto-populate templates for id_product with multiple accounts but single row:',
-                        normalizedIdProduct,
-                        'account_ids=',
-                        Array.from(templateAccountIds)
-                    );
-                    return;
-                }
+                // 不再因「多账号单行」而跳过：始终套用模板，单行由 applyMainTemplateToRow 按 account_id/row_index 匹配其中一个模板，确保有储存的 formula 能套上且不丢失。
             }
             // Sort templates by row_index to apply them in the correct order
             const sortedTemplates = [...template.allMains].sort((a, b) => {
@@ -13907,17 +14126,24 @@ uniqueIds.forEach(normalizedIdProduct => {
                     }
                 }
             });
-            // Fallback: when we have subs but none were applied (e.g. 2 main templates but only 1 physical row, so second main had no row), apply subs to the first row for this id_product
+            // Fallback: when we have subs but none were applied (e.g. main row was deleted), only apply subs to a row whose main id_product **exactly** matches the sub's parent (e.g. GAMS(SV)HKD), never to another id_product (e.g. GAMS(SV)MYR), otherwise sub 会跑去和别的 id_product mix
             if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
                 const firstRow = findSummaryRowByIdProduct(originalIdProduct);
-                if (firstRow && normalizeIdProductText(originalIdProduct || '') === normalizedIdProduct) {
-                    const mainNorm = normalizedIdProduct;
-                    const subsToApply = template.subs.filter(sub => {
-                        const subParentNorm = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
-                        return mainNorm && normalizeIdProductText(subParentNorm) === mainNorm;
-                    });
-                    if (subsToApply.length > 0) {
-                        applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
+                if (firstRow) {
+                    const idProductCell = firstRow.querySelector('td:first-child');
+                    const productValues = getProductValuesFromCell(idProductCell);
+                    const rowMainId = (productValues.main || '').trim();
+                    // 必须整串一致才套用：避免 GAMS(SV)HKD 的 sub 被套到 GAMS(SV)MYR 行（normalize 后都是 GAMS）
+                    const rowIsExactParent = rowMainId === (originalIdProduct || '').trim();
+                    if (rowIsExactParent) {
+                        const mainNorm = normalizedIdProduct;
+                        const subsToApply = template.subs.filter(sub => {
+                            const subParentNorm = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
+                            return mainNorm && normalizeIdProductText(subParentNorm) === mainNorm;
+                        });
+                        if (subsToApply.length > 0) {
+                            applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
+                        }
                     }
                 }
             }
@@ -13937,12 +14163,12 @@ if (summaryTableBody) {
         if (!idCell) return;
         const productValues = getProductValuesFromCell(idCell);
         const mainId = (productValues.main || '').trim();
-        const normalizedId = normalizeIdProductText(mainId);
-        if (!normalizedId) return;
-        let hasTemplate = !!templates[normalizedId];
-        if (!hasTemplate && normalizedId.indexOf(' - ') >= 0) {
+        if (!mainId) return;
+        // 按完整 id 检测是否有模板，避免 GAMS(SV)HKD 只匹配到 GAMS 而误判
+        let hasTemplate = !!templates[mainId];
+        if (!hasTemplate) {
             for (const templateKey of Object.keys(templates)) {
-                if (templateKey === normalizedId || normalizedId.startsWith(templateKey + ' ') || normalizedId.startsWith(templateKey + '(')) {
+                if (templateKey === mainId || mainId.startsWith(templateKey + ' ') || mainId.startsWith(templateKey + '(')) {
                     hasTemplate = true;
                     break;
                 }
@@ -13964,8 +14190,26 @@ if (summaryTableBody) {
     });
 }
 
-// After applying all templates, reorder rows globally by row_index
-reorderSummaryRowsByRowIndex();
+// After applying all templates, reorder rows by row_index — 但若本地有已保存的行顺序待恢复，则跳过，避免覆盖用户顺序（NO/API GSC 等）
+let skipRowIndexReorder = false;
+try {
+    const savedRaw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
+    if (savedRaw) {
+        const saved = JSON.parse(savedRaw);
+        if (saved && typeof saved === 'object' && !Array.isArray(saved) && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0) {
+            const currentId = getCurrentProcessId();
+            const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
+            const savedId = saved.processId != null ? saved.processId : null;
+            const savedCode = (typeof saved.processCode === 'string' ? saved.processCode : '').trim();
+            const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
+            const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+            if (idMatch && codeMatch) skipRowIndexReorder = true;
+        }
+    }
+} catch (e) {}
+if (!skipRowIndexReorder && typeof reorderSummaryRowsByRowIndex === 'function') {
+    reorderSummaryRowsByRowIndex();
+}
 } catch (error) {
 console.error('Error auto-populating summary rows:', error);
 }
@@ -14568,7 +14812,11 @@ allRows.forEach((row, index) => {
     let idMatches = mainCellText === normalizedTargetId
         || (normalizedTargetId && mainRaw.indexOf(' - ') >= 0 && (mainRaw === normalizedTargetId || mainRaw.startsWith(normalizedTargetId + ' ') || mainRaw.startsWith(normalizedTargetId + '(')));
     if (idMatches && typeof isFullIdProduct === 'function' && isFullIdProduct(idProduct)) {
-        idMatches = normalizeSpacesId(mainRaw) === normalizeSpacesId((idProduct || '').trim());
+        // 当模板是完整 id（如 WINBEST (KM)MYR）而表格行只有基础 id（如 WINBEST）时，仍视为候选行，由后续 account_id/row_index 区分
+        const rowIsFull = isFullIdProduct(mainRaw);
+        if (rowIsFull) {
+            idMatches = normalizeSpacesId(mainRaw) === normalizeSpacesId((idProduct || '').trim());
+        }
     }
     if (idMatches) {
         const accountCell = row.querySelector('td:nth-child(2)');
@@ -14823,15 +15071,16 @@ if (!targetRow) {
     return;
 }
 
-// 确保 main 行的 Id Product 单元格有显示（DB 有数据时从 template 恢复，否则用查找时用的 idProduct）
-const mainDisplayId = (mainTemplate.id_product && mainTemplate.id_product.trim()) || (idProduct && idProduct.trim()) || '';
-if (mainDisplayId) {
-    const idCell = targetRow.querySelector('td:first-child');
-    if (idCell) {
-        idCell.setAttribute('data-main-product', mainDisplayId);
+// 保持与 Data Capture Table 一致：Id Product 以表格 A 列为准，不替换为模板的 id_product
+const idCell = targetRow.querySelector('td:first-child');
+if (idCell) {
+    const fromTable = (idCell.textContent || '').trim() || (idCell.getAttribute('data-main-product') || '').trim();
+    const displayId = fromTable || (mainTemplate.id_product && mainTemplate.id_product.trim()) || (idProduct && idProduct.trim()) || '';
+    if (displayId) {
+        idCell.setAttribute('data-main-product', displayId);
         idCell.setAttribute('data-sub-product', '');
-        idCell.textContent = mainDisplayId;
-        idCell.setAttribute('title', mainDisplayId);
+        idCell.textContent = displayId;
+        idCell.setAttribute('title', displayId);
     }
 }
 
@@ -15504,7 +15753,8 @@ const data = {
     rowIndex: (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null)
         ? Number(mainTemplate.row_index)
         : null,
-    preserveIdProductDisplay: true
+    preserveIdProductDisplay: true,
+    rate: (mainTemplate.rate != null && mainTemplate.rate !== '') ? String(mainTemplate.rate) : undefined
 };
 
 updateSummaryTableRow(idProduct, data, targetRow);
@@ -15575,7 +15825,14 @@ const rowData = rows.map((row, originalIndex) => {
     const idProductCell = row.querySelector('td:first-child');
     const productValues = getProductValuesFromCell(idProductCell);
     const mainTextRaw = (productValues.main || '').trim();
-    const productType = row.getAttribute('data-product-type') || 'main';
+    // 兼容旧/异常数据：如果标记为 main 但带有 parent-id，则视为 sub，保证 main / sub 不会被拆散到不同分组
+    let productType = row.getAttribute('data-product-type') || 'main';
+    if (productType === 'main') {
+        const parentAttr = row.getAttribute('data-parent-id-product');
+        if (parentAttr && parentAttr.trim() !== '') {
+            productType = 'sub';
+        }
+    }
     
     let normalizedMain = '';
     if (productType === 'sub') {
@@ -15624,52 +15881,76 @@ const rowData = rows.map((row, originalIndex) => {
     };
 });
 
-// Separate rows with and without row_index
-const withIndex = rowData.filter(r => r.rowIndex !== null);
-const withoutIndex = rowData.filter(r => r.rowIndex === null);
+// IMPORTANT: 全局排序逻辑说明（以 Data Capture 行顺序为绝对基准）：
+// 1. Primary Key：dataCapturePosition（来自 Data Capture Table 行号，基于完整 Id Product 去空格）
+//    ——保证 Summary 中不同 Id Product 之间的顺序，与 Data Capture Table 完全一致
+// 2. Secondary Key：row_index（旧逻辑中已经写入的行索引，用作兼容 / 兜底）
+// 3. 在同一 dataCapturePosition + row_index 内，只按 originalIndex 排序，保持当前 DOM 中 main/sub 的相对顺序
+// 4. 对于找不到 dataCapturePosition 的行（999999），整体排在最后，再按 row_index / originalIndex 排序
+const orderedRows = rowData
+    .slice()
+    .sort((a, b) => {
+        const aPos = a.dataCapturePosition;
+        const bPos = b.dataCapturePosition;
+        const aHasValidPos = aPos !== null && aPos !== undefined && !Number.isNaN(aPos) && aPos < 999999;
+        const bHasValidPos = bPos !== null && bPos !== undefined && !Number.isNaN(bPos) && bPos < 999999;
 
-// IMPORTANT: Sort rows to follow Data Capture Table row order (console "Preserved existing row_index" order),
-// and within same row position: main before sub, then account_order so sub stays under main.
-// 重要：先按 Data Capture Table 行顺序（row_index）排列，与 console 的 row 顺序一致；同一行内 main 在 sub 前。
-withIndex.sort((a, b) => {
-    // Primary sort: by row_index so order matches Data Capture Table (0, 1, 2, 3...), e.g. citibet submit
-    // 主排序：按 row_index，使 Summary 表顺序与 Data Capture Table 一致（如 0 HD6221, 1 HM6221, 2 MY EARNINGS, 3 HD6221...）
-    if (a.rowIndex !== b.rowIndex) {
-        return a.rowIndex - b.rowIndex;
-    }
-    
-    // Same row_index (e.g. multiple entries from one cell): main before sub, then account_order, creation order
-    // 同一 row_index（如同一格拆多行）：main 在 sub 前，再按 account_order、creation order
-    const aIsSub = a.productType === 'sub';
-    const bIsSub = b.productType === 'sub';
-    if (!aIsSub && bIsSub) return -1;
-    if (aIsSub && !bIsSub) return 1;
-    
-    if (!aIsSub && !bIsSub) {
-        if (a.accountOrder !== b.accountOrder) return a.accountOrder - b.accountOrder;
-        return a.creationOrder - b.creationOrder;
-    }
-    
-    if (a.subOrder !== null && b.subOrder !== null && a.subOrder !== b.subOrder) return a.subOrder - b.subOrder;
-    if (a.subOrder !== null) return -1;
-    if (b.subOrder !== null) return 1;
-    return a.creationOrder - b.creationOrder;
-});
+        // 如果是同一组（同一个 Main 的 main/sub），不要用 dataCapturePosition 把它们拆开
+        const sameGroup =
+            a.normalizedMain &&
+            b.normalizedMain &&
+            a.normalizedMain === b.normalizedMain;
 
-// Get ordered rows with index
-const orderedRowsWithIndex = withIndex.map(data => data.row);
+        if (!sameGroup) {
+            // 先按是否在 Data Capture Table 中找到位置（有位置的始终在前）
+            if (aHasValidPos && !bHasValidPos) return -1;
+            if (!aHasValidPos && bHasValidPos) return 1;
 
-// Sort rows without row_index by originalIndex (maintain their current order)
-withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
-const orderedRowsWithoutIndex = withoutIndex.map(data => data.row);
+            // 双方都有有效 dataCapturePosition：完全以 Data Capture 行号排序
+            if (aHasValidPos && bHasValidPos && aPos !== bPos) {
+                return aPos - bPos;
+            }
+        }
 
-// Combine: rows with index first (sorted by Data Capture Table order), then rows without index
-const orderedRows = [...orderedRowsWithIndex, ...orderedRowsWithoutIndex];
+        // 走到这里，要么：
+        // - 两边都没有有效位置，或
+        // - 位置相同，或
+        // - 同一 Id Product 分组（sameGroup=true），我们有意忽略 dataCapturePosition 差异
+        const aHasIndex = a.rowIndex !== null;
+        const bHasIndex = b.rowIndex !== null;
 
-// Re-append rows in new order
+        // 再按 row_index（如果双方都有）
+        if (aHasIndex && bHasIndex && a.rowIndex !== b.rowIndex) {
+            return a.rowIndex - b.rowIndex;
+        }
+
+        // 在同一 Id Product 分组里，main 永远排在 sub 上面
+        if (sameGroup) {
+            const aType = a.productType || 'main';
+            const bType = b.productType || 'main';
+            if (aType !== bType) {
+                return aType === 'main' ? -1 : 1;
+            }
+            // 同组内均为 sub 时，按 sub_order 升序（与数据库一致：sub_order 1 在 2 上面）
+            if (aType === 'sub' && bType === 'sub') {
+                const aSub = a.subOrder != null && !Number.isNaN(Number(a.subOrder)) ? Number(a.subOrder) : 999999;
+                const bSub = b.subOrder != null && !Number.isNaN(Number(b.subOrder)) ? Number(b.subOrder) : 999999;
+                if (aSub !== bSub) return aSub - bSub;
+            }
+        }
+
+        // 其它所有情况：保持当前 DOM 的相对顺序（保证 main/sub 连在一起且 main 在前）
+        return a.originalIndex - b.originalIndex;
+    })
+    .map(data => data.row);
+
+// 按新顺序重新挂载行
 orderedRows.forEach(row => summaryTableBody.appendChild(row));
 
-console.log('Reordered rows by Data Capture Table order. Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length);
+console.log(
+    'Reordered rows by Data Capture Table order.',
+    'Total rows:', orderedRows.length
+);
 } catch (e) {
 console.warn('Failed to reorder summary rows by row_index', e);
 }
@@ -15831,7 +16112,10 @@ let lastRowInGroup = mainRow;
 validSubTemplates.forEach((template, templateIndex) => {
 let insertAfterRow = lastRowInGroup;
 
-if (template.row_index !== undefined && template.row_index !== null) {
+// 仅当上一行是 main 时，才用 row_index 选择插入位置（决定挂在哪个 main 下）；
+// 若上一行已是 sub，说明正在按 sub_order 顺序追加，不再改回 main，保证 sub_order 1 在 sub_order 2 上面
+const lastIsSub = lastRowInGroup && (lastRowInGroup.getAttribute('data-product-type') || 'main') === 'sub';
+if (!lastIsSub && template.row_index !== undefined && template.row_index !== null) {
     const desiredIndex = Number(template.row_index);
     if (!Number.isNaN(desiredIndex)) {
         // 在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
@@ -17069,60 +17353,46 @@ function deleteSelectedRows() {
     
     showConfirmDelete(
         `Are you sure you want to delete ${validRowsToDelete.length} selected row(s)? This action cannot be undone.`,
-        async function() {
-            // Extract template information from rows before deletion
+        function() {
+            // 先收集 template 信息再删 DOM，否则 row 引用会失效
             const templatesToDelete = [];
             validRowsToDelete.forEach(item => {
                 const row = item.row;
                 const templateKey = row.getAttribute('data-template-key');
-                const templateId = row.getAttribute('data-template-id');
-                const formulaVariant = row.getAttribute('data-formula-variant');
+                const templateIdRaw = row.getAttribute('data-template-id');
+                const templateId = templateIdRaw && templateIdRaw.trim() !== '' ? (parseInt(templateIdRaw, 10) || null) : null;
+                const formulaVariantRaw = row.getAttribute('data-formula-variant');
+                const formulaVariant = formulaVariantRaw && formulaVariantRaw.trim() !== '' ? (parseInt(formulaVariantRaw, 10) || null) : null;
                 const productType = row.getAttribute('data-product-type') || 'main';
-                
-                // Only delete template if template_key exists (row has been saved)
                 if (templateKey) {
                     templatesToDelete.push({
                         template_key: templateKey,
-                        template_id: templateId || null,
-                        formula_variant: formulaVariant || null,
+                        template_id: templateId,
+                        formula_variant: formulaVariant,
                         product_type: productType
                     });
                 }
             });
-            
-            // Delete templates from database asynchronously
-            if (templatesToDelete.length > 0) {
-                const deletePromises = templatesToDelete.map(template => 
-                    deleteTemplateAsync(template.template_key, template.product_type, template.template_id, template.formula_variant)
-                );
-                
-                try {
-                    await Promise.all(deletePromises);
-                    console.log(`Deleted ${templatesToDelete.length} template(s) from database`);
-                } catch (error) {
-                    console.error('Error deleting templates:', error);
-                    // Don't block UI if template deletion fails
-                }
-            }
-            
-            // Remove selected rows from the table
+            // 先立刻从表格移除行并更新 UI，再在后台调 API，避免等 5～10 秒
             validRowsToDelete.forEach(item => {
-                const row = item.row;
-                const addCell = row.querySelector('td:nth-child(3)'); // Add column
-                const hasAddButton = addCell && addCell.querySelector('.add-account-btn');
-                
-                // If this is a sub row with + button, we need to add a new empty sub row
-                row.remove();
+                if (item.row && item.row.parentNode) item.row.remove();
             });
-            // Rebuild used accounts after deletions
             rebuildUsedAccountIds();
-            
-            // Update delete button state
             updateDeleteButton();
-            
             updateProcessedAmountTotal();
-            
             showNotification('Success', `${validRowsToDelete.length} row(s) deleted successfully!`, 'success');
+            // 后台删除模板，不阻塞界面
+            if (templatesToDelete.length > 0) {
+                const deletePromises = templatesToDelete.map(t => 
+                    deleteTemplateAsync(t.template_key, t.product_type, t.template_id, t.formula_variant)
+                );
+                Promise.all(deletePromises).then(() => {
+                    console.log('Deleted', templatesToDelete.length, 'template(s) from database');
+                }).catch(err => {
+                    console.error('Error deleting templates:', err);
+                    showNotification('Warning', 'Row(s) removed from table; some template cleanup failed. You may refresh to sync.', 'warning');
+                });
+            }
         }
     );
 }
@@ -18213,6 +18483,8 @@ async function submitSummaryData() {
             setTimeout(() => {
                 window.isNavigatingAwayByBackOrSubmit = true;
                 try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
+                try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+                try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
                 try { localStorage.removeItem('capturedCaptureId'); } catch (e) {}
                 localStorage.removeItem('capturedTableData');
                 localStorage.removeItem('capturedProcessData');
