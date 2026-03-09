@@ -2419,28 +2419,21 @@ function submitAction() {
                 });
             }
             
-            // 重新搜索刷新数据（如果已经搜索过）
-            const dateFrom = document.getElementById('date_from').value;
-            const dateTo = document.getElementById('date_to').value;
-            const submittedDate = transactionDate;
-            
-            console.log('📅 日期信息:', {
-                submittedDate: submittedDate,
-                searchDateFrom: dateFrom,
-                searchDateTo: dateTo
-            });
-            
-            if (dateFrom && dateTo) {
-                // 延迟刷新，确保数据库事务已提交
-                console.log('🔄 准备刷新数据...');
-                setTimeout(() => {
-                    console.log('🔄 开始刷新数据...');
-                    searchTransactions();
-                    
-                    // 已移除：提交日期不在当前搜索范围的提示通知
-                }, 1000);
-            } else {
-                console.log('⚠️ 没有日期范围，跳过自动刷新');
+            // 重新搜索刷新数据：提交成功后立即刷新 Transaction List
+            // 若日期范围为空，则先帮用户填上默认日期（今天），保证可以刷新列表
+            const dateFromInput = document.getElementById('date_from');
+            const dateToInput = document.getElementById('date_to');
+            const hasDateRange = dateFromInput && dateToInput &&
+                (dateFromInput.value || '').trim() &&
+                (dateToInput.value || '').trim();
+
+            if (!hasDateRange && typeof ensureDefaultDates === 'function') {
+                ensureDefaultDates();
+            }
+
+            console.log('🔄 提交成功后立即刷新 Transaction List');
+            if (typeof searchTransactions === 'function') {
+                searchTransactions();
             }
         } else {
             showNotification(data.error || 'Submit failed', 'error');
