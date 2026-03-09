@@ -6836,10 +6836,10 @@ let isSelecting = false;
                 
                 // 直接填充到表格
                 const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                // VPOWER、AGENT_LINK 和 ALIPAY 格式：强制从第一列（Column 1）开始粘贴
+                // VPOWER、AGENT_LINK、ALIPAY、1.Text：强制从第一列开始粘贴，保证解析顺序与表格列顺序一致
                 let startCol = parseInt(startCell.dataset.col);
                 if (typeof currentDataCaptureType !== 'undefined' && 
-                    (currentDataCaptureType === 'VPOWER' || currentDataCaptureType === 'AGENT_LINK' || currentDataCaptureType === 'ALIPAY')) {
+                    (currentDataCaptureType === 'VPOWER' || currentDataCaptureType === 'AGENT_LINK' || currentDataCaptureType === 'ALIPAY' || currentDataCaptureType === '1.Text')) {
                     startCol = 0;
                 }
                 
@@ -9963,11 +9963,11 @@ let isSelecting = false;
                             }
                         });
                         
-                        // 填充到表格，保持原始格式
+                        // 填充到表格，保持原始格式。始终从第 0 列开始写，避免点击靠右单元格时 No./User 等前几列被写到后面
                         if (dataMatrix.length > 0 && maxCols > 0) {
                             const startCell = e.target;
                             const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = parseInt(startCell.dataset.col);
+                            const startCol = 0;
                             
                             const currentRows = document.querySelectorAll('#tableBody tr').length;
                             const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
