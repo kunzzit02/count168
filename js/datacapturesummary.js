@@ -9434,29 +9434,17 @@ function preserveFormulaStructure(savedFormulaDisplay, newSourceData, sourcePerc
         console.log('Extracted base savedNumbers from formulaPart (excluding structure):', savedNumbers);
         console.log('Base numbers from newSourceData:', numbers);
         
-        // Validate that we have matching base number counts (excluding structure numbers)
-        // We only check count, not values, because value changes are expected when Data Capture Table data changes
+        // 骨干数字个数不一致时，直接保留原公式，不再尝试“聪明替换”，
+        // 避免出现你截图中那种 New formulaPart after replacement 被意外改写的情况。
+        // 这样 Summary 里的展示公式会始终与数据库中保存的 formula_display / Edit 灰色框一致。
         if (savedNumbers.length !== numbers.length) {
-            console.warn('Base number count mismatch:', {
+            console.warn('Base number count mismatch, preserving original formula_display without replacement:', {
                 savedNumbers: savedNumbers.length,
                 newNumbers: numbers.length,
                 savedFormulaPart: formulaPart,
                 newSourceData: newSourceData
             });
-            // IMPORTANT: If percent is inside parentheses (e.g., (5.6*0.1)+0), 
-            // we should try to update numbers even if count doesn't match.
-            // This allows formula to reflect current Data Capture Table data.
-            // We'll use the minimum count and try to replace as many numbers as possible.
-            if (isPercentInsideParens) {
-                console.log('Base number count mismatch but percent is inside parentheses, attempting to update numbers with available data');
-                // Continue with number replacement using minimum count
-                // This will replace as many numbers as possible while preserving structure
-            } else {
-                // If counts don't match, return null to signal that formula should be recalculated
-                // This happens when Data Capture Table data changes and formula structure no longer matches
-                console.log('Base number count mismatch detected, returning null to trigger formula recalculation');
-                return null; // Return null to signal recalculation needed
-            }
+            return savedFormulaDisplay;
         }
         
         // Note: We don't check if values match because value changes are expected when Data Capture Table data changes
