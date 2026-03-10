@@ -11525,16 +11525,12 @@ function updateFormulaAndProcessedAmount(row, data) {
         // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
     }
     
-    // Calculate or get base processed amount
-    // If data.processedAmount is 0, undefined, null, or not provided, recalculate from formula
-    let baseProcessedAmount = data.processedAmount !== undefined && data.processedAmount !== null ? Number(data.processedAmount) : null;
+    // Calculate base processed amount
+    // ⚠ 这里不再直接信任 data.processedAmount（可能是旧模板或上一期的数据），
+    // 统一根据当前公式 + Source% 重新计算，确保每次进入 Summary 都以最新数据为准。
+    let baseProcessedAmount = null;
     
-    // Only recalculate if processedAmount is invalid (0, null, undefined, NaN)
-    // If data.processedAmount has a valid value, use it directly (it was calculated correctly in saveFormula)
-    // Only recalculate when absolutely necessary
-    const needsRecalculation = baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount);
-    
-    if (needsRecalculation) {
+    {
         // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
         const inputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
         const enableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
