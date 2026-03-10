@@ -11990,7 +11990,7 @@ function getProcessValueFromRow(row) {
     
     // Check if Main value has content (this is a main row)
     if (productValues.main) {
-        let mainText = productValues.main.trim().replace(/[: ]+$/, '').trim();
+        let mainText = productValues.main.trim();
         if (mainText) {
             // 仅对明确截断的 id（如 "(T07):AF"）解析为完整 id_product，ALLBET95MS (KM)/(SV) MYR 等不解析
             if (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(mainText)) {
@@ -12003,7 +12003,7 @@ function getProcessValueFromRow(row) {
     
     // Check if Sub value has content (this is a sub row)
     if (productValues.sub) {
-        let subText = productValues.sub.trim().replace(/[: ]+$/, '').trim();
+        let subText = productValues.sub.trim();
         if (subText) {
             // 仅对明确截断的 id 解析为完整 id_product
             if (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(subText)) {
@@ -13741,7 +13741,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         
         if (cells[0]) { // Id Product (merged)
             const productValues = getProductValuesFromCell(cells[0]);
-            const idProductText = (data.idProduct || '').trim().replace(/[: ]+$/, '');
+            const idProductText = (data.idProduct || '').trim();
             const isSubRow = !productValues.main || !productValues.main.trim();
             // main 行：若 data.idProduct 为空且已有 main 显示，不覆盖，避免 main 的 Id_product 消失
             const preserveIdProduct = data.preserveIdProductDisplay && (productValues.main || '').trim() !== '';
@@ -18067,11 +18067,11 @@ async function submitSummaryData() {
             const idProductSubRaw = productValues.sub || '';
             const idProductCellText = idProductCell ? idProductCell.textContent.trim() : '';
             
-            // Extract product ID：id_product 整串保留，不对其内符号做任何解析或逻辑
+            // Extract product ID：id_product 整串保留（含冒号等），与资料库一致
             let cleanIdProductMain = '';
             let descriptionMain = '';
             if (idProductMainRaw) {
-                cleanIdProductMain = idProductMainRaw.replace(/[: ]+$/, '').trim();
+                cleanIdProductMain = idProductMainRaw.trim();
                 // 如果单元格文本中在主产品后面还有括号内容（例如 "IK-SPORT (红股)"），
                 // 将括号内的文字提取为 descriptionMain，方便在 Payment History 中显示为 "IK-SPORT (红股)"。
                 if (idProductCellText && idProductCellText.length > cleanIdProductMain.length) {
@@ -18085,7 +18085,7 @@ async function submitSummaryData() {
             let cleanIdProductSub = '';
             let descriptionSub = '';
             if (idProductSubRaw) {
-                cleanIdProductSub = idProductSubRaw.replace(/[: ]+$/, '').trim();
+                cleanIdProductSub = idProductSubRaw.trim();
             }
             
             // Determine product type: 'main' if Main value has value, 'sub' if only Sub value has value
