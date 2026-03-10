@@ -520,9 +520,8 @@ function saveFormulaSourceForRefresh(opts) {
 
 // 从服务端获取 Summary 状态（行顺序 + 公式/Source/Rate），失败或为空则返回 null
 function fetchSummaryStateFromServer(processId, processCode) {
-    const base = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' && window.DATACAPTURESUMMARY_COMPANY_ID != null)
-        ? 'api/datacapture_summary/summary_api.php?action=get_summary_state&company_id=' + window.DATACAPTURESUMMARY_COMPANY_ID
-        : 'api/datacapture_summary/summary_api.php?action=get_summary_state';
+    // 为避免 company_id 与服务器端权限判断不一致导致 403，这里不再显式传 company_id，由后端根据当前会话自动识别公司
+    const base = 'api/datacapture_summary/summary_api.php?action=get_summary_state';
     const params = new URLSearchParams();
     if (processId != null && processId !== '') params.set('process_id', String(processId));
     if (processCode != null && processCode !== '') params.set('process_code', String(processCode));
@@ -539,9 +538,8 @@ function fetchSummaryStateFromServer(processId, processCode) {
 // 将 Summary 状态保存到服务端（与 localStorage 双写），不阻塞 UI
 function saveSummaryStateToServer(payload) {
     if (!payload || typeof payload !== 'object') return;
-    const companyId = typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null;
-    if (companyId == null) return;
-    const url = 'api/datacapture_summary/summary_api.php?action=save_summary_state&company_id=' + companyId;
+    // 为避免 company_id 与服务器端权限判断不一致导致 403，这里不再显式传 company_id，由后端根据当前会话自动识别公司
+    const url = 'api/datacapture_summary/summary_api.php?action=save_summary_state';
     fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
