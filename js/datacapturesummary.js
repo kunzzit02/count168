@@ -269,6 +269,36 @@ function getSummaryRowKey(row) {
     ].map(v => (v || '').trim()).join('\t');
 }
 
+// 仅用于「Rate Value」的保存/恢复：去掉 Rate Value 本身，避免因为 Rate 变化导致 key 不稳定。
+// 这样同一行在刷新前后，key 始终只依赖 Id Product / Account / Currency / Formula / Source。
+function getSummaryRowKeyForRate(row) {
+    const cells = row.querySelectorAll('td');
+
+    const idProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+    const account = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
+    const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
+
+    let formula = '';
+    if (cells[4]) {
+        const formulaSpan = cells[4].querySelector('.formula-text');
+        if (formulaSpan && formulaSpan.textContent) {
+            formula = formulaSpan.textContent.trim();
+        } else if (cells[4].textContent) {
+            formula = cells[4].textContent.trim();
+        }
+    }
+
+    const source = (cells[5] && cells[5].textContent ? cells[5].textContent.trim() : '');
+
+    return [
+        idProduct,
+        account,
+        currency,
+        formula,
+        source
+    ].map(v => (v || '').trim()).join('\t');
+}
+
 // 规范化 key：trim + 合并多余空格，避免刷新后 Account 显示略差导致匹配失败、行被排到最后
 function normalizeSummaryRowKey(key) {
     if (!key || typeof key !== 'string') return '';
@@ -427,7 +457,8 @@ function saveRateValuesForRefresh() {
     const rows = summaryTableBody.querySelectorAll('tr');
     const byKey = {};
     rows.forEach(row => {
-        const key = getSummaryRowKey(row);
+        // 使用不包含 Rate Value 的专用 key，保证刷新前后 key 稳定
+        const key = typeof getSummaryRowKeyForRate === 'function' ? getSummaryRowKeyForRate(row) : getSummaryRowKey(row);
         const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
@@ -488,7 +519,8 @@ function saveFormulaSourceForRefresh(opts) {
     const rateValuesByKey = {};
     if (includeRateValue) {
         rows.forEach(row => {
-            const key = getSummaryRowKey(row);
+            // Rate Value 使用单独的 key（不含 Rate 本身），保证刷新前后 key 稳定
+            const key = typeof getSummaryRowKeyForRate === 'function' ? getSummaryRowKeyForRate(row) : getSummaryRowKey(row);
             const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
             if (!normKey) return;
             const cells = row.querySelectorAll('td');
@@ -742,9 +774,16 @@ function restoreRateValuesFromRefresh() {
             if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
                 const savedKeys = Object.keys(saved);
                 rows.forEach((row) => {
-                    const key = getSummaryRowKey(row);
-                    const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-                    let val = saved[normKey] ?? saved[key];
+                    // 新版：优先使用不含 Rate 的 key，提高稳定性。
+                    const rateKey = typeof getSummaryRowKeyForRate === 'function' ? getSummaryRowKeyForRate(row) : getSummaryRowKey(row);
+                    const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(rateKey) : rateKey;
+                    let val = saved[normKey] ?? saved[rateKey];
+                    // 兼容旧数据：旧版本把 Rate 也包含在 key 里，这里退回到旧 key 尝试一次。
+                    if ((val === undefined || val === null || String(val).trim() === '') && typeof getSummaryRowKey === 'function') {
+                        const legacyKey = getSummaryRowKey(row);
+                        const legacyNormKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(legacyKey) : legacyKey;
+                        val = saved[legacyNormKey] ?? saved[legacyKey];
+                    }
                     if ((val === undefined || val === null || String(val).trim() === '') && normKey) {
                         const idPart = normKey.split('\t')[0] || '';
                         const idNorm = (idPart || '').trim().replace(/\s+/g, ' ');
@@ -790,10 +829,17 @@ function restoreRateValuesFromRefresh() {
         }
         if (rateValuesByKey && Object.keys(rateValuesByKey).length > 0) {
             rows.forEach((row) => {
-                const key = getSummaryRowKey(row);
-                const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+                // 新版：Rate Value 使用不含 Rate 的 key
+                const rateKey = typeof getSummaryRowKeyForRate === 'function' ? getSummaryRowKeyForRate(row) : getSummaryRowKey(row);
+                const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(rateKey) : rateKey;
                 if (!normKey) return;
-                const val = rateValuesByKey[normKey] ?? rateValuesByKey[key];
+                let val = rateValuesByKey[normKey] ?? rateValuesByKey[rateKey];
+                // 兼容旧数据：尝试使用包含 Rate 的旧 key
+                if ((val === undefined || val === null || String(val).trim() === '') && typeof getSummaryRowKey === 'function') {
+                    const legacyKey = getSummaryRowKey(row);
+                    const legacyNormKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(legacyKey) : legacyKey;
+                    val = rateValuesByKey[legacyNormKey] ?? rateValuesByKey[legacyKey];
+                }
                 if (applyRateToRow(row, val)) appliedCount++;
             });
             try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
