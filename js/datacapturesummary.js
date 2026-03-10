@@ -1459,56 +1459,16 @@ function preserveSourceStructure(savedSourceExpression, newSourceData) {
         console.log('Base saved numbers (excluding structure):', baseSavedNumbers.map(n => n.displayValue));
         console.log('New numbers from source data:', numbers);
         
-        // Only match base numbers, not structure numbers
+        // 只在“基础数字个数一致”时尝试按位置替换；
+        // 如果不一致，为了安全起见直接使用当前表格算出的表达式，避免把旧结构中的数字错配到别的含义上
         if (baseSavedNumbers.length !== numbers.length) {
-            console.warn('Base number count mismatch:', {
+            console.warn('Base number count mismatch, use newSourceData directly:', {
                 baseSavedNumbers: baseSavedNumbers.length,
                 newNumbers: numbers.length,
                 savedSourceExpression: savedSourceExpression,
                 newSourceData: newSourceData
             });
-            // If counts don't match, try to preserve structure but update what we can
-            if (numbers.length > 0 && baseSavedNumbers.length > 0) {
-                // Try to replace only the base numbers we can match
-                let numberIndex = 0;
-                let newSourceExpression = savedSourceExpression.replace(/-?\d+\.?\d*/g, (match, offset, string) => {
-                    // Check if this number is part of a structure pattern
-                    const contextBefore = string.substring(Math.max(0, offset - 3), offset);
-                    const contextAfter = string.substring(offset + match.length, Math.min(string.length, offset + match.length + 3));
-                    const testStr = contextBefore + match + contextAfter;
-                    const isStructureNumber = structurePatterns.some(pattern => pattern.test(testStr));
-                    
-                    if (isStructureNumber) {
-                        // Keep structure numbers as-is
-                        return match;
-                    }
-                    
-                    // Replace base numbers
-                    if (numberIndex < numbers.length) {
-                        let replacement = numbers[numberIndex++];
-                        // Handle negative numbers
-                        if (match.startsWith('-') && offset > 0) {
-                            const charBefore = string[offset - 1];
-                            if (/[+\-*/\(\s]/.test(charBefore)) {
-                                return replacement;
-                            }
-                        } else if (match.startsWith('-')) {
-                            return replacement;
-                        } else {
-                            // Positive number
-                            return replacement;
-                        }
-                        return replacement;
-                    }
-                    return match;
-                });
-                console.log('Preserved structure with partial number replacement:', newSourceExpression);
-                return newSourceExpression;
-            }
-            // If no base numbers to match, fallback to new structure
-            if (numbers.length > 0) {
-                return newSourceData; // Fallback to new structure
-            }
+            return newSourceData;
         }
 
         // Replace numbers in saved source expression with numbers from new sourceData
