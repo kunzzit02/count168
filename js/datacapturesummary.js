@@ -15295,6 +15295,23 @@ let resolvedSourceExpression = '';
 const savedSourceValue = mainTemplate.last_source_value || '';
 const savedFormulaDisplay = mainTemplate.formula_display || '';
 
+// 如果模板里已经有 formula_display（例如维护页 / DB 中配置好的 display 公式），
+// 并且我们只是想在 Summary 表中原样展示它，则在这里做一次强制写入，避免后面逻辑再改写展示值。
+if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+    const formulaCell = targetRow.querySelector('td:nth-child(5)');
+    if (formulaCell) {
+        formulaCell.innerHTML = `<div class="formula-cell-content"><span class="formula-text">${savedFormulaDisplay}</span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>`;
+    }
+    // 让后续编辑时也以 DB 中的公式为基础
+    targetRow.setAttribute('data-formula-raw', savedFormulaDisplay);
+    targetRow.setAttribute('data-formula-operators', savedFormulaDisplay);
+    targetRow.setAttribute('data-formula-display', savedFormulaDisplay);
+    // 标记已套用模板
+    targetRow.setAttribute('data-template-applied', '1');
+    console.log('applyMainTemplateToRow: Using savedFormulaDisplay from DB as-is for display:', savedFormulaDisplay);
+    return targetRow;
+}
+
 // DEBUG: Log template data
 console.log('applyMainTemplateToRow DEBUG - idProduct:', idProduct, 'sourceColumnsValue:', sourceColumnsValue, 'formulaOperatorsValue:', formulaOperatorsValue, 'last_source_value:', savedSourceValue);
 
