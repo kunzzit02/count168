@@ -645,8 +645,6 @@ function restoreFormulaSourceFromRefresh() {
         }
         const cells = row.querySelectorAll('td');
 
-        // 默认使用保存的公式，但如果当前行已经从后端加载了非空公式，则优先保留当前公式，
-        // 避免用旧的本地缓存覆盖用户刚刚在其他页面/设备上更新过的公式。
         let formula = data.formula != null ? String(data.formula) : '';
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const source = data.source != null ? String(data.source) : '';
@@ -667,8 +665,9 @@ function restoreFormulaSourceFromRefresh() {
             const existingSpan = cells[4].querySelector('.formula-text');
             const existingFormulaText = existingSpan ? (existingSpan.textContent || '').trim() : '';
 
-            // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
-            const finalFormula = existingFormulaText || formula;
+            // 优先使用 Summary 状态中保存的公式（formula），
+            // 若状态中为空，再退回到当前单元格已有的公式文本。
+            const finalFormula = formula || existingFormulaText;
 
             cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>`;
             const span = cells[4].querySelector('.formula-text');
@@ -11525,13 +11524,17 @@ function updateFormulaAndProcessedAmount(row, data) {
         // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
     }
     
-    // 统一计算 base processed amount：
-    // 不再依赖 data.processedAmount（可能是旧版本或旧期数据），
-    // 始终按照「当前公式 + 当前 Source% + 当前 Input Method」重新计算，
-    // 确保所有行的 Processed Amount 一致使用同一套规则。
-    let baseProcessedAmount = null;
+    // 计算 base processed amount：
+    // 默认优先使用 saveFormula 已经算好的 data.processedAmount（与弹窗里提示的值一致），
+    // 只有在 data.processedAmount 为空或无效时，才根据当前公式 + Source% + Input Method 重新计算。
+    let baseProcessedAmount = (data.processedAmount !== undefined && data.processedAmount !== null)
+        ? Number(data.processedAmount)
+        : null;
     
-    {
+    // 仅当 processedAmount 缺失或无效时才需要重算
+    const needsRecalculation = (baseProcessedAmount === null || isNaN(baseProcessedAmount));
+    
+    if (needsRecalculation) {
         // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
         const inputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
         const enableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
