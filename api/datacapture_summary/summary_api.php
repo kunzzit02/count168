@@ -1077,15 +1077,15 @@ function baseIdProductForKey($text) {
 }
 
 /**
- * Normalized key for template grouping: base part with trailing " :" removed.
- * 使 "MY EARNINGS : (RINGGIT...)" 与前端传入的 "MY EARNINGS" 一致，刷新后能取回模板。
+ * Normalized key for template grouping: only trim trailing spaces, preserve colon (e.g. VM365-21:).
+ * 与前端一致：id_product 完整进资料库、完整查找，不剔除末尾冒号。
  */
 function baseIdProductForKeyNormalized($text) {
     $base = baseIdProductForKey($text);
     if ($base === '') {
         return '';
     }
-    return trim(rtrim($base, ' :'));
+    return trim($base);
 }
 
 /**

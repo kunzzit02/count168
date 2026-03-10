@@ -17211,6 +17211,7 @@ return {
 return { main, sub };
 }
 
+// 保留 id_product 完整形式（含末尾冒号等符号），便于与资料库一致查找；仅去掉首尾空格
 function normalizeIdProductText(text) {
 if (!text || typeof text !== 'string') {
 return '';
@@ -17219,15 +17220,15 @@ const trimmed = text.trim();
 if (!trimmed) {
 return '';
 }
-// 完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）整串保留，不截掉括号及后面内容
+// 完整 id_product（如 VM365-21:、G8:GAMEPLAY (M)- RSLOTS）整串保留，不截掉冒号或括号内容
 if (trimmed.indexOf(' - ') >= 0) {
-return trimmed.replace(/[: ]+$/, '').trim();
+return trimmed.replace(/\s+$/, '').trim();
 }
 const match = trimmed.match(/^([^(]+)/);
 if (match) {
-return match[1].replace(/[: ]+$/, '').trim();
+return match[1].replace(/\s+$/, '').trim();
 }
-return trimmed.replace(/[: ]+$/, '').trim();
+return trimmed.replace(/\s+$/, '').trim();
 }
 
 function formatPercentValue(value) {
