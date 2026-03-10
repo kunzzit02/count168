@@ -11572,13 +11572,17 @@ function updateFormulaAndProcessedAmount(row, data) {
     }
     
     // Calculate or get base processed amount
-    // If data.processedAmount is 0, undefined, null, or not provided, recalculate from formula
+    // 如果后端提供了 processedAmount，并且当前行仍然有 Rate（data.rateValue 或 data.rate），可以直接使用；
+    // 但一旦 Rate 被清空（Rate Value 列为空 / data.rateValue 为空），就必须重新按公式计算“未乘 Rate 的基础值”，
+    // 否则会出现你截图那种「Rate 列清空了，但 Processed Amount 还保留着旧的 Rate 结果」的情况。
     let baseProcessedAmount = data.processedAmount !== undefined && data.processedAmount !== null ? Number(data.processedAmount) : null;
     
-    // Only recalculate if processedAmount is invalid (0, null, undefined, NaN)
-    // If data.processedAmount has a valid value, use it directly (it was calculated correctly in saveFormula)
-    // Only recalculate when absolutely necessary
-    const needsRecalculation = baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount);
+    const hasRateValueFromData = (data.rateValue !== null && data.rateValue !== undefined && data.rateValue !== '') ||
+                                 (data.rate !== null && data.rate !== undefined && data.rate !== '');
+    
+    // 只要行上已经“没有 Rate”（包含 Rate Value 为空、rate 字段为空），就强制按公式重算基础值；
+    // 否则会把之前带 Rate 的结果当成基础值保存下来，清空 Rate 后数值看起来还是乘过 Rate。
+    const needsRecalculation = !hasRateValueFromData || baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount);
     
     if (needsRecalculation) {
         // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
