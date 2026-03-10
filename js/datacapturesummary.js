@@ -13765,17 +13765,19 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         
         // Formula column (index 4)
         if (cells[4]) {
-            // 优先使用 data.formula（与 Edit Formula 弹窗一致），避免重建导致显示不一致
+            // 优先使用 data.formula（与 Edit Formula 弹窗一致），并通过 createFormulaDisplayFromExpression
+            // 解析 $n / [id:n] 等引用，使 Summary 表里的公式展示与 Edit Formula 底部显示保持一致
             let formulaText = '';
             let rawFormula = '';
             if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
                 rawFormula = data.formula;
-                formulaText = formatNegativeNumbersInFormula(data.formula);
-                // source_percent == 1 时不显示 *(1) 或 *(0.05)，只显示基础公式（与 Maintenance - Formula 一致）
-                const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
-                if (srcPct !== '' && Math.abs(parseFloat(srcPct) - 1) < 0.0001 && typeof removeTrailingSourcePercentExpression === 'function') {
-                    formulaText = removeTrailingSourcePercentExpression(formulaText) || formulaText;
-                }
+                const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
+                    ? data.sourcePercent.toString().trim()
+                    : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                const enableSourcePercent = data.enableSourcePercent !== undefined
+                    ? data.enableSourcePercent
+                    : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                formulaText = createFormulaDisplayFromExpression(data.formula, sourcePercentText, enableSourcePercent);
             }
             
             // 无 data.formula 时再从 sourceColumns 重建（如从 API 只返回 sourceColumns 时）
