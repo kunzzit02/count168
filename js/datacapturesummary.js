@@ -644,6 +644,9 @@ function restoreFormulaSourceFromRefresh() {
             row.setAttribute('data-row-uid', data.rowUid);
         }
         const cells = row.querySelectorAll('td');
+
+        // 默认使用保存的公式，但如果当前行已经从后端加载了非空公式，则优先保留当前公式，
+        // 避免用旧的本地缓存覆盖用户刚刚在其他页面/设备上更新过的公式。
         let formula = data.formula != null ? String(data.formula) : '';
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const source = data.source != null ? String(data.source) : '';
@@ -659,10 +662,18 @@ function restoreFormulaSourceFromRefresh() {
         if (cells[4]) {
             const imForTooltip = (data.inputMethod != null ? data.inputMethod : row.getAttribute('data-input-method')) || '';
             const titleAttr = imForTooltip ? ` title="${String(imForTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
+
+            // 先读取当前单元格中从后端加载的公式文本
+            const existingSpan = cells[4].querySelector('.formula-text');
+            const existingFormulaText = existingSpan ? (existingSpan.textContent || '').trim() : '';
+
+            // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
+            const finalFormula = existingFormulaText || formula;
+
             cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>`;
             const span = cells[4].querySelector('.formula-text');
-            if (span) span.textContent = formula;
-            row.setAttribute('data-formula-raw', formula || '');
+            if (span) span.textContent = finalFormula;
+            row.setAttribute('data-formula-raw', finalFormula || '');
             if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
         if (cells[5]) cells[5].textContent = source;
