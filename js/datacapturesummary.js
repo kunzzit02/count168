@@ -741,19 +741,6 @@ function restoreRateValuesFromRefresh() {
             const saved = JSON.parse(raw);
             if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
                 const savedKeys = Object.keys(saved);
-                // 统计当前页面中，每个 Id Product 出现的行数；
-                // 只有当某个 Id 只出现一次时，才允许使用「按 Id 回退匹配」的兜底逻辑，
-                // 避免一个 Id 有多行时，把同一个 Rate 套到多行上。
-                const productRowCounts = {};
-                rows.forEach((row) => {
-                    const keyForCount = getSummaryRowKey(row);
-                    const normKeyForCount = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(keyForCount) : keyForCount;
-                    const idPartForCount = (normKeyForCount && normKeyForCount.split('\t')[0]) || '';
-                    const idNormForCount = (idPartForCount || '').trim().replace(/\s+/g, ' ');
-                    if (!idNormForCount) return;
-                    productRowCounts[idNormForCount] = (productRowCounts[idNormForCount] || 0) + 1;
-                });
-
                 rows.forEach((row) => {
                     const key = getSummaryRowKey(row);
                     const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
@@ -761,16 +748,11 @@ function restoreRateValuesFromRefresh() {
                     if ((val === undefined || val === null || String(val).trim() === '') && normKey) {
                         const idPart = normKey.split('\t')[0] || '';
                         const idNorm = (idPart || '').trim().replace(/\s+/g, ' ');
-                        const rowCountForId = productRowCounts[idNorm] || 0;
-                        // 只有当该 Id 在当前页面中只出现一次时，才允许用「仅按 Id 匹配」的兜底逻辑，
-                        // 否则会把同一个 Rate 覆盖到多个不同 Account 的行上。
-                        if (rowCountForId === 1) {
-                            const matchingKeys = savedKeys.filter(k => {
-                                const p = (k.split('\t')[0] || '').trim().replace(/\s+/g, ' ');
-                                return p === idNorm && saved[k] != null && String(saved[k]).trim() !== '';
-                            });
-                            if (matchingKeys.length === 1) val = saved[matchingKeys[0]];
-                        }
+                        const matchingKeys = savedKeys.filter(k => {
+                            const p = (k.split('\t')[0] || '').trim().replace(/\s+/g, ' ');
+                            return p === idNorm && saved[k] != null && String(saved[k]).trim() !== '';
+                        });
+                        if (matchingKeys.length === 1) val = saved[matchingKeys[0]];
                     }
                     if (applyRateToRow(row, val)) appliedCount++;
                 });
