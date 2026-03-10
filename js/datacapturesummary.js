@@ -497,8 +497,8 @@ function saveFormulaSourceForRefresh(opts) {
             rateValuesByKey[normKey] = rv;
         });
     }
+    const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey };
     try {
-        const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey };
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
         if (includeRateValue && Object.keys(rateValuesByKey).length > 0) {
             localStorage.setItem('capturedTableRateValuesByProductId', JSON.stringify({
