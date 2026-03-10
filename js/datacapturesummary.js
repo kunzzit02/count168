@@ -6377,6 +6377,16 @@ function populateFormWithData(data) {
                 sourcePercentInput.value = sourcePercentValue;
             }
         }
+
+        // 若调用方（例如 editRowFormula）已传入 formulaDisplay，则优先直接使用该值填充灰色只读框，
+        // 以保证 Edit 弹窗底部的公式显示与 Summary 第二张表格中的公式完全一致。
+        // 后续用户修改公式时，仍然由 updateFormulaDisplay 负责实时更新，不影响其他功能。
+        if (data.formulaDisplay !== undefined) {
+            const formulaDisplayInput = document.getElementById('formulaDisplay');
+            if (formulaDisplayInput) {
+                formulaDisplayInput.value = data.formulaDisplay || '';
+            }
+        }
         
         // Enable checkbox removed - source percent is auto-enabled when value exists
         
@@ -11908,6 +11918,19 @@ function editRowFormula(button) {
     // Set sourceValue to formulaValue (Source column removed)
     sourceValue = formulaValue;
     
+    // 为了满足“第二张 Summary 表里的公式要和 Edit Formula 里灰色框完全一致”的需求，
+    // 在打开 Edit 弹窗时，直接把当前行 Summary 里显示的公式文字一并传给表单，供灰色框初始显示使用。
+    // 这样可以避免 populateFormWithData / updateFormulaDisplay 再次根据公式重算导致细微差异（例如小数、括号格式等）。
+    let formulaDisplayValue = '';
+    if (cells[4]) {
+        const displaySpan = cells[4].querySelector('.formula-text');
+        if (displaySpan && displaySpan.textContent) {
+            formulaDisplayValue = displaySpan.textContent.trim();
+        } else if (cells[4].textContent) {
+            formulaDisplayValue = cells[4].textContent.trim();
+        }
+    }
+
     // Debug log
     console.log('editRowFormula - Extracted formulaValue:', formulaValue, 'hasSourcePercent:', hasSourcePercent);
     
@@ -11931,7 +11954,8 @@ function editRowFormula(button) {
     console.log('editRowFormula - Passing to showEditFormulaForm:', {
         formula: formulaValue,
         source: sourceValue,
-        sourcePercent: sourcePercentValue
+        sourcePercent: sourcePercentValue,
+        formulaDisplay: formulaDisplayValue
     });
     
     // Show the Edit Formula form with pre-populated data
@@ -11944,6 +11968,8 @@ function editRowFormula(button) {
         source: sourceValue,
         sourcePercent: sourcePercentValue,
         formula: formulaValue,
+        // 与 Summary 行上显示的公式保持一致的只读展示值（灰色框）
+        formulaDisplay: formulaDisplayValue,
         description: descriptionValue,
         inputMethod: inputMethodValue,
         enableInputMethod: enableInputMethodValue,
