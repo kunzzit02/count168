@@ -11571,71 +11571,51 @@ function updateFormulaAndProcessedAmount(row, data) {
         // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
     }
     
-    // Calculate or get base processed amount
-    // 如果后端提供了 processedAmount，并且当前行仍然有 Rate（data.rateValue 或 data.rate），可以直接使用；
-    // 但一旦 Rate 被清空（Rate Value 列为空 / data.rateValue 为空），就必须重新按公式计算“未乘 Rate 的基础值”，
-    // 否则会出现你截图那种「Rate 列清空了，但 Processed Amount 还保留着旧的 Rate 结果」的情况。
-    let baseProcessedAmount = data.processedAmount !== undefined && data.processedAmount !== null ? Number(data.processedAmount) : null;
+    // 统一规则：每次根据当前公式 + Source % 重新计算“未乘 Rate 的基础值”，
+    // 不再直接信任后端传入的 processedAmount，避免出现公式或 Rate 已变但数值仍然沿用旧结果的情况。
+    let baseProcessedAmount = 0;
     
-    const hasRateValueFromData = (data.rateValue !== null && data.rateValue !== undefined && data.rateValue !== '') ||
-                                 (data.rate !== null && data.rate !== undefined && data.rate !== '');
+    // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
+    const inputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
+    const enableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
     
-    // 只要行上已经“没有 Rate”（包含 Rate Value 为空、rate 字段为空），就强制按公式重算基础值；
-    // 否则会把之前带 Rate 的结果当成基础值保存下来，清空 Rate 后数值看起来还是乘过 Rate。
-    const needsRecalculation = !hasRateValueFromData || baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount);
-    
-    if (needsRecalculation) {
-        // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
-        const inputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
-        const enableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
-        
-        // Get source percent from data first, then from cell display
-        let sourcePercentText = '';
-        if (data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '') {
-            // Convert from decimal format (1 = 100%) to display format for calculation
-            sourcePercentText = data.sourcePercent.toString().trim();
-        } else {
-            const sourcePercentCell = cells[5];
-            sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '';
-            // If still empty, use default value '1' (100%)
-            if (!sourcePercentText || sourcePercentText.trim() === '') {
-                sourcePercentText = '1';
-            }
-        }
-        
-        // Get source percent enable state
-        // If sourcePercentText is empty, disable source percent (shouldn't happen now, but keep as safety check)
-        let enableSourcePercent = data.enableSourcePercent !== undefined ? data.enableSourcePercent : (row.getAttribute('data-enable-source-percent') === 'true');
+    // Get source percent from data first, then from cell display
+    let sourcePercentText = '';
+    if (data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '') {
+        // Convert from decimal format (1 = 100%) to display format for calculation
+        sourcePercentText = data.sourcePercent.toString().trim();
+    } else {
+        const sourcePercentCell = cells[5];
+        sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '';
+        // If still empty, use default value '1' (100%)
         if (!sourcePercentText || sourcePercentText.trim() === '') {
-            enableSourcePercent = false;
-        } else {
-            // If sourcePercentText has a value, enable it
-            enableSourcePercent = true;
-        }
-        
-        // Use formulaOperators from data first (contains the actual formula expression)
-        // This is the most reliable source as it's passed directly from saveFormula
-        const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
-        
-        if (formulaOperators && formulaOperators.trim() !== '' && formulaOperators !== 'Formula') {
-            baseProcessedAmount = calculateFormulaResultFromExpression(formulaOperators, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
-            console.log('Recalculated processedAmount from formulaOperators:', formulaOperators, 'result:', baseProcessedAmount);
-        } else {
-            // Fallback: use data.formula or raw formula from row (避免用单元格里 2 位小数格式化后的值参与计算)
-            const formulaText = data.formula || getFormulaForCalculation(row);
-            if (formulaText && formulaText.trim() !== '' && formulaText !== 'Formula') {
-                baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                console.log('Recalculated processedAmount from formulaText:', formulaText, 'result:', baseProcessedAmount);
-            }
-        }
-        
-        // Ensure baseProcessedAmount is a valid number
-        if (baseProcessedAmount === null || isNaN(baseProcessedAmount)) {
-            baseProcessedAmount = 0;
+            sourcePercentText = '1';
         }
     }
     
-    // Ensure baseProcessedAmount is always a valid number (fallback to 0)
+    // Get source percent enable state
+    let enableSourcePercent = data.enableSourcePercent !== undefined ? data.enableSourcePercent : (row.getAttribute('data-enable-source-percent') === 'true');
+    if (!sourcePercentText || sourcePercentText.trim() === '') {
+        enableSourcePercent = false;
+    } else {
+        enableSourcePercent = true;
+    }
+    
+    // Use formulaOperators from data first (contains the actual formula expression)
+    const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
+    
+    if (formulaOperators && formulaOperators.trim() !== '' && formulaOperators !== 'Formula') {
+        baseProcessedAmount = calculateFormulaResultFromExpression(formulaOperators, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
+        console.log('Recalculated processedAmount from formulaOperators:', formulaOperators, 'result:', baseProcessedAmount);
+    } else {
+        // Fallback: use data.formula or raw formula from row
+        const formulaText = data.formula || getFormulaForCalculation(row);
+        if (formulaText && formulaText.trim() !== '' && formulaText !== 'Formula') {
+            baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+            console.log('Recalculated processedAmount from formulaText:', formulaText, 'result:', baseProcessedAmount);
+        }
+    }
+    
     if (baseProcessedAmount === null || isNaN(baseProcessedAmount)) {
         baseProcessedAmount = 0;
     }
