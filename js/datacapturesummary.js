@@ -13818,11 +13818,22 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         
         // Formula column (index 4)
         if (cells[4]) {
-            // 优先使用 data.formula（与 Edit Formula 弹窗一致），并通过 createFormulaDisplayFromExpression
-            // 解析 $n / [id:n] 等引用，使 Summary 表里的公式展示与 Edit Formula 底部显示保持一致
+            // 需求：第二张 Summary 表里的公式，直接显示与 Edit Formula 底部一致的结果，不要再额外“变来变去”
+            // 简化策略：若 API 已提供 formula_display（或 camelCase 的 formulaDisplay），则优先直接使用它
             let formulaText = '';
             let rawFormula = '';
-            if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+
+            const apiFormulaDisplay = (
+                (data.formulaDisplay !== undefined && data.formulaDisplay !== null ? data.formulaDisplay : '') ||
+                (data.formula_display !== undefined && data.formula_display !== null ? data.formula_display : '')
+            ).toString().trim();
+
+            if (apiFormulaDisplay && apiFormulaDisplay !== 'Formula') {
+                // 直接使用后端返回的展示公式，最多只做负数格式化，保证与 Edit Formula 红框里的内容保持一致
+                rawFormula = apiFormulaDisplay;
+                formulaText = formatNegativeNumbersInFormula(apiFormulaDisplay);
+            } else if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+                // 没有单独的 formula_display 时，退回到原来的逻辑（从 formula + Source % 生成展示值）
                 rawFormula = data.formula;
                 const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
                     ? data.sourcePercent.toString().trim()
