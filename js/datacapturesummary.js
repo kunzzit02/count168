@@ -14412,7 +14412,9 @@ try {
         // 忽略 Replace Word 检查错误，不影响其它流程
     }
 } catch (e) {}
-if (!skipRowIndexReorder && typeof reorderSummaryRowsByRowIndex === 'function') {
+// 用户需求：每一轮进入 Summary 都以最新的 row_index 为准，不受旧缓存影响。
+// 因此无论 skipRowIndexReorder 当前是否为 true，这里始终执行一次基于 row_index 的全局重排。
+if (typeof reorderSummaryRowsByRowIndex === 'function') {
     reorderSummaryRowsByRowIndex();
 }
 } catch (error) {
