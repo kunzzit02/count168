@@ -14188,6 +14188,8 @@ if (summaryTableBody && capturedTableBody) {
             if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
                 // Row already has a valid row_index, preserve it（输出完整 id_product 便于控制台查看）
                 const idProductFull = (productValues.main || '').trim();
+                // 额外记录一份「初始 row_index」，供后续重排时使用，避免后面逻辑改写 data-row-index 影响顺序
+                summaryRow.setAttribute('data-preserved-row-index', existingRowIndex);
                 console.log('Preserved existing row_index:', existingRowIndex, idProductFull || summaryIdProduct);
                 return; // Keep existing row_index - don't recalculate
             }
@@ -16017,6 +16019,11 @@ const rowData = rows.map((row, originalIndex) => {
         normalizedMain = normalizeSpacesForReorder(mainTextRaw);
     }
     
+    const preservedAttr = row.getAttribute('data-preserved-row-index');
+    const preservedRowIndex = (preservedAttr !== null && preservedAttr !== '' && !Number.isNaN(Number(preservedAttr)))
+        ? Number(preservedAttr)
+        : null;
+
     const attr = row.getAttribute('data-row-index');
     const rowIndex = (attr !== null && attr !== '' && !Number.isNaN(Number(attr)))
         ? Number(attr)
@@ -16032,11 +16039,12 @@ const rowData = rows.map((row, originalIndex) => {
     const accountOrder = (accountOrderAttr !== null && accountOrderAttr !== '' && !Number.isNaN(Number(accountOrderAttr))) ? Number(accountOrderAttr) : 999999;
 
     let dataCapturePosition = 999999;
-    // 优先使用已存在的 row_index 作为主排序键，保证「一开始进来」时 Summary 中 main id_product
-    // 的顺序与控制台中打印的「Preserved existing row_index」一致。
-    // 仅当行本身没有有效 row_index 时，才回退到根据 Data Capture Table 计算的位置。
-    if (rowIndex !== null && !Number.isNaN(rowIndex) && rowIndex < 999999) {
-        dataCapturePosition = rowIndex;
+    // 优先使用「初始」row_index（data-preserved-row-index），保证 Summary 的 main id_product
+    // 顺序与控制台中打印的 “Preserved existing row_index” 完全一致。
+    // 若没有 preserved 值，再使用当前的 data-row-index；两者都没有时才回退到 Data Capture Table 顺序。
+    const effectiveIndex = (preservedRowIndex !== null ? preservedRowIndex : rowIndex);
+    if (effectiveIndex !== null && !Number.isNaN(effectiveIndex) && effectiveIndex < 999999) {
+        dataCapturePosition = effectiveIndex;
     } else if (normalizedMain && dataCaptureTableOrder.length > 0) {
         const index = dataCaptureTableOrder.findIndex(item => item.idProduct === normalizedMain);
         if (index !== -1) dataCapturePosition = index;
