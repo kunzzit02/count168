@@ -707,6 +707,8 @@ function restoreFormulaSourceFromRefresh() {
                 : null;
             if (savedProcessed !== null) {
                 finalAmount = savedProcessed;
+                // 标记此行为「已从状态恢复最终金额」，后续 restoreRateValuesFromRefresh 不再覆写
+                row.setAttribute('data-processed-from-state', '1');
             } else if (typeof applyRateToProcessedAmount === 'function') {
                 finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
             } else {
@@ -741,6 +743,8 @@ function restoreRateValuesFromRefresh() {
     let appliedCount = 0;
 
     function applyRateToRow(row, val) {
+        // 如果该行的最终金额已经从 summary_state 中恢复，则不再用旧的本地 Rate 记录去覆写
+        if (row.getAttribute('data-processed-from-state') === '1') return false;
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
         const processedAmountCell = cells[8];
