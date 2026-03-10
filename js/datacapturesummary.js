@@ -610,17 +610,16 @@ function restoreFormulaSourceFromRefresh() {
         console.warn('restoreFormulaSourceFromRefresh: failed to restore rowUid before reordering', e);
     }
 
-    const hasSavedRowOrder = saved.rowOrder && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0 && typeof reorderSummaryRowsBySavedOrder === 'function';
-    // 顺序恢复策略：
-    // - 无 Maintenance 模板时：保持原有行为，在恢复数值前就按 rowOrder 重排
-    // - 有 Maintenance 模板时：先恢复 Formula/Source/Rate，再在函数末尾按 rowOrder 重排，避免 key 还未就绪导致顺序错乱
-    if (hasSavedRowOrder && window.currentProcessHadTemplates !== true) {
-        try {
-            reorderSummaryRowsBySavedOrder(summaryTableBody, saved.rowOrder);
-        } catch (e) {
-            console.warn('Failed to reorder summary rows by saved rowOrder before restoring values', e);
-        }
-    }
+    // 用户要求：每一轮都以最新 row_index 为准。
+    // 默认禁用 saved.rowOrder 重排，避免覆盖前面 row_index 全局重排结果。
+    // 若未来有特殊需求，可通过 window.__allowSavedRowOrder=true 临时开启旧行为。
+    const hasSavedRowOrder = !!(
+        window.__allowSavedRowOrder === true &&
+        saved.rowOrder &&
+        Array.isArray(saved.rowOrder) &&
+        saved.rowOrder.length > 0 &&
+        typeof reorderSummaryRowsBySavedOrder === 'function'
+    );
 
     const rows = summaryTableBody.querySelectorAll('tr');
     // 即使当前 process 无 Maintenance 模板，也先按 rowsByKey 恢复每行的 Rate Value，避免从 Data Capture submit 进来后全部 rate 消失
