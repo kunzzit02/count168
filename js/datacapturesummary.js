@@ -474,15 +474,6 @@ function saveFormulaSourceForRefresh(opts) {
         const source = sourceCell ? sourceCell.textContent.trim() : '';
         const rateValueCell = cells[7];
         const rateValue = includeRateValue && rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
-        // 保存当前行在 Summary 表中展示的 Processed Amount（已应用 Rate 后的最终值），用于刷新后精确还原金额
-        let processedAmountForState = '';
-        const processedCell = cells[8];
-        if (processedCell && processedCell.textContent) {
-            const raw = processedCell.textContent.trim().replace(/,/g, '');
-            if (raw !== '' && !isNaN(Number(raw))) {
-                processedAmountForState = raw;
-            }
-        }
         byKey[normKey] = {
             formula: formula || '',
             source: source || '',
@@ -490,7 +481,6 @@ function saveFormulaSourceForRefresh(opts) {
             formulaOperators: (row.getAttribute('data-formula-operators') || ''),
             sourcePercent: (row.getAttribute('data-source-percent') || ''),
             rateValue: rateValue || '',
-            processedAmount: processedAmountForState,
             rowUid: rowUid
         };
     });
@@ -699,21 +689,8 @@ function restoreFormulaSourceFromRefresh() {
         if (data.rateValue != null && String(data.rateValue).trim() !== '' && cells[7]) {
             cells[7].textContent = String(data.rateValue).trim();
         }
-        if (cells[8]) {
-            // 若状态中已保存最终的 Processed Amount，则优先使用保存值，避免刷新后因公式/Rate 重新计算导致金额变化
-            let finalAmount;
-            const savedProcessed = (data.processedAmount != null && String(data.processedAmount).trim() !== '' && !isNaN(Number(data.processedAmount)))
-                ? Number(data.processedAmount)
-                : null;
-            if (savedProcessed !== null) {
-                finalAmount = savedProcessed;
-                // 标记此行为「已从状态恢复最终金额」，后续 restoreRateValuesFromRefresh 不再覆写
-                row.setAttribute('data-processed-from-state', '1');
-            } else if (typeof applyRateToProcessedAmount === 'function') {
-                finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-            } else {
-                finalAmount = baseProcessedAmount;
-            }
+        if (cells[8] && typeof applyRateToProcessedAmount === 'function') {
+            const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
             const rounded = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount);
             cells[8].textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(rounded) : String(finalAmount);
             cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
@@ -743,8 +720,6 @@ function restoreRateValuesFromRefresh() {
     let appliedCount = 0;
 
     function applyRateToRow(row, val) {
-        // 如果该行的最终金额已经从 summary_state 中恢复，则不再用旧的本地 Rate 记录去覆写
-        if (row.getAttribute('data-processed-from-state') === '1') return false;
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
         const processedAmountCell = cells[8];
