@@ -100,8 +100,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }).catch(function() {});
     }
     
-    // Load captured table data and render it
-    loadAndRenderCapturedTable();
+    // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
+    loadAndRenderCapturedTable().catch(function (e) {
+        console.warn('loadAndRenderCapturedTable error:', e);
+        hideLoadingState();
+        showEmptyState();
+    });
     
     // Check for URL parameters and show notifications
     const urlParams = new URLSearchParams(window.location.search);
@@ -506,18 +510,60 @@ function saveFormulaSourceForRefresh(opts) {
     } catch (e) {
         console.warn('saveFormulaSourceForRefresh:', e);
     }
+    // 同时写入服务端，刷新后优先从服务端恢复，避免仅依赖 localStorage 导致顺序不稳或数据丢失
+    try {
+        saveSummaryStateToServer(payload);
+    } catch (e) {
+        console.warn('saveSummaryStateToServer:', e);
+    }
 }
 
-// Restore Formula + Source from localStorage after load (only set by refresh/beforeunload).
-// 按 id_product + Account 匹配恢复，行顺序变化也不会贴错行。
+// 从服务端获取 Summary 状态（行顺序 + 公式/Source/Rate），失败或为空则返回 null
+function fetchSummaryStateFromServer(processId, processCode) {
+    const base = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' && window.DATACAPTURESUMMARY_COMPANY_ID != null)
+        ? 'api/datacapture_summary/summary_api.php?action=get_summary_state&company_id=' + window.DATACAPTURESUMMARY_COMPANY_ID
+        : 'api/datacapture_summary/summary_api.php?action=get_summary_state';
+    const params = new URLSearchParams();
+    if (processId != null && processId !== '') params.set('process_id', String(processId));
+    if (processCode != null && processCode !== '') params.set('process_code', String(processCode));
+    const url = base + (base.indexOf('?') >= 0 ? '&' : '?') + params.toString();
+    return fetch(url)
+        .then(function (res) { return res.json(); })
+        .then(function (json) {
+            if (json && json.success === true && json.data && typeof json.data === 'object') return json.data;
+            return null;
+        })
+        .catch(function () { return null; });
+}
+
+// 将 Summary 状态保存到服务端（与 localStorage 双写），不阻塞 UI
+function saveSummaryStateToServer(payload) {
+    if (!payload || typeof payload !== 'object') return;
+    const companyId = typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null;
+    if (companyId == null) return;
+    const url = 'api/datacapture_summary/summary_api.php?action=save_summary_state&company_id=' + companyId;
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).catch(function () {});
+}
+
+// Restore Formula + Source after load. 优先使用服务端状态，若无则用 localStorage（按 id_product + Account 匹配恢复，行顺序变化也不会贴错行）。
 function restoreFormulaSourceFromRefresh() {
     let saved;
-    try {
-        const raw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
-        if (!raw) return;
-        saved = JSON.parse(raw);
-    } catch (e) {
-        return;
+    // 优先使用进入页面前从服务端拉取的状态，避免仅依赖 localStorage 导致刷新后顺序不稳或数据丢失
+    if (window._summaryStateFromServer && typeof window._summaryStateFromServer === 'object' && !Array.isArray(window._summaryStateFromServer)) {
+        saved = window._summaryStateFromServer;
+        window._summaryStateFromServer = null;
+    } else {
+        try {
+            const raw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
+            if (!raw) return;
+            saved = JSON.parse(raw);
+        } catch (e) {
+            return;
+        }
     }
     if (Array.isArray(saved)) {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
@@ -782,8 +828,8 @@ function refreshPage() {
     window.location.reload();
 }
 
-// Load captured table data from localStorage and render it
-function loadAndRenderCapturedTable() {
+// Load captured table data from localStorage and render it. 会先从服务端拉取 Summary 状态（若有），供后续恢复顺序与公式，减少对 localStorage 的依赖。
+async function loadAndRenderCapturedTable() {
     try {
         const tableData = localStorage.getItem('capturedTableData');
         const processData = localStorage.getItem('capturedProcessData');
@@ -820,6 +866,13 @@ function loadAndRenderCapturedTable() {
                 window.currentProcessId = detectedProcessId;
             } else {
                 window.currentProcessId = null;
+            }
+            
+            // 先从服务端拉取已保存的 Summary 状态（行顺序 + 公式/Rate），供 skipRowIndexReorder 与 restore 使用，避免仅依赖 localStorage
+            try {
+                window._summaryStateFromServer = await fetchSummaryStateFromServer(window.currentProcessId, window.currentProcessCode || '');
+            } catch (e) {
+                window._summaryStateFromServer = null;
             }
             
             // Apply remove word and replace word transformations to table data
@@ -14305,21 +14358,24 @@ if (summaryTableBody) {
     });
 }
 
-// After applying all templates, reorder rows by row_index — 但若本地有已保存的行顺序待恢复，则跳过，避免覆盖用户顺序（NO/API GSC 等）
+// After applying all templates, reorder rows by row_index — 但若本地或服务端有已保存的行顺序待恢复，则跳过，避免覆盖用户顺序（NO/API GSC 等）
 let skipRowIndexReorder = false;
 try {
-    const savedRaw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
-    if (savedRaw) {
-        const saved = JSON.parse(savedRaw);
-        if (saved && typeof saved === 'object' && !Array.isArray(saved) && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0) {
-            const currentId = getCurrentProcessId();
-            const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
-            const savedId = saved.processId != null ? saved.processId : null;
-            const savedCode = (typeof saved.processCode === 'string' ? saved.processCode : '').trim();
-            const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
-            const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
-            if (idMatch && codeMatch) skipRowIndexReorder = true;
-        }
+    let saved = null;
+    if (window._summaryStateFromServer && typeof window._summaryStateFromServer === 'object' && !Array.isArray(window._summaryStateFromServer)) {
+        saved = window._summaryStateFromServer;
+    } else {
+        const savedRaw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
+        if (savedRaw) saved = JSON.parse(savedRaw);
+    }
+    if (saved && typeof saved === 'object' && !Array.isArray(saved) && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0) {
+        const currentId = getCurrentProcessId();
+        const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
+        const savedId = saved.processId != null ? saved.processId : null;
+        const savedCode = (typeof saved.processCode === 'string' ? saved.processCode : '').trim();
+        const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
+        const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+        if (idMatch && codeMatch) skipRowIndexReorder = true;
     }
 } catch (e) {}
 if (!skipRowIndexReorder && typeof reorderSummaryRowsByRowIndex === 'function') {
