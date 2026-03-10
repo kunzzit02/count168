@@ -6638,15 +6638,6 @@ function populateFormWithData(data) {
         } else {
             console.log('populateFormWithData - No formula in data');
         }
-
-        // 如果从 editRowFormula 传入了 formulaDisplay，则优先使用该值填充灰色只读框，
-        // 确保 Edit 弹窗中的公式显示与 Summary 列表中的 Formula 完全一致
-        if (data.formulaDisplay !== undefined) {
-            const formulaDisplayInput = document.getElementById('formulaDisplay');
-            if (formulaDisplayInput) {
-                formulaDisplayInput.value = data.formulaDisplay || '';
-            }
-        }
         
         if (data.description) {
             const descriptionInput = document.getElementById('description');
@@ -11243,10 +11234,7 @@ function updateRowFormulaFromColumns(row) {
     
     // Update Formula column (index 4)
     if (cells[4]) {
-        // 优先使用已经保存的 data-formula-display（由 Edit Formula 计算并保存），
-        // 确保 Summary 列表中的 Formula 与 Edit 弹窗中的灰色显示框一致
-        const preferredDisplay = row.getAttribute('data-formula-display');
-        const formulaText = (preferredDisplay && preferredDisplay.trim() !== '') ? preferredDisplay : formulaDisplay;
+        const formulaText = formulaDisplay;
         // Get input method from row for tooltip (escape for HTML attribute)
         const inputMethod = row.getAttribute('data-input-method') || '';
         const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
@@ -11523,8 +11511,6 @@ function updateFormulaAndProcessedAmount(row, data) {
         
         if (!rawFormula) rawFormula = formulaText;
         row.setAttribute('data-formula-raw', rawFormula || '');
-        // 同步一份用于展示的公式到 data-formula-display，供 Summary 列表和 Edit 弹窗共用
-        row.setAttribute('data-formula-display', formulaText || '');
         const displayText = formulaText;
         
         // Get input method from row or data for tooltip (escape for HTML attribute)
@@ -11918,12 +11904,6 @@ function editRowFormula(button) {
     if (!isFormulaEmpty && (!formulaValue || formulaValue.trim() === '' || formulaValue === 'Formula')) {
         formulaValue = row.getAttribute('data-formula-operators') || '';
     }
-
-    // 当前行在列表中展示给用户看到的公式文本（已经包含保留结构和 Source % 等处理）
-    // 后续在 Edit Formula 弹窗中，灰色只读框直接显示这段文本，确保与列表中的 Formula 完全一致
-    const formulaDisplayFromCell = cells[4]
-        ? (cells[4].querySelector('.formula-text')?.textContent.trim() || cells[4].textContent.trim())
-        : '';
     
     // Set sourceValue to formulaValue (Source column removed)
     sourceValue = formulaValue;
@@ -11964,8 +11944,6 @@ function editRowFormula(button) {
         source: sourceValue,
         sourcePercent: sourcePercentValue,
         formula: formulaValue,
-        // 传入当前列表中展示的公式文本，用于直接填充弹窗中的灰色显示框
-        formulaDisplay: formulaDisplayFromCell,
         description: descriptionValue,
         inputMethod: inputMethodValue,
         enableInputMethod: enableInputMethodValue,
