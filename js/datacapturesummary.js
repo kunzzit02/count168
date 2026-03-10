@@ -18808,6 +18808,10 @@ async function submitSummaryData() {
             const totalRowsSubmitted = summaryRows.length;
             showNotification('Success', `All data submitted successfully! Capture ID: ${finalCaptureId}, total ${totalRowsSubmitted} rows`, 'success');
 
+            // 提交成功后，再保存一次当前的 Rate / Formula 状态，便于后续再次进入 Summary 时恢复
+            if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+            if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
+
             // After successful final submission, record the submitted process in DB
             try {
                 if (parsedProcessData && parsedProcessData.process) {
