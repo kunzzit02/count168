@@ -187,6 +187,31 @@ function ensureTemplateSchema(PDO $pdo) {
     }
 }
 
+/**
+ * 确保 data_capture_summary_state 表存在，用于服务端持久化 Summary 行顺序与公式/ Rate 等，避免仅依赖 localStorage 导致刷新后顺序不稳或数据丢失。
+ */
+function ensureSummaryStateTable(PDO $pdo) {
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS data_capture_summary_state (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                company_id INT NOT NULL,
+                process_key VARCHAR(255) NOT NULL,
+                state_json LONGTEXT NOT NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uk_company_process (company_id, process_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (Exception $e) {
+        error_log('Summary state table ensure error: ' . $e->getMessage());
+    }
+}
+
 function computeTemplateKey(array $row): string {
     $productType = $row['product_type'] ?? 'main';
 
@@ -1052,15 +1077,15 @@ function baseIdProductForKey($text) {
 }
 
 /**
- * Normalized key for template grouping: base part with trailing " :" removed.
- * 使 "MY EARNINGS : (RINGGIT...)" 与前端传入的 "MY EARNINGS" 一致，刷新后能取回模板。
+ * Normalized key for template grouping: only trim trailing spaces, preserve colon (e.g. VM365-21:).
+ * 与前端一致：id_product 完整进资料库、完整查找，不剔除末尾冒号。
  */
 function baseIdProductForKeyNormalized($text) {
     $base = baseIdProductForKey($text);
     if ($base === '') {
         return '';
     }
-    return trim(rtrim($base, ' :'));
+    return trim($base);
 }
 
 /**
@@ -1882,6 +1907,65 @@ if ($action === 'delete_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'message' => $e->getMessage(),
             'data' => null,
         ]);
+    }
+    exit;
+}
+
+// 获取 Summary 状态（行顺序 + 公式/Source/Rate 等），供刷新后恢复，减少对 localStorage 的依赖
+if ($action === 'get_summary_state') {
+    try {
+        ensureSummaryStateTable($pdo);
+        $processId = isset($_GET['process_id']) && $_GET['process_id'] !== '' && is_numeric($_GET['process_id']) ? (int)$_GET['process_id'] : null;
+        $processCode = isset($_GET['process_code']) ? trim((string)$_GET['process_code']) : '';
+        $processKey = $processId !== null ? ('pid_' . $processId) : ('code_' . ($processCode !== '' ? $processCode : 'none'));
+        $stmt = $pdo->prepare("SELECT state_json FROM data_capture_summary_state WHERE company_id = ? AND process_key = ? LIMIT 1");
+        $stmt->execute([$company_id, $processKey]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $data = null;
+        if ($row && !empty($row['state_json'])) {
+            $decoded = json_decode($row['state_json'], true);
+            if (is_array($decoded)) {
+                $data = $decoded;
+            }
+        }
+        echo json_encode(['success' => true, 'data' => $data]);
+    } catch (Exception $e) {
+        error_log('get_summary_state error: ' . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => $e->getMessage(), 'data' => null]);
+    }
+    exit;
+}
+
+// 保存 Summary 状态到服务端（与 localStorage 双写，优先从服务端恢复）
+if ($action === 'save_summary_state' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        $jsonData = file_get_contents('php://input');
+        $payload = json_decode($jsonData, true);
+        if (!is_array($payload) || !isset($payload['processId']) || !isset($payload['processCode'])) {
+            echo json_encode(['success' => false, 'message' => 'Missing processId or processCode']);
+            exit;
+        }
+        ensureSummaryStateTable($pdo);
+        $processId = isset($payload['processId']) && $payload['processId'] !== null && $payload['processId'] !== '' && is_numeric($payload['processId']) ? (int)$payload['processId'] : null;
+        $processCode = isset($payload['processCode']) ? trim((string)$payload['processCode']) : '';
+        $processKey = $processId !== null ? ('pid_' . $processId) : ('code_' . ($processCode !== '' ? $processCode : 'none'));
+        $stateJson = json_encode([
+            'processId' => $payload['processId'] ?? null,
+            'processCode' => $payload['processCode'] ?? '',
+            'rowsByKey' => $payload['rowsByKey'] ?? [],
+            'rowOrder' => $payload['rowOrder'] ?? [],
+            'rateValuesByKey' => $payload['rateValuesByKey'] ?? [],
+        ]);
+        $stmt = $pdo->prepare("
+            INSERT INTO data_capture_summary_state (company_id, process_key, state_json, updated_at)
+            VALUES (?, ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE state_json = VALUES(state_json), updated_at = NOW()
+        ");
+        $stmt->execute([$company_id, $processKey, $stateJson]);
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        error_log('save_summary_state error: ' . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
     exit;
 }

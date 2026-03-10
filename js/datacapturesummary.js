@@ -100,8 +100,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }).catch(function() {});
     }
     
-    // Load captured table data and render it
-    loadAndRenderCapturedTable();
+    // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
+    loadAndRenderCapturedTable().catch(function (e) {
+        console.warn('loadAndRenderCapturedTable error:', e);
+        hideLoadingState();
+        showEmptyState();
+    });
     
     // Check for URL parameters and show notifications
     const urlParams = new URLSearchParams(window.location.search);
@@ -493,8 +497,8 @@ function saveFormulaSourceForRefresh(opts) {
             rateValuesByKey[normKey] = rv;
         });
     }
+    const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey };
     try {
-        const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey };
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
         if (includeRateValue && Object.keys(rateValuesByKey).length > 0) {
             localStorage.setItem('capturedTableRateValuesByProductId', JSON.stringify({
@@ -506,18 +510,60 @@ function saveFormulaSourceForRefresh(opts) {
     } catch (e) {
         console.warn('saveFormulaSourceForRefresh:', e);
     }
+    // 同时写入服务端，刷新后优先从服务端恢复，避免仅依赖 localStorage 导致顺序不稳或数据丢失
+    try {
+        saveSummaryStateToServer(payload);
+    } catch (e) {
+        console.warn('saveSummaryStateToServer:', e);
+    }
 }
 
-// Restore Formula + Source from localStorage after load (only set by refresh/beforeunload).
-// 按 id_product + Account 匹配恢复，行顺序变化也不会贴错行。
+// 从服务端获取 Summary 状态（行顺序 + 公式/Source/Rate），失败或为空则返回 null
+function fetchSummaryStateFromServer(processId, processCode) {
+    const base = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' && window.DATACAPTURESUMMARY_COMPANY_ID != null)
+        ? 'api/datacapture_summary/summary_api.php?action=get_summary_state&company_id=' + window.DATACAPTURESUMMARY_COMPANY_ID
+        : 'api/datacapture_summary/summary_api.php?action=get_summary_state';
+    const params = new URLSearchParams();
+    if (processId != null && processId !== '') params.set('process_id', String(processId));
+    if (processCode != null && processCode !== '') params.set('process_code', String(processCode));
+    const url = base + (base.indexOf('?') >= 0 ? '&' : '?') + params.toString();
+    return fetch(url)
+        .then(function (res) { return res.json(); })
+        .then(function (json) {
+            if (json && json.success === true && json.data && typeof json.data === 'object') return json.data;
+            return null;
+        })
+        .catch(function () { return null; });
+}
+
+// 将 Summary 状态保存到服务端（与 localStorage 双写），不阻塞 UI
+function saveSummaryStateToServer(payload) {
+    if (!payload || typeof payload !== 'object') return;
+    const companyId = typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null;
+    if (companyId == null) return;
+    const url = 'api/datacapture_summary/summary_api.php?action=save_summary_state&company_id=' + companyId;
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).catch(function () {});
+}
+
+// Restore Formula + Source after load. 优先使用服务端状态，若无则用 localStorage（按 id_product + Account 匹配恢复，行顺序变化也不会贴错行）。
 function restoreFormulaSourceFromRefresh() {
     let saved;
-    try {
-        const raw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
-        if (!raw) return;
-        saved = JSON.parse(raw);
-    } catch (e) {
-        return;
+    // 优先使用进入页面前从服务端拉取的状态，避免仅依赖 localStorage 导致刷新后顺序不稳或数据丢失
+    if (window._summaryStateFromServer && typeof window._summaryStateFromServer === 'object' && !Array.isArray(window._summaryStateFromServer)) {
+        saved = window._summaryStateFromServer;
+        window._summaryStateFromServer = null;
+    } else {
+        try {
+            const raw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
+            if (!raw) return;
+            saved = JSON.parse(raw);
+        } catch (e) {
+            return;
+        }
     }
     if (Array.isArray(saved)) {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
@@ -564,17 +610,16 @@ function restoreFormulaSourceFromRefresh() {
         console.warn('restoreFormulaSourceFromRefresh: failed to restore rowUid before reordering', e);
     }
 
-    const hasSavedRowOrder = saved.rowOrder && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0 && typeof reorderSummaryRowsBySavedOrder === 'function';
-    // 顺序恢复策略：
-    // - 无 Maintenance 模板时：保持原有行为，在恢复数值前就按 rowOrder 重排
-    // - 有 Maintenance 模板时：先恢复 Formula/Source/Rate，再在函数末尾按 rowOrder 重排，避免 key 还未就绪导致顺序错乱
-    if (hasSavedRowOrder && window.currentProcessHadTemplates !== true) {
-        try {
-            reorderSummaryRowsBySavedOrder(summaryTableBody, saved.rowOrder);
-        } catch (e) {
-            console.warn('Failed to reorder summary rows by saved rowOrder before restoring values', e);
-        }
-    }
+    // 用户要求：每一轮都以最新 row_index 为准。
+    // 默认禁用 saved.rowOrder 重排，避免覆盖前面 row_index 全局重排结果。
+    // 若未来有特殊需求，可通过 window.__allowSavedRowOrder=true 临时开启旧行为。
+    const hasSavedRowOrder = !!(
+        window.__allowSavedRowOrder === true &&
+        saved.rowOrder &&
+        Array.isArray(saved.rowOrder) &&
+        saved.rowOrder.length > 0 &&
+        typeof reorderSummaryRowsBySavedOrder === 'function'
+    );
 
     const rows = summaryTableBody.querySelectorAll('tr');
     // 即使当前 process 无 Maintenance 模板，也先按 rowsByKey 恢复每行的 Rate Value，避免从 Data Capture submit 进来后全部 rate 消失
@@ -782,8 +827,8 @@ function refreshPage() {
     window.location.reload();
 }
 
-// Load captured table data from localStorage and render it
-function loadAndRenderCapturedTable() {
+// Load captured table data from localStorage and render it. 会先从服务端拉取 Summary 状态（若有），供后续恢复顺序与公式，减少对 localStorage 的依赖。
+async function loadAndRenderCapturedTable() {
     try {
         const tableData = localStorage.getItem('capturedTableData');
         const processData = localStorage.getItem('capturedProcessData');
@@ -820,6 +865,13 @@ function loadAndRenderCapturedTable() {
                 window.currentProcessId = detectedProcessId;
             } else {
                 window.currentProcessId = null;
+            }
+            
+            // 先从服务端拉取已保存的 Summary 状态（行顺序 + 公式/Rate），供 skipRowIndexReorder 与 restore 使用，避免仅依赖 localStorage
+            try {
+                window._summaryStateFromServer = await fetchSummaryStateFromServer(window.currentProcessId, window.currentProcessCode || '');
+            } catch (e) {
+                window._summaryStateFromServer = null;
             }
             
             // Apply remove word and replace word transformations to table data
@@ -6726,17 +6778,17 @@ function extractRowDataForTemplate(row, formData) {
     let descriptionMain = '';
     let descriptionSub = '';
     
-    // Parse main product value：id_product 整串保留，不对其内符号做任何解析或逻辑
+    // Parse main product value：id_product 整串保留（含冒号等符号），与资料库一致
     const mainText = productValues.main || '';
     if (mainText) {
-        idProductMain = mainText.replace(/[: ]+$/, '').trim();
+        idProductMain = mainText.trim();
         descriptionMain = '';
     }
     
     // Parse sub product value：同上，整串保留
     const subText = productValues.sub || '';
     if (subText) {
-        idProductSub = subText.replace(/[: ]+$/, '').trim();
+        idProductSub = subText.trim();
         descriptionSub = '';
     }
     
@@ -11937,7 +11989,7 @@ function getProcessValueFromRow(row) {
     
     // Check if Main value has content (this is a main row)
     if (productValues.main) {
-        let mainText = productValues.main.trim().replace(/[: ]+$/, '').trim();
+        let mainText = productValues.main.trim();
         if (mainText) {
             // 仅对明确截断的 id（如 "(T07):AF"）解析为完整 id_product，ALLBET95MS (KM)/(SV) MYR 等不解析
             if (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(mainText)) {
@@ -11950,7 +12002,7 @@ function getProcessValueFromRow(row) {
     
     // Check if Sub value has content (this is a sub row)
     if (productValues.sub) {
-        let subText = productValues.sub.trim().replace(/[: ]+$/, '').trim();
+        let subText = productValues.sub.trim();
         if (subText) {
             // 仅对明确截断的 id 解析为完整 id_product
             if (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(subText)) {
@@ -13688,7 +13740,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         
         if (cells[0]) { // Id Product (merged)
             const productValues = getProductValuesFromCell(cells[0]);
-            const idProductText = (data.idProduct || '').trim().replace(/[: ]+$/, '');
+            const idProductText = (data.idProduct || '').trim();
             const isSubRow = !productValues.main || !productValues.main.trim();
             // main 行：若 data.idProduct 为空且已有 main 显示，不覆盖，避免 main 的 Id_product 消失
             const preserveIdProduct = data.preserveIdProductDisplay && (productValues.main || '').trim() !== '';
@@ -14137,6 +14189,8 @@ if (summaryTableBody && capturedTableBody) {
             if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
                 // Row already has a valid row_index, preserve it（输出完整 id_product 便于控制台查看）
                 const idProductFull = (productValues.main || '').trim();
+                // 额外记录一份「初始 row_index」，供后续重排时使用，避免后面逻辑改写 data-row-index 影响顺序
+                summaryRow.setAttribute('data-preserved-row-index', existingRowIndex);
                 console.log('Preserved existing row_index:', existingRowIndex, idProductFull || summaryIdProduct);
                 return; // Keep existing row_index - don't recalculate
             }
@@ -14307,24 +14361,61 @@ if (summaryTableBody) {
     });
 }
 
-// After applying all templates, reorder rows by row_index — 但若本地有已保存的行顺序待恢复，则跳过，避免覆盖用户顺序（NO/API GSC 等）
+// After applying all templates, reorder rows by row_index — 但若本地或服务端有已保存的行顺序待恢复，则跳过，避免覆盖用户顺序（NO/API GSC 等）
 let skipRowIndexReorder = false;
 try {
-    const savedRaw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
-    if (savedRaw) {
-        const saved = JSON.parse(savedRaw);
-        if (saved && typeof saved === 'object' && !Array.isArray(saved) && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0) {
-            const currentId = getCurrentProcessId();
-            const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
-            const savedId = saved.processId != null ? saved.processId : null;
-            const savedCode = (typeof saved.processCode === 'string' ? saved.processCode : '').trim();
-            const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
-            const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
-            if (idMatch && codeMatch) skipRowIndexReorder = true;
+    let saved = null;
+    if (window._summaryStateFromServer && typeof window._summaryStateFromServer === 'object' && !Array.isArray(window._summaryStateFromServer)) {
+        saved = window._summaryStateFromServer;
+    } else {
+        const savedRaw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
+        if (savedRaw) saved = JSON.parse(savedRaw);
+    }
+    if (saved && typeof saved === 'object' && !Array.isArray(saved) && Array.isArray(saved.rowOrder) && saved.rowOrder.length > 0) {
+        const currentId = getCurrentProcessId();
+        const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
+        const savedId = saved.processId != null ? saved.processId : null;
+        const savedCode = (typeof saved.processCode === 'string' ? saved.processCode : '').trim();
+        const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
+        const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+        if (idMatch && codeMatch) skipRowIndexReorder = true;
+    }
+
+    // 特例：当前流程启用了 Replace Word（如 PROFITLOSS -> IPHSP3）时，
+    // 一律按 row_index / Data Capture 顺序重新排序 Summary，
+    // 避免旧的 rowOrder 导致转换后的 main 行（IPHSP3）排到最前面。
+    try {
+        const processData =
+            window.capturedProcessData ||
+            (function () {
+                try {
+                    const raw = localStorage.getItem('capturedProcessData');
+                    return raw ? JSON.parse(raw) : null;
+                } catch (e) {
+                    return null;
+                }
+            })();
+        if (processData) {
+            const rwFrom =
+                (processData.replaceWordFrom ??
+                    processData.replace_word_from ??
+                    '').toString().trim();
+            const rwTo =
+                (processData.replaceWordTo ??
+                    processData.replace_word_to ??
+                    '').toString().trim();
+            if (rwFrom && rwTo) {
+                // 只要有 Replace Word 配置，就强制允许 reorder，以 console 中的 row_index 为准
+                skipRowIndexReorder = false;
+            }
         }
+    } catch (e) {
+        // 忽略 Replace Word 检查错误，不影响其它流程
     }
 } catch (e) {}
-if (!skipRowIndexReorder && typeof reorderSummaryRowsByRowIndex === 'function') {
+// 用户需求：每一轮进入 Summary 都以最新的 row_index 为准，不受旧缓存影响。
+// 因此无论 skipRowIndexReorder 当前是否为 true，这里始终执行一次基于 row_index 的全局重排。
+if (typeof reorderSummaryRowsByRowIndex === 'function') {
     reorderSummaryRowsByRowIndex();
 }
 } catch (error) {
@@ -15915,6 +16006,84 @@ if (rows.length === 0) {
     return;
 }
 
+// NEW: 首次/全局排序只按 main 的 row_index（或 preserved-row-index）排序，
+// 并且把 main 与其后紧跟的 sub 当成一个整体 group，一起移动。
+// 这样 Summary 里所有 main 的顺序会和 console 打印的 row_index 完全一致，
+// 而 group 内部（main/sub 的相对顺序）保持不变。
+const groups = [];
+let currentGroup = null;
+
+rows.forEach((row) => {
+    const idProductCell = row.querySelector('td:first-child');
+    const productValues = getProductValuesFromCell(idProductCell);
+    const mainTextRaw = (productValues.main || '').trim();
+    const productTypeAttr = row.getAttribute('data-product-type') || 'main';
+    const isSub = productTypeAttr === 'sub' || (!mainTextRaw && productTypeAttr !== 'main');
+
+    if (!isSub && mainTextRaw) {
+        // 新的 main 行，开启一个新 group
+        currentGroup = {
+            rows: [],
+            mainRow: row,
+            originalGroupIndex: groups.length
+        };
+        groups.push(currentGroup);
+    }
+
+    if (!currentGroup) {
+        // 理论上不应该出现：在第一个 main 之前的行，单独当成一个 group
+        currentGroup = {
+            rows: [],
+            mainRow: row,
+            originalGroupIndex: groups.length
+        };
+        groups.push(currentGroup);
+    }
+
+    currentGroup.rows.push(row);
+});
+
+// 为每个 group 计算排序用的 row_index：优先 preserved，其次 data-row-index
+groups.forEach(group => {
+    const mainRow = group.mainRow || group.rows[0];
+    let sortIndex = 999999;
+    if (mainRow) {
+        const preservedAttr = mainRow.getAttribute('data-preserved-row-index');
+        const rowIndexAttr = mainRow.getAttribute('data-row-index');
+        const preserved = (preservedAttr !== null && preservedAttr !== '' && !Number.isNaN(Number(preservedAttr)))
+            ? Number(preservedAttr)
+            : null;
+        const rowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
+            ? Number(rowIndexAttr)
+            : null;
+        const effective = preserved !== null ? preserved : rowIndex;
+        if (effective !== null && effective >= 0 && !Number.isNaN(effective)) {
+            sortIndex = effective;
+        }
+    }
+    group.sortIndex = sortIndex;
+});
+
+// 按 sortIndex 升序排序；相同 sortIndex 时按照原本的 group 顺序
+groups.sort((a, b) => {
+    if (a.sortIndex !== b.sortIndex) {
+        return a.sortIndex - b.sortIndex;
+    }
+    return a.originalGroupIndex - b.originalGroupIndex;
+});
+
+// 重新挂载行：按 group 顺序依次 append，每个 group 内部保持原来的 DOM 顺序
+groups.forEach(group => {
+    group.rows.forEach(row => summaryTableBody.appendChild(row));
+});
+
+console.log(
+    'Reordered rows by preserved row_index groups (main + subs).',
+    'Total groups:', groups.length,
+    'Total rows:', rows.length
+);
+return;
+
 // 用「去空格」完整 id 做顺序与分组，ALLBET95MS(SV)/(KM)/(SEXY)MYR 各为独立 main，Sub 只跟自己的 Main
 const normalizeSpacesForReorder = (s) => (s || '').trim().replace(/\s+/g, '');
 const capturedTableBody = document.getElementById('capturedTableBody');
@@ -15922,16 +16091,77 @@ const dataCaptureTableOrder = []; // Array of {idProduct, position}，idProduct 
 const idProductPositions = new Map();
 
 if (capturedTableBody) {
+    // 读取当前流程的 Replace Word 配置，用于把「被替换词」和「替换后 id_product」视为同一行位置
+    let replaceFromNorm = '';
+    let replaceToNorm = '';
+    try {
+        const processData =
+            window.capturedProcessData ||
+            (function () {
+                try {
+                    const raw = localStorage.getItem('capturedProcessData');
+                    return raw ? JSON.parse(raw) : null;
+                } catch (e) {
+                    return null;
+                }
+            })();
+        if (processData) {
+            const rwFrom =
+                (processData.replaceWordFrom ??
+                    processData.replace_word_from ??
+                    '').toString().trim();
+            const rwTo =
+                (processData.replaceWordTo ??
+                    processData.replace_word_to ??
+                    '').toString().trim();
+            if (rwFrom && rwTo) {
+                replaceFromNorm = normalizeSpacesForReorder(rwFrom);
+                replaceToNorm = normalizeSpacesForReorder(rwTo);
+            }
+        }
+    } catch (e) {
+        // 忽略 Replace Word 解析错误，不影响其它流程
+    }
+
     const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
     capturedRows.forEach((capturedRow, capturedIndex) => {
-        const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
+        const capturedIdProductCell =
+            capturedRow.querySelector('td[data-column-index="1"]') ||
+            capturedRow.querySelector('td[data-col-index="1"]') ||
+            capturedRow.querySelectorAll('td')[1];
         if (capturedIdProductCell) {
             const raw = (capturedIdProductCell.textContent || '').trim();
             const capturedIdProduct = normalizeSpacesForReorder(raw);
             if (capturedIdProduct) {
-                dataCaptureTableOrder.push({ idProduct: capturedIdProduct, position: capturedIndex });
-                if (!idProductPositions.has(capturedIdProduct)) idProductPositions.set(capturedIdProduct, []);
-                idProductPositions.get(capturedIdProduct).push(capturedIndex);
+                // 原始 id_product 的位置
+                dataCaptureTableOrder.push({
+                    idProduct: capturedIdProduct,
+                    position: capturedIndex
+                });
+                if (!idProductPositions.has(capturedIdProduct))
+                    idProductPositions.set(capturedIdProduct, []);
+                idProductPositions
+                    .get(capturedIdProduct)
+                    .push(capturedIndex);
+
+                // 如果这一行是 Replace Word 的「被替换词」，则把「替换后 id_product」也映射到同一位置，
+                // 这样 Summary 里显示的 IPHSP3（replaceTo）就会被当成和 PROFITLOSS（replaceFrom）同一行，
+                // 排序时不会被当成新的第一行。
+                if (
+                    replaceFromNorm &&
+                    replaceToNorm &&
+                    capturedIdProduct === replaceFromNorm
+                ) {
+                    dataCaptureTableOrder.push({
+                        idProduct: replaceToNorm,
+                        position: capturedIndex
+                    });
+                    if (!idProductPositions.has(replaceToNorm))
+                        idProductPositions.set(replaceToNorm, []);
+                    idProductPositions
+                        .get(replaceToNorm)
+                        .push(capturedIndex);
+                }
             }
         }
     });
@@ -15963,6 +16193,11 @@ const rowData = rows.map((row, originalIndex) => {
         normalizedMain = normalizeSpacesForReorder(mainTextRaw);
     }
     
+    const preservedAttr = row.getAttribute('data-preserved-row-index');
+    const preservedRowIndex = (preservedAttr !== null && preservedAttr !== '' && !Number.isNaN(Number(preservedAttr)))
+        ? Number(preservedAttr)
+        : null;
+
     const attr = row.getAttribute('data-row-index');
     const rowIndex = (attr !== null && attr !== '' && !Number.isNaN(Number(attr)))
         ? Number(attr)
@@ -15978,7 +16213,13 @@ const rowData = rows.map((row, originalIndex) => {
     const accountOrder = (accountOrderAttr !== null && accountOrderAttr !== '' && !Number.isNaN(Number(accountOrderAttr))) ? Number(accountOrderAttr) : 999999;
 
     let dataCapturePosition = 999999;
-    if (normalizedMain && dataCaptureTableOrder.length > 0) {
+    // 优先使用「初始」row_index（data-preserved-row-index），保证 Summary 的 main id_product
+    // 顺序与控制台中打印的 “Preserved existing row_index” 完全一致。
+    // 若没有 preserved 值，再使用当前的 data-row-index；两者都没有时才回退到 Data Capture Table 顺序。
+    const effectiveIndex = (preservedRowIndex !== null ? preservedRowIndex : rowIndex);
+    if (effectiveIndex !== null && !Number.isNaN(effectiveIndex) && effectiveIndex < 999999) {
+        dataCapturePosition = effectiveIndex;
+    } else if (normalizedMain && dataCaptureTableOrder.length > 0) {
         const index = dataCaptureTableOrder.findIndex(item => item.idProduct === normalizedMain);
         if (index !== -1) dataCapturePosition = index;
     }
@@ -17157,6 +17398,7 @@ return {
 return { main, sub };
 }
 
+// 保留 id_product 完整形式（含末尾冒号等符号），便于与资料库一致查找；仅去掉首尾空格
 function normalizeIdProductText(text) {
 if (!text || typeof text !== 'string') {
 return '';
@@ -17165,15 +17407,15 @@ const trimmed = text.trim();
 if (!trimmed) {
 return '';
 }
-// 完整 id_product（如 G8:GAMEPLAY (M)- RSLOTS - 4DDMYMYR (T07)）整串保留，不截掉括号及后面内容
+// 完整 id_product（如 VM365-21:、G8:GAMEPLAY (M)- RSLOTS）整串保留，不截掉冒号或括号内容
 if (trimmed.indexOf(' - ') >= 0) {
-return trimmed.replace(/[: ]+$/, '').trim();
+return trimmed.replace(/\s+$/, '').trim();
 }
 const match = trimmed.match(/^([^(]+)/);
 if (match) {
-return match[1].replace(/[: ]+$/, '').trim();
+return match[1].replace(/\s+$/, '').trim();
 }
-return trimmed.replace(/[: ]+$/, '').trim();
+return trimmed.replace(/\s+$/, '').trim();
 }
 
 function formatPercentValue(value) {
@@ -18012,11 +18254,11 @@ async function submitSummaryData() {
             const idProductSubRaw = productValues.sub || '';
             const idProductCellText = idProductCell ? idProductCell.textContent.trim() : '';
             
-            // Extract product ID：id_product 整串保留，不对其内符号做任何解析或逻辑
+            // Extract product ID：id_product 整串保留（含冒号等），与资料库一致
             let cleanIdProductMain = '';
             let descriptionMain = '';
             if (idProductMainRaw) {
-                cleanIdProductMain = idProductMainRaw.replace(/[: ]+$/, '').trim();
+                cleanIdProductMain = idProductMainRaw.trim();
                 // 如果单元格文本中在主产品后面还有括号内容（例如 "IK-SPORT (红股)"），
                 // 将括号内的文字提取为 descriptionMain，方便在 Payment History 中显示为 "IK-SPORT (红股)"。
                 if (idProductCellText && idProductCellText.length > cleanIdProductMain.length) {
@@ -18030,7 +18272,7 @@ async function submitSummaryData() {
             let cleanIdProductSub = '';
             let descriptionSub = '';
             if (idProductSubRaw) {
-                cleanIdProductSub = idProductSubRaw.replace(/[: ]+$/, '').trim();
+                cleanIdProductSub = idProductSubRaw.trim();
             }
             
             // Determine product type: 'main' if Main value has value, 'sub' if only Sub value has value
