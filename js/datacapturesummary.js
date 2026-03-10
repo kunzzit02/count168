@@ -13852,19 +13852,20 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                         let parsedExpression = referenceExpression;
                         
                         // Parse [id_product : column_number] format (from buildSourceExpressionFromTable)
-                        const colonPattern = /\[([^:]+)\s*:\s*(\d+)\]/g;
+                        // 兼容旧数据中的逗号写法：[ID,6]
+                        const referencePattern = /\[([^:\],]+)\s*[: ,]\s*(\d+)\]/g;
                         let match;
-                        const colonMatches = [];
+                        const referenceMatches = [];
                         
-                        colonPattern.lastIndex = 0;
-                        while ((match = colonPattern.exec(parsedExpression)) !== null) {
-                            const fullMatch = match[0]; // e.g., "[OVERALL : 7]"
+                        referencePattern.lastIndex = 0;
+                        while ((match = referencePattern.exec(parsedExpression)) !== null) {
+                            const fullMatch = match[0]; // e.g., "[OVERALL : 7]" or "[OVERALL,7]"
                             const idProduct = match[1].trim(); // e.g., "OVERALL"
                             const displayColumnIndex = parseInt(match[2]); // e.g., 7
                             const matchIndex = match.index;
                             
                             if (!isNaN(displayColumnIndex) && displayColumnIndex > 0) {
-                                colonMatches.push({
+                                referenceMatches.push({
                                     fullMatch: fullMatch,
                                     idProduct: idProduct,
                                     displayColumnIndex: displayColumnIndex,
@@ -13873,26 +13874,26 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                             }
                         }
                         
-                        // Replace [id_product : column_number] with actual values (from back to front)
-                        colonMatches.sort((a, b) => b.index - a.index);
-                        for (let i = 0; i < colonMatches.length; i++) {
-                            const colonMatch = colonMatches[i];
-                            const dataColumnIndex = colonMatch.displayColumnIndex - 1;
+                        // Replace [id_product : column_number] / [id_product,number] with actual values (from back to front)
+                        referenceMatches.sort((a, b) => b.index - a.index);
+                        for (let i = 0; i < referenceMatches.length; i++) {
+                            const refMatch = referenceMatches[i];
+                            const dataColumnIndex = refMatch.displayColumnIndex - 1;
                             
                             // Get cell value using id_product and column index
                             // Try to get row label from processValue for better matching
-                            const rowLabel = getRowLabelFromProcessValue(colonMatch.idProduct);
-                            const columnValue = getCellValueByIdProductAndColumn(colonMatch.idProduct, dataColumnIndex, rowLabel);
+                            const rowLabel = getRowLabelFromProcessValue(refMatch.idProduct);
+                            const columnValue = getCellValueByIdProductAndColumn(refMatch.idProduct, dataColumnIndex, rowLabel);
                             
                             if (columnValue !== null && columnValue !== '') {
-                                parsedExpression = parsedExpression.substring(0, colonMatch.index) + 
+                                parsedExpression = parsedExpression.substring(0, refMatch.index) + 
                                               columnValue + 
-                                              parsedExpression.substring(colonMatch.index + colonMatch.fullMatch.length);
+                                              parsedExpression.substring(refMatch.index + refMatch.fullMatch.length);
                             } else {
-                                console.warn(`Cell value not found for [${colonMatch.idProduct} : ${colonMatch.displayColumnIndex}]`);
-                                parsedExpression = parsedExpression.substring(0, colonMatch.index) + 
+                                console.warn(`Cell value not found for [${refMatch.idProduct} : ${refMatch.displayColumnIndex}]`);
+                                parsedExpression = parsedExpression.substring(0, refMatch.index) + 
                                               '0' + 
-                                              parsedExpression.substring(colonMatch.index + colonMatch.fullMatch.length);
+                                              parsedExpression.substring(refMatch.index + refMatch.fullMatch.length);
                             }
                         }
                         
