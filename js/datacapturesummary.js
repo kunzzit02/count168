@@ -15978,16 +15978,77 @@ const dataCaptureTableOrder = []; // Array of {idProduct, position}，idProduct 
 const idProductPositions = new Map();
 
 if (capturedTableBody) {
+    // 读取当前流程的 Replace Word 配置，用于把「被替换词」和「替换后 id_product」视为同一行位置
+    let replaceFromNorm = '';
+    let replaceToNorm = '';
+    try {
+        const processData =
+            window.capturedProcessData ||
+            (function () {
+                try {
+                    const raw = localStorage.getItem('capturedProcessData');
+                    return raw ? JSON.parse(raw) : null;
+                } catch (e) {
+                    return null;
+                }
+            })();
+        if (processData) {
+            const rwFrom =
+                (processData.replaceWordFrom ??
+                    processData.replace_word_from ??
+                    '').toString().trim();
+            const rwTo =
+                (processData.replaceWordTo ??
+                    processData.replace_word_to ??
+                    '').toString().trim();
+            if (rwFrom && rwTo) {
+                replaceFromNorm = normalizeSpacesForReorder(rwFrom);
+                replaceToNorm = normalizeSpacesForReorder(rwTo);
+            }
+        }
+    } catch (e) {
+        // 忽略 Replace Word 解析错误，不影响其它流程
+    }
+
     const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
     capturedRows.forEach((capturedRow, capturedIndex) => {
-        const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
+        const capturedIdProductCell =
+            capturedRow.querySelector('td[data-column-index="1"]') ||
+            capturedRow.querySelector('td[data-col-index="1"]') ||
+            capturedRow.querySelectorAll('td')[1];
         if (capturedIdProductCell) {
             const raw = (capturedIdProductCell.textContent || '').trim();
             const capturedIdProduct = normalizeSpacesForReorder(raw);
             if (capturedIdProduct) {
-                dataCaptureTableOrder.push({ idProduct: capturedIdProduct, position: capturedIndex });
-                if (!idProductPositions.has(capturedIdProduct)) idProductPositions.set(capturedIdProduct, []);
-                idProductPositions.get(capturedIdProduct).push(capturedIndex);
+                // 原始 id_product 的位置
+                dataCaptureTableOrder.push({
+                    idProduct: capturedIdProduct,
+                    position: capturedIndex
+                });
+                if (!idProductPositions.has(capturedIdProduct))
+                    idProductPositions.set(capturedIdProduct, []);
+                idProductPositions
+                    .get(capturedIdProduct)
+                    .push(capturedIndex);
+
+                // 如果这一行是 Replace Word 的「被替换词」，则把「替换后 id_product」也映射到同一位置，
+                // 这样 Summary 里显示的 IPHSP3（replaceTo）就会被当成和 PROFITLOSS（replaceFrom）同一行，
+                // 排序时不会被当成新的第一行。
+                if (
+                    replaceFromNorm &&
+                    replaceToNorm &&
+                    capturedIdProduct === replaceFromNorm
+                ) {
+                    dataCaptureTableOrder.push({
+                        idProduct: replaceToNorm,
+                        position: capturedIndex
+                    });
+                    if (!idProductPositions.has(replaceToNorm))
+                        idProductPositions.set(replaceToNorm, []);
+                    idProductPositions
+                        .get(replaceToNorm)
+                        .push(capturedIndex);
+                }
             }
         }
     });
