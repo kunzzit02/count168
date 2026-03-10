@@ -11526,14 +11526,25 @@ function updateFormulaAndProcessedAmount(row, data) {
     }
     
     // Calculate or get base processed amount
-    // 优先使用保存到模板中的 processedAmount（由 saveFormula 计算），
-    // 只有在为空 / 0 / 无效时才根据当前公式 + Source% 重新计算。
+    // 默认优先使用保存到模板中的 processedAmount（由 saveFormula 计算），
+    // 但如果当前行配置了 Source%（且不等于 1），则始终按「公式 + Source%」重新计算，
+    // 确保像 0.03（3%）这类倍率变更能立刻反映到 Summary。
     let baseProcessedAmount = data.processedAmount !== undefined && data.processedAmount !== null ? Number(data.processedAmount) : null;
     
-    // Only recalculate if processedAmount is invalid (0, null, undefined, NaN)
-    // If data.processedAmount has a valid value, use it directly (it was calculated correctly in saveFormula)
-    // Only recalculate when absolutely necessary
-    const needsRecalculation = baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount);
+    const hasSourcePercent =
+        data.sourcePercent !== undefined &&
+        data.sourcePercent !== null &&
+        String(data.sourcePercent).trim() !== '' &&
+        String(data.sourcePercent).trim() !== '1';
+    
+    // 需要重算的条件：
+    // 1) 行上有有效的 Source%（≠1），或
+    // 2) processedAmount 本身无效（null / 0 / NaN）
+    const needsRecalculation =
+        hasSourcePercent ||
+        baseProcessedAmount === null ||
+        baseProcessedAmount === 0 ||
+        isNaN(baseProcessedAmount);
     
     if (needsRecalculation) {
         // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
