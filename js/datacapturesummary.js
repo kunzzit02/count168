@@ -269,36 +269,6 @@ function getSummaryRowKey(row) {
     ].map(v => (v || '').trim()).join('\t');
 }
 
-// 仅用于「Rate Value」的保存/恢复：去掉 Rate Value 本身，避免因为 Rate 变化导致 key 不稳定。
-// 这样同一行在刷新前后，key 始终只依赖 Id Product / Account / Currency / Formula / Source。
-function getSummaryRowKeyForRate(row) {
-    const cells = row.querySelectorAll('td');
-
-    const idProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
-    const account = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
-    const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
-
-    let formula = '';
-    if (cells[4]) {
-        const formulaSpan = cells[4].querySelector('.formula-text');
-        if (formulaSpan && formulaSpan.textContent) {
-            formula = formulaSpan.textContent.trim();
-        } else if (cells[4].textContent) {
-            formula = cells[4].textContent.trim();
-        }
-    }
-
-    const source = (cells[5] && cells[5].textContent ? cells[5].textContent.trim() : '');
-
-    return [
-        idProduct,
-        account,
-        currency,
-        formula,
-        source
-    ].map(v => (v || '').trim()).join('\t');
-}
-
 // 规范化 key：trim + 合并多余空格，避免刷新后 Account 显示略差导致匹配失败、行被排到最后
 function normalizeSummaryRowKey(key) {
     if (!key || typeof key !== 'string') return '';
@@ -457,8 +427,7 @@ function saveRateValuesForRefresh() {
     const rows = summaryTableBody.querySelectorAll('tr');
     const byKey = {};
     rows.forEach(row => {
-        // 使用不包含 Rate Value 的专用 key，保证刷新前后 key 稳定
-        const key = typeof getSummaryRowKeyForRate === 'function' ? getSummaryRowKeyForRate(row) : getSummaryRowKey(row);
+        const key = getSummaryRowKey(row);
         const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
@@ -519,8 +488,7 @@ function saveFormulaSourceForRefresh(opts) {
     const rateValuesByKey = {};
     if (includeRateValue) {
         rows.forEach(row => {
-            // Rate Value 使用单独的 key（不含 Rate 本身），保证刷新前后 key 稳定
-            const key = typeof getSummaryRowKeyForRate === 'function' ? getSummaryRowKeyForRate(row) : getSummaryRowKey(row);
+            const key = getSummaryRowKey(row);
             const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
             if (!normKey) return;
             const cells = row.querySelectorAll('td');
@@ -774,16 +742,9 @@ function restoreRateValuesFromRefresh() {
             if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
                 const savedKeys = Object.keys(saved);
                 rows.forEach((row) => {
-                    // 新版：优先使用不含 Rate 的 key，提高稳定性。
-                    const rateKey = typeof getSummaryRowKeyForRate === 'function' ? getSummaryRowKeyForRate(row) : getSummaryRowKey(row);
-                    const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(rateKey) : rateKey;
-                    let val = saved[normKey] ?? saved[rateKey];
-                    // 兼容旧数据：旧版本把 Rate 也包含在 key 里，这里退回到旧 key 尝试一次。
-                    if ((val === undefined || val === null || String(val).trim() === '') && typeof getSummaryRowKey === 'function') {
-                        const legacyKey = getSummaryRowKey(row);
-                        const legacyNormKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(legacyKey) : legacyKey;
-                        val = saved[legacyNormKey] ?? saved[legacyKey];
-                    }
+                    const key = getSummaryRowKey(row);
+                    const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+                    let val = saved[normKey] ?? saved[key];
                     if ((val === undefined || val === null || String(val).trim() === '') && normKey) {
                         const idPart = normKey.split('\t')[0] || '';
                         const idNorm = (idPart || '').trim().replace(/\s+/g, ' ');
@@ -829,17 +790,10 @@ function restoreRateValuesFromRefresh() {
         }
         if (rateValuesByKey && Object.keys(rateValuesByKey).length > 0) {
             rows.forEach((row) => {
-                // 新版：Rate Value 使用不含 Rate 的 key
-                const rateKey = typeof getSummaryRowKeyForRate === 'function' ? getSummaryRowKeyForRate(row) : getSummaryRowKey(row);
-                const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(rateKey) : rateKey;
+                const key = getSummaryRowKey(row);
+                const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
                 if (!normKey) return;
-                let val = rateValuesByKey[normKey] ?? rateValuesByKey[rateKey];
-                // 兼容旧数据：尝试使用包含 Rate 的旧 key
-                if ((val === undefined || val === null || String(val).trim() === '') && typeof getSummaryRowKey === 'function') {
-                    const legacyKey = getSummaryRowKey(row);
-                    const legacyNormKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(legacyKey) : legacyKey;
-                    val = rateValuesByKey[legacyNormKey] ?? rateValuesByKey[legacyKey];
-                }
+                const val = rateValuesByKey[normKey] ?? rateValuesByKey[key];
                 if (applyRateToRow(row, val)) appliedCount++;
             });
             try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
@@ -11571,51 +11525,67 @@ function updateFormulaAndProcessedAmount(row, data) {
         // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
     }
     
-    // 统一规则：每次根据当前公式 + Source % 重新计算“未乘 Rate 的基础值”，
-    // 不再直接信任后端传入的 processedAmount，避免出现公式或 Rate 已变但数值仍然沿用旧结果的情况。
-    let baseProcessedAmount = 0;
+    // Calculate or get base processed amount
+    // If data.processedAmount is 0, undefined, null, or not provided, recalculate from formula
+    let baseProcessedAmount = data.processedAmount !== undefined && data.processedAmount !== null ? Number(data.processedAmount) : null;
     
-    // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
-    const inputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
-    const enableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
+    // Only recalculate if processedAmount is invalid (0, null, undefined, NaN)
+    // If data.processedAmount has a valid value, use it directly (it was calculated correctly in saveFormula)
+    // Only recalculate when absolutely necessary
+    const needsRecalculation = baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount);
     
-    // Get source percent from data first, then from cell display
-    let sourcePercentText = '';
-    if (data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '') {
-        // Convert from decimal format (1 = 100%) to display format for calculation
-        sourcePercentText = data.sourcePercent.toString().trim();
-    } else {
-        const sourcePercentCell = cells[5];
-        sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '';
-        // If still empty, use default value '1' (100%)
+    if (needsRecalculation) {
+        // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
+        const inputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
+        const enableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
+        
+        // Get source percent from data first, then from cell display
+        let sourcePercentText = '';
+        if (data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '') {
+            // Convert from decimal format (1 = 100%) to display format for calculation
+            sourcePercentText = data.sourcePercent.toString().trim();
+        } else {
+            const sourcePercentCell = cells[5];
+            sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '';
+            // If still empty, use default value '1' (100%)
+            if (!sourcePercentText || sourcePercentText.trim() === '') {
+                sourcePercentText = '1';
+            }
+        }
+        
+        // Get source percent enable state
+        // If sourcePercentText is empty, disable source percent (shouldn't happen now, but keep as safety check)
+        let enableSourcePercent = data.enableSourcePercent !== undefined ? data.enableSourcePercent : (row.getAttribute('data-enable-source-percent') === 'true');
         if (!sourcePercentText || sourcePercentText.trim() === '') {
-            sourcePercentText = '1';
+            enableSourcePercent = false;
+        } else {
+            // If sourcePercentText has a value, enable it
+            enableSourcePercent = true;
+        }
+        
+        // Use formulaOperators from data first (contains the actual formula expression)
+        // This is the most reliable source as it's passed directly from saveFormula
+        const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
+        
+        if (formulaOperators && formulaOperators.trim() !== '' && formulaOperators !== 'Formula') {
+            baseProcessedAmount = calculateFormulaResultFromExpression(formulaOperators, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
+            console.log('Recalculated processedAmount from formulaOperators:', formulaOperators, 'result:', baseProcessedAmount);
+        } else {
+            // Fallback: use data.formula or raw formula from row (避免用单元格里 2 位小数格式化后的值参与计算)
+            const formulaText = data.formula || getFormulaForCalculation(row);
+            if (formulaText && formulaText.trim() !== '' && formulaText !== 'Formula') {
+                baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                console.log('Recalculated processedAmount from formulaText:', formulaText, 'result:', baseProcessedAmount);
+            }
+        }
+        
+        // Ensure baseProcessedAmount is a valid number
+        if (baseProcessedAmount === null || isNaN(baseProcessedAmount)) {
+            baseProcessedAmount = 0;
         }
     }
     
-    // Get source percent enable state
-    let enableSourcePercent = data.enableSourcePercent !== undefined ? data.enableSourcePercent : (row.getAttribute('data-enable-source-percent') === 'true');
-    if (!sourcePercentText || sourcePercentText.trim() === '') {
-        enableSourcePercent = false;
-    } else {
-        enableSourcePercent = true;
-    }
-    
-    // Use formulaOperators from data first (contains the actual formula expression)
-    const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
-    
-    if (formulaOperators && formulaOperators.trim() !== '' && formulaOperators !== 'Formula') {
-        baseProcessedAmount = calculateFormulaResultFromExpression(formulaOperators, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
-        console.log('Recalculated processedAmount from formulaOperators:', formulaOperators, 'result:', baseProcessedAmount);
-    } else {
-        // Fallback: use data.formula or raw formula from row
-        const formulaText = data.formula || getFormulaForCalculation(row);
-        if (formulaText && formulaText.trim() !== '' && formulaText !== 'Formula') {
-            baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-            console.log('Recalculated processedAmount from formulaText:', formulaText, 'result:', baseProcessedAmount);
-        }
-    }
-    
+    // Ensure baseProcessedAmount is always a valid number (fallback to 0)
     if (baseProcessedAmount === null || isNaN(baseProcessedAmount)) {
         baseProcessedAmount = 0;
     }
