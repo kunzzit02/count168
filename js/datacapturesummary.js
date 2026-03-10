@@ -16003,6 +16003,84 @@ if (rows.length === 0) {
     return;
 }
 
+// NEW: 首次/全局排序只按 main 的 row_index（或 preserved-row-index）排序，
+// 并且把 main 与其后紧跟的 sub 当成一个整体 group，一起移动。
+// 这样 Summary 里所有 main 的顺序会和 console 打印的 row_index 完全一致，
+// 而 group 内部（main/sub 的相对顺序）保持不变。
+const groups = [];
+let currentGroup = null;
+
+rows.forEach((row) => {
+    const idProductCell = row.querySelector('td:first-child');
+    const productValues = getProductValuesFromCell(idProductCell);
+    const mainTextRaw = (productValues.main || '').trim();
+    const productTypeAttr = row.getAttribute('data-product-type') || 'main';
+    const isSub = productTypeAttr === 'sub' || (!mainTextRaw && productTypeAttr !== 'main');
+
+    if (!isSub && mainTextRaw) {
+        // 新的 main 行，开启一个新 group
+        currentGroup = {
+            rows: [],
+            mainRow: row,
+            originalGroupIndex: groups.length
+        };
+        groups.push(currentGroup);
+    }
+
+    if (!currentGroup) {
+        // 理论上不应该出现：在第一个 main 之前的行，单独当成一个 group
+        currentGroup = {
+            rows: [],
+            mainRow: row,
+            originalGroupIndex: groups.length
+        };
+        groups.push(currentGroup);
+    }
+
+    currentGroup.rows.push(row);
+});
+
+// 为每个 group 计算排序用的 row_index：优先 preserved，其次 data-row-index
+groups.forEach(group => {
+    const mainRow = group.mainRow || group.rows[0];
+    let sortIndex = 999999;
+    if (mainRow) {
+        const preservedAttr = mainRow.getAttribute('data-preserved-row-index');
+        const rowIndexAttr = mainRow.getAttribute('data-row-index');
+        const preserved = (preservedAttr !== null && preservedAttr !== '' && !Number.isNaN(Number(preservedAttr)))
+            ? Number(preservedAttr)
+            : null;
+        const rowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
+            ? Number(rowIndexAttr)
+            : null;
+        const effective = preserved !== null ? preserved : rowIndex;
+        if (effective !== null && effective >= 0 && !Number.isNaN(effective)) {
+            sortIndex = effective;
+        }
+    }
+    group.sortIndex = sortIndex;
+});
+
+// 按 sortIndex 升序排序；相同 sortIndex 时按照原本的 group 顺序
+groups.sort((a, b) => {
+    if (a.sortIndex !== b.sortIndex) {
+        return a.sortIndex - b.sortIndex;
+    }
+    return a.originalGroupIndex - b.originalGroupIndex;
+});
+
+// 重新挂载行：按 group 顺序依次 append，每个 group 内部保持原来的 DOM 顺序
+groups.forEach(group => {
+    group.rows.forEach(row => summaryTableBody.appendChild(row));
+});
+
+console.log(
+    'Reordered rows by preserved row_index groups (main + subs).',
+    'Total groups:', groups.length,
+    'Total rows:', rows.length
+);
+return;
+
 // 用「去空格」完整 id 做顺序与分组，ALLBET95MS(SV)/(KM)/(SEXY)MYR 各为独立 main，Sub 只跟自己的 Main
 const normalizeSpacesForReorder = (s) => (s || '').trim().replace(/\s+/g, '');
 const capturedTableBody = document.getElementById('capturedTableBody');
