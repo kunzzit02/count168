@@ -16032,7 +16032,12 @@ const rowData = rows.map((row, originalIndex) => {
     const accountOrder = (accountOrderAttr !== null && accountOrderAttr !== '' && !Number.isNaN(Number(accountOrderAttr))) ? Number(accountOrderAttr) : 999999;
 
     let dataCapturePosition = 999999;
-    if (normalizedMain && dataCaptureTableOrder.length > 0) {
+    // 优先使用已存在的 row_index 作为主排序键，保证「一开始进来」时 Summary 中 main id_product
+    // 的顺序与控制台中打印的「Preserved existing row_index」一致。
+    // 仅当行本身没有有效 row_index 时，才回退到根据 Data Capture Table 计算的位置。
+    if (rowIndex !== null && !Number.isNaN(rowIndex) && rowIndex < 999999) {
+        dataCapturePosition = rowIndex;
+    } else if (normalizedMain && dataCaptureTableOrder.length > 0) {
         const index = dataCaptureTableOrder.findIndex(item => item.idProduct === normalizedMain);
         if (index !== -1) dataCapturePosition = index;
     }
