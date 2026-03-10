@@ -14379,6 +14379,38 @@ try {
         const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
         if (idMatch && codeMatch) skipRowIndexReorder = true;
     }
+
+    // 特例：当前流程启用了 Replace Word（如 PROFITLOSS -> IPHSP3）时，
+    // 一律按 row_index / Data Capture 顺序重新排序 Summary，
+    // 避免旧的 rowOrder 导致转换后的 main 行（IPHSP3）排到最前面。
+    try {
+        const processData =
+            window.capturedProcessData ||
+            (function () {
+                try {
+                    const raw = localStorage.getItem('capturedProcessData');
+                    return raw ? JSON.parse(raw) : null;
+                } catch (e) {
+                    return null;
+                }
+            })();
+        if (processData) {
+            const rwFrom =
+                (processData.replaceWordFrom ??
+                    processData.replace_word_from ??
+                    '').toString().trim();
+            const rwTo =
+                (processData.replaceWordTo ??
+                    processData.replace_word_to ??
+                    '').toString().trim();
+            if (rwFrom && rwTo) {
+                // 只要有 Replace Word 配置，就强制允许 reorder，以 console 中的 row_index 为准
+                skipRowIndexReorder = false;
+            }
+        }
+    } catch (e) {
+        // 忽略 Replace Word 检查错误，不影响其它流程
+    }
 } catch (e) {}
 if (!skipRowIndexReorder && typeof reorderSummaryRowsByRowIndex === 'function') {
     reorderSummaryRowsByRowIndex();
