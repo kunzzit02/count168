@@ -11525,28 +11525,13 @@ function updateFormulaAndProcessedAmount(row, data) {
         // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
     }
     
-    // Calculate or get base processed amount
-    // 默认优先使用保存到模板中的 processedAmount（由 saveFormula 计算），
-    // 但如果当前行配置了 Source%（且不等于 1），则始终按「公式 + Source%」重新计算，
-    // 确保像 0.03（3%）这类倍率变更能立刻反映到 Summary。
-    let baseProcessedAmount = data.processedAmount !== undefined && data.processedAmount !== null ? Number(data.processedAmount) : null;
+    // 统一计算 base processed amount：
+    // 不再依赖 data.processedAmount（可能是旧版本或旧期数据），
+    // 始终按照「当前公式 + 当前 Source% + 当前 Input Method」重新计算，
+    // 确保所有行的 Processed Amount 一致使用同一套规则。
+    let baseProcessedAmount = null;
     
-    const hasSourcePercent =
-        data.sourcePercent !== undefined &&
-        data.sourcePercent !== null &&
-        String(data.sourcePercent).trim() !== '' &&
-        String(data.sourcePercent).trim() !== '1';
-    
-    // 需要重算的条件：
-    // 1) 行上有有效的 Source%（≠1），或
-    // 2) processedAmount 本身无效（null / 0 / NaN）
-    const needsRecalculation =
-        hasSourcePercent ||
-        baseProcessedAmount === null ||
-        baseProcessedAmount === 0 ||
-        isNaN(baseProcessedAmount);
-    
-    if (needsRecalculation) {
+    {
         // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
         const inputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
         const enableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
