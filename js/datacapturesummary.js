@@ -645,6 +645,8 @@ function restoreFormulaSourceFromRefresh() {
         }
         const cells = row.querySelectorAll('td');
 
+        // 默认使用保存的公式，但如果当前行已经从后端加载了非空公式，则优先保留当前公式，
+        // 避免用旧的本地缓存覆盖用户刚刚在其他页面/设备上更新过的公式。
         let formula = data.formula != null ? String(data.formula) : '';
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const source = data.source != null ? String(data.source) : '';
@@ -665,9 +667,8 @@ function restoreFormulaSourceFromRefresh() {
             const existingSpan = cells[4].querySelector('.formula-text');
             const existingFormulaText = existingSpan ? (existingSpan.textContent || '').trim() : '';
 
-            // 优先使用 Summary 状态中保存的公式（formula），
-            // 若状态中为空，再退回到当前单元格已有的公式文本。
-            const finalFormula = formula || existingFormulaText;
+            // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
+            const finalFormula = existingFormulaText || formula;
 
             cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>`;
             const span = cells[4].querySelector('.formula-text');
@@ -11524,15 +11525,14 @@ function updateFormulaAndProcessedAmount(row, data) {
         // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
     }
     
-    // 计算 base processed amount：
-    // 默认优先使用 saveFormula 已经算好的 data.processedAmount（与弹窗里提示的值一致），
-    // 只有在 data.processedAmount 为空或无效时，才根据当前公式 + Source% + Input Method 重新计算。
-    let baseProcessedAmount = (data.processedAmount !== undefined && data.processedAmount !== null)
-        ? Number(data.processedAmount)
-        : null;
+    // Calculate or get base processed amount
+    // If data.processedAmount is 0, undefined, null, or not provided, recalculate from formula
+    let baseProcessedAmount = data.processedAmount !== undefined && data.processedAmount !== null ? Number(data.processedAmount) : null;
     
-    // 仅当 processedAmount 缺失或无效时才需要重算
-    const needsRecalculation = (baseProcessedAmount === null || isNaN(baseProcessedAmount));
+    // Only recalculate if processedAmount is invalid (0, null, undefined, NaN)
+    // If data.processedAmount has a valid value, use it directly (it was calculated correctly in saveFormula)
+    // Only recalculate when absolutely necessary
+    const needsRecalculation = baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount);
     
     if (needsRecalculation) {
         // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
