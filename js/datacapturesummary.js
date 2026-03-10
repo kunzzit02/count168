@@ -14752,24 +14752,15 @@ if (mainTemplate && !hasExistingData) {
             const isResolvedReferenceFormat = resolvedSourceExpression && /\[[^\]]+\s*:\s*\d+\]/.test(resolvedSourceExpression);
             const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
             
-            // If saved formula has reference format, parse it to actual values
+            // 如果保存的 formula_display 使用引用格式（如 [TBBET,10]），直接使用数据库中的字符串，
+            // 不再把引用解析成当前数值，保证前端展示与 DB 中保存的一致。
             if (savedHasReferenceFormat) {
-                // Parse reference format to actual values before displaying
-                const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
-                if (percentValue && enableSourcePercent) {
-                    formulaDisplay = createFormulaDisplayFromExpression(parsedSavedFormula, percentValue, enableSourcePercent);
-                } else {
-                    formulaDisplay = parsedSavedFormula;
-                }
-                console.log('Parsed saved formula_display with reference format:', savedFormulaDisplay, '->', parsedSavedFormula, 'Final:', formulaDisplay);
+                formulaDisplay = savedFormulaDisplay;
+                console.log('Using saved formula_display in reference format as-is (keep same as DB):', formulaDisplay);
             } else if (isResolvedReferenceFormat) {
-                // Current data is reference format, use it directly
-                if (percentValue && enableSourcePercent) {
-                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                } else {
-                    formulaDisplay = resolvedSourceExpression;
-                }
-                console.log('Using reference format from resolvedSourceExpression:', formulaDisplay);
+                // 当前数据是引用格式，也直接按引用格式展示
+                formulaDisplay = resolvedSourceExpression;
+                console.log('Using resolvedSourceExpression in reference format as-is:', formulaDisplay);
             } else if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
                 // IMPORTANT: Check if saved formula contains manually entered parts (e.g., *0.9/2)
                 // If it does, we should preserve the entire formula structure including manual inputs
