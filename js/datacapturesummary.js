@@ -11243,7 +11243,10 @@ function updateRowFormulaFromColumns(row) {
     
     // Update Formula column (index 4)
     if (cells[4]) {
-        const formulaText = formulaDisplay;
+        // 优先使用已经保存的 data-formula-display（由 Edit Formula 计算并保存），
+        // 确保 Summary 列表中的 Formula 与 Edit 弹窗中的灰色显示框一致
+        const preferredDisplay = row.getAttribute('data-formula-display');
+        const formulaText = (preferredDisplay && preferredDisplay.trim() !== '') ? preferredDisplay : formulaDisplay;
         // Get input method from row for tooltip (escape for HTML attribute)
         const inputMethod = row.getAttribute('data-input-method') || '';
         const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
@@ -11520,6 +11523,8 @@ function updateFormulaAndProcessedAmount(row, data) {
         
         if (!rawFormula) rawFormula = formulaText;
         row.setAttribute('data-formula-raw', rawFormula || '');
+        // 同步一份用于展示的公式到 data-formula-display，供 Summary 列表和 Edit 弹窗共用
+        row.setAttribute('data-formula-display', formulaText || '');
         const displayText = formulaText;
         
         // Get input method from row or data for tooltip (escape for HTML attribute)
