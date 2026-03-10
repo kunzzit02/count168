@@ -237,8 +237,8 @@ return null;
 // Flag: set true when navigating away by Back or Submit so beforeunload does not save rate values
 window.isNavigatingAwayByBackOrSubmit = false;
 
-// 用「Id Product + Account + Currency + Formula + Source + Rate Value」生成内容 key，
-// 确保同一 Id + Account 下，不同币种 / 公式 / 来源 / Rate Value 的多行不会互相覆盖（用于保存公式/Rate 等内容）
+// 用「Id Product + Account + Currency + Formula + Source」生成内容 key，
+// 确保同一 Id + Account 下，不同币种 / 公式 / 来源 的多行不会互相覆盖（用于保存公式/Rate 等内容）
 function getSummaryRowKey(row) {
     const cells = row.querySelectorAll('td');
 
@@ -257,15 +257,13 @@ function getSummaryRowKey(row) {
     }
 
     const source = (cells[5] && cells[5].textContent ? cells[5].textContent.trim() : '');
-    const rateValue = (cells[7] && cells[7].textContent ? cells[7].textContent.trim() : '');
 
     return [
         idProduct,
         account,
         currency,
         formula,
-        source,
-        rateValue
+        source
     ].map(v => (v || '').trim()).join('\t');
 }
 
