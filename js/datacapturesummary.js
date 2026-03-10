@@ -11173,8 +11173,9 @@ function updateRowFormulaFromColumns(row) {
     // If we have a saved formula_display, try to preserve its structure while updating numbers
     // But if displayExpression is reference format, use it directly
     let formulaDisplay;
-    const isDisplayReferenceFormat = displayExpression && /\[[^\]]+\s*:\s*\d+\]/.test(displayExpression);
-    const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+    // 支持旧格式 [ID,6] 与新格式 [ID : 6]
+    const isDisplayReferenceFormat = displayExpression && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(displayExpression);
+    const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
 
     if (isDisplayReferenceFormat) {
         // Parse reference format to actual values before creating display
@@ -14732,7 +14733,7 @@ if (mainTemplate && !hasExistingData) {
                 }
             } else {
                 // No current source data, check if saved formula has reference format and parse it
-                const savedHasRefFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+        const savedHasRefFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
                 if (savedHasRefFormat) {
                     // Parse reference format to actual values
                     const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
@@ -14769,7 +14770,7 @@ if (mainTemplate && !hasExistingData) {
         } else {
             // Check if resolvedSourceExpression or savedFormulaDisplay is reference format
             const isResolvedReferenceFormat = resolvedSourceExpression && /\[[^\]]+\s*:\s*\d+\]/.test(resolvedSourceExpression);
-            const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+            const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
             
             // If saved formula has reference format, parse it to actual values
             if (savedHasReferenceFormat) {
@@ -14844,7 +14845,7 @@ if (mainTemplate && !hasExistingData) {
                 }
             } else {
                 // If no current source data, check if saved formula has reference format and parse it
-                const savedHasRefFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+                const savedHasRefFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
                 if (savedHasRefFormat) {
                     // Parse reference format to actual values
                     const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
@@ -16927,7 +16928,7 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
 } else if (!hasDollarSigns && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
     // CRITICAL: 如果公式中没有 $ 符号，直接使用保存的 formula_display，不尝试解析或重建
     // Check if savedFormulaDisplay has reference format (e.g., [id_product : column])
-    const savedHasReferenceFormat = /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+    const savedHasReferenceFormat = /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
     if (savedHasReferenceFormat) {
         // Saved formula has reference format, parse it to get actual values
         const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
