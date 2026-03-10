@@ -6779,17 +6779,17 @@ function extractRowDataForTemplate(row, formData) {
     let descriptionMain = '';
     let descriptionSub = '';
     
-    // Parse main product value：id_product 整串保留，不对其内符号做任何解析或逻辑
+    // Parse main product value：id_product 整串保留（含冒号等符号），与资料库一致
     const mainText = productValues.main || '';
     if (mainText) {
-        idProductMain = mainText.replace(/[: ]+$/, '').trim();
+        idProductMain = mainText.trim();
         descriptionMain = '';
     }
     
     // Parse sub product value：同上，整串保留
     const subText = productValues.sub || '';
     if (subText) {
-        idProductSub = subText.replace(/[: ]+$/, '').trim();
+        idProductSub = subText.trim();
         descriptionSub = '';
     }
     
