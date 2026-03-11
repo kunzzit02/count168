@@ -520,9 +520,8 @@ function saveFormulaSourceForRefresh(opts) {
 
 // 从服务端获取 Summary 状态（行顺序 + 公式/Source/Rate），失败或为空则返回 null
 function fetchSummaryStateFromServer(processId, processCode) {
-    const base = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' && window.DATACAPTURESUMMARY_COMPANY_ID != null)
-        ? 'api/datacapture_summary/summary_api.php?action=get_summary_state&company_id=' + window.DATACAPTURESUMMARY_COMPANY_ID
-        : 'api/datacapture_summary/summary_api.php?action=get_summary_state';
+    // 为避免 company_id 与服务器端权限判断不一致导致 403，这里不再显式传 company_id，由后端根据当前会话自动识别公司
+    const base = 'api/datacapture_summary/summary_api.php?action=get_summary_state';
     const params = new URLSearchParams();
     if (processId != null && processId !== '') params.set('process_id', String(processId));
     if (processCode != null && processCode !== '') params.set('process_code', String(processCode));
@@ -539,9 +538,8 @@ function fetchSummaryStateFromServer(processId, processCode) {
 // 将 Summary 状态保存到服务端（与 localStorage 双写），不阻塞 UI
 function saveSummaryStateToServer(payload) {
     if (!payload || typeof payload !== 'object') return;
-    const companyId = typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null;
-    if (companyId == null) return;
-    const url = 'api/datacapture_summary/summary_api.php?action=save_summary_state&company_id=' + companyId;
+    // 为避免 company_id 与服务器端权限判断不一致导致 403，这里不再显式传 company_id，由后端根据当前会话自动识别公司
+    const url = 'api/datacapture_summary/summary_api.php?action=save_summary_state';
     fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -646,6 +644,9 @@ function restoreFormulaSourceFromRefresh() {
             row.setAttribute('data-row-uid', data.rowUid);
         }
         const cells = row.querySelectorAll('td');
+
+        // 默认使用保存的公式，但如果当前行已经从后端加载了非空公式，则优先保留当前公式，
+        // 避免用旧的本地缓存覆盖用户刚刚在其他页面/设备上更新过的公式。
         let formula = data.formula != null ? String(data.formula) : '';
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const source = data.source != null ? String(data.source) : '';
@@ -661,10 +662,18 @@ function restoreFormulaSourceFromRefresh() {
         if (cells[4]) {
             const imForTooltip = (data.inputMethod != null ? data.inputMethod : row.getAttribute('data-input-method')) || '';
             const titleAttr = imForTooltip ? ` title="${String(imForTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
+
+            // 先读取当前单元格中从后端加载的公式文本
+            const existingSpan = cells[4].querySelector('.formula-text');
+            const existingFormulaText = existingSpan ? (existingSpan.textContent || '').trim() : '';
+
+            // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
+            const finalFormula = existingFormulaText || formula;
+
             cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>`;
             const span = cells[4].querySelector('.formula-text');
-            if (span) span.textContent = formula;
-            row.setAttribute('data-formula-raw', formula || '');
+            if (span) span.textContent = finalFormula;
+            row.setAttribute('data-formula-raw', finalFormula || '');
             if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
         if (cells[5]) cells[5].textContent = source;
@@ -1461,56 +1470,16 @@ function preserveSourceStructure(savedSourceExpression, newSourceData) {
         console.log('Base saved numbers (excluding structure):', baseSavedNumbers.map(n => n.displayValue));
         console.log('New numbers from source data:', numbers);
         
-        // Only match base numbers, not structure numbers
+        // 只在“基础数字个数一致”时尝试按位置替换；
+        // 如果不一致，为了安全起见直接使用当前表格算出的表达式，避免把旧结构中的数字错配到别的含义上
         if (baseSavedNumbers.length !== numbers.length) {
-            console.warn('Base number count mismatch:', {
+            console.warn('Base number count mismatch, use newSourceData directly:', {
                 baseSavedNumbers: baseSavedNumbers.length,
                 newNumbers: numbers.length,
                 savedSourceExpression: savedSourceExpression,
                 newSourceData: newSourceData
             });
-            // If counts don't match, try to preserve structure but update what we can
-            if (numbers.length > 0 && baseSavedNumbers.length > 0) {
-                // Try to replace only the base numbers we can match
-                let numberIndex = 0;
-                let newSourceExpression = savedSourceExpression.replace(/-?\d+\.?\d*/g, (match, offset, string) => {
-                    // Check if this number is part of a structure pattern
-                    const contextBefore = string.substring(Math.max(0, offset - 3), offset);
-                    const contextAfter = string.substring(offset + match.length, Math.min(string.length, offset + match.length + 3));
-                    const testStr = contextBefore + match + contextAfter;
-                    const isStructureNumber = structurePatterns.some(pattern => pattern.test(testStr));
-                    
-                    if (isStructureNumber) {
-                        // Keep structure numbers as-is
-                        return match;
-                    }
-                    
-                    // Replace base numbers
-                    if (numberIndex < numbers.length) {
-                        let replacement = numbers[numberIndex++];
-                        // Handle negative numbers
-                        if (match.startsWith('-') && offset > 0) {
-                            const charBefore = string[offset - 1];
-                            if (/[+\-*/\(\s]/.test(charBefore)) {
-                                return replacement;
-                            }
-                        } else if (match.startsWith('-')) {
-                            return replacement;
-                        } else {
-                            // Positive number
-                            return replacement;
-                        }
-                        return replacement;
-                    }
-                    return match;
-                });
-                console.log('Preserved structure with partial number replacement:', newSourceExpression);
-                return newSourceExpression;
-            }
-            // If no base numbers to match, fallback to new structure
-            if (numbers.length > 0) {
-                return newSourceData; // Fallback to new structure
-            }
+            return newSourceData;
         }
 
         // Replace numbers in saved source expression with numbers from new sourceData
@@ -6408,6 +6377,16 @@ function populateFormWithData(data) {
                 sourcePercentInput.value = sourcePercentValue;
             }
         }
+
+        // 若调用方（例如 editRowFormula）已传入 formulaDisplay，则优先直接使用该值填充灰色只读框，
+        // 以保证 Edit 弹窗底部的公式显示与 Summary 第二张表格中的公式完全一致。
+        // 后续用户修改公式时，仍然由 updateFormulaDisplay 负责实时更新，不影响其他功能。
+        if (data.formulaDisplay !== undefined) {
+            const formulaDisplayInput = document.getElementById('formulaDisplay');
+            if (formulaDisplayInput) {
+                formulaDisplayInput.value = data.formulaDisplay || '';
+            }
+        }
         
         // Enable checkbox removed - source percent is auto-enabled when value exists
         
@@ -9455,29 +9434,17 @@ function preserveFormulaStructure(savedFormulaDisplay, newSourceData, sourcePerc
         console.log('Extracted base savedNumbers from formulaPart (excluding structure):', savedNumbers);
         console.log('Base numbers from newSourceData:', numbers);
         
-        // Validate that we have matching base number counts (excluding structure numbers)
-        // We only check count, not values, because value changes are expected when Data Capture Table data changes
+        // 骨干数字个数不一致时，直接保留原公式，不再尝试“聪明替换”，
+        // 避免出现你截图中那种 New formulaPart after replacement 被意外改写的情况。
+        // 这样 Summary 里的展示公式会始终与数据库中保存的 formula_display / Edit 灰色框一致。
         if (savedNumbers.length !== numbers.length) {
-            console.warn('Base number count mismatch:', {
+            console.warn('Base number count mismatch, preserving original formula_display without replacement:', {
                 savedNumbers: savedNumbers.length,
                 newNumbers: numbers.length,
                 savedFormulaPart: formulaPart,
                 newSourceData: newSourceData
             });
-            // IMPORTANT: If percent is inside parentheses (e.g., (5.6*0.1)+0), 
-            // we should try to update numbers even if count doesn't match.
-            // This allows formula to reflect current Data Capture Table data.
-            // We'll use the minimum count and try to replace as many numbers as possible.
-            if (isPercentInsideParens) {
-                console.log('Base number count mismatch but percent is inside parentheses, attempting to update numbers with available data');
-                // Continue with number replacement using minimum count
-                // This will replace as many numbers as possible while preserving structure
-            } else {
-                // If counts don't match, return null to signal that formula should be recalculated
-                // This happens when Data Capture Table data changes and formula structure no longer matches
-                console.log('Base number count mismatch detected, returning null to trigger formula recalculation');
-                return null; // Return null to signal recalculation needed
-            }
+            return savedFormulaDisplay;
         }
         
         // Note: We don't check if values match because value changes are expected when Data Capture Table data changes
@@ -11173,8 +11140,9 @@ function updateRowFormulaFromColumns(row) {
     // If we have a saved formula_display, try to preserve its structure while updating numbers
     // But if displayExpression is reference format, use it directly
     let formulaDisplay;
-    const isDisplayReferenceFormat = displayExpression && /\[[^\]]+\s*:\s*\d+\]/.test(displayExpression);
-    const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+    // 支持旧格式 [ID,6] 与新格式 [ID : 6]
+    const isDisplayReferenceFormat = displayExpression && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(displayExpression);
+    const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
 
     if (isDisplayReferenceFormat) {
         // Parse reference format to actual values before creating display
@@ -11938,6 +11906,19 @@ function editRowFormula(button) {
     // Set sourceValue to formulaValue (Source column removed)
     sourceValue = formulaValue;
     
+    // 为了满足“第二张 Summary 表里的公式要和 Edit Formula 里灰色框完全一致”的需求，
+    // 在打开 Edit 弹窗时，直接把当前行 Summary 里显示的公式文字一并传给表单，供灰色框初始显示使用。
+    // 这样可以避免 populateFormWithData / updateFormulaDisplay 再次根据公式重算导致细微差异（例如小数、括号格式等）。
+    let formulaDisplayValue = '';
+    if (cells[4]) {
+        const displaySpan = cells[4].querySelector('.formula-text');
+        if (displaySpan && displaySpan.textContent) {
+            formulaDisplayValue = displaySpan.textContent.trim();
+        } else if (cells[4].textContent) {
+            formulaDisplayValue = cells[4].textContent.trim();
+        }
+    }
+
     // Debug log
     console.log('editRowFormula - Extracted formulaValue:', formulaValue, 'hasSourcePercent:', hasSourcePercent);
     
@@ -11961,7 +11942,8 @@ function editRowFormula(button) {
     console.log('editRowFormula - Passing to showEditFormulaForm:', {
         formula: formulaValue,
         source: sourceValue,
-        sourcePercent: sourcePercentValue
+        sourcePercent: sourcePercentValue,
+        formulaDisplay: formulaDisplayValue
     });
     
     // Show the Edit Formula form with pre-populated data
@@ -11974,6 +11956,8 @@ function editRowFormula(button) {
         source: sourceValue,
         sourcePercent: sourcePercentValue,
         formula: formulaValue,
+        // 与 Summary 行上显示的公式保持一致的只读展示值（灰色框）
+        formulaDisplay: formulaDisplayValue,
         description: descriptionValue,
         inputMethod: inputMethodValue,
         enableInputMethod: enableInputMethodValue,
@@ -13817,17 +13801,30 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         
         // Formula column (index 4)
         if (cells[4]) {
-            // 优先使用 data.formula（与 Edit Formula 弹窗一致），避免重建导致显示不一致
+            // 需求：第二张 Summary 表里的公式，直接显示与 Edit Formula 底部一致的结果，不要再额外“变来变去”
+            // 简化策略：若 API 已提供 formula_display（或 camelCase 的 formulaDisplay），则优先直接使用它
             let formulaText = '';
             let rawFormula = '';
-            if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+
+            const apiFormulaDisplay = (
+                (data.formulaDisplay !== undefined && data.formulaDisplay !== null ? data.formulaDisplay : '') ||
+                (data.formula_display !== undefined && data.formula_display !== null ? data.formula_display : '')
+            ).toString().trim();
+
+            if (apiFormulaDisplay && apiFormulaDisplay !== 'Formula') {
+                // 直接使用后端返回的展示公式，最多只做负数格式化，保证与 Edit Formula 红框里的内容保持一致
+                rawFormula = apiFormulaDisplay;
+                formulaText = formatNegativeNumbersInFormula(apiFormulaDisplay);
+            } else if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+                // 没有单独的 formula_display 时，退回到原来的逻辑（从 formula + Source % 生成展示值）
                 rawFormula = data.formula;
-                formulaText = formatNegativeNumbersInFormula(data.formula);
-                // source_percent == 1 时不显示 *(1) 或 *(0.05)，只显示基础公式（与 Maintenance - Formula 一致）
-                const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
-                if (srcPct !== '' && Math.abs(parseFloat(srcPct) - 1) < 0.0001 && typeof removeTrailingSourcePercentExpression === 'function') {
-                    formulaText = removeTrailingSourcePercentExpression(formulaText) || formulaText;
-                }
+                const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
+                    ? data.sourcePercent.toString().trim()
+                    : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                const enableSourcePercent = data.enableSourcePercent !== undefined
+                    ? data.enableSourcePercent
+                    : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                formulaText = createFormulaDisplayFromExpression(data.formula, sourcePercentText, enableSourcePercent);
             }
             
             // 无 data.formula 时再从 sourceColumns 重建（如从 API 只返回 sourceColumns 时）
@@ -13850,19 +13847,20 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                         let parsedExpression = referenceExpression;
                         
                         // Parse [id_product : column_number] format (from buildSourceExpressionFromTable)
-                        const colonPattern = /\[([^:]+)\s*:\s*(\d+)\]/g;
+                        // 兼容旧数据中的逗号写法：[ID,6]
+                        const referencePattern = /\[([^:\],]+)\s*[: ,]\s*(\d+)\]/g;
                         let match;
-                        const colonMatches = [];
+                        const referenceMatches = [];
                         
-                        colonPattern.lastIndex = 0;
-                        while ((match = colonPattern.exec(parsedExpression)) !== null) {
-                            const fullMatch = match[0]; // e.g., "[OVERALL : 7]"
+                        referencePattern.lastIndex = 0;
+                        while ((match = referencePattern.exec(parsedExpression)) !== null) {
+                            const fullMatch = match[0]; // e.g., "[OVERALL : 7]" or "[OVERALL,7]"
                             const idProduct = match[1].trim(); // e.g., "OVERALL"
                             const displayColumnIndex = parseInt(match[2]); // e.g., 7
                             const matchIndex = match.index;
                             
                             if (!isNaN(displayColumnIndex) && displayColumnIndex > 0) {
-                                colonMatches.push({
+                                referenceMatches.push({
                                     fullMatch: fullMatch,
                                     idProduct: idProduct,
                                     displayColumnIndex: displayColumnIndex,
@@ -13871,26 +13869,26 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                             }
                         }
                         
-                        // Replace [id_product : column_number] with actual values (from back to front)
-                        colonMatches.sort((a, b) => b.index - a.index);
-                        for (let i = 0; i < colonMatches.length; i++) {
-                            const colonMatch = colonMatches[i];
-                            const dataColumnIndex = colonMatch.displayColumnIndex - 1;
+                        // Replace [id_product : column_number] / [id_product,number] with actual values (from back to front)
+                        referenceMatches.sort((a, b) => b.index - a.index);
+                        for (let i = 0; i < referenceMatches.length; i++) {
+                            const refMatch = referenceMatches[i];
+                            const dataColumnIndex = refMatch.displayColumnIndex - 1;
                             
                             // Get cell value using id_product and column index
                             // Try to get row label from processValue for better matching
-                            const rowLabel = getRowLabelFromProcessValue(colonMatch.idProduct);
-                            const columnValue = getCellValueByIdProductAndColumn(colonMatch.idProduct, dataColumnIndex, rowLabel);
+                            const rowLabel = getRowLabelFromProcessValue(refMatch.idProduct);
+                            const columnValue = getCellValueByIdProductAndColumn(refMatch.idProduct, dataColumnIndex, rowLabel);
                             
                             if (columnValue !== null && columnValue !== '') {
-                                parsedExpression = parsedExpression.substring(0, colonMatch.index) + 
+                                parsedExpression = parsedExpression.substring(0, refMatch.index) + 
                                               columnValue + 
-                                              parsedExpression.substring(colonMatch.index + colonMatch.fullMatch.length);
+                                              parsedExpression.substring(refMatch.index + refMatch.fullMatch.length);
                             } else {
-                                console.warn(`Cell value not found for [${colonMatch.idProduct} : ${colonMatch.displayColumnIndex}]`);
-                                parsedExpression = parsedExpression.substring(0, colonMatch.index) + 
+                                console.warn(`Cell value not found for [${refMatch.idProduct} : ${refMatch.displayColumnIndex}]`);
+                                parsedExpression = parsedExpression.substring(0, refMatch.index) + 
                                               '0' + 
-                                              parsedExpression.substring(colonMatch.index + colonMatch.fullMatch.length);
+                                              parsedExpression.substring(refMatch.index + refMatch.fullMatch.length);
                             }
                         }
                         
@@ -14729,7 +14727,7 @@ if (mainTemplate && !hasExistingData) {
                 }
             } else {
                 // No current source data, check if saved formula has reference format and parse it
-                const savedHasRefFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+        const savedHasRefFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
                 if (savedHasRefFormat) {
                     // Parse reference format to actual values
                     const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
@@ -14766,26 +14764,17 @@ if (mainTemplate && !hasExistingData) {
         } else {
             // Check if resolvedSourceExpression or savedFormulaDisplay is reference format
             const isResolvedReferenceFormat = resolvedSourceExpression && /\[[^\]]+\s*:\s*\d+\]/.test(resolvedSourceExpression);
-            const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+            const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
             
-            // If saved formula has reference format, parse it to actual values
+            // 如果保存的 formula_display 使用引用格式（如 [TBBET,10]），直接使用数据库中的字符串，
+            // 不再把引用解析成当前数值，保证前端展示与 DB 中保存的一致。
             if (savedHasReferenceFormat) {
-                // Parse reference format to actual values before displaying
-                const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
-                if (percentValue && enableSourcePercent) {
-                    formulaDisplay = createFormulaDisplayFromExpression(parsedSavedFormula, percentValue, enableSourcePercent);
-                } else {
-                    formulaDisplay = parsedSavedFormula;
-                }
-                console.log('Parsed saved formula_display with reference format:', savedFormulaDisplay, '->', parsedSavedFormula, 'Final:', formulaDisplay);
+                formulaDisplay = savedFormulaDisplay;
+                console.log('Using saved formula_display in reference format as-is (keep same as DB):', formulaDisplay);
             } else if (isResolvedReferenceFormat) {
-                // Current data is reference format, use it directly
-                if (percentValue && enableSourcePercent) {
-                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                } else {
-                    formulaDisplay = resolvedSourceExpression;
-                }
-                console.log('Using reference format from resolvedSourceExpression:', formulaDisplay);
+                // 当前数据是引用格式，也直接按引用格式展示
+                formulaDisplay = resolvedSourceExpression;
+                console.log('Using resolvedSourceExpression in reference format as-is:', formulaDisplay);
             } else if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
                 // IMPORTANT: Check if saved formula contains manually entered parts (e.g., *0.9/2)
                 // If it does, we should preserve the entire formula structure including manual inputs
@@ -14841,7 +14830,7 @@ if (mainTemplate && !hasExistingData) {
                 }
             } else {
                 // If no current source data, check if saved formula has reference format and parse it
-                const savedHasRefFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+                const savedHasRefFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
                 if (savedHasRefFormat) {
                     // Parse reference format to actual values
                     const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
@@ -16924,7 +16913,7 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
 } else if (!hasDollarSigns && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
     // CRITICAL: 如果公式中没有 $ 符号，直接使用保存的 formula_display，不尝试解析或重建
     // Check if savedFormulaDisplay has reference format (e.g., [id_product : column])
-    const savedHasReferenceFormat = /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+    const savedHasReferenceFormat = /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
     if (savedHasReferenceFormat) {
         // Saved formula has reference format, parse it to get actual values
         const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
