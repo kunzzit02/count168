@@ -269,6 +269,22 @@ function getSummaryRowKey(row) {
     ].map(v => (v || '').trim()).join('\t');
 }
 
+// Rate 持久化专用稳定 key：只使用稳定字段，避免把 Formula/Source/RateValue 这种会变化的内容当成 key 导致 refresh 后匹配失败
+// 结构：id_product\taccount(identity)\tcurrency\tproductType\tsubOrder
+function getSummaryRowStableKey(row) {
+    const cells = row.querySelectorAll('td');
+    const idProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim().replace(/\s+/g, ' ') : '');
+    const accountCell = cells[1] || null;
+    const accountId = accountCell && accountCell.getAttribute ? ((accountCell.getAttribute('data-account-id') || '').trim()) : '';
+    const accountText = (accountCell && accountCell.textContent ? accountCell.textContent.trim().replace(/\s+/g, ' ') : '');
+    const accountIdentity = accountId ? ('id:' + accountId) : ('txt:' + accountText);
+    const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim().replace(/\s+/g, ' ') : '');
+    const productType = (row.getAttribute('data-product-type') || 'main').trim();
+    const subOrderRaw = (row.getAttribute('data-sub-order') || '').trim();
+    const subOrder = subOrderRaw !== '' ? subOrderRaw : (productType === 'sub' ? '1' : '0');
+    return [idProduct, accountIdentity, currency, productType, subOrder].join('\t');
+}
+
 // 规范化 key：trim + 合并多余空格，避免刷新后 Account 显示略差导致匹配失败、行被排到最后
 function normalizeSummaryRowKey(key) {
     if (!key || typeof key !== 'string') return '';
@@ -427,12 +443,11 @@ function saveRateValuesForRefresh() {
     const rows = summaryTableBody.querySelectorAll('tr');
     const byKey = {};
     rows.forEach(row => {
-        const key = getSummaryRowKey(row);
-        const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+        const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
         const val = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
-        if (val !== '') byKey[normKey] = val;
+        if (val !== '' && stableKey) byKey[stableKey] = val;
     });
     try {
         localStorage.setItem('capturedTableRateValues', JSON.stringify(byKey));
@@ -484,17 +499,16 @@ function saveFormulaSourceForRefresh(opts) {
             rowUid: rowUid
         };
     });
-    // 按「id_product + Account」独立 key 保存 Rate Value，每行一份，删除其他行不会导致本行 rate 丢失
+    // 按稳定 key 保存 Rate Value（每行一份），避免 refresh 后因 Formula/Source/Rate 变化造成 key 漂移
     const rateValuesByKey = {};
     if (includeRateValue) {
         rows.forEach(row => {
-            const key = getSummaryRowKey(row);
-            const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-            if (!normKey) return;
+            const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
+            if (!stableKey) return;
             const cells = row.querySelectorAll('td');
             const rateValueCell = cells[7];
             const rv = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
-            rateValuesByKey[normKey] = rv;
+            rateValuesByKey[stableKey] = rv;
         });
     }
     const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey };
@@ -620,15 +634,21 @@ function restoreFormulaSourceFromRefresh() {
     );
 
     const rows = summaryTableBody.querySelectorAll('tr');
+    const stableRateValuesByKey = (saved && saved.rateValuesByKey && typeof saved.rateValuesByKey === 'object') ? saved.rateValuesByKey : null;
     // 即使当前 process 无 Maintenance 模板，也先按 rowsByKey 恢复每行的 Rate Value，避免从 Data Capture submit 进来后全部 rate 消失
     if (window.currentProcessHadTemplates !== true) {
         rows.forEach((row) => {
             const key = getSummaryRowKey(row);
             const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
             const data = byKey[normKey] || byKey[key];
-            if (!data || !data.rateValue || String(data.rateValue).trim() === '') return;
+            const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
+            const stableRate = (stableRateValuesByKey && stableKey) ? stableRateValuesByKey[stableKey] : null;
+            const resolvedRate = (stableRate != null && String(stableRate).trim() !== '')
+                ? stableRate
+                : (data && data.rateValue != null ? data.rateValue : '');
+            if (resolvedRate == null || String(resolvedRate).trim() === '') return;
             const cells = row.querySelectorAll('td');
-            if (cells[7]) cells[7].textContent = String(data.rateValue).trim();
+            if (cells[7]) cells[7].textContent = String(resolvedRate).trim();
         });
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
         if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
@@ -685,9 +705,14 @@ function restoreFormulaSourceFromRefresh() {
             ? calculateFormulaResultFromExpression(formula, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent)
             : 0;
         row.setAttribute('data-base-processed-amount', (baseProcessedAmount != null && !isNaN(baseProcessedAmount)) ? baseProcessedAmount.toString() : '0');
-        // 同时恢复 Rate Value（与 Formula/Source 同 key，刷新后不再丢失）
-        if (data.rateValue != null && String(data.rateValue).trim() !== '' && cells[7]) {
-            cells[7].textContent = String(data.rateValue).trim();
+        // 同时恢复 Rate Value：优先使用稳定 key 映射，避免内容 key 变化时 Rate 丢失
+        const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
+        const stableRate = (stableRateValuesByKey && stableKey) ? stableRateValuesByKey[stableKey] : null;
+        const resolvedRate = (stableRate != null && String(stableRate).trim() !== '')
+            ? stableRate
+            : (data.rateValue != null ? data.rateValue : '');
+        if (resolvedRate != null && String(resolvedRate).trim() !== '' && cells[7]) {
+            cells[7].textContent = String(resolvedRate).trim();
         }
         if (cells[8] && typeof applyRateToProcessedAmount === 'function') {
             const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
@@ -734,40 +759,46 @@ function restoreRateValuesFromRefresh() {
         return true;
     }
 
-    // 1) 按 key（id_product + Account）恢复
+    // 1) 按稳定 key 恢复（优先）
     try {
         const raw = localStorage.getItem('capturedTableRateValues');
         if (raw) {
             const saved = JSON.parse(raw);
             if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-                const savedKeys = Object.keys(saved);
+                let appliedFromThisBucket = 0;
                 rows.forEach((row) => {
-                    const key = getSummaryRowKey(row);
-                    const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-                    let val = saved[normKey] ?? saved[key];
-                    if ((val === undefined || val === null || String(val).trim() === '') && normKey) {
-                        const idPart = normKey.split('\t')[0] || '';
-                        const idNorm = (idPart || '').trim().replace(/\s+/g, ' ');
-                        const matchingKeys = savedKeys.filter(k => {
-                            const p = (k.split('\t')[0] || '').trim().replace(/\s+/g, ' ');
-                            return p === idNorm && saved[k] != null && String(saved[k]).trim() !== '';
-                        });
-                        if (matchingKeys.length === 1) val = saved[matchingKeys[0]];
+                    const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
+                    let val = stableKey ? saved[stableKey] : undefined;
+                    // 兼容旧缓存：尝试旧内容 key 的精确匹配（不再做按 id_product 广播，避免串行）
+                    if (val === undefined || val === null || String(val).trim() === '') {
+                        const legacyKey = getSummaryRowKey(row);
+                        const legacyNormKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(legacyKey) : legacyKey;
+                        val = saved[legacyNormKey] ?? saved[legacyKey];
                     }
-                    if (applyRateToRow(row, val)) appliedCount++;
+                    if (applyRateToRow(row, val)) {
+                        appliedCount++;
+                        appliedFromThisBucket++;
+                    }
                 });
+                if (appliedFromThisBucket > 0) {
+                    try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
+                }
             } else if (Array.isArray(saved) && saved.length > 0) {
+                let appliedFromThisBucket = 0;
                 rows.forEach((row, i) => {
-                    if (applyRateToRow(row, saved[i])) appliedCount++;
+                    if (applyRateToRow(row, saved[i])) {
+                        appliedCount++;
+                        appliedFromThisBucket++;
+                    }
                 });
-            }
-            if (appliedCount > 0) {
-                try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
+                if (appliedFromThisBucket > 0) {
+                    try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
+                }
             }
         }
     } catch (e) {}
 
-    // 2) 按「id_product + Account」key 恢复（每行独立，删除其他行不影响本行）
+    // 2) 按稳定 key 恢复（来自 Formula/Source 的双写缓存）
     try {
         const rawByProduct = localStorage.getItem('capturedTableRateValuesByProductId');
         if (!rawByProduct) {
@@ -789,16 +820,27 @@ function restoreRateValuesFromRefresh() {
             return;
         }
         if (rateValuesByKey && Object.keys(rateValuesByKey).length > 0) {
+            let appliedFromThisBucket = 0;
             rows.forEach((row) => {
-                const key = getSummaryRowKey(row);
-                const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-                if (!normKey) return;
-                const val = rateValuesByKey[normKey] ?? rateValuesByKey[key];
-                if (applyRateToRow(row, val)) appliedCount++;
+                const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
+                let val = stableKey ? rateValuesByKey[stableKey] : undefined;
+                // 兼容旧格式：再尝试旧内容 key 精确匹配
+                if (val === undefined || val === null || String(val).trim() === '') {
+                    const legacyKey = getSummaryRowKey(row);
+                    const legacyNormKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(legacyKey) : legacyKey;
+                    val = rateValuesByKey[legacyNormKey] ?? rateValuesByKey[legacyKey];
+                }
+                if (applyRateToRow(row, val)) {
+                    appliedCount++;
+                    appliedFromThisBucket++;
+                }
             });
-            try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+            if (appliedFromThisBucket > 0) {
+                try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+            }
         } else if (rateValuesByProductIdLegacy && Object.keys(rateValuesByProductIdLegacy).length > 0) {
             const productIndex = {};
+            let appliedFromThisBucket = 0;
             rows.forEach((row) => {
                 const cells = row.querySelectorAll('td');
                 const idProductCell = cells[0];
@@ -809,9 +851,14 @@ function restoreRateValuesFromRefresh() {
                 const arr = rateValuesByProductIdLegacy[idPart];
                 if (!arr || !Array.isArray(arr) || idx >= arr.length) return;
                 const val = arr[idx];
-                if (applyRateToRow(row, val)) appliedCount++;
+                if (applyRateToRow(row, val)) {
+                    appliedCount++;
+                    appliedFromThisBucket++;
+                }
             });
-            try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+            if (appliedFromThisBucket > 0) {
+                try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+            }
         }
     } catch (e) {}
 
