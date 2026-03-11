@@ -1288,6 +1288,16 @@ function searchTransactions(isInitialLoad) {
                     total_accounts: (data.data.left_table?.length || 0) + (data.data.right_table?.length || 0)
                 });
                 
+                // 调试：检查左右表格数据的balance正负
+                console.log('🔍 调试 - 左表格数据balance检查:');
+                data.data.left_table?.forEach((row, index) => {
+                    console.log(`  左[${index}]: ${row.account_id} (${row.currency}) balance=${row.balance}`);
+                });
+                console.log('🔍 调试 - 右表格数据balance检查:');
+                data.data.right_table?.forEach((row, index) => {
+                    console.log(`  右[${index}]: ${row.account_id} (${row.currency}) balance=${row.balance}`);
+                });
+                
                 // 保存搜索结果到全局变量
                 lastSearchData = data.data;
                 
