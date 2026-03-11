@@ -1288,15 +1288,65 @@ function searchTransactions(isInitialLoad) {
                     total_accounts: (data.data.left_table?.length || 0) + (data.data.right_table?.length || 0)
                 });
                 
+                // 调试：检查左右表格数据的存在性
+                console.log('🔍 调试 - left_table检查:', {
+                    exists: !!data.data.left_table,
+                    isArray: Array.isArray(data.data.left_table),
+                    length: data.data.left_table?.length,
+                    content: data.data.left_table
+                });
+                console.log('🔍 调试 - right_table检查:', {
+                    exists: !!data.data.right_table,
+                    isArray: Array.isArray(data.data.right_table),
+                    length: data.data.right_table?.length,
+                    content: data.data.right_table
+                });
+                
                 // 调试：检查左右表格数据的balance正负
                 console.log('🔍 调试 - 左表格数据balance检查:');
-                data.data.left_table?.forEach((row, index) => {
-                    console.log(`  左[${index}]: ${row.account_id} (${row.currency}) balance=${row.balance}`);
-                });
+                if (data.data.left_table && Array.isArray(data.data.left_table) && data.data.left_table.length > 0) {
+                    data.data.left_table.forEach((row, index) => {
+                        console.log(`  左[${index}]: ${row.account_id} (${row.currency}) balance=${row.balance}`);
+                    });
+                } else {
+                    console.log('  左表格数据不存在、不是数组或为空');
+                }
                 console.log('🔍 调试 - 右表格数据balance检查:');
-                data.data.right_table?.forEach((row, index) => {
-                    console.log(`  右[${index}]: ${row.account_id} (${row.currency}) balance=${row.balance}`);
-                });
+                if (data.data.right_table && Array.isArray(data.data.right_table) && data.data.right_table.length > 0) {
+                    data.data.right_table.forEach((row, index) => {
+                        console.log(`  右[${index}]: ${row.account_id} (${row.currency}) balance=${row.balance}`);
+                    });
+                } else {
+                    console.log('  右表格数据不存在、不是数组或为空');
+                }
+                
+                // 临时修复：如果左表格为空但右表格有正数balance，强制重新分配
+                if ((!data.data.left_table || data.data.left_table.length === 0) && 
+                    data.data.right_table && data.data.right_table.length > 0) {
+                    console.log('🔧 检测到左表格为空，右表格有数据，执行临时修复...');
+                    
+                    const allData = [...data.data.right_table];
+                    const newLeftTable = [];
+                    const newRightTable = [];
+                    
+                    allData.forEach(row => {
+                        const balance = parseFloat(row.balance);
+                        if (balance >= 0) {
+                            newLeftTable.push(row);
+                            console.log(`  移动到左: ${row.account_id} balance=${balance}`);
+                        } else {
+                            newRightTable.push(row);
+                            console.log(`  保留在右: ${row.account_id} balance=${balance}`);
+                        }
+                    });
+                    
+                    data.data.left_table = newLeftTable;
+                    data.data.right_table = newRightTable;
+                    
+                    console.log('✅ 临时修复完成 - 重新分配后:');
+                    console.log('  左表格数量:', newLeftTable.length);
+                    console.log('  右表格数量:', newRightTable.length);
+                }
                 
                 // 保存搜索结果到全局变量
                 lastSearchData = data.data;

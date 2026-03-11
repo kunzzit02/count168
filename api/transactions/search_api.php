@@ -718,12 +718,22 @@ if (!empty($target_account_ids)) {
     });
     
     // 分离左右表格（正数 vs 负数）
+    // 调试：记录balance值
+    error_log("=== 调试 - Balance值检查 ===");
+    foreach ($results as $index => $row) {
+        error_log("结果[$index]: account_id={$row['account_id']}, balance={$row['balance']}, 类型=" . gettype($row['balance']) . ", is_numeric=" . is_numeric($row['balance']));
+    }
+    
     $left_table = array_filter($results, function($row) {
-        return $row['balance'] >= 0;
+        $condition = $row['balance'] >= 0;
+        error_log("左表格检查: account_id={$row['account_id']}, balance={$row['balance']}, condition={$condition}");
+        return $condition;
     });
     
     $right_table = array_filter($results, function($row) {
-        return $row['balance'] < 0;
+        $condition = $row['balance'] < 0;
+        error_log("右表格检查: account_id={$row['account_id']}, balance={$row['balance']}, condition={$condition}");
+        return $condition;
     });
     
     // 重新索引数组
