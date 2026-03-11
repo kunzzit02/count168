@@ -1194,8 +1194,8 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
         $win_loss += $stmt->fetchColumn();
 
-        // 3. 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）：与 PAYMENT 一致，TO 负数、FROM 正数
-        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN -amount WHEN transaction_type = 'LOSE' THEN amount ELSE 0 END), 0) as total
+        // 3. 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）：与 Payment History 保持一致，WIN 正数、LOSE 负数
+        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) as total
                 FROM transactions
                 WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
                   AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
