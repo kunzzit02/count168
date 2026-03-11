@@ -1353,6 +1353,9 @@ function searchTransactions(isInitialLoad) {
                     data.data.left_table = newLeftTable;
                     data.data.right_table = newRightTable;
                     
+                    // 重要：同步更新到 lastSearchData，确保 applyZeroBalanceFilterAndRender 使用修复后的数据
+                    lastSearchData = data.data;
+                    
                     console.log('✅ 临时修复完成 - 重新分配后:');
                     console.log('  左表格数量:', newLeftTable.length);
                     console.log('  右表格数量:', newRightTable.length);
