@@ -1329,14 +1329,24 @@ function searchTransactions(isInitialLoad) {
                     const newLeftTable = [];
                     const newRightTable = [];
                     
-                    allData.forEach(row => {
-                        const balance = parseFloat(row.balance);
-                        if (balance >= 0) {
+                    console.log('🔍 详细检查右表格数据:');
+                    allData.forEach((row, index) => {
+                        const originalBalance = row.balance;
+                        const parsedBalance = parseFloat(row.balance);
+                        const balanceType = typeof row.balance;
+                        const isNaNResult = isNaN(parsedBalance);
+                        
+                        console.log(`  [${index}] ${row.account_id}:`);
+                        console.log(`    原始balance: "${originalBalance}" (类型: ${balanceType})`);
+                        console.log(`    解析后balance: ${parsedBalance} (isNaN: ${isNaNResult})`);
+                        console.log(`    >= 0 判断: ${parsedBalance >= 0}`);
+                        
+                        if (!isNaNResult && parsedBalance >= 0) {
                             newLeftTable.push(row);
-                            console.log(`  移动到左: ${row.account_id} balance=${balance}`);
+                            console.log(`    ✅ 移动到左表格`);
                         } else {
                             newRightTable.push(row);
-                            console.log(`  保留在右: ${row.account_id} balance=${balance}`);
+                            console.log(`    ❌ 保留在右表格`);
                         }
                     });
                     
@@ -1346,6 +1356,16 @@ function searchTransactions(isInitialLoad) {
                     console.log('✅ 临时修复完成 - 重新分配后:');
                     console.log('  左表格数量:', newLeftTable.length);
                     console.log('  右表格数量:', newRightTable.length);
+                    
+                    // 显示重新分配后的结果
+                    console.log('🔍 重新分配后的左表格:');
+                    newLeftTable.forEach((row, index) => {
+                        console.log(`  左[${index}]: ${row.account_id} balance=${row.balance}`);
+                    });
+                    console.log('🔍 重新分配后的右表格:');
+                    newRightTable.forEach((row, index) => {
+                        console.log(`  右[${index}]: ${row.account_id} balance=${row.balance}`);
+                    });
                 }
                 
                 // 保存搜索结果到全局变量
