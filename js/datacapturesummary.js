@@ -2304,9 +2304,10 @@ let currentSelectedRowForCalculator = null;
 function handleFormulaValueInput(formulaInput, value) {
     if (!formulaInput || !value) return;
 
-    const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
+    const cursorPos = formulaInput.selectionStart ?? formulaInput.value.length;
     const textBefore = formulaInput.value.substring(0, cursorPos);
-    const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
+    const selectionEnd = formulaInput.selectionEnd ?? cursorPos;
+    const textAfter = formulaInput.value.substring(selectionEnd);
 
     formulaInput.value = textBefore + value + textAfter;
 
@@ -6159,7 +6160,7 @@ function insertCellValueToFormula(cell) {
     }
     
     // Get cursor position
-    const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
+    const cursorPos = formulaInput.selectionStart ?? formulaInput.value.length;
     
     // Get current editing id_product from process field
     const processInput = document.getElementById('process');
