@@ -621,9 +621,9 @@ try {
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
                 } elseif ($is_to_account) {
-                    $cr_dr = $t['amount'];
-                } else {
                     $cr_dr = -$t['amount'];
+                } else {
+                    $cr_dr = $t['amount'];
                 }
                 break;
                 
@@ -631,9 +631,9 @@ try {
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
                 } elseif ($is_to_account) {
-                    $cr_dr = $t['amount'];
-                } else {
                     $cr_dr = -$t['amount'];
+                } else {
+                    $cr_dr = $t['amount'];
                 }
                 break;
                 
@@ -641,9 +641,9 @@ try {
                 if ($is_internal_transfer) {
                     $cr_dr = 0;
                 } elseif ($is_to_account) {
-                    $cr_dr = $t['amount'];
-                } else {
                     $cr_dr = -$t['amount'];
+                } else {
+                    $cr_dr = $t['amount'];
                 }
                 break;
                 
@@ -1141,6 +1141,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
+                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
                         WHEN transaction_type = 'CLEAR' THEN -t.amount
                         WHEN transaction_type = 'CONTRA' THEN -t.amount
@@ -1162,6 +1163,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
+                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
                         WHEN transaction_type = 'CLEAR' THEN -t.amount
                         WHEN transaction_type = 'CONTRA' THEN -t.amount
