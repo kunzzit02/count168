@@ -1392,22 +1392,25 @@ function renderCurrencyGroupedTables(leftRows, rightRows, options) {
     groupedContainer.style.display = 'block';
     groupedContainer.innerHTML = '';
     
-    // 合并左右表格数据
-    const allRows = [...leftRows, ...rightRows];
-    
     // 按 currency 分组
     const groupedByCurrency = {};
-    allRows.forEach(row => {
+    
+    // 左右表格数据已经由后端根据 balance 正负正确分配，前端不需要重新分配
+    // 直接按 currency 分组显示即可
+    leftRows.forEach(row => {
         const currency = row.currency || 'UNKNOWN';
         if (!groupedByCurrency[currency]) {
             groupedByCurrency[currency] = { left: [], right: [] };
         }
-        // 根据 balance 正负判断左右
-        if (parseFloat(row.balance) >= 0) {
-            groupedByCurrency[currency].left.push(row);
-        } else {
-            groupedByCurrency[currency].right.push(row);
+        groupedByCurrency[currency].left.push(row);
+    });
+    
+    rightRows.forEach(row => {
+        const currency = row.currency || 'UNKNOWN';
+        if (!groupedByCurrency[currency]) {
+            groupedByCurrency[currency] = { left: [], right: [] };
         }
+        groupedByCurrency[currency].right.push(row);
     });
     
     // 为每个 currency 创建表格组
