@@ -815,6 +815,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
                     WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -amount
+                    WHEN transaction_type = 'CONTRA' THEN -amount
                     WHEN transaction_type = 'CLEAR' THEN -amount
                     WHEN transaction_type = 'PAYMENT' THEN -amount
                     WHEN transaction_type = 'WIN' THEN amount
@@ -842,7 +843,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
     // 注意：RATE 类型的 from_account_id 可能为 NULL（手续费记录），这些记录不会在这里被计算
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
-                    WHEN transaction_type = 'CONTRA' THEN -amount
+                    WHEN transaction_type = 'CONTRA' THEN amount
                     WHEN transaction_type = 'CLEAR' THEN amount
                     WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN amount
                     ELSE 0
@@ -1027,7 +1028,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN transaction_type = 'CONTRA' THEN t.amount
+                        WHEN transaction_type = 'CONTRA' THEN -t.amount
                         WHEN transaction_type = 'CLEAR' THEN -t.amount
                         WHEN transaction_type = 'PAYMENT' THEN -t.amount
                         ELSE 0
@@ -1066,7 +1067,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN transaction_type = 'CONTRA' THEN t.amount
+                        WHEN transaction_type = 'CONTRA' THEN -t.amount
                         WHEN transaction_type = 'CLEAR' THEN -t.amount
                         WHEN transaction_type = 'PAYMENT' THEN -t.amount
                         ELSE 0
@@ -1095,7 +1096,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'CONTRA' THEN -t.amount
+                        WHEN transaction_type = 'CONTRA' THEN t.amount
                         WHEN transaction_type = 'CLEAR' THEN t.amount
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
@@ -1113,7 +1114,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     } else {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'CONTRA' THEN -t.amount
+                        WHEN transaction_type = 'CONTRA' THEN t.amount
                         WHEN transaction_type = 'CLEAR' THEN t.amount
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                         ELSE 0
