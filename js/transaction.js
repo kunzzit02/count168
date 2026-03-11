@@ -1301,7 +1301,7 @@ function searchTransactions(isInitialLoad) {
                     length: data.data.right_table?.length,
                     content: data.data.right_table
                 });
-                
+
                 // 调试：检查左右表格数据的balance正负
                 console.log('🔍 调试 - 左表格数据balance检查:');
                 if (data.data.left_table && Array.isArray(data.data.left_table) && data.data.left_table.length > 0) {
@@ -1311,6 +1311,7 @@ function searchTransactions(isInitialLoad) {
                 } else {
                     console.log('  左表格数据不存在、不是数组或为空');
                 }
+
                 console.log('🔍 调试 - 右表格数据balance检查:');
                 if (data.data.right_table && Array.isArray(data.data.right_table) && data.data.right_table.length > 0) {
                     data.data.right_table.forEach((row, index) => {
@@ -1319,63 +1320,61 @@ function searchTransactions(isInitialLoad) {
                 } else {
                     console.log('  右表格数据不存在、不是数组或为空');
                 }
-                
-                // 临时修复：如果左表格为空但右表格有正数balance，强制重新分配
-                if ((!data.data.left_table || data.data.left_table.length === 0) && 
-                    data.data.right_table && data.data.right_table.length > 0) {
-                    console.log('🔧 检测到左表格为空，右表格有数据，执行临时修复...');
-                    
-                    const allData = [...data.data.right_table];
-                    const newLeftTable = [];
-                    const newRightTable = [];
-                    
-                    console.log('🔍 详细检查右表格数据:');
-                    allData.forEach((row, index) => {
-                        const originalBalance = row.balance;
-                        const parsedBalance = parseFloat(row.balance);
-                        const balanceType = typeof row.balance;
-                        const isNaNResult = isNaN(parsedBalance);
-                        
-                        console.log(`  [${index}] ${row.account_id}:`);
-                        console.log(`    原始balance: "${originalBalance}" (类型: ${balanceType})`);
-                        console.log(`    解析后balance: ${parsedBalance} (isNaN: ${isNaNResult})`);
-                        console.log(`    >= 0 判断: ${parsedBalance >= 0}`);
-                        
-                        if (!isNaNResult && parsedBalance >= 0) {
-                            newLeftTable.push(row);
-                            console.log(`    ✅ 移动到左表格`);
-                        } else {
-                            newRightTable.push(row);
-                            console.log(`    ❌ 保留在右表格`);
-                        }
-                    });
-                    
-                    data.data.left_table = newLeftTable;
-                    data.data.right_table = newRightTable;
-                    
-                    // 重要：同步更新到 lastSearchData，确保 applyZeroBalanceFilterAndRender 使用修复后的数据
-                    lastSearchData = data.data;
-                    
-                    console.log('✅ 临时修复完成 - 重新分配后:');
-                    console.log('  左表格数量:', newLeftTable.length);
-                    console.log('  右表格数量:', newRightTable.length);
-                    
-                    // 显示重新分配后的结果
-                    console.log('🔍 重新分配后的左表格:');
-                    newLeftTable.forEach((row, index) => {
-                        console.log(`  左[${index}]: ${row.account_id} balance=${row.balance}`);
-                    });
-                    console.log('🔍 重新分配后的右表格:');
-                    newRightTable.forEach((row, index) => {
-                        console.log(`  右[${index}]: ${row.account_id} balance=${row.balance}`);
-                    });
-                }
-                
+
+                // 强制修复：始终根据balance正负重新分配数据，确保显示正确
+                console.log('🔧 执行强制修复：重新根据balance正负分配所有数据');
+
+                // 合并所有数据
+                const allData = [...(data.data.left_table || []), ...(data.data.right_table || [])];
+                console.log(`📊 总数据量: ${allData.length}`);
+
+                const newLeftTable = [];
+                const newRightTable = [];
+
+                console.log('🔍 逐个检查所有数据:');
+                allData.forEach((row, index) => {
+                    const originalBalance = row.balance;
+                    const parsedBalance = parseFloat(originalBalance.toString().replace(/,/g, '')); // 移除逗号
+                    const balanceType = typeof originalBalance;
+                    const isNaNResult = isNaN(parsedBalance);
+
+                    console.log(`  [${index}] ${row.account_id}:`);
+                    console.log(`    原始balance: "${originalBalance}" (类型: ${balanceType})`);
+                    console.log(`    清理后balance: ${parsedBalance} (isNaN: ${isNaNResult})`);
+                    console.log(`    >= 0 判断: ${parsedBalance >= 0}`);
+
+                    if (!isNaNResult && parsedBalance >= 0) {
+                        newLeftTable.push(row);
+                        console.log(`    ✅ 分配到左表格`);
+                    } else {
+                        newRightTable.push(row);
+                        console.log(`    ❌ 分配到右表格`);
+                    }
+                });
+
+                // 强制更新数据
+                data.data.left_table = newLeftTable;
+                data.data.right_table = newRightTable;
+
+                console.log('✅ 强制修复完成:');
+                console.log(`  左表格数量: ${newLeftTable.length}`);
+                console.log(`  右表格数量: ${newRightTable.length}`);
+
+                // 显示最终分配结果
+                console.log('🎯 最终左表格数据:');
+                newLeftTable.forEach((row, index) => {
+                    console.log(`  左[${index}]: ${row.account_id} balance=${row.balance}`);
+                });
+                console.log('🎯 最终右表格数据:');
+                newRightTable.forEach((row, index) => {
+                    console.log(`  右[${index}]: ${row.account_id} balance=${row.balance}`);
+                });
+
                 // 保存搜索结果到全局变量
                 lastSearchData = data.data;
-                
+
                 const totalAccounts = (data.data.left_table?.length || 0) + (data.data.right_table?.length || 0);
-                
+
                 if (totalAccounts === 0) {
                     // 没有数据，隐藏表格区域
                     if (tablesSection) tablesSection.style.display = 'none';
