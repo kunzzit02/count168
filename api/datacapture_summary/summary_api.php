@@ -182,6 +182,33 @@ function ensureTemplateSchema(PDO $pdo) {
         } catch (Exception $columnException) {
             error_log('Template schema row_index alteration warning: ' . $columnException->getMessage());
         }
+
+        // Ensure data_capture_details.rate supports at least 8 decimal places
+        // so Payment History can display the same precision as Data Summary Rate Value.
+        try {
+            $rateColumnStmt = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'rate'");
+            $rateColumn = $rateColumnStmt ? $rateColumnStmt->fetch(PDO::FETCH_ASSOC) : null;
+            if ($rateColumn) {
+                $rateType = strtolower((string)($rateColumn['Type'] ?? ''));
+                $needsUpgrade = false;
+
+                // Examples: decimal(10,4), decimal(15,6)
+                if (preg_match('/decimal\(\s*\d+\s*,\s*(\d+)\s*\)/i', $rateType, $matches)) {
+                    $scale = (int)$matches[1];
+                    $needsUpgrade = $scale < 8;
+                } elseif ($rateType !== '' && strpos($rateType, 'decimal') !== 0) {
+                    // Non-decimal numeric type: normalize to decimal for stable precision.
+                    $needsUpgrade = true;
+                }
+
+                if ($needsUpgrade) {
+                    $pdo->exec("ALTER TABLE data_capture_details MODIFY COLUMN rate DECIMAL(20,8) NULL");
+                    error_log('Template schema: Upgraded data_capture_details.rate to DECIMAL(20,8)');
+                }
+            }
+        } catch (Exception $columnException) {
+            error_log('Template schema rate precision alteration warning: ' . $columnException->getMessage());
+        }
     } catch (Exception $e) {
         error_log('Template schema ensure error: ' . $e->getMessage());
     }

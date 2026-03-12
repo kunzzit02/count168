@@ -56,6 +56,42 @@ function mapEntryTypeToProduct($entryType) {
 }
 
 /**
+ * 确保 data_capture_details.rate 至少支持 8 位小数，避免历史弹窗读取时已被截断到 4 位。
+ */
+function ensureHistoryRatePrecision(PDO $pdo): void
+{
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'rate'");
+        $column = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+        if (!$column) {
+            return;
+        }
+
+        $type = strtolower((string)($column['Type'] ?? ''));
+        $needsUpgrade = false;
+        if (preg_match('/decimal\(\s*\d+\s*,\s*(\d+)\s*\)/i', $type, $matches)) {
+            $scale = (int)$matches[1];
+            $needsUpgrade = $scale < 8;
+        } elseif ($type !== '' && strpos($type, 'decimal') !== 0) {
+            $needsUpgrade = true;
+        }
+
+        if ($needsUpgrade) {
+            $pdo->exec("ALTER TABLE data_capture_details MODIFY COLUMN rate DECIMAL(20,8) NULL");
+        }
+    } catch (Exception $e) {
+        // 不阻塞主流程，仅记录日志
+        error_log('history_api rate precision ensure warning: ' . $e->getMessage());
+    }
+}
+
+/**
  * 从 profit_sharing 字符串（如 "D - 500, A - 100"）中解析出指定账户的金额；按 account_id 或 name 匹配
  */
 function getProfitSharingAmountForAccount(?string $profitSharing, string $accountCode, string $accountName): ?float {
@@ -84,6 +120,9 @@ try {
     if (!isset($_SESSION['user_id'])) {
         throw new Exception('用户未登录');
     }
+
+    // 运行时兜底：确保 rate 不会在写入/读取链路中被 4 位小数截断
+    ensureHistoryRatePrecision($pdo);
     
     // 确定要访问的 company_id：优先使用参数，否则使用 session
     $company_id = null;
