@@ -8,6 +8,19 @@ session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 
+/**
+ * 统一 Rate 显示：最多 8 位小数，不补尾零（与 Data Summary / Payment History 一致）
+ */
+function formatRateForDisplay($rate): ?string
+{
+    if ($rate === null || $rate === '') {
+        return null;
+    }
+    $rounded = round((float)$rate, 8);
+    $text = rtrim(rtrim(number_format($rounded, 8, '.', ''), '0'), '.');
+    return $text === '' ? '0' : $text;
+}
+
 try {
     // 确定 company_id（支持 owner 指定，多公司切换）
     $company_id = null;
@@ -271,10 +284,7 @@ try {
                 }
             }
             
-            $rateDisplay = null;
-            if (isset($row['rate']) && $row['rate'] !== null && $row['rate'] !== '') {
-                $rateDisplay = number_format((float)$row['rate'], 4);
-            }
+            $rateDisplay = formatRateForDisplay($row['rate'] ?? null);
             
             $formatted[] = [
                 'no' => $no++,
@@ -480,10 +490,7 @@ try {
                     }
                 }
                 
-                $rateDisplay = null;
-                if (isset($row['rate']) && $row['rate'] !== null && $row['rate'] !== '') {
-                    $rateDisplay = number_format((float)$row['rate'], 4);
-                }
+                $rateDisplay = formatRateForDisplay($row['rate'] ?? null);
                 
                 $formatted[] = [
                     'no' => $no++,
