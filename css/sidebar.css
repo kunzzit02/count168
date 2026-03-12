@@ -1022,6 +1022,8 @@
     color: #6b7280;
     line-height: 1.5;
     margin-bottom: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 .notification-time {
