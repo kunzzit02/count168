@@ -523,11 +523,15 @@ try {
             $descriptionText = trim($fallbackName) . ' : ' . ($formula !== '' ? $formula : '0');
         }
         
-        // Rate: 从 data_capture_details 中获取 rate 值（显示 4 位小数）
+        // Rate: 从 data_capture_details 中获取 rate 值（最多显示 8 位小数，去掉尾随 0）
         $rate = null;
         if (isset($capture['rate']) && $capture['rate'] !== null && $capture['rate'] !== '') {
-            // 统一以 4 位小数返回到前端，Payment History 弹窗直接使用该字符串
-            $rate = number_format((float)$capture['rate'], 4);
+            // 与 Data Summary 保持一致：保留有效小数，不强制补 0；但小数位最多 8 位
+            $rateRounded = round((float)$capture['rate'], 8);
+            $rate = rtrim(rtrim(number_format($rateRounded, 8, '.', ''), '0'), '.');
+            if ($rate === '') {
+                $rate = '0';
+            }
         }
         
         // Remark: 不再使用 description_main 或 description_sub（因为它们已经显示在 product 列），只使用 capture_remark
