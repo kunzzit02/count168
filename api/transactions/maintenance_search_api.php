@@ -21,7 +21,46 @@ function formatRateForDisplay($rate): ?string
     return $text === '' ? '0' : $text;
 }
 
+/**
+ * 运行时兜底：确保 data_capture_details.rate 至少支持 8 位小数。
+ * 避免 Maintenance 页面读取到提交时已被 4 位精度截断的 rate。
+ */
+function ensureMaintenanceRatePrecision(PDO $pdo): void
+{
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'rate'");
+        $column = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+        if (!$column) {
+            return;
+        }
+
+        $type = strtolower((string)($column['Type'] ?? ''));
+        $needsUpgrade = false;
+        if (preg_match('/decimal\(\s*\d+\s*,\s*(\d+)\s*\)/i', $type, $matches)) {
+            $scale = (int)$matches[1];
+            $needsUpgrade = $scale < 8;
+        } elseif ($type !== '' && strpos($type, 'decimal') !== 0) {
+            $needsUpgrade = true;
+        }
+
+        if ($needsUpgrade) {
+            $pdo->exec("ALTER TABLE data_capture_details MODIFY COLUMN rate DECIMAL(20,8) NULL");
+        }
+    } catch (Exception $e) {
+        error_log('maintenance_search rate precision ensure warning: ' . $e->getMessage());
+    }
+}
+
 try {
+    // 确保 Rate 精度 schema 已升级
+    ensureMaintenanceRatePrecision($pdo);
+
     // 确定 company_id（支持 owner 指定，多公司切换）
     $company_id = null;
     if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
