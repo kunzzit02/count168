@@ -286,18 +286,32 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    const showInactiveCk = document.getElementById('show_inactive');
-    if (showInactiveCk) {
-        // show_inactive 现在用于过滤显示有 Cr/Dr 交易的账号（与 Search 按钮功能相同）
-        showInactiveCk.addEventListener('change', handlePaymentOnlyFilter);
-    }
-    
     const showCaptureOnlyCk = document.getElementById('show_capture_only');
     if (showCaptureOnlyCk) {
         // show_capture_only 需要在后端处理，所以重新搜索
         showCaptureOnlyCk.addEventListener('change', () => {
             if (document.getElementById('date_from').value && document.getElementById('date_to').value) {
                 searchTransactions();
+            }
+        });
+    }
+    
+    const showInactiveCk = document.getElementById('show_inactive');
+    if (showInactiveCk) {
+        // 当未勾选 Show Win/Loss Only 时，Show Payment Only 仅做前端过滤
+        // 当已勾选 Show Win/Loss Only 时，两者组合会改变后端账户集合，必须重新调用 search_api
+        showInactiveCk.addEventListener('change', () => {
+            const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
+            const hasDate =
+                document.getElementById('date_from').value &&
+                document.getElementById('date_to').value;
+            
+            if (showWinLossOnly) {
+                if (hasDate) {
+                    searchTransactions();
+                }
+            } else {
+                handlePaymentOnlyFilter();
             }
         });
     }
