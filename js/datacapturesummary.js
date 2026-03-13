@@ -16040,6 +16040,28 @@ const rows = Array.from(summaryTableBody.querySelectorAll('tr'));
 if (rows.length === 0) {
     return;
 }
+const originalOrderMap = new Map();
+rows.forEach((row, idx) => originalOrderMap.set(row, idx));
+
+const normalizeGroupKey = (value) => (value || '')
+    .toString()
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+const getRowGroupKey = (row, fallbackMainText) => {
+    if (!row) return normalizeGroupKey(fallbackMainText || '');
+    const productType = (row.getAttribute('data-product-type') || 'main').trim();
+    const parentAttr = row.getAttribute('data-parent-id-product');
+    const idCell = row.querySelector('td:first-child');
+    const mainAttr = idCell ? (idCell.getAttribute('data-main-product') || '') : '';
+    const cellText = idCell && idCell.textContent ? idCell.textContent : '';
+    // sub 行优先用 parent 分组，main 行优先用 data-main-product，再退回可见文本
+    const raw = (productType === 'sub' && parentAttr && parentAttr.trim() !== '')
+        ? parentAttr
+        : (mainAttr || cellText || fallbackMainText || '');
+    return normalizeGroupKey(raw);
+};
 
 // NEW: 首次/全局排序只按 main 的 row_index（或 preserved-row-index）排序，
 // 并且把 main 与其后紧跟的 sub 当成一个整体 group，一起移动。
@@ -16060,6 +16082,7 @@ rows.forEach((row) => {
         currentGroup = {
             rows: [],
             mainRow: row,
+            groupKey: getRowGroupKey(row, mainTextRaw),
             originalGroupIndex: groups.length
         };
         groups.push(currentGroup);
@@ -16070,6 +16093,7 @@ rows.forEach((row) => {
         currentGroup = {
             rows: [],
             mainRow: row,
+            groupKey: getRowGroupKey(row, mainTextRaw),
             originalGroupIndex: groups.length
         };
         groups.push(currentGroup);
@@ -16107,14 +16131,96 @@ groups.sort((a, b) => {
     return a.originalGroupIndex - b.originalGroupIndex;
 });
 
-// 重新挂载行：按 group 顺序依次 append，每个 group 内部保持原来的 DOM 顺序
+// 同一个 Id Product 的多个分段（例如同名 main 出现两段）在这里合并，
+// 保证 Main/Sub 永远连续，不会被其它组插开。
+const mergedGroups = [];
+const mergedByKey = new Map();
 groups.forEach(group => {
-    group.rows.forEach(row => summaryTableBody.appendChild(row));
+    const key = group.groupKey || `__group_${group.originalGroupIndex}`;
+    if (key && mergedByKey.has(key)) {
+        const existing = mergedByKey.get(key);
+        existing.rows = existing.rows.concat(group.rows);
+        existing.sortIndex = Math.min(existing.sortIndex, group.sortIndex);
+        return;
+    }
+    const entry = {
+        rows: group.rows.slice(),
+        sortIndex: group.sortIndex,
+        originalGroupIndex: group.originalGroupIndex,
+        groupKey: key
+    };
+    mergedGroups.push(entry);
+    if (key) {
+        mergedByKey.set(key, entry);
+    }
+});
+
+mergedGroups.sort((a, b) => {
+    if (a.sortIndex !== b.sortIndex) {
+        return a.sortIndex - b.sortIndex;
+    }
+    return a.originalGroupIndex - b.originalGroupIndex;
+});
+
+// 最后再做一次“同 id product 强制连续”兜底，防止不同阶段写入导致同组再次被拆分。
+const contiguousBlocks = [];
+const blockByKey = new Map();
+mergedGroups.forEach(group => {
+    group.rows.forEach(row => {
+        const key = getRowGroupKey(row, '');
+        if (key && blockByKey.has(key)) {
+            blockByKey.get(key).rows.push(row);
+            return;
+        }
+        const block = { key, rows: [row] };
+        contiguousBlocks.push(block);
+        if (key) {
+            blockByKey.set(key, block);
+        }
+    });
+});
+
+const getEffectiveProductType = (row) => {
+    const type = (row.getAttribute('data-product-type') || 'main').trim();
+    if (type === 'main') {
+        const parent = (row.getAttribute('data-parent-id-product') || '').trim();
+        if (parent !== '') return 'sub';
+    }
+    return type === 'sub' ? 'sub' : 'main';
+};
+const getSubOrderValue = (row) => {
+    const raw = row.getAttribute('data-sub-order');
+    if (raw == null || String(raw).trim() === '') return Number.POSITIVE_INFINITY;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : Number.POSITIVE_INFINITY;
+};
+
+// 组内强制排序：main 在前，sub 严格按 sub_order 升序。
+contiguousBlocks.forEach(block => {
+    block.rows.sort((a, b) => {
+        const typeA = getEffectiveProductType(a);
+        const typeB = getEffectiveProductType(b);
+        if (typeA !== typeB) {
+            return typeA === 'main' ? -1 : 1;
+        }
+        if (typeA === 'sub' && typeB === 'sub') {
+            const subA = getSubOrderValue(a);
+            const subB = getSubOrderValue(b);
+            if (subA !== subB) {
+                return subA - subB;
+            }
+        }
+        return (originalOrderMap.get(a) ?? 0) - (originalOrderMap.get(b) ?? 0);
+    });
+});
+
+contiguousBlocks.forEach(block => {
+    block.rows.forEach(row => summaryTableBody.appendChild(row));
 });
 
 console.log(
     'Reordered rows by preserved row_index groups (main + subs).',
-    'Total groups:', groups.length,
+    'Total groups:', mergedGroups.length,
     'Total rows:', rows.length
 );
 return;

@@ -288,7 +288,7 @@ let ownerCompanies = [];
                         
                         if (!processButton || !dropdown || !optionsContainer) return;
                         
-                        // Save previously selected value
+                        // Save previously selected value (use unique process DB id)
                         const previousValue = processButton.getAttribute('data-value') || '';
                         
                         // Clear options
@@ -313,13 +313,14 @@ let ownerCompanies = [];
                                 ? `${process.process_name} (${process.description})`
                                 : process.process_name;
                             option.textContent = displayText;
-                            option.setAttribute('data-value', process.process_name);
+                            const processValue = process.id != null ? String(process.id) : String(process.process_name || '');
+                            option.setAttribute('data-value', processValue);
                             
                             // If current value matches, mark as selected
-                            if (previousValue && process.process_name === previousValue) {
+                            if (previousValue && processValue === previousValue) {
                                 option.classList.add('selected');
                                 processButton.textContent = displayText;
-                                processButton.setAttribute('data-value', process.process_name);
+                                processButton.setAttribute('data-value', processValue);
                             }
                             
                             optionsContainer.appendChild(option);

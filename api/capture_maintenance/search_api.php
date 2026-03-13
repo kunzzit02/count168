@@ -56,10 +56,13 @@ function getCompanyIdForRequest(PDO $pdo) {
 /**
  * 查询 Data Capture 记录（未删除）
  */
-function fetchCaptureRecords(PDO $pdo, int $company_id, string $date_from_db, string $date_to_db, ?string $process_name) {
+function fetchCaptureRecords(PDO $pdo, int $company_id, string $date_from_db, string $date_to_db, ?int $process_id, ?string $process_name) {
     $where_conditions = ["dc.capture_date BETWEEN ? AND ?", "p.company_id = ?"];
     $params = [$company_id, $company_id, $date_from_db, $date_to_db, $company_id];
-    if ($process_name) {
+    if ($process_id !== null) {
+        $where_conditions[] = "p.id = ?";
+        $params[] = $process_id;
+    } elseif ($process_name) {
         $where_conditions[] = "p.process_id = ?";
         $params[] = $process_name;
     }
@@ -87,14 +90,17 @@ function fetchCaptureRecords(PDO $pdo, int $company_id, string $date_from_db, st
 /**
  * 查询已删除记录（data_captures_deleted 表存在时）
  */
-function fetchDeletedRecords(PDO $pdo, int $company_id, string $date_from_db, string $date_to_db, ?string $process_name) {
+function fetchDeletedRecords(PDO $pdo, int $company_id, string $date_from_db, string $date_to_db, ?int $process_id, ?string $process_name) {
     $checkStmt = $pdo->query("SHOW TABLES LIKE 'data_captures_deleted'");
     if (!$checkStmt->rowCount()) {
         return [];
     }
     $deletedWhereConditions = ["p.company_id = ?"];
     $deletedParams = [$company_id, $date_from_db, $date_to_db];
-    if ($process_name) {
+    if ($process_id !== null) {
+        $deletedWhereConditions[] = "p.id = ?";
+        $deletedParams[] = $process_id;
+    } elseif ($process_name) {
         $deletedWhereConditions[] = "p.process_id = ?";
         $deletedParams[] = $process_name;
     }
@@ -178,16 +184,26 @@ try {
 
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
-    $process_name = isset($_GET['process']) && $_GET['process'] !== '' ? trim((string)$_GET['process']) : null;
-
-    // 统一 process 为 process_id（与 maintenance_search_api 一致）：前端可能传 "SPORT (SPORT)" 或数字 id
-    if ($process_name !== null && $process_name !== '') {
-        if (preg_match('/^\d+$/', $process_name)) {
-            $stmt = $pdo->prepare("SELECT process_id FROM process WHERE id = ? AND company_id = ? LIMIT 1");
-            $stmt->execute([(int)$process_name, $company_id]);
-            $res = $stmt->fetchColumn();
-            $process_name = $res !== false ? (string)$res : null;
+    $process_param = isset($_GET['process']) && $_GET['process'] !== '' ? trim((string)$_GET['process']) : null;
+    $process_id = null;
+    $process_name = null;
+    // 优先按唯一 process.id 精确过滤，避免同 process_id(代码) 下多条 process 混在一起
+    if ($process_param !== null && $process_param !== '') {
+        if (preg_match('/^\d+$/', $process_param)) {
+            $stmt = $pdo->prepare("SELECT id, process_id FROM process WHERE id = ? AND company_id = ? LIMIT 1");
+            $stmt->execute([(int)$process_param, $company_id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                $process_id = (int)$row['id'];
+                $process_name = (string)$row['process_id'];
+            } else {
+                // 传入非法/越权 id 时返回空结果，避免回退成全量
+                jsonResponse(true, 'OK', []);
+                return;
+            }
         } else {
+            // 兼容旧前端：传 process_id 或 "CODE (DESC)" 文本
+            $process_name = $process_param;
             if (strpos($process_name, '(') !== false) {
                 $process_name = trim(explode('(', $process_name)[0]);
             }
@@ -203,10 +219,10 @@ try {
     $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
     $date_to_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
 
-    $results = fetchCaptureRecords($pdo, $company_id, $date_from_db, $date_to_db, $process_name);
+    $results = fetchCaptureRecords($pdo, $company_id, $date_from_db, $date_to_db, $process_id, $process_name);
     $deletedResults = [];
     try {
-        $deletedResults = fetchDeletedRecords($pdo, $company_id, $date_from_db, $date_to_db, $process_name);
+        $deletedResults = fetchDeletedRecords($pdo, $company_id, $date_from_db, $date_to_db, $process_id, $process_name);
     } catch (Exception $e) {
         error_log('查询已删除记录失败: ' . $e->getMessage());
     }
