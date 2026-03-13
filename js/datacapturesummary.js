@@ -16040,6 +16040,8 @@ const rows = Array.from(summaryTableBody.querySelectorAll('tr'));
 if (rows.length === 0) {
     return;
 }
+const originalOrderMap = new Map();
+rows.forEach((row, idx) => originalOrderMap.set(row, idx));
 
 const normalizeGroupKey = (value) => (value || '')
     .toString()
@@ -16175,6 +16177,40 @@ mergedGroups.forEach(group => {
         if (key) {
             blockByKey.set(key, block);
         }
+    });
+});
+
+const getEffectiveProductType = (row) => {
+    const type = (row.getAttribute('data-product-type') || 'main').trim();
+    if (type === 'main') {
+        const parent = (row.getAttribute('data-parent-id-product') || '').trim();
+        if (parent !== '') return 'sub';
+    }
+    return type === 'sub' ? 'sub' : 'main';
+};
+const getSubOrderValue = (row) => {
+    const raw = row.getAttribute('data-sub-order');
+    if (raw == null || String(raw).trim() === '') return Number.POSITIVE_INFINITY;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : Number.POSITIVE_INFINITY;
+};
+
+// 组内强制排序：main 在前，sub 严格按 sub_order 升序。
+contiguousBlocks.forEach(block => {
+    block.rows.sort((a, b) => {
+        const typeA = getEffectiveProductType(a);
+        const typeB = getEffectiveProductType(b);
+        if (typeA !== typeB) {
+            return typeA === 'main' ? -1 : 1;
+        }
+        if (typeA === 'sub' && typeB === 'sub') {
+            const subA = getSubOrderValue(a);
+            const subB = getSubOrderValue(b);
+            if (subA !== subB) {
+                return subA - subB;
+            }
+        }
+        return (originalOrderMap.get(a) ?? 0) - (originalOrderMap.get(b) ?? 0);
     });
 });
 
