@@ -2024,6 +2024,12 @@ function applyZeroBalanceFilterAndRender() {
     const rawLeft = lastSearchData.left_table || [];
     const rawRight = lastSearchData.right_table || [];
     
+    // 仅勾选「Show Win/Loss Only」时：完全使用后端返回的数据，不再在前端额外过滤（避免记录数被误删）
+    if (showWinLossOnly && !showPaymentOnly) {
+        renderTables(rawLeft, rawRight, lastSearchData.totals);
+        return;
+    }
+    
     // 先应用 Show Payment Only / Show Win/Loss 过滤
     // 双勾选时：显示有 Cr/Dr 或有 Win/Loss 的行；仅勾选 Show Payment：只显示有 Cr/Dr 的行
     let filteredLeft = rawLeft;
