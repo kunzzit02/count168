@@ -298,20 +298,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const showInactiveCk = document.getElementById('show_inactive');
     if (showInactiveCk) {
-        // 当未勾选 Show Win/Loss Only 时，Show Payment Only 仅做前端过滤
-        // 当已勾选 Show Win/Loss Only 时，两者组合会改变后端账户集合，必须重新调用 search_api
+        // Show Payment Only 改为每次勾选/取消都重新搜索，
+        // 由后端 + applyZeroBalanceFilterAndRender 一起决定最终显示的数据
         showInactiveCk.addEventListener('change', () => {
-            const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
-            const hasDate =
-                document.getElementById('date_from').value &&
-                document.getElementById('date_to').value;
-            
-            if (showWinLossOnly) {
-                if (hasDate) {
-                    searchTransactions();
-                }
-            } else {
-                handlePaymentOnlyFilter();
+            const dateFrom = document.getElementById('date_from').value;
+            const dateTo = document.getElementById('date_to').value;
+            if (dateFrom && dateTo) {
+                searchTransactions();
             }
         });
     }
