@@ -555,11 +555,10 @@ if (!empty($target_account_ids)) {
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
         
-        // 如果选择了 "Show capture only"：仅勾选此项时只显示有 Win/Loss 且无 Cr/Dr 的行；与 "Show Payment" 同时勾选时不跳过 Cr/Dr 行
+        // 如果选择了 "Show Win/Loss Only"（前端复选框 show_capture_only）：
+        // 仅要求在当前日期范围内，这个 account + currency 组合有 Win/Loss 记录；
+        // 不再排除同时有 Cr/Dr 的账户，避免「有 Win/Loss 但也有 Payment」的行被漏掉。
         if ($show_capture_only && !$show_inactive) {
-            if ($has_crdr_transactions) {
-                continue;
-            }
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) 
                 FROM data_capture_details dcd
