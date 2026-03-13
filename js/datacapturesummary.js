@@ -16041,6 +16041,8 @@ if (rows.length === 0) {
     return;
 }
 
+const normalizeGroupKey = (value) => (value || '').toString().trim().replace(/\s+/g, '');
+
 // NEW: 首次/全局排序只按 main 的 row_index（或 preserved-row-index）排序，
 // 并且把 main 与其后紧跟的 sub 当成一个整体 group，一起移动。
 // 这样 Summary 里所有 main 的顺序会和 console 打印的 row_index 完全一致，
@@ -16060,6 +16062,7 @@ rows.forEach((row) => {
         currentGroup = {
             rows: [],
             mainRow: row,
+            groupKey: normalizeGroupKey(mainTextRaw),
             originalGroupIndex: groups.length
         };
         groups.push(currentGroup);
@@ -16070,6 +16073,7 @@ rows.forEach((row) => {
         currentGroup = {
             rows: [],
             mainRow: row,
+            groupKey: normalizeGroupKey(mainTextRaw),
             originalGroupIndex: groups.length
         };
         groups.push(currentGroup);
@@ -16107,14 +16111,45 @@ groups.sort((a, b) => {
     return a.originalGroupIndex - b.originalGroupIndex;
 });
 
-// 重新挂载行：按 group 顺序依次 append，每个 group 内部保持原来的 DOM 顺序
+// 同一个 Id Product 的多个分段（例如同名 main 出现两段）在这里合并，
+// 保证 Main/Sub 永远连续，不会被其它组插开。
+const mergedGroups = [];
+const mergedByKey = new Map();
 groups.forEach(group => {
+    const key = group.groupKey || '';
+    if (key && mergedByKey.has(key)) {
+        const existing = mergedByKey.get(key);
+        existing.rows = existing.rows.concat(group.rows);
+        existing.sortIndex = Math.min(existing.sortIndex, group.sortIndex);
+        return;
+    }
+    const entry = {
+        rows: group.rows.slice(),
+        sortIndex: group.sortIndex,
+        originalGroupIndex: group.originalGroupIndex,
+        groupKey: key
+    };
+    mergedGroups.push(entry);
+    if (key) {
+        mergedByKey.set(key, entry);
+    }
+});
+
+mergedGroups.sort((a, b) => {
+    if (a.sortIndex !== b.sortIndex) {
+        return a.sortIndex - b.sortIndex;
+    }
+    return a.originalGroupIndex - b.originalGroupIndex;
+});
+
+// 重新挂载行：按合并后的 group 顺序 append，每个 group 内部保持原本相对顺序
+mergedGroups.forEach(group => {
     group.rows.forEach(row => summaryTableBody.appendChild(row));
 });
 
 console.log(
     'Reordered rows by preserved row_index groups (main + subs).',
-    'Total groups:', groups.length,
+    'Total groups:', mergedGroups.length,
     'Total rows:', rows.length
 );
 return;
