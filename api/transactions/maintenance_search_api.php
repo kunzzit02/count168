@@ -225,6 +225,7 @@ try {
             'no' => $no++,
             'transaction_id' => $row['transaction_id'],
             'capture_id' => null,
+            'capture_detail_id' => null,
             'process' => $row['process_id'] ?? '-',
             'process_id' => $row['process_id'] ?? null,
             'account' => $row['account_id'] ?? '-',
@@ -329,6 +330,7 @@ try {
                 'no' => $no++,
                 'transaction_id' => null,
                 'capture_id' => $row['capture_id'],
+                'capture_detail_id' => $row['capture_detail_id'] ?? null,
                 'process' => $row['process_id'] ?? '-',
                 'process_id' => $row['process_id'] ?? null,
                 'account' => $row['account_id'] ?? '-',
@@ -431,6 +433,7 @@ try {
                     'no' => $no++,
                     'transaction_id' => $row['transaction_id'],
                     'capture_id' => null,
+                    'capture_detail_id' => null,
                     'process' => $row['process_id'] ?? ($process ?: '-'),
                     'process_id' => $row['process_id'] ?? null,
                     'account' => $row['account_id'] ?? '-',
@@ -483,6 +486,7 @@ try {
             
             $deletedCaptureSql = "
                 SELECT
+                    dcd.id AS capture_detail_id,
                     dcd.capture_id,
                     p.process_id,
                     a.account_id,
@@ -535,6 +539,7 @@ try {
                     'no' => $no++,
                     'transaction_id' => null,
                     'capture_id' => $row['capture_id'],
+                    'capture_detail_id' => $row['capture_detail_id'] ?? null,
                     'process' => $row['process_id'] ?? '-',
                     'process_id' => $row['process_id'] ?? null,
                     'account' => $row['account_id'] ?? '-',
@@ -565,16 +570,43 @@ try {
     }
     // ========== 5. 按日期排序合并后的数据 ==========
     usort($formatted, function($a, $b) {
-        // 先按日期排序（降序）
+        // 1) 按 transaction_date 降序（YYYY-MM-DD）
         $dateA = $a['transaction_date'] ?? '';
         $dateB = $b['transaction_date'] ?? '';
         if ($dateA !== $dateB) {
-            return strcmp($dateB, $dateA); // 降序
+            return strcmp($dateB, $dateA);
         }
-        // 日期相同则按创建时间排序（降序）
-        $createdA = $a['dts_created'] ?? '';
-        $createdB = $b['dts_created'] ?? '';
-        return strcmp($createdB, $createdA); // 降序
+
+        // 2) 按 dts_created 的真实时间降序（避免 dd/mm/yyyy 字符串比较误差）
+        $createdA = DateTime::createFromFormat('d/m/Y H:i:s', (string)($a['dts_created'] ?? ''));
+        $createdB = DateTime::createFromFormat('d/m/Y H:i:s', (string)($b['dts_created'] ?? ''));
+        $tsA = $createdA ? $createdA->getTimestamp() : 0;
+        $tsB = $createdB ? $createdB->getTimestamp() : 0;
+        if ($tsA !== $tsB) {
+            return $tsB <=> $tsA;
+        }
+
+        // 3) 同一时间戳下：Data Capture 先按 capture_id 分组，保证 Main/Sub 不被打散
+        $captureA = (int)($a['capture_id'] ?? 0);
+        $captureB = (int)($b['capture_id'] ?? 0);
+        if ($captureA !== $captureB) {
+            return $captureB <=> $captureA;
+        }
+
+        // 4) 同一 capture 内按 detail id（原明细顺序）排序，确保同组紧邻
+        $detailA = (int)($a['capture_detail_id'] ?? 0);
+        $detailB = (int)($b['capture_detail_id'] ?? 0);
+        if ($detailA !== $detailB) {
+            return $detailB <=> $detailA;
+        }
+
+        // 5) 最后兜底：按 transaction_id 降序，确保排序稳定
+        $txnA = (int)($a['transaction_id'] ?? 0);
+        $txnB = (int)($b['transaction_id'] ?? 0);
+        if ($txnA !== $txnB) {
+            return $txnB <=> $txnA;
+        }
+        return 0;
     });
     
     // 重新编号
