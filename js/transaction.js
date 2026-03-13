@@ -2122,6 +2122,18 @@ function handlePaymentOnlyFilter() {
         return;
     }
     
+    // 如果当前勾选了 Show Win/Loss Only，再勾/取消 Show Payment Only
+    // 需要后端同时根据两个条件重新计算账户列表，单纯前端过滤无法补回已被过滤掉的账号
+    const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
+    if (showWinLossOnly) {
+        const dateFrom = document.getElementById('date_from')?.value;
+        const dateTo = document.getElementById('date_to')?.value;
+        if (dateFrom && dateTo) {
+            searchTransactions(); // 带上当前 show_capture_only / show_inactive 状态重新搜索
+        }
+        return;
+    }
+    
     const showPaymentOnly = document.getElementById('show_inactive')?.checked || false;
     
     if (!showPaymentOnly) {
