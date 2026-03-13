@@ -16041,7 +16041,25 @@ if (rows.length === 0) {
     return;
 }
 
-const normalizeGroupKey = (value) => (value || '').toString().trim().replace(/\s+/g, '');
+const normalizeGroupKey = (value) => (value || '')
+    .toString()
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+const getRowGroupKey = (row, fallbackMainText) => {
+    if (!row) return normalizeGroupKey(fallbackMainText || '');
+    const productType = (row.getAttribute('data-product-type') || 'main').trim();
+    const parentAttr = row.getAttribute('data-parent-id-product');
+    const idCell = row.querySelector('td:first-child');
+    const mainAttr = idCell ? (idCell.getAttribute('data-main-product') || '') : '';
+    const cellText = idCell && idCell.textContent ? idCell.textContent : '';
+    // sub 行优先用 parent 分组，main 行优先用 data-main-product，再退回可见文本
+    const raw = (productType === 'sub' && parentAttr && parentAttr.trim() !== '')
+        ? parentAttr
+        : (mainAttr || cellText || fallbackMainText || '');
+    return normalizeGroupKey(raw);
+};
 
 // NEW: 首次/全局排序只按 main 的 row_index（或 preserved-row-index）排序，
 // 并且把 main 与其后紧跟的 sub 当成一个整体 group，一起移动。
@@ -16062,7 +16080,7 @@ rows.forEach((row) => {
         currentGroup = {
             rows: [],
             mainRow: row,
-            groupKey: normalizeGroupKey(mainTextRaw),
+            groupKey: getRowGroupKey(row, mainTextRaw),
             originalGroupIndex: groups.length
         };
         groups.push(currentGroup);
@@ -16073,7 +16091,7 @@ rows.forEach((row) => {
         currentGroup = {
             rows: [],
             mainRow: row,
-            groupKey: normalizeGroupKey(mainTextRaw),
+            groupKey: getRowGroupKey(row, mainTextRaw),
             originalGroupIndex: groups.length
         };
         groups.push(currentGroup);
@@ -16116,7 +16134,7 @@ groups.sort((a, b) => {
 const mergedGroups = [];
 const mergedByKey = new Map();
 groups.forEach(group => {
-    const key = group.groupKey || '';
+    const key = group.groupKey || `__group_${group.originalGroupIndex}`;
     if (key && mergedByKey.has(key)) {
         const existing = mergedByKey.get(key);
         existing.rows = existing.rows.concat(group.rows);
@@ -16142,9 +16160,26 @@ mergedGroups.sort((a, b) => {
     return a.originalGroupIndex - b.originalGroupIndex;
 });
 
-// 重新挂载行：按合并后的 group 顺序 append，每个 group 内部保持原本相对顺序
+// 最后再做一次“同 id product 强制连续”兜底，防止不同阶段写入导致同组再次被拆分。
+const contiguousBlocks = [];
+const blockByKey = new Map();
 mergedGroups.forEach(group => {
-    group.rows.forEach(row => summaryTableBody.appendChild(row));
+    group.rows.forEach(row => {
+        const key = getRowGroupKey(row, '');
+        if (key && blockByKey.has(key)) {
+            blockByKey.get(key).rows.push(row);
+            return;
+        }
+        const block = { key, rows: [row] };
+        contiguousBlocks.push(block);
+        if (key) {
+            blockByKey.set(key, block);
+        }
+    });
+});
+
+contiguousBlocks.forEach(block => {
+    block.rows.forEach(row => summaryTableBody.appendChild(row));
 });
 
 console.log(
