@@ -2049,9 +2049,18 @@ function applyZeroBalanceFilterAndRender() {
     // 再应用 Show 0 balance 过滤
     const filterFn = (row) => {
         if (showZero) return true; // 显示所有（包括 0 balance）
+
+        // 如果勾选了 Show Win/Loss Only，则只要该行有 Win/Loss，就保留，不再因为 Balance=0 被过滤掉
+        if (showWinLossOnly) {
+            const wl = parseFloat(row.win_loss);
+            if (!isNaN(wl) && Math.abs(wl) > 0.00001) {
+                return true;
+            }
+        }
+
         const num = parseFloat(row.balance);
         if (isNaN(num)) return true;
-        return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额
+        return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额（且没有 Win/Loss 的行）
     };
     
     filteredLeft = filteredLeft.filter(filterFn);
@@ -2133,9 +2142,17 @@ function handlePaymentOnlyFilter() {
     const showZero = document.getElementById('show_zero_balance')?.checked || false;
     if (!showZero) {
         const filterFn = (row) => {
+            // 如果勾选了 Show Win/Loss Only，则只要该行有 Win/Loss，就保留
+            if (showWinLossOnly) {
+                const wl = parseFloat(row.win_loss);
+                if (!isNaN(wl) && Math.abs(wl) > 0.00001) {
+                    return true;
+                }
+            }
+
             const num = parseFloat(row.balance);
             if (isNaN(num)) return true;
-            return Math.abs(num) > 0.00001;
+            return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额（且没有 Win/Loss 的行）
         };
         filteredLeft = filteredLeft.filter(filterFn);
         filteredRight = filteredRight.filter(filterFn);
