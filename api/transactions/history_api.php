@@ -332,13 +332,12 @@ try {
                     JOIN currency c ON dcd.currency_id = c.id
                     LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
                     LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
-                    JOIN process p ON dc.process_id = p.id
+                    LEFT JOIN process p ON dc.process_id = p.id
                     LEFT JOIN description d ON p.description_id = d.id
                     LEFT JOIN bank_process bp ON dc.process_id = bp.id
                     LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                     WHERE (dcd.company_id = ? OR dcd.company_id IS NULL)
                       AND dc.company_id = ?
-                      AND p.company_id = ?
                       AND (
                           TRIM(CAST(dcd.account_id AS CHAR)) = TRIM(CAST(? AS CHAR))
                           OR (? <> '' AND (
@@ -349,7 +348,7 @@ try {
                       AND dc.capture_date BETWEEN ? AND ?";
     
     // dcd.account_id 可能存请求的 id、其他公司的同代码 account.id、或账户代码；用「当前公司下同 account_id 的所有 id」子查询兜底
-    $captureParams = [$company_id, $company_id, $company_id, $account_id, $account_code ?: '', $account_code ?: '', $account_code ?: '', $company_id, $date_from_db, $date_to_db];
+    $captureParams = [$company_id, $company_id, $account_id, $account_code ?: '', $account_code ?: '', $account_code ?: '', $company_id, $date_from_db, $date_to_db];
     if ($currency_id) {
         $sqlCapture .= " AND dcd.currency_id = ?";
         $captureParams[] = $currency_id;
