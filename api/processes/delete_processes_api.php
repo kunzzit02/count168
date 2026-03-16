@@ -186,16 +186,20 @@ try {
         }
     }
 
-    // 关键保护：先断开历史记录与 process 的关联，再删除 process 主档，避免历史数据因关联删除而丢失。
+    // 安全删除策略：
+    // 为避免触发外键级联导致历史 ID_Product / Data Capture 数据被删除，
+    // 这里改为软删除（status: inactive -> waiting），不执行物理 DELETE。
+    // processlist API 仅展示 active / inactive，因此 waiting 不会在列表中出现。
     $pdo->beginTransaction();
-    detachProcessHistoryReferences($pdo, $processIds, $processCompanyIds);
-
-    $deletePlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
-    $stmt = $pdo->prepare("DELETE FROM process WHERE id IN ($deletePlaceholders) AND status = 'inactive'");
+    $softDeletePlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
+    $stmt = $pdo->prepare("UPDATE process SET status = 'waiting' WHERE id IN ($softDeletePlaceholders) AND status = 'inactive'");
     $stmt->execute($processIds);
     $deletedCount = $stmt->rowCount();
     $pdo->commit();
-    api_success(['deleted' => $deletedCount], $deletedCount === 1 ? '1 process deleted' : $deletedCount . ' processes deleted');
+    api_success(
+        ['deleted' => $deletedCount, 'mode' => 'soft_delete_waiting'],
+        $deletedCount === 1 ? '1 process deleted' : $deletedCount . ' processes deleted'
+    );
 } catch (PDOException $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
