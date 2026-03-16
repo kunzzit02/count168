@@ -1433,14 +1433,15 @@ function searchTransactions(isInitialLoad) {
                     console.log(`  [${index}] ${row.account_id}:`);
                     console.log(`    原始balance: "${originalBalance}" (类型: ${balanceType})`);
                     console.log(`    清理后balance: ${parsedBalance} (isNaN: ${isNaNResult})`);
-                    console.log(`    >= 0 判断: ${parsedBalance >= 0}`);
+                    console.log(`    > 0 判断: ${parsedBalance > 0}`);
 
-                    if (!isNaNResult && parsedBalance >= 0) {
+                    // 需求：正数的数据显示在左边，其余（0、负数、非数字）都放右边
+                    if (!isNaNResult && parsedBalance > 0) {
                         newLeftTable.push(row);
-                        console.log(`    ✅ 分配到左表格`);
+                        console.log(`    ✅ 分配到左表格（正数）`);
                     } else {
                         newRightTable.push(row);
-                        console.log(`    ❌ 分配到右表格`);
+                        console.log(`    ❌ 分配到右表格（非正数）`);
                     }
                 });
 
