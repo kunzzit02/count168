@@ -841,6 +841,11 @@ try {
             }
         }
 
+        // member Win/Loss: CONTRA 描述固定为 "Contra Account"，不显示对手账户
+        if ($isMemberUser && $t['transaction_type'] === 'CONTRA') {
+            $description = 'Contra Account';
+        }
+
         // 追加审批标记（只对未批准 CONTRA；CLEAR 没有审批流程，只沿用金额逻辑）
         if ($t['transaction_type'] === 'CONTRA' && $approvalStatus && strtoupper((string)$approvalStatus) === 'PENDING') {
             $description = '[PENDING APPROVAL] ' . $description;
