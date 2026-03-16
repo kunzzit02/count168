@@ -790,7 +790,7 @@ body.transaction-page {
 }
 
 .transaction-modal-body .transaction-table .transaction-history-col-product {
-    width: 5%;
+    width: 15%;
     min-width: 150px;
 }
 
