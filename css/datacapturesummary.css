@@ -400,7 +400,7 @@ body {
         
         #summaryTable th:nth-child(6), /* Batch Selection */
         #summaryTable td:nth-child(6) {
-            width: 2%;
+            width: 3%;
         }
         
         #summaryTable th:nth-child(7), /* Source */
@@ -410,7 +410,7 @@ body {
         
         #summaryTable th:nth-child(8), /* Formula */
         #summaryTable td:nth-child(8) {
-            width: 3%;
+            width: 4%;
         }
         
         #summaryTable th:nth-child(9), /* Source % - wider */
