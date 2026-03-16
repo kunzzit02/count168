@@ -379,7 +379,7 @@ body {
         
         #summaryTable th:nth-child(2), /* Account */
         #summaryTable td:nth-child(2) {
-            width: 5%;
+            width: 12%;
         }
         
         #summaryTable th:nth-child(3), /* Add button */
@@ -500,7 +500,7 @@ body {
 
         /* Account column header align right; cells keep original alignment */
         #summaryTable th:nth-child(2) {
-            text-align: right;
+            text-align: center;
         }
 
         /* Data Capture Table first column (A) alignment */
