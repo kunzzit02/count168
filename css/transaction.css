@@ -795,7 +795,7 @@ body.transaction-page {
 }
 
 .transaction-modal-body .transaction-table .transaction-history-col-currency {
-    width: 2%;
+    width: 3%;
     min-width: 70px;
     text-align: center !important;
 }

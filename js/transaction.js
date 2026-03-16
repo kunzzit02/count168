@@ -2067,7 +2067,7 @@ function applyZeroBalanceFilterAndRender() {
             return !isNaN(wl) && Math.abs(wl) > 0.00001;
         };
         const shouldShow = showWinLossOnly
-            ? row => hasCrdr(row) || hasWinLoss(row)
+            ? hasWinLoss
             : hasCrdr;
         filteredLeft = rawLeft.filter(shouldShow);
         filteredRight = rawRight.filter(shouldShow);
@@ -2160,7 +2160,7 @@ function handlePaymentOnlyFilter() {
         return !isNaN(wl) && Math.abs(wl) > 0.00001;
     };
     const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
-    const shouldShow = showWinLossOnly ? row => hasCrdr(row) || hasWinLoss(row) : hasCrdr;
+    const shouldShow = showWinLossOnly ? hasWinLoss : hasCrdr;
     
     let filteredLeft = lastSearchData.left_table.filter(shouldShow);
     let filteredRight = lastSearchData.right_table.filter(shouldShow);
