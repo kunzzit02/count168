@@ -7805,6 +7805,11 @@ function saveFormula() {
         }
     }
     
+    // After updating the summary row(s), append description to the Id Product cell if provided
+    if (descriptionValue && descriptionValue.trim() !== '' && typeof updateIdProductWithDescription === 'function') {
+        updateIdProductWithDescription(processValue, descriptionValue.trim());
+    }
+    
     // Rebuild used accounts after updates
     rebuildUsedAccountIds();
 
