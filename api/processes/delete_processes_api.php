@@ -114,6 +114,72 @@ try {
         exit;
     }
 
+    // 保护历史数据：若 Process 已有历史采集/提交记录，禁止物理删除，避免关联历史在后续页面中消失
+    $hasHistoricalData = false;
+    try {
+        $txnPlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
+        $companyPlaceholders = str_repeat('?,', count($processCompanyIds) - 1) . '?';
+
+        $hasDataCapturesTable = false;
+        try {
+            $tblStmt = $pdo->query("SHOW TABLES LIKE 'data_captures'");
+            $hasDataCapturesTable = $tblStmt && $tblStmt->rowCount() > 0;
+        } catch (PDOException $e) { /* ignore */ }
+        if ($hasDataCapturesTable) {
+            $sql = "SELECT process_id FROM data_captures WHERE process_id IN ($txnPlaceholders) AND company_id IN ($companyPlaceholders) LIMIT 1";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute(array_merge($processIds, $processCompanyIds));
+            if ($stmt->fetch()) {
+                $hasHistoricalData = true;
+            }
+        }
+
+        if (!$hasHistoricalData) {
+            $hasDcdTable = false;
+            try {
+                $tblStmt = $pdo->query("SHOW TABLES LIKE 'data_capture_details'");
+                $hasDcdTable = $tblStmt && $tblStmt->rowCount() > 0;
+            } catch (PDOException $e) { /* ignore */ }
+            if ($hasDcdTable) {
+                $hasDcdProcessIdCol = false;
+                try {
+                    $colStmt = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'process_id'");
+                    $hasDcdProcessIdCol = $colStmt && $colStmt->rowCount() > 0;
+                } catch (PDOException $e) { /* ignore */ }
+                if ($hasDcdProcessIdCol) {
+                    $sql = "SELECT process_id FROM data_capture_details WHERE process_id IN ($txnPlaceholders) AND company_id IN ($companyPlaceholders) LIMIT 1";
+                    $stmt = $pdo->prepare($sql);
+                    $stmt->execute(array_merge($processIds, $processCompanyIds));
+                    if ($stmt->fetch()) {
+                        $hasHistoricalData = true;
+                    }
+                }
+            }
+        }
+
+        if (!$hasHistoricalData) {
+            $hasSubmittedTable = false;
+            try {
+                $tblStmt = $pdo->query("SHOW TABLES LIKE 'submitted_processes'");
+                $hasSubmittedTable = $tblStmt && $tblStmt->rowCount() > 0;
+            } catch (PDOException $e) { /* ignore */ }
+            if ($hasSubmittedTable) {
+                $sql = "SELECT process_id FROM submitted_processes WHERE process_id IN ($txnPlaceholders) AND company_id IN ($companyPlaceholders) LIMIT 1";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute(array_merge($processIds, $processCompanyIds));
+                if ($stmt->fetch()) {
+                    $hasHistoricalData = true;
+                }
+            }
+        }
+    } catch (PDOException $e) {
+        // ignore and continue with existing checks
+    }
+    if ($hasHistoricalData) {
+        api_error('Process has historical data', 400, ['error' => 'process_has_historical_data']);
+        exit;
+    }
+
     $hasProcessIdCol = false;
     try {
         $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'process_id'");
