@@ -1740,11 +1740,12 @@ function createCurrencyTable(tableId, rows) {
     if (rows && rows.length > 0) {
         // 在 Rate 模式下，识别当前表单中选择的 Middle-Man 账户，用于正数显示金额
         const isRateView = isRateTypeSelected && typeof isRateTypeSelected === 'function' ? isRateTypeSelected() : false;
-        let middlemanAccountCode = '';
+        let middlemanAccountId = '';
         if (isRateView) {
             const middlemanBtn = document.getElementById('rate_middleman_account');
             if (middlemanBtn) {
-                middlemanAccountCode = middlemanBtn.getAttribute('data-account-code') || middlemanBtn.textContent.trim() || '';
+                // 使用内部 account 数据库 ID 与 row.account_db_id 对应，避免显示文本不一致导致匹配失败
+                middlemanAccountId = middlemanBtn.getAttribute('data-value') || '';
             }
         }
         
@@ -1763,10 +1764,10 @@ function createCurrencyTable(tableId, rows) {
                 ? `transaction-account-cell ${roleClass}` 
                 : 'transaction-account-cell';
             
-            // Middle-Man 行：在 Rate 视图下，将 Cr/Dr 和 Balance 显示为正数
+            // Middle-Man 行：在 Rate 视图下，将 Cr/Dr 和 Balance 显示为正数（只影响前端显示）
             let crDrValue = row.cr_dr;
             let balanceValue = row.balance;
-            const isMiddlemanRow = isRateView && middlemanAccountCode && row.account_id === middlemanAccountCode;
+            const isMiddlemanRow = isRateView && middlemanAccountId && String(row.account_db_id) === String(middlemanAccountId);
             if (isMiddlemanRow) {
                 const nCrDr = parseFloat(crDrValue);
                 const nBalance = parseFloat(balanceValue);
@@ -1835,8 +1836,8 @@ function calculateTotals(rows) {
         if (typeof isRateTypeSelected === 'function' && isRateTypeSelected()) {
             const middlemanBtn = document.getElementById('rate_middleman_account');
             if (middlemanBtn) {
-                const middlemanCode = middlemanBtn.getAttribute('data-account-code') || middlemanBtn.textContent.trim() || '';
-                if (middlemanCode && row.account_id === middlemanCode) {
+                const middlemanAccountId = middlemanBtn.getAttribute('data-value') || '';
+                if (middlemanAccountId && String(row.account_db_id) === String(middlemanAccountId)) {
                     crDr = Math.abs(crDr);
                     balance = Math.abs(balance);
                 }
