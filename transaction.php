@@ -279,7 +279,7 @@ $default_date_to = $today_dt->format('d/m/Y');
                                 <option value="">Currency</option>
                             </select>
                             <input type="number" step="0.01" id="rate_currency_from_amount" class="transaction-input" placeholder="Amount">
-                            <input type="text" inputmode="decimal" id="rate_exchange_rate" class="transaction-input" placeholder="Rate (e.g. 3, 3/2, /3)">
+                            <input type="text" inputmode="decimal" id="rate_exchange_rate" class="transaction-input" placeholder="Rate">
                             <select id="rate_currency_to" class="transaction-select">
                                 <option value="">Currency</option>
                             </select>
