@@ -10,6 +10,20 @@
     let selectedCurrencies = []; let showAllCurrencies = false; let ownerCompanies = []; let currencyList = []; let currentDisplayData = { left_table: [], right_table: [] };
     const showDescriptionColumn = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.showDescriptionColumn !== undefined) ? window.TRANSACTION_PAGE.showDescriptionColumn : false;
     const RATE_TYPE_VALUE = 'RATE';
+    let isSubmittingTx = false;
+
+    function syncSubmitButtonState() {
+        const confirmCheckbox = document.getElementById('confirm_submit');
+        const submitBtn = document.getElementById('submit_btn');
+        if (!submitBtn) return;
+        if (isSubmittingTx) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            return;
+        }
+        submitBtn.textContent = 'Submit';
+        submitBtn.disabled = !(confirmCheckbox && confirmCheckbox.checked);
+    }
 
     function isRateTypeSelected() {
     const typeSel = document.getElementById('transaction_type');
@@ -2152,6 +2166,11 @@ function handlePaymentOnlyFilter() {
 
 // ==================== 提交功能 ====================
 function submitAction() {
+    if (isSubmittingTx) {
+        console.log('Submission already in progress, ignoring duplicate click');
+        return;
+    }
+
     const type = document.getElementById('transaction_type').value;
     const effectiveType = (type === 'PROFIT') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
     const isRate = type === RATE_TYPE_VALUE;
@@ -2461,6 +2480,13 @@ function submitAction() {
     if (currentCompanyId) {
         formData.append('company_id', currentCompanyId);
     }
+    const clientRequestId = (window.crypto && typeof window.crypto.randomUUID === 'function')
+        ? window.crypto.randomUUID()
+        : ('tx_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10));
+    formData.append('client_request_id', clientRequestId);
+
+    isSubmittingTx = true;
+    syncSubmitButtonState();
     
     fetch('/api/transactions/submit_api.php', {
         method: 'POST',
@@ -2485,7 +2511,8 @@ function submitAction() {
             document.getElementById('action_description').value = '';
             document.getElementById('action_sms').value = '';
             document.getElementById('confirm_submit').checked = false;
-            document.getElementById('submit_btn').disabled = true;
+            isSubmittingTx = false;
+            syncSubmitButtonState();
             if (isRateTypeSelected()) {
                 [
                     'rate_currency_from_amount',
@@ -2528,10 +2555,14 @@ function submitAction() {
                 searchTransactions();
             }
         } else {
+            isSubmittingTx = false;
+            syncSubmitButtonState();
             showNotification(data.error || 'Submit failed', 'error');
         }
     })
     .catch(error => {
+        isSubmittingTx = false;
+        syncSubmitButtonState();
         console.error('❌ 提交失败:', error);
         showNotification('Submit failed: ' + error.message, 'error');
     });
@@ -2834,14 +2865,14 @@ function handleConfirmSubmit() {
     
     if (confirmCheckbox && submitBtn) {
         // 根据复选框初始状态设置按钮是否可点
-        submitBtn.disabled = !confirmCheckbox.checked;
+        syncSubmitButtonState();
         confirmCheckbox.addEventListener('change', function() {
-            submitBtn.disabled = !this.checked;
+            syncSubmitButtonState();
         });
         submitBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            if (!submitBtn.disabled) {
+            if (!submitBtn.disabled && !isSubmittingTx) {
                 submitAction();
             }
         });

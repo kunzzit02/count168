@@ -99,6 +99,48 @@ function clearTransactionSearchCache(): void
     }
 }
 
+/**
+ * 基于 session 的轻量幂等缓存（防止同一次点击重复提交）
+ */
+function getSubmitIdempotencyCache(string $key): ?array
+{
+    if (!isset($_SESSION['tx_submit_idempotency']) || !is_array($_SESSION['tx_submit_idempotency'])) {
+        return null;
+    }
+    $store = $_SESSION['tx_submit_idempotency'];
+    if (!isset($store[$key]) || !is_array($store[$key])) {
+        return null;
+    }
+    $item = $store[$key];
+    if (!isset($item['response']) || !is_array($item['response'])) {
+        return null;
+    }
+    return $item['response'];
+}
+
+function putSubmitIdempotencyCache(string $key, array $response): void
+{
+    if (!isset($_SESSION['tx_submit_idempotency']) || !is_array($_SESSION['tx_submit_idempotency'])) {
+        $_SESSION['tx_submit_idempotency'] = [];
+    }
+    $_SESSION['tx_submit_idempotency'][$key] = [
+        'created_at' => time(),
+        'response' => $response
+    ];
+
+    // 仅保留最近 100 条，避免 session 膨胀
+    if (count($_SESSION['tx_submit_idempotency']) > 100) {
+        uasort($_SESSION['tx_submit_idempotency'], function ($a, $b) {
+            $ta = (int)($a['created_at'] ?? 0);
+            $tb = (int)($b['created_at'] ?? 0);
+            return $ta <=> $tb;
+        });
+        while (count($_SESSION['tx_submit_idempotency']) > 100) {
+            array_shift($_SESSION['tx_submit_idempotency']);
+        }
+    }
+}
+
 try {
     // 检查用户登录
     if (!isset($_SESSION['user_id'])) {
@@ -139,6 +181,20 @@ try {
         throw new Exception('只支持 POST 请求');
     }
     
+    $client_request_id = trim($_POST['client_request_id'] ?? '');
+    if ($client_request_id !== '' && !preg_match('/^[A-Za-z0-9._:-]{8,128}$/', $client_request_id)) {
+        throw new Exception('Invalid client_request_id');
+    }
+    $idempotencyKey = '';
+    if ($client_request_id !== '') {
+        $idempotencyKey = (string)$company_id . ':' . $client_request_id;
+        $cachedResponse = getSubmitIdempotencyCache($idempotencyKey);
+        if ($cachedResponse !== null) {
+            echo json_encode($cachedResponse, JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
+
     // 获取表单数据
     $transaction_type = trim($_POST['transaction_type'] ?? '');
     $account_id = (int)($_POST['account_id'] ?? 0);
@@ -796,7 +852,7 @@ try {
             clearTransactionSearchCache();
 
             // 返回成功响应
-            echo json_encode([
+            $responsePayload = [
                 'success' => true,
                 'message' => 'RATE transaction submitted successfully, ' . count($transaction_ids) . ' record(s) created',
                 'data' => [
@@ -804,7 +860,11 @@ try {
                     'transaction_type' => $transaction_type,
                     'transaction_date' => $transaction_date
                 ]
-            ]);
+            ];
+            if ($idempotencyKey !== '') {
+                putSubmitIdempotencyCache($idempotencyKey, $responsePayload);
+            }
+            echo json_encode($responsePayload, JSON_UNESCAPED_UNICODE);
             
         } else {
             // 非 RATE 类型的原有逻辑
@@ -891,7 +951,7 @@ try {
         clearTransactionSearchCache();
 
         // 返回成功响应
-        echo json_encode([
+        $responsePayload = [
             'success' => true,
             'message' => $is_contra_pending
                 ? 'CONTRA submitted, pending Manager+ approval to take effect'
@@ -905,7 +965,11 @@ try {
                 'transaction_date' => $transaction_date,
                 'approval_status' => $has_approval_status ? $approval_status : null
             ]
-        ]);
+        ];
+        if ($idempotencyKey !== '') {
+            putSubmitIdempotencyCache($idempotencyKey, $responsePayload);
+        }
+        echo json_encode($responsePayload, JSON_UNESCAPED_UNICODE);
         }
         
     } catch (Exception $e) {
