@@ -1435,10 +1435,12 @@ function searchTransactions(isInitialLoad) {
                     console.log(`    清理后balance: ${parsedBalance} (isNaN: ${isNaNResult})`);
                     console.log(`    > 0 判断: ${parsedBalance > 0}`);
 
-                    // 需求：正数的数据显示在左边，其余（0、负数、非数字）都放右边
-                    if (!isNaNResult && parsedBalance > 0) {
+                    // 需求：正数的数据显示在左边；Middle-Man 行（is_rate_middleman）也显示在左边并按正数显示
+                    const isRateMiddleman = row.is_rate_middleman === 1 || row.is_rate_middleman === true;
+                    const goLeft = (!isNaNResult && parsedBalance > 0) || isRateMiddleman;
+                    if (goLeft) {
                         newLeftTable.push(row);
-                        console.log(`    ✅ 分配到左表格（正数）`);
+                        console.log(`    ✅ 分配到左表格${isRateMiddleman ? '（Middle-Man 正数）' : '（正数）'}`);
                     } else {
                         newRightTable.push(row);
                         console.log(`    ❌ 分配到右表格（非正数）`);
@@ -1765,10 +1767,11 @@ function createCurrencyTable(tableId, rows) {
                 ? `transaction-account-cell ${roleClass}` 
                 : 'transaction-account-cell';
             
-            // Middle-Man 行：在 Rate 视图下，将 Cr/Dr 和 Balance 显示为正数（只影响前端显示）
+            // Middle-Man 行：将 Cr/Dr 和 Balance 显示为正数（后端 is_rate_middleman 或当前表单选的 Middle-Man）
             let crDrValue = row.cr_dr;
             let balanceValue = row.balance;
-            const isMiddlemanRow = isRateView && middlemanAccountId && String(row.account_db_id) === String(middlemanAccountId);
+            const isMiddlemanRow = (row.is_rate_middleman === 1 || row.is_rate_middleman === true) ||
+                (isRateView && middlemanAccountId && String(row.account_db_id) === String(middlemanAccountId));
             if (isMiddlemanRow) {
                 const nCrDr = parseFloat(crDrValue);
                 const nBalance = parseFloat(balanceValue);
@@ -1833,16 +1836,17 @@ function calculateTotals(rows) {
         let crDr = parseFloat(row.cr_dr) || 0;
         let balance = parseFloat(row.balance) || 0;
 
-        // 在 Rate 视图下，对当前 Middle-Man 账户的 Cr/Dr 和 Balance 使用绝对值，以与列表显示保持一致
-        if (typeof isRateTypeSelected === 'function' && isRateTypeSelected()) {
+        // Middle-Man 行（后端 is_rate_middleman 或当前表单选的 Middle-Man）的 Cr/Dr、Balance 用绝对值参与合计
+        const isRateMiddleman = row.is_rate_middleman === 1 || row.is_rate_middleman === true;
+        const isFormMiddleman = typeof isRateTypeSelected === 'function' && isRateTypeSelected() && (() => {
             const middlemanBtn = document.getElementById('rate_middleman_account');
-            if (middlemanBtn) {
-                const middlemanAccountId = middlemanBtn.getAttribute('data-value') || '';
-                if (middlemanAccountId && String(row.account_db_id) === String(middlemanAccountId)) {
-                    crDr = Math.abs(crDr);
-                    balance = Math.abs(balance);
-                }
-            }
+            if (!middlemanBtn) return false;
+            const mid = middlemanBtn.getAttribute('data-value') || '';
+            return mid && String(row.account_db_id) === String(mid);
+        })();
+        if (isRateMiddleman || isFormMiddleman) {
+            crDr = Math.abs(crDr);
+            balance = Math.abs(balance);
         }
 
         totals.bf += bf;

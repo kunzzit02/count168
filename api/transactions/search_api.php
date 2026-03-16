@@ -591,6 +591,9 @@ if (!empty($target_account_ids)) {
         // 公式：Balance = B/F + Win/Loss + Cr/Dr
         $balance = $bf + $win_loss + $cr_dr;
         
+        // 4b. 本期是否有 RATE Middle-Man 分录（该账户+货币在本期作为 Middle-Man 收取手续费，前端需按正数显示）
+        $is_rate_middleman = hasRateMiddlemanInPeriod($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
+        
         // 5. 检查 Alert 条件是否达成
         $is_alert = false;
         
@@ -700,7 +703,8 @@ if (!empty($target_account_ids)) {
             'cr_dr' => $cr_dr,
             'balance' => $balance,
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
-            'is_alert' => $is_alert ? 1 : 0
+            'is_alert' => $is_alert ? 1 : 0,
+            'is_rate_middleman' => $is_rate_middleman ? 1 : 0
         ];
     }
     
@@ -1229,6 +1233,30 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
  * - 有 currency_id 时，直接按 company_id + currency_id 过滤；
  * - 没有 currency_id 时，退回旧逻辑，依赖 data_capture_details 过滤 currency。
  */
+
+/**
+ * 本期（date_from ~ date_to）内该 account_id + currency_id 是否有 RATE_MIDDLEMAN 分录
+ * 用于前端将 Middle-Man 行的 Cr/Dr、Balance 按正数显示并归入左侧表格
+ */
+function hasRateMiddlemanInPeriod(PDO $pdo, $account_id, $currency_id, $date_from, $date_to, $company_id): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT 1
+        FROM transaction_entry e
+        JOIN transactions h ON e.header_id = h.id
+        WHERE h.company_id = ?
+          AND e.company_id = ?
+          AND h.transaction_type = 'RATE'
+          AND e.entry_type = 'RATE_MIDDLEMAN'
+          AND e.account_id = ?
+          AND e.currency_id = ?
+          AND h.transaction_date BETWEEN ? AND ?
+        LIMIT 1
+    ");
+    $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
+    return $stmt->fetchColumn() !== false;
+}
+
 function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id) {
     $cr_dr = 0;
     $transaction_count = 0;
