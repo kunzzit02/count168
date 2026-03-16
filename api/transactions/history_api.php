@@ -56,6 +56,14 @@ function mapEntryTypeToProduct($entryType) {
 }
 
 /**
+ * 移除描述末尾的 "(Rate: xxx)" 后缀（大小写不敏感）
+ */
+function stripTrailingRateSuffix(string $description): string
+{
+    return preg_replace('/\s*\((?:Rate|RATE):\s*[^)]*\)\s*$/i', '', $description) ?? $description;
+}
+
+/**
  * 确保 data_capture_details.rate 至少支持 8 位小数，避免历史弹窗读取时已被截断到 4 位。
  */
 function ensureHistoryRatePrecision(PDO $pdo): void
@@ -123,6 +131,8 @@ try {
 
     // 运行时兜底：确保 rate 不会在写入/读取链路中被 4 位小数截断
     ensureHistoryRatePrecision($pdo);
+    $sessionUserType = isset($_SESSION['user_type']) ? strtolower((string)$_SESSION['user_type']) : '';
+    $isMemberUser = ($sessionUserType === 'member');
     
     // 确定要访问的 company_id：优先使用参数，否则使用 session
     $company_id = null;
@@ -332,13 +342,12 @@ try {
                     JOIN currency c ON dcd.currency_id = c.id
                     LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
                     LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
-                    JOIN process p ON dc.process_id = p.id
+                    LEFT JOIN process p ON dc.process_id = p.id
                     LEFT JOIN description d ON p.description_id = d.id
                     LEFT JOIN bank_process bp ON dc.process_id = bp.id
                     LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                     WHERE (dcd.company_id = ? OR dcd.company_id IS NULL)
                       AND dc.company_id = ?
-                      AND p.company_id = ?
                       AND (
                           TRIM(CAST(dcd.account_id AS CHAR)) = TRIM(CAST(? AS CHAR))
                           OR (? <> '' AND (
@@ -349,7 +358,7 @@ try {
                       AND dc.capture_date BETWEEN ? AND ?";
     
     // dcd.account_id 可能存请求的 id、其他公司的同代码 account.id、或账户代码；用「当前公司下同 account_id 的所有 id」子查询兜底
-    $captureParams = [$company_id, $company_id, $company_id, $account_id, $account_code ?: '', $account_code ?: '', $account_code ?: '', $company_id, $date_from_db, $date_to_db];
+    $captureParams = [$company_id, $company_id, $account_id, $account_code ?: '', $account_code ?: '', $account_code ?: '', $company_id, $date_from_db, $date_to_db];
     if ($currency_id) {
         $sqlCapture .= " AND dcd.currency_id = ?";
         $captureParams[] = $currency_id;
@@ -807,11 +816,14 @@ try {
                 }
             } elseif ($t['transaction_type'] === 'RATE' && preg_match('/^Transaction\s+(from|to)\s+(.+?)\s*\((?:Rate|RATE):\s*([^)]+)\)\s*$/i', $t['description'], $rateMatches)) {
                 // RATE 存的是 "Transaction from X (Rate: n)" 或 "Transaction to X (Rate: n)"，按视角显示：To 账户显示 FROM 对方，From 账户显示 TO 对方
-                $rateSuffix = ' (RATE: ' . trim($rateMatches[3]) . ')';
                 if ($is_to_account) {
-                    $description = 'TRANSACTION FROM ' . ($t['from_account_code'] ?: 'N/A') . $rateSuffix;
+                    $description = 'TRANSACTION FROM ' . ($t['from_account_code'] ?: 'N/A');
                 } else {
-                    $description = 'TRANSACTION TO ' . ($t['to_account_code'] ?: 'N/A') . $rateSuffix;
+                    $description = 'TRANSACTION TO ' . ($t['to_account_code'] ?: 'N/A');
+                }
+                // member Win/Loss 页不显示 RATE 数值后缀，避免出现 "(Rate: 1.713)"
+                if (!$isMemberUser) {
+                    $description .= ' (RATE: ' . trim($rateMatches[3]) . ')';
                 }
             } else {
                 // 如果原始 description 是自动生成的格式，需要根据视角调整
@@ -827,6 +839,11 @@ try {
                     // 如果是 To Account，保持原样
                 }
             }
+        }
+
+        // member Win/Loss: CONTRA 描述固定为 "Contra Account"，不显示对手账户
+        if ($isMemberUser && $t['transaction_type'] === 'CONTRA') {
+            $description = 'Contra Account';
         }
 
         // 追加审批标记（只对未批准 CONTRA；CLEAR 没有审批流程，只沿用金额逻辑）
@@ -965,6 +982,9 @@ try {
             $amount = -$amount;
         }
         $description = $row['entry_description'] ?: 'RATE';
+        if ($isMemberUser && $description !== 'RATE') {
+            $description = stripTrailingRateSuffix($description);
+        }
         $transactionCurrency = $row['currency_code'] ?: $bfCurrency;
         
         // 确定 Created By：优先 login_id / owner_code，其次姓名

@@ -755,7 +755,7 @@ body.transaction-page {
 
 .transaction-modal-body {
     padding: clamp(10px, 1.04vw, 20px) 32px;
-    max-height: 500px;
+    max-height: 700px;
     overflow-y: auto;
 }
 
@@ -790,12 +790,12 @@ body.transaction-page {
 }
 
 .transaction-modal-body .transaction-table .transaction-history-col-product {
-    width: 5%;
+    width: 15%;
     min-width: 150px;
 }
 
 .transaction-modal-body .transaction-table .transaction-history-col-currency {
-    width: 2%;
+    width: 3%;
     min-width: 70px;
     text-align: center !important;
 }

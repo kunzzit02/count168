@@ -10,6 +10,20 @@
     let selectedCurrencies = []; let showAllCurrencies = false; let ownerCompanies = []; let currencyList = []; let currentDisplayData = { left_table: [], right_table: [] };
     const showDescriptionColumn = (typeof window.TRANSACTION_PAGE !== 'undefined' && window.TRANSACTION_PAGE.showDescriptionColumn !== undefined) ? window.TRANSACTION_PAGE.showDescriptionColumn : false;
     const RATE_TYPE_VALUE = 'RATE';
+    let isSubmittingTx = false;
+
+    function syncSubmitButtonState() {
+        const confirmCheckbox = document.getElementById('confirm_submit');
+        const submitBtn = document.getElementById('submit_btn');
+        if (!submitBtn) return;
+        if (isSubmittingTx) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            return;
+        }
+        submitBtn.textContent = 'Submit';
+        submitBtn.disabled = !(confirmCheckbox && confirmCheckbox.checked);
+    }
 
     function isRateTypeSelected() {
     const typeSel = document.getElementById('transaction_type');
@@ -46,6 +60,77 @@ function toUpperDisplay(value) {
     }
     const str = String(value).trim();
     return str ? str.toUpperCase() : '-';
+}
+
+// ==================== RATE 计算（支持乘法/除法） ====================
+function parseRateExpression(rawValue) {
+    const raw = String(rawValue ?? '').trim();
+    if (!raw) {
+        return { valid: false, value: 0 };
+    }
+
+    const normalized = raw.replace(/÷/g, '/').replace(/\s+/g, '');
+    if (!normalized) {
+        return { valid: false, value: 0 };
+    }
+
+    // 兼容 "/3" 语法，表示除以 3（即乘以 1/3）
+    if (/^\/\d*\.?\d+$/.test(normalized)) {
+        const divisor = parseFloat(normalized.slice(1));
+        if (!isFinite(divisor) || divisor <= 0) {
+            return { valid: false, value: 0 };
+        }
+        return { valid: true, value: 1 / divisor };
+    }
+
+    // 仅允许数字、小数点、*、/；不允许其他字符
+    if (!/^[0-9.*/]+$/.test(normalized)) {
+        return { valid: false, value: 0 };
+    }
+    // 防止连续运算符或首尾运算符
+    if (/^[*/]|[*/]$|[*/]{2,}/.test(normalized)) {
+        return { valid: false, value: 0 };
+    }
+
+    const tokens = normalized.split(/([*/])/).filter(Boolean);
+    if (tokens.length === 0) {
+        return { valid: false, value: 0 };
+    }
+    if (!/^\d*\.?\d+$/.test(tokens[0])) {
+        return { valid: false, value: 0 };
+    }
+
+    let result = parseFloat(tokens[0]);
+    if (!isFinite(result) || result <= 0) {
+        return { valid: false, value: 0 };
+    }
+
+    for (let i = 1; i < tokens.length; i += 2) {
+        const op = tokens[i];
+        const numToken = tokens[i + 1];
+        if (!numToken || !/^\d*\.?\d+$/.test(numToken)) {
+            return { valid: false, value: 0 };
+        }
+        const value = parseFloat(numToken);
+        if (!isFinite(value)) {
+            return { valid: false, value: 0 };
+        }
+        if (op === '*') {
+            result *= value;
+        } else if (op === '/') {
+            if (value === 0) {
+                return { valid: false, value: 0 };
+            }
+            result /= value;
+        } else {
+            return { valid: false, value: 0 };
+        }
+    }
+
+    if (!isFinite(result) || result <= 0) {
+        return { valid: false, value: 0 };
+    }
+    return { valid: true, value: result };
 }
 
 // ==================== Contra Inbox（Manager+） ====================
@@ -2053,7 +2138,7 @@ function applyZeroBalanceFilterAndRender() {
             return !isNaN(wl) && Math.abs(wl) > 0.00001;
         };
         const shouldShow = showWinLossOnly
-            ? row => hasCrdr(row) || hasWinLoss(row)
+            ? hasWinLoss
             : hasCrdr;
         filteredLeft = rawLeft.filter(shouldShow);
         filteredRight = rawRight.filter(shouldShow);
@@ -2146,7 +2231,7 @@ function handlePaymentOnlyFilter() {
         return !isNaN(wl) && Math.abs(wl) > 0.00001;
     };
     const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
-    const shouldShow = showWinLossOnly ? row => hasCrdr(row) || hasWinLoss(row) : hasCrdr;
+    const shouldShow = showWinLossOnly ? hasWinLoss : hasCrdr;
     
     let filteredLeft = lastSearchData.left_table.filter(shouldShow);
     let filteredRight = lastSearchData.right_table.filter(shouldShow);
@@ -2182,6 +2267,11 @@ function handlePaymentOnlyFilter() {
 
 // ==================== 提交功能 ====================
 function submitAction() {
+    if (isSubmittingTx) {
+        console.log('Submission already in progress, ignoring duplicate click');
+        return;
+    }
+
     const type = document.getElementById('transaction_type').value;
     const effectiveType = (type === 'PROFIT') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
     const isRate = type === RATE_TYPE_VALUE;
@@ -2214,7 +2304,9 @@ function submitAction() {
     const rateCurrencyToSelect = document.getElementById('rate_currency_to');
     const rateCurrencyFromAmount = rateCurrencyFromAmountInput ? rateCurrencyFromAmountInput.value : '';
     const rateCurrencyToAmount = document.getElementById('rate_currency_to_amount')?.value || '';
-    const rateExchangeRate = document.getElementById('rate_exchange_rate')?.value || '';
+    const rateExchangeRateRaw = document.getElementById('rate_exchange_rate')?.value || '';
+    const parsedRateExchange = parseRateExpression(rateExchangeRateRaw);
+    const rateExchangeRate = parsedRateExchange.valid ? parsedRateExchange.value : 0;
     const rateTransferFromAccountInput = document.getElementById('rate_transfer_from_account');
     const rateTransferToAccountInput = document.getElementById('rate_transfer_to_account');
     const rateTransferAmount = document.getElementById('rate_transfer_amount')?.value || '';
@@ -2264,8 +2356,8 @@ function submitAction() {
             showNotification('Please enter valid currency amounts', 'error');
             return;
         }
-        if (!rateExchangeRate || rateExchangeRate <= 0) {
-            showNotification('Please enter a valid rate value', 'error');
+        if (!parsedRateExchange.valid) {
+            showNotification('Please enter a valid rate value (supports * and /)', 'error');
             return;
         }
         
@@ -2288,9 +2380,9 @@ function submitAction() {
         
         // 生成两条记录的 description（添加汇率信息）
         // From Account 记录：Transaction to {to_account_id} (Rate: {rate})
-        fromAccountDescription = `Transaction to ${toAccountCode} (Rate: ${rateExchangeRate})`;
+        fromAccountDescription = `Transaction to ${toAccountCode} (Rate: ${rateExchangeRateRaw})`;
         // To Account 记录：Transaction from {from_account_id} (Rate: {rate})
-        toAccountDescription = `Transaction from ${fromAccountCode} (Rate: ${rateExchangeRate})`;
+        toAccountDescription = `Transaction from ${fromAccountCode} (Rate: ${rateExchangeRateRaw})`;
         
         // 处理第二个 Account 和 Middle-Man 的逻辑
         // 如果填写了第二个 account 行，就创建相应的记录
@@ -2346,8 +2438,8 @@ function submitAction() {
             }
             
             // 生成记录的 description（第一个下拉=To、第二个=From）：From 存 "Transaction to {To code}"，To 视角由 history 显示 "Transaction from {From code}"
-            transferFromAccountDescription = `Transaction to ${transferFromAccountCode} (Rate: ${rateExchangeRate})`;
-            transferToAccountDescription = `Transaction from ${transferToAccountCode} (Rate: ${rateExchangeRate})`;
+            transferFromAccountDescription = `Transaction to ${transferFromAccountCode} (Rate: ${rateExchangeRateRaw})`;
+            transferToAccountDescription = `Transaction from ${transferToAccountCode} (Rate: ${rateExchangeRateRaw})`;
             // Middle-Man: Rate charge (x{rate}) from {currency_from} {base_amount}
             // base_amount = currency_from_amount（例如 100），显示来源本金，不是手续费金额
             if (middlemanAmount > 0) {
@@ -2390,6 +2482,7 @@ function submitAction() {
             rateCurrencyFromAmount,
             rateCurrencyToAmount,
             rateExchangeRate,
+            rateExchangeRateRaw,
             fromAccountDescription,
             toAccountDescription,
             transferDetails: (rateTransferFromAccount && rateTransferToAccount && rateTransferAmount && rateTransferAmount > 0) ? {
@@ -2449,7 +2542,7 @@ function submitAction() {
             // 根据用户需求：第四条记录（PROFIT）应该增加完整金额 318.40，手续费通过第五条记录单独处理
             let transferToAmountValue = transferAmountValue; // 使用完整金额，不扣除手续费
             
-            const originalTransferFromAmount = (parseFloat(rateCurrencyFromAmount) || 0) * (parseFloat(rateExchangeRate) || 0);
+            const originalTransferFromAmount = (parseFloat(rateCurrencyFromAmount) || 0) * (rateExchangeRate || 0);
             formData.append('rate_transfer_from_account_id', rateTransferFromAccountId);
             formData.append('rate_transfer_from_currency', rateCurrencyToSelect?.value || '');
             formData.append('rate_transfer_from_amount', originalTransferFromAmount.toFixed(2));
@@ -2477,7 +2570,7 @@ function submitAction() {
         formData.append('rate_currency_from_amount', rateCurrencyFromAmount);
         formData.append('rate_currency_to', rateCurrencyToSelect?.value || '');
         formData.append('rate_currency_to_amount', rateCurrencyToAmount);
-        formData.append('rate_exchange_rate', rateExchangeRate);
+        formData.append('rate_exchange_rate', String(rateExchangeRate));
         formData.append('rate_transfer_from_account', rateTransferFromAccountId);
         formData.append('rate_transfer_to_account', rateTransferToAccountId);
         formData.append('rate_transfer_amount', rateTransferAmount);
@@ -2491,6 +2584,13 @@ function submitAction() {
     if (currentCompanyId) {
         formData.append('company_id', currentCompanyId);
     }
+    const clientRequestId = (window.crypto && typeof window.crypto.randomUUID === 'function')
+        ? window.crypto.randomUUID()
+        : ('tx_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10));
+    formData.append('client_request_id', clientRequestId);
+
+    isSubmittingTx = true;
+    syncSubmitButtonState();
     
     fetch('/api/transactions/submit_api.php', {
         method: 'POST',
@@ -2515,7 +2615,8 @@ function submitAction() {
             document.getElementById('action_description').value = '';
             document.getElementById('action_sms').value = '';
             document.getElementById('confirm_submit').checked = false;
-            document.getElementById('submit_btn').disabled = true;
+            isSubmittingTx = false;
+            syncSubmitButtonState();
             if (isRateTypeSelected()) {
                 [
                     'rate_currency_from_amount',
@@ -2558,10 +2659,14 @@ function submitAction() {
                 searchTransactions();
             }
         } else {
+            isSubmittingTx = false;
+            syncSubmitButtonState();
             showNotification(data.error || 'Submit failed', 'error');
         }
     })
     .catch(error => {
+        isSubmittingTx = false;
+        syncSubmitButtonState();
         console.error('❌ 提交失败:', error);
         showNotification('Submit failed: ' + error.message, 'error');
     });
@@ -2864,14 +2969,14 @@ function handleConfirmSubmit() {
     
     if (confirmCheckbox && submitBtn) {
         // 根据复选框初始状态设置按钮是否可点
-        submitBtn.disabled = !confirmCheckbox.checked;
+        syncSubmitButtonState();
         confirmCheckbox.addEventListener('change', function() {
-            submitBtn.disabled = !this.checked;
+            syncSubmitButtonState();
         });
         submitBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            if (!submitBtn.disabled) {
+            if (!submitBtn.disabled && !isSubmittingTx) {
                 submitAction();
             }
         });
@@ -2963,7 +3068,8 @@ function initMiddleManAmountCalculation() {
     // 计算 Currency To Amount 函数
     function calculateCurrencyToAmount() {
         const currencyFromAmount = parseFloat(currencyFromAmountInput.value) || 0;
-        const exchangeRate = parseFloat(exchangeRateInput.value) || 0;
+        const parsedRate = parseRateExpression(exchangeRateInput.value);
+        const exchangeRate = parsedRate.valid ? parsedRate.value : 0;
         const middleManAmount = parseFloat(middleManAmountInput.value) || 0;
         
         // 公式: (currency_from_amount * exchange_rate) - middle_man_amount

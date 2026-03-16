@@ -16,6 +16,63 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+function tableHasColumn(PDO $pdo, string $table, string $column): bool
+{
+    try {
+        $stmt = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+        $stmt->execute([$column]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
+ * 删除 Process 前，先将历史表中的 process_id 断开关联，防止历史数据随主档删除而丢失。
+ * 仅处理存在 process_id 列且允许 NULL 的表；若列不允许 NULL，则跳过以避免破坏既有约束。
+ */
+function detachProcessHistoryReferences(PDO $pdo, array $processIds, array $companyIds): void
+{
+    if (empty($processIds)) {
+        return;
+    }
+
+    $targets = [
+        'data_captures',
+        'data_capture_details',
+        'submitted_processes',
+    ];
+
+    $idPlaceholders = implode(',', array_fill(0, count($processIds), '?'));
+
+    foreach ($targets as $table) {
+        if (!tableHasColumn($pdo, $table, 'process_id')) {
+            continue;
+        }
+
+        $nullabilityStmt = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE 'process_id'");
+        $nullabilityStmt->execute();
+        $columnMeta = $nullabilityStmt->fetch(PDO::FETCH_ASSOC);
+        $isNullable = isset($columnMeta['Null']) && strtoupper((string)$columnMeta['Null']) === 'YES';
+        if (!$isNullable) {
+            // 保守处理：列不允许 NULL 时不强行改值，避免影响其他既有逻辑/约束。
+            continue;
+        }
+
+        $where = "process_id IN ($idPlaceholders)";
+        $params = $processIds;
+        if (!empty($companyIds) && tableHasColumn($pdo, $table, 'company_id')) {
+            $companyPlaceholders = implode(',', array_fill(0, count($companyIds), '?'));
+            $where .= " AND company_id IN ($companyPlaceholders)";
+            $params = array_merge($params, $companyIds);
+        }
+
+        $sql = "UPDATE `$table` SET process_id = NULL WHERE $where";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+    }
+}
+
 try {
     if (!isset($_SESSION['user_id']) || !isset($_SESSION['company_id'])) {
         api_error('User not logged in or company not selected', 401);
@@ -129,12 +186,24 @@ try {
         }
     }
 
-    $deletePlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
-    $stmt = $pdo->prepare("DELETE FROM process WHERE id IN ($deletePlaceholders) AND status = 'inactive'");
+    // 安全删除策略：
+    // 为避免触发外键级联导致历史 ID_Product / Data Capture 数据被删除，
+    // 这里改为软删除（status: inactive -> waiting），不执行物理 DELETE。
+    // processlist API 仅展示 active / inactive，因此 waiting 不会在列表中出现。
+    $pdo->beginTransaction();
+    $softDeletePlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
+    $stmt = $pdo->prepare("UPDATE process SET status = 'waiting' WHERE id IN ($softDeletePlaceholders) AND status = 'inactive'");
     $stmt->execute($processIds);
     $deletedCount = $stmt->rowCount();
-    api_success(['deleted' => $deletedCount], $deletedCount === 1 ? '1 process deleted' : $deletedCount . ' processes deleted');
+    $pdo->commit();
+    api_success(
+        ['deleted' => $deletedCount, 'mode' => 'soft_delete_waiting'],
+        $deletedCount === 1 ? '1 process deleted' : $deletedCount . ' processes deleted'
+    );
 } catch (PDOException $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     error_log("Delete process API error: " . $e->getMessage());
     api_error('Delete failed', 500);
 }

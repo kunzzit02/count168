@@ -4666,12 +4666,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
             });
 
-            // 描述搜索框：只允许字母和数字
+            // 描述搜索框：允许字母、数字和空格（恢复可输入空格搜索）
             const descSearchInput = document.getElementById('descriptionSearch');
             if (descSearchInput) {
                 descSearchInput.addEventListener('input', function () {
                     const cursorPosition = this.selectionStart;
-                    const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                    const filteredValue = this.value.replace(/[^A-Z0-9 ]/gi, '').toUpperCase();
                     this.value = filteredValue;
                     this.setSelectionRange(cursorPosition, cursorPosition);
                 });
@@ -4679,7 +4679,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 descSearchInput.addEventListener('paste', function () {
                     setTimeout(() => {
                         const cursorPosition = this.selectionStart;
-                        const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                        const filteredValue = this.value.replace(/[^A-Z0-9 ]/gi, '').toUpperCase();
                         this.value = filteredValue;
                         this.setSelectionRange(cursorPosition, cursorPosition);
                     }, 0);
