@@ -2366,8 +2366,16 @@ function loadAccountPermissions(accountPermissions) {
     } else if (Array.isArray(accountPermissions) && accountPermissions.length > 0) {
         // 有值，只勾选这些账户
         accountPermissions.forEach(perm => {
-            // 确保 perm.id 是数字类型
-            const accountId = parseInt(perm.id);
+            // 兼容两种结构：
+            // 1) { id: 123, account_id: 'JB-XXXX' }
+            // 2) 123 或 '123'
+            let rawId = null;
+            if (perm && typeof perm === 'object' && 'id' in perm) {
+                rawId = perm.id;
+            } else {
+                rawId = perm;
+            }
+            const accountId = parseInt(rawId);
             if (!isNaN(accountId)) {
                 const checkbox = document.querySelector(`#account_${accountId}`);
                 if (checkbox) {
@@ -2376,7 +2384,7 @@ function loadAccountPermissions(accountPermissions) {
                     console.warn(`Account checkbox not found for ID: ${accountId}`);
                 }
             } else {
-                console.warn(`Invalid account permission ID: ${perm.id}`);
+                console.warn(`Invalid account permission ID:`, perm);
             }
         });
         updateAccountSelection();
@@ -2436,8 +2444,16 @@ function loadProcessPermissions(processPermissions) {
     } else if (Array.isArray(processPermissions) && processPermissions.length > 0) {
         // 有值，只勾选这些流程
         processPermissions.forEach(perm => {
-            // 确保 perm.id 是数字类型
-            const processId = parseInt(perm.id);
+            // 兼容两种结构：
+            // 1) { id: 123, process_id: 'XXX', ... }
+            // 2) 123 或 '123'
+            let rawId = null;
+            if (perm && typeof perm === 'object' && 'id' in perm) {
+                rawId = perm.id;
+            } else {
+                rawId = perm;
+            }
+            const processId = parseInt(rawId);
             if (!isNaN(processId)) {
                 const checkbox = document.querySelector(`#process_${processId}`);
                 if (checkbox) {
@@ -2446,7 +2462,7 @@ function loadProcessPermissions(processPermissions) {
                     console.warn(`Process checkbox not found for ID: ${processId}`);
                 }
             } else {
-                console.warn(`Invalid process permission ID: ${perm.id}`);
+                console.warn(`Invalid process permission ID:`, perm);
             }
         });
         updateProcessSelection();

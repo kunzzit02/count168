@@ -300,17 +300,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    const showInactiveCk = document.getElementById('show_inactive');
-    if (showInactiveCk) {
-        // show_inactive 现在用于过滤显示有 Cr/Dr 交易的账号（与 Search 按钮功能相同）
-        showInactiveCk.addEventListener('change', handlePaymentOnlyFilter);
-    }
-    
     const showCaptureOnlyCk = document.getElementById('show_capture_only');
     if (showCaptureOnlyCk) {
         // show_capture_only 需要在后端处理，所以重新搜索
         showCaptureOnlyCk.addEventListener('change', () => {
             if (document.getElementById('date_from').value && document.getElementById('date_to').value) {
+                searchTransactions();
+            }
+        });
+    }
+    
+    const showInactiveCk = document.getElementById('show_inactive');
+    if (showInactiveCk) {
+        // Show Payment Only 改为每次勾选/取消都重新搜索，
+        // 由后端 + applyZeroBalanceFilterAndRender 一起决定最终显示的数据
+        showInactiveCk.addEventListener('change', () => {
+            const dateFrom = document.getElementById('date_from').value;
+            const dateTo = document.getElementById('date_to').value;
+            if (dateFrom && dateTo) {
                 searchTransactions();
             }
         });
@@ -2038,6 +2045,12 @@ function applyZeroBalanceFilterAndRender() {
     const rawLeft = lastSearchData.left_table || [];
     const rawRight = lastSearchData.right_table || [];
     
+    // 仅勾选「Show Win/Loss Only」时：完全使用后端返回的数据，不再在前端额外过滤（避免记录数被误删）
+    if (showWinLossOnly && !showPaymentOnly) {
+        renderTables(rawLeft, rawRight, lastSearchData.totals);
+        return;
+    }
+    
     // 先应用 Show Payment Only / Show Win/Loss 过滤
     // 双勾选时：显示有 Cr/Dr 或有 Win/Loss 的行；仅勾选 Show Payment：只显示有 Cr/Dr 的行
     let filteredLeft = rawLeft;
@@ -2063,9 +2076,18 @@ function applyZeroBalanceFilterAndRender() {
     // 再应用 Show 0 balance 过滤
     const filterFn = (row) => {
         if (showZero) return true; // 显示所有（包括 0 balance）
+
+        // 如果勾选了 Show Win/Loss Only，则只要该行有 Win/Loss，就保留，不再因为 Balance=0 被过滤掉
+        if (showWinLossOnly) {
+            const wl = parseFloat(row.win_loss);
+            if (!isNaN(wl) && Math.abs(wl) > 0.00001) {
+                return true;
+            }
+        }
+
         const num = parseFloat(row.balance);
         if (isNaN(num)) return true;
-        return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额
+        return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额（且没有 Win/Loss 的行）
     };
     
     filteredLeft = filteredLeft.filter(filterFn);
@@ -2147,9 +2169,17 @@ function handlePaymentOnlyFilter() {
     const showZero = document.getElementById('show_zero_balance')?.checked || false;
     if (!showZero) {
         const filterFn = (row) => {
+            // 如果勾选了 Show Win/Loss Only，则只要该行有 Win/Loss，就保留
+            if (showWinLossOnly) {
+                const wl = parseFloat(row.win_loss);
+                if (!isNaN(wl) && Math.abs(wl) > 0.00001) {
+                    return true;
+                }
+            }
+
             const num = parseFloat(row.balance);
             if (isNaN(num)) return true;
-            return Math.abs(num) > 0.00001;
+            return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额（且没有 Win/Loss 的行）
         };
         filteredLeft = filteredLeft.filter(filterFn);
         filteredRight = filteredRight.filter(filterFn);

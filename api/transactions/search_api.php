@@ -212,15 +212,23 @@ if (!empty($target_account_ids)) {
     // 如果 show_inactive=1，不添加状态过滤，显示所有状态的账户
     
     // 添加条件：Show Win/Loss Only 和/或 Show Payment Only
-    // 仅 Show Win/Loss：只显示有 data_capture 的账户；仅 Show Payment：前端过滤；两者都勾选：显示有 data_capture 或有 Cr/Dr 的账户
+    // 仅 Show Win/Loss：只显示在当前日期范围内 Win/Loss ≠ 0 的账户（Data Capture 或 WIN/LOSE 交易都会计入）
+    // 仅 Show Payment：前端过滤；两者都勾选：显示在当前日期范围内有 Win/Loss 或有 Cr/Dr 的账户
     if ($show_capture_only && $show_inactive) {
-        // 两者都勾选：账户在日期范围内有 Win/Loss（data_capture）或有 Payment（Cr/Dr）即显示
+        // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture 或 WIN/LOSE 交易）或有 Payment（Cr/Dr）即显示
         $where_conditions[] = "(
             EXISTS (
                 SELECT 1 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
                 WHERE dcd.account_id = a.id
                   AND dc.capture_date BETWEEN ? AND ?
+            )
+            OR EXISTS (
+                SELECT 1 FROM transactions t_wl
+                WHERE t_wl.company_id = ?
+                  AND (t_wl.account_id = a.id OR t_wl.from_account_id = a.id)
+                  AND t_wl.transaction_date BETWEEN ? AND ?
+                  AND t_wl.transaction_type IN ('WIN', 'LOSE')
             )
             OR EXISTS (
                 SELECT 1 FROM transactions t
@@ -236,14 +244,30 @@ if (!empty($target_account_ids)) {
         $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
+        $params[] = $company_id;
+        $params[] = $date_from_db;
+        $params[] = $date_to_db;
     } elseif ($show_capture_only) {
-        $where_conditions[] = "EXISTS (
-            SELECT 1 
-            FROM data_capture_details dcd
-            JOIN data_captures dc ON dcd.capture_id = dc.id
-            WHERE dcd.account_id = a.id
-              AND dc.capture_date BETWEEN ? AND ?
+        // 仅勾选 Show Win/Loss Only：账户在当前日期范围内，只要存在 Data Capture 或 WIN/LOSE 交易即可
+        $where_conditions[] = "(
+            EXISTS (
+                SELECT 1 
+                FROM data_capture_details dcd
+                JOIN data_captures dc ON dcd.capture_id = dc.id
+                WHERE dcd.account_id = a.id
+                  AND dc.capture_date BETWEEN ? AND ?
+            )
+            OR EXISTS (
+                SELECT 1 FROM transactions t_wl
+                WHERE t_wl.company_id = ?
+                  AND (t_wl.account_id = a.id OR t_wl.from_account_id = a.id)
+                  AND t_wl.transaction_date BETWEEN ? AND ?
+                  AND t_wl.transaction_type IN ('WIN', 'LOSE')
+            )
         )";
+        $params[] = $date_from_db;
+        $params[] = $date_to_db;
+        $params[] = $company_id;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
     }
@@ -555,24 +579,10 @@ if (!empty($target_account_ids)) {
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
         
-        // 如果选择了 "Show capture only"：仅勾选此项时只显示有 Win/Loss 且无 Cr/Dr 的行；与 "Show Payment" 同时勾选时不跳过 Cr/Dr 行
+        // 如果只勾选了 "Show Win/Loss Only"（前端复选框 show_capture_only）：
+        // 直接使用已计算好的 $win_loss 判断，保证 Data Capture 与 WIN/LOSE 交易都被纳入
         if ($show_capture_only && !$show_inactive) {
-            if ($has_crdr_transactions) {
-                continue;
-            }
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) 
-                FROM data_capture_details dcd
-                JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.company_id = ?
-                  AND dc.company_id = ?
-                  AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-                  AND dcd.currency_id = ?
-                  AND dc.capture_date BETWEEN ? AND ?
-            ");
-            $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from_db, $date_to_db]);
-            $has_winloss_data = $stmt->fetchColumn() > 0;
-            if (!$has_winloss_data) {
+            if (abs((float)$win_loss) < 0.00001) {
                 continue;
             }
         }
