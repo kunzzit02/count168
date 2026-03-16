@@ -1738,6 +1738,16 @@ function createCurrencyTable(tableId, rows) {
     tbody.id = `tbody_${tableId}`;
     
     if (rows && rows.length > 0) {
+        // 在 Rate 模式下，识别当前表单中选择的 Middle-Man 账户，用于正数显示金额
+        const isRateView = isRateTypeSelected && typeof isRateTypeSelected === 'function' ? isRateTypeSelected() : false;
+        let middlemanAccountCode = '';
+        if (isRateView) {
+            const middlemanBtn = document.getElementById('rate_middleman_account');
+            if (middlemanBtn) {
+                middlemanAccountCode = middlemanBtn.getAttribute('data-account-code') || middlemanBtn.textContent.trim() || '';
+            }
+        }
+        
         // 判断是左边还是右边的表格（根据 tableId 判断）
         const isLeftTable = tableId.includes('_left');
         
@@ -1753,6 +1763,17 @@ function createCurrencyTable(tableId, rows) {
                 ? `transaction-account-cell ${roleClass}` 
                 : 'transaction-account-cell';
             
+            // Middle-Man 行：在 Rate 视图下，将 Cr/Dr 和 Balance 显示为正数
+            let crDrValue = row.cr_dr;
+            let balanceValue = row.balance;
+            const isMiddlemanRow = isRateView && middlemanAccountCode && row.account_id === middlemanAccountCode;
+            if (isMiddlemanRow) {
+                const nCrDr = parseFloat(crDrValue);
+                const nBalance = parseFloat(balanceValue);
+                if (!isNaN(nCrDr)) crDrValue = Math.abs(nCrDr);
+                if (!isNaN(nBalance)) balanceValue = Math.abs(nBalance);
+            }
+            
             tr.innerHTML = `
                 <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">
                     ${row.account_id}
@@ -1760,8 +1781,8 @@ function createCurrencyTable(tableId, rows) {
                 <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
                 <td>${formatNumber(row.bf)}</td>
                 <td>${formatNumber(row.win_loss)}</td>
-                <td>${formatNumber(row.cr_dr)}</td>
-                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(row.balance)}</td>
+                <td>${formatNumber(crDrValue)}</td>
+                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(balanceValue)}</td>
             `;
             
             // 点击账户单元格打开历史记录
@@ -1805,10 +1826,27 @@ function createCurrencyTable(tableId, rows) {
 
 function calculateTotals(rows) {
     return rows.reduce((totals, row) => {
-        totals.bf += parseFloat(row.bf) || 0;
-        totals.win_loss += parseFloat(row.win_loss) || 0;
-        totals.cr_dr += parseFloat(row.cr_dr) || 0;
-        totals.balance += parseFloat(row.balance) || 0;
+        let bf = parseFloat(row.bf) || 0;
+        let winLoss = parseFloat(row.win_loss) || 0;
+        let crDr = parseFloat(row.cr_dr) || 0;
+        let balance = parseFloat(row.balance) || 0;
+
+        // 在 Rate 视图下，对当前 Middle-Man 账户的 Cr/Dr 和 Balance 使用绝对值，以与列表显示保持一致
+        if (typeof isRateTypeSelected === 'function' && isRateTypeSelected()) {
+            const middlemanBtn = document.getElementById('rate_middleman_account');
+            if (middlemanBtn) {
+                const middlemanCode = middlemanBtn.getAttribute('data-account-code') || middlemanBtn.textContent.trim() || '';
+                if (middlemanCode && row.account_id === middlemanCode) {
+                    crDr = Math.abs(crDr);
+                    balance = Math.abs(balance);
+                }
+            }
+        }
+
+        totals.bf += bf;
+        totals.win_loss += winLoss;
+        totals.cr_dr += crDr;
+        totals.balance += balance;
         return totals;
     }, { bf: 0, win_loss: 0, cr_dr: 0, balance: 0 });
 }
