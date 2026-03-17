@@ -60,6 +60,7 @@ function getCurrencySchema(PDO $pdo) {
         'account_has_currency_id_column' => false,
         'has_account_currency_table' => false,
         'has_deleted_table' => false,
+        'deleted_has_currency_id' => false,
         'selectCurrency' => "'' AS currency_code",
         'currencyJoinSql' => '',
         'currencyFilterField' => null,
@@ -85,6 +86,14 @@ function getCurrencySchema(PDO $pdo) {
     try {
         $schema['has_deleted_table'] = $pdo->query("SHOW TABLES LIKE 'transactions_deleted'")->rowCount() > 0;
     } catch (PDOException $e) {}
+    if ($schema['has_deleted_table']) {
+        try {
+            $colDel = $pdo->query("SHOW COLUMNS FROM transactions_deleted LIKE 'currency_id'");
+            $schema['deleted_has_currency_id'] = $colDel->rowCount() > 0;
+        } catch (PDOException $e) {
+            $schema['deleted_has_currency_id'] = false;
+        }
+    }
 
     if ($schema['has_currency_id']) {
         $schema['selectCurrency'] = "UPPER(COALESCE(c.code, '')) AS currency_code";
@@ -107,8 +116,8 @@ function getCurrencySchema(PDO $pdo) {
         $schema['currencyFilterField'] = "UPPER(COALESCE(acc_default.currency_code, ''))";
     }
 
-    if ($schema['has_currency_id']) {
-        // deleted 表优先使用备份下来的 currency_id，与主表保持一致
+    if ($schema['deleted_has_currency_id']) {
+        // deleted 表存在 currency_id：优先使用备份下来的 currency_id，与主表保持一致
         $schema['deletedSelectCurrency'] = "UPPER(COALESCE(c_del.code, '')) AS currency_code";
         $schema['deletedCurrencyJoinSql'] = " LEFT JOIN currency c_del ON td.currency_id = c_del.id";
         $schema['deletedCurrencyFilterField'] = "UPPER(COALESCE(c_del.code, ''))";
