@@ -768,7 +768,7 @@ function initCustomSelects() {
             }
         }
         
-        // 选择选项
+            // 选择选项
         function selectOption(option) {
             const value = option.getAttribute('data-value');
             const text = option.textContent;
@@ -776,6 +776,8 @@ function initCustomSelects() {
             const currency = option.getAttribute('data-currency');
             
             button.textContent = text;
+            // 显示不完时，用 title 提示完整账号（不改现有布局）
+            button.title = text || (button.getAttribute('data-placeholder') || '--Select Account--');
             button.setAttribute('data-value', value);
             button.setAttribute('data-account-code', accountCode || '');
             if (currency) {
