@@ -1923,14 +1923,16 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     const currency = balanceCell.getAttribute('data-currency');
     
     const isRateView = isRateTypeSelected();
+    const currentType = document.getElementById('transaction_type')?.value || '';
+    const isProfitType = !isRateView && currentType === 'PROFIT';
     
     // 获取表单元素
-    const fromAccountSelect = isRateView 
-        ? document.getElementById('rate_account_from') 
-        : document.getElementById('action_account_from');
-    const toAccountSelect = isRateView
+    const positiveAccountSelect = isRateView
+        ? document.getElementById('rate_account_from')
+        : (isProfitType ? document.getElementById('action_account_id') : document.getElementById('action_account_from'));
+    const negativeAccountSelect = isRateView
         ? document.getElementById('rate_account_to')
-        : document.getElementById('action_account_id');
+        : (isProfitType ? document.getElementById('action_account_from') : document.getElementById('action_account_id'));
     const rateTransferAmountInput = document.getElementById('rate_transfer_amount');
     const rateTransferFromSelect = document.getElementById('rate_transfer_from_account');
     const rateTransferToSelect = document.getElementById('rate_transfer_to_account');
@@ -1995,17 +1997,17 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     }
     
     // 根据是左边还是右边的表格，填充到对应的账户字段
-    // 左边表格（正数余额）填充到 From Account，右边表格（负数余额）填充到 To Account
+    // 默认：左(正) -> To、右(负) -> From；PROFIT：左(正) -> From、右(负) -> To
     if (isLeftTable) {
-        // 左边表格（正数）：填充到 From Account
-        if (fromAccountSelect) {
-            fromAccountSelect.textContent = accountDisplayText;
-            fromAccountSelect.setAttribute('data-value', accountId);
-            fromAccountSelect.setAttribute('data-account-code', foundAccountCode);
+        // 左边表格（正数）
+        if (positiveAccountSelect) {
+            positiveAccountSelect.textContent = accountDisplayText;
+            positiveAccountSelect.setAttribute('data-value', accountId);
+            positiveAccountSelect.setAttribute('data-account-code', foundAccountCode);
             if (accountCurrency) {
-                fromAccountSelect.setAttribute('data-currency', accountCurrency);
+                positiveAccountSelect.setAttribute('data-currency', accountCurrency);
             } else {
-                fromAccountSelect.removeAttribute('data-currency');
+                positiveAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
             if (isRateView && rateTransferFromSelect) {
@@ -2020,15 +2022,15 @@ function handleBalanceClick(balanceCell, isLeftTable) {
             }
         }
     } else {
-        // 右边表格（负数）：填充到 To Account
-        if (toAccountSelect) {
-            toAccountSelect.textContent = accountDisplayText;
-            toAccountSelect.setAttribute('data-value', accountId);
-            toAccountSelect.setAttribute('data-account-code', foundAccountCode);
+        // 右边表格（负数）
+        if (negativeAccountSelect) {
+            negativeAccountSelect.textContent = accountDisplayText;
+            negativeAccountSelect.setAttribute('data-value', accountId);
+            negativeAccountSelect.setAttribute('data-account-code', foundAccountCode);
             if (accountCurrency) {
-                toAccountSelect.setAttribute('data-currency', accountCurrency);
+                negativeAccountSelect.setAttribute('data-currency', accountCurrency);
             } else {
-                toAccountSelect.removeAttribute('data-currency');
+                negativeAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
             if (isRateView && rateTransferToSelect) {
