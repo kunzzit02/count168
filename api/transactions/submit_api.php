@@ -802,62 +802,30 @@ try {
                     $myrToAmount   = (float)$rate_transfer_to_amount;   // 例如 320
                     $myrCurrencyId = (int)$rate_transfer_currency_id;
 
-                    // 默认：第二行 Transfer 的 From / To 和界面一致
-                    $entryFromAccountId = $rate_transfer_from_account_id;
-                    $entryToAccountId   = $rate_transfer_to_account_id;
+                    // 第二行固定对调：
+                    // - Select From（右边下拉）显示 -rate_transfer_to_amount
+                    // - Select To（左边下拉）显示 +rate_transfer_from_amount
+                    // 当前 search/history 会对 RATE_TRANSFER_* 统一再乘以 -1，
+                    // 因此这里写入时需先放“反向金额”以得到最终显示结果。
 
-                    // 特例：若第二行账户为 TEST04 与 CASH 这一对，则在记分录时对调角色
-                    try {
-                        $codeStmt = $pdo->prepare("
-                            SELECT a.id, UPPER(TRIM(a.account_id)) AS code
-                            FROM account a
-                            WHERE a.id IN (?, ?)
-                        ");
-                        $codeStmt->execute([$rate_transfer_from_account_id, $rate_transfer_to_account_id]);
-                        $rows = $codeStmt->fetchAll(PDO::FETCH_ASSOC);
-                        $codeMap = [];
-                        foreach ($rows as $r) {
-                            $codeMap[(int)$r['id']] = strtoupper((string)$r['code']);
-                        }
-                        $fromCode = $codeMap[(int)$rate_transfer_from_account_id] ?? '';
-                        $toCode   = $codeMap[(int)$rate_transfer_to_account_id] ?? '';
-                        $normalizedFrom = str_replace([' '], '', $fromCode);
-                        $normalizedTo   = str_replace([' '], '', $toCode);
-
-                        $isFromTest04 = ($normalizedFrom === 'TEST(04)' || $normalizedFrom === 'TEST04');
-                        $isToTest04   = ($normalizedTo === 'TEST(04)' || $normalizedTo === 'TEST04');
-                        $isFromCash   = ($fromCode === 'CASH');
-                        $isToCash     = ($toCode === 'CASH');
-
-                        if (($isFromTest04 && $isToCash) || ($isFromCash && $isToTest04)) {
-                            // 只在这对账户出现时，对调会计上的 From / To：让 CASH 永远是付钱方，TEST04 是收钱方
-                            $cashId   = $isFromCash ? $rate_transfer_from_account_id : $rate_transfer_to_account_id;
-                            $test04Id = $isFromTest04 ? $rate_transfer_from_account_id : $rate_transfer_to_account_id;
-                            $entryFromAccountId = $cashId;
-                            $entryToAccountId   = $test04Id;
-                        }
-                    } catch (Throwable $e) {
-                        // 查询异常时，保持默认 From/To，不影响提交
-                    }
-
-                    // account3（记为 From）：MYR 减
+                    // account3（From）：写入 +toAmount，最终显示 -toAmount
                     $entryStmt->execute([
                         $main_transaction_id,
                         $company_id,
-                        $entryFromAccountId,
+                        $rate_transfer_from_account_id,
                         $myrCurrencyId,
-                        -$myrFromAmount,
+                        $myrToAmount,
                         'RATE_TRANSFER_FROM',
                         $rate_transfer_from_description
                     ]);
 
-                    // account4（记为 To）：MYR 加
+                    // account4（To）：写入 -fromAmount，最终显示 +fromAmount
                     $entryStmt->execute([
                         $main_transaction_id,
                         $company_id,
-                        $entryToAccountId,
+                        $rate_transfer_to_account_id,
                         $myrCurrencyId,
-                        $myrToAmount,
+                        -$myrFromAmount,
                         'RATE_TRANSFER_TO',
                         $rate_transfer_to_description
                     ]);
