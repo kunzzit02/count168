@@ -485,13 +485,11 @@ h1 {
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
     width: 10%;  /* Account */
-    text-align: center;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
     width: 10%;  /* From */
-    text-align: center;
 }
 
 .maintenance-table th:nth-child(5),
@@ -508,7 +506,6 @@ h1 {
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
     width: 8%;  /* Remark*/
-    text-align: center;
 }
 
 .maintenance-table th:nth-child(8),
@@ -540,6 +537,7 @@ h1 {
     text-overflow: ellipsis;
     white-space: nowrap;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    text-align: center;
 }
 
 .maintenance-cell-amount {
