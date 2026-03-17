@@ -803,8 +803,8 @@ try {
                     $myrCurrencyId = (int)$rate_transfer_currency_id;
 
                     // 第二行按 search/history 的统一反转规则（展示层会对 RATE_TRANSFER_* 再乘以 -1）：
-                    // - From（右边下拉）最终显示正数
-                    // - To（左边下拉）最终显示负数
+                    // - From（rate_transfer_from_account_id）最终显示正数
+                    // - To（rate_transfer_to_account_id）最终显示负数
                     // 因此写入 transaction_entry 时需使用：
                     // - RATE_TRANSFER_FROM: 负数（最终显示正数）
                     // - RATE_TRANSFER_TO: 正数（最终显示负数）
