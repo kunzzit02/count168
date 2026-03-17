@@ -412,7 +412,8 @@
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const fromDisplay = row.from_account && row.from_account !== '-' ? escapeHtml(row.from_account) : '-';
                 const currencyDisplay = row.currency ? escapeHtml(row.currency) : '-';
-                const safeDescription = escapeHtml(row.description || '');
+                const rawDescription = row.description || '';
+                const safeDescription = escapeHtml(rawDescription);
                 const remarkUpper = row.remark ? row.remark.toUpperCase() : '';
                 const safeRemark = escapeHtml(remarkUpper);
                 const createdByDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
@@ -436,7 +437,7 @@
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${fromDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-amount">${currencyDisplay} ${amountDisplay}</td>
-                    <td class="maintenance-table-cell">${safeDescription || '-'}</td>
+                    <td class="maintenance-table-cell" title="${rawDescription ? escapeHtml(rawDescription) : '-'}">${safeDescription || '-'}</td>
                     <td class="maintenance-table-cell">${safeRemark || '-'}</td>
                     <td class="maintenance-table-cell">${createdByDisplay}</td>
                     <td class="maintenance-table-cell">${deletedDisplay}</td>
