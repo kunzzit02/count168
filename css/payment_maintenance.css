@@ -485,11 +485,13 @@ h1 {
 .maintenance-table th:nth-child(3),
 .maintenance-table td:nth-child(3) {
     width: 10%;  /* Account */
+    text-align: left;
 }
 
 .maintenance-table th:nth-child(4),
 .maintenance-table td:nth-child(4) {
     width: 10%;  /* From */
+    text-align: left;
 }
 
 .maintenance-table th:nth-child(5),
@@ -500,11 +502,12 @@ h1 {
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
     width: 20%;  /* Description*/
+    text-align: left;
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 8%;  /* Remark*/
+    text-align: left;
 }
 
 .maintenance-table th:nth-child(8),
