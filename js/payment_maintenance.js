@@ -387,8 +387,23 @@
                 });
         }
 
+        // 针对手动 PROFIT（WIN/LOSE）账目：Maintenance - Payment 只保留「非 PROFIT 账户」一行，避免同一笔分成两行
+        function mergeProfitRows(data) {
+            if (!Array.isArray(data) || data.length === 0) return data || [];
+            return data.filter(row => {
+                const type = (row.transaction_type || '').toUpperCase();
+                const acc = (row.account || '').toString().toUpperCase();
+                // 只在 WIN / LOSE 且 Account 是 PROFIT 时隐藏该行，其它全部保留
+                if ((type === 'WIN' || type === 'LOSE') && acc.startsWith('PROFIT')) {
+                    return false;
+                }
+                return true;
+            });
+        }
+
         // Fill list function
         function fillTable(data) {
+            data = mergeProfitRows(data);
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '';
             
