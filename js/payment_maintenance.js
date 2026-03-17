@@ -387,7 +387,7 @@
                 });
         }
 
-        // 针对手动 PROFIT（WIN/LOSE）账目：Maintenance - Payment 只显示一行，To=客户 From=PROFIT
+        // 针对手动 PROFIT（WIN/LOSE）账目：Maintenance - Payment 只显示一行，To=客户 From=PROFIT，Description=PROFIT FROM {Account(To)}
         function mergeProfitRows(data) {
             if (!Array.isArray(data) || data.length === 0) return data || [];
             const type = (row) => (row.transaction_type || '').toUpperCase();
@@ -409,6 +409,14 @@
                     const fromCandidates = profitByKey[k];
                     if (fromCandidates && fromCandidates.length > 0) {
                         row.from_account = fromCandidates[0];
+                        // 如果是 PROFIT 配对行且当前 Description 为空或为占位符，则自动生成
+                        const desc = (row.description || '').trim();
+                        if (!desc || desc === '-' || desc === 'PROFIT' || desc.toUpperCase() === 'WIN' || desc.toUpperCase() === 'LOSE') {
+                            const toAccountLabel = row.account || '';
+                            row.description = toAccountLabel
+                                ? `PROFIT FROM ${toAccountLabel}`
+                                : 'PROFIT';
+                        }
                         fromCandidates.shift();
                     }
                 }
