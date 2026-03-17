@@ -497,6 +497,23 @@ if (!empty($target_account_ids)) {
                     return in_array(strtoupper($ac['currency_code'] ?? ''), $filter_currency_codes);
                 }));
             }
+            // 若在 Show 0 balance 模式下，经过以上所有来源仍然没有任何币别，
+            // 但用户在前端选择了特定币别（例如只选 MYR），则作为兜底：
+            // 为该账户直接挂上这些被选择的币别，让它在该币别下参与计算。
+            if (empty($account_currencies) && !empty($filter_currency_codes)) {
+                foreach ($filter_currency_codes as $filter_currency_code) {
+                    $code = strtoupper($filter_currency_code);
+                    if (!isset($currency_map[$code])) {
+                        continue;
+                    }
+                    addAccountCurrencyCombo(
+                        $account_currencies,
+                        $account_currency_ids,
+                        $currency_map[$code],
+                        $code
+                    );
+                }
+            }
         } else {
             // 未勾选 Show 0 balance 或没有 account_currency 表：沿用原逻辑（data_capture + transactions + 全公司货币）
             try {
