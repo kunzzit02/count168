@@ -944,6 +944,8 @@ try {
                     tr.exchange_rate,
                     tr.rate_middleman_rate,
                     tr.rate_transfer_to_account_id,
+                    cf.code AS from_currency_code,
+                    ct.code AS to_currency_code,
                     h.id AS header_id,
                     h.transaction_date,
                     h.sms,
@@ -956,6 +958,8 @@ try {
                 JOIN transactions h ON e.header_id = h.id
                 LEFT JOIN currency c ON e.currency_id = c.id
                 LEFT JOIN transactions_rate tr ON h.id = tr.transaction_id
+                LEFT JOIN currency cf ON tr.rate_from_currency_id = cf.id
+                LEFT JOIN currency ct ON tr.rate_to_currency_id = ct.id
                 LEFT JOIN user u ON h.created_by = u.id
                 LEFT JOIN owner o ON h.created_by_owner = o.id
                 WHERE h.company_id = ?
@@ -1053,7 +1057,9 @@ try {
             'description' => $description,
             'sms' => $row['sms'] ?: '-',
             'remark' => null,
-            'created_by' => $transactionCreatedBy
+            'created_by' => $transactionCreatedBy,
+            'from_currency_code' => $row['from_currency_code'] ?? null,
+            'to_currency_code' => $row['to_currency_code'] ?? null
         ];
     }
     
@@ -1079,6 +1085,18 @@ try {
         $balance_by_currency[$curKey] += (float)($event['win_loss'] ?? 0) + (float)($event['cr_dr'] ?? 0);
         $row_balance = $balance_by_currency[$curKey];
         
+        // 默认使用事件自身的 description；Member Win/Loss 对 RATE 采用货币兑换文案
+        $finalDescription = $event['description'];
+        if ($isMemberUser && ($event['source'] ?? '') === 'RATE') {
+            $fromCode = $event['from_currency_code'] ?? null;
+            $toCode = $event['to_currency_code'] ?? null;
+            if ($fromCode && $toCode) {
+                $finalDescription = 'Currency Exchange (' . $fromCode . ' > ' . $toCode . ')';
+            } else {
+                $finalDescription = 'Currency Exchange';
+            }
+        }
+        
         $history[] = [
             'row_type' => $event['row_type'],
             'transaction_id' => $event['transaction_id'],
@@ -1093,7 +1111,7 @@ try {
             'win_loss' => $event['win_loss'] != 0 ? number_format($event['win_loss'], 2) : '0.00',
             'cr_dr' => $event['cr_dr'] != 0 ? number_format($event['cr_dr'], 2) : '0.00',
             'balance' => number_format($row_balance, 2),
-            'description' => $event['description'],
+            'description' => $finalDescription,
             'sms' => $event['sms'],
             'remark' => $event['remark'] ?? null,
             'created_by' => $event['created_by'],
