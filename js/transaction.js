@@ -413,10 +413,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // 绑定右侧工作区的 Search 按钮 - 仅过滤当前列表
+    // 绑定右侧工作区的 Search 按钮：执行完整日期搜索（不受右侧 Type 选择影响）
     const actionSearchBtn = document.getElementById('action_search_btn');
     if (actionSearchBtn) {
-        actionSearchBtn.addEventListener('click', filterCrDrAccounts);
+        actionSearchBtn.addEventListener('click', searchTransactions);
     }
     
     const reverseBtn = document.getElementById('account_reverse_btn');
@@ -2232,6 +2232,36 @@ function applyZeroBalanceFilterAndRender() {
             : hasCrdr;
         filteredLeft = rawLeft.filter(shouldShow);
         filteredRight = rawRight.filter(shouldShow);
+
+        // 兜底：若付款筛选结果为空，但原始列表有非 0 数据，回退到原始列表，避免把当天数据全隐藏
+        if (filteredLeft.length === 0 && filteredRight.length === 0) {
+            const fallbackLeft = rawLeft.filter(row => {
+                const bf = parseBalanceValue(row?.bf);
+                const wl = parseBalanceValue(row?.win_loss);
+                const crdr = parseBalanceValue(row?.cr_dr);
+                const bal = parseBalanceValue(row?.balance);
+                const eps = 0.00001;
+                return (bf !== null && Math.abs(bf) > eps)
+                    || (wl !== null && Math.abs(wl) > eps)
+                    || (crdr !== null && Math.abs(crdr) > eps)
+                    || (bal !== null && Math.abs(bal) > eps);
+            });
+            const fallbackRight = rawRight.filter(row => {
+                const bf = parseBalanceValue(row?.bf);
+                const wl = parseBalanceValue(row?.win_loss);
+                const crdr = parseBalanceValue(row?.cr_dr);
+                const bal = parseBalanceValue(row?.balance);
+                const eps = 0.00001;
+                return (bf !== null && Math.abs(bf) > eps)
+                    || (wl !== null && Math.abs(wl) > eps)
+                    || (crdr !== null && Math.abs(crdr) > eps)
+                    || (bal !== null && Math.abs(bal) > eps);
+            });
+            if (fallbackLeft.length > 0 || fallbackRight.length > 0) {
+                filteredLeft = fallbackLeft;
+                filteredRight = fallbackRight;
+            }
+        }
     }
     
     const hasNonZeroMovement = (row) => {
