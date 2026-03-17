@@ -2091,11 +2091,13 @@ function handleBalanceClick(balanceCell, isLeftTable) {
         if (!isNaN(numericBalance)) {
             amountInput.value = Math.abs(numericBalance).toFixed(2);
             if (currencyAmountInput) {
-                // RATE 模式：Select From（左表正数行）填正数，Select To（右表负数行）填负数
                 if (isRateView) {
+                    // RATE 模式：
+                    // 左表（正数行）→ 填入 rate_currency_from_amount（"Select To" 一侧）→ 负数
+                    // 右表（负数行）→ 填入 rate_currency_to_amount（"Select From" 一侧）→ 正数
                     currencyAmountInput.value = treatAsPositiveRow
-                        ? Math.abs(numericBalance).toFixed(2)
-                        : (-Math.abs(numericBalance)).toFixed(2);
+                        ? (-Math.abs(numericBalance)).toFixed(2)
+                        : Math.abs(numericBalance).toFixed(2);
                 } else {
                     currencyAmountInput.value = Math.abs(numericBalance).toFixed(2);
                 }
