@@ -2617,9 +2617,10 @@ function submitAction() {
         const toAccountCode = resolveAccountCodeById(accountId, rateFromAccountInput);
         
         // 生成两条记录的 description（添加汇率信息）
+        // rate_account_from 显示 Select To；rate_account_to 显示 Select From
         // From 记录应指向对手方（Select To），To 记录应指向对手方（Select From）
-        fromAccountDescription = `Transaction to ${toAccountCode} (Rate: ${rateExchangeRateRaw})`;
-        toAccountDescription = `Transaction from ${fromAccountCode} (Rate: ${rateExchangeRateRaw})`;
+        fromAccountDescription = `Transaction to ${fromAccountCode} (Rate: ${rateExchangeRateRaw})`;
+        toAccountDescription = `Transaction from ${toAccountCode} (Rate: ${rateExchangeRateRaw})`;
         
         // 处理第二个 Account 和 Middle-Man 的逻辑
         // 如果填写了第二个 account 行，就创建相应的记录
