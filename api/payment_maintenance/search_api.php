@@ -260,10 +260,32 @@ function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_t
         $relatedEntryStmt->execute([$headerId]);
         $relatedEntries = $relatedEntryStmt->fetchAll(PDO::FETCH_ASSOC);
         $fromAccountCode = null;
-        foreach ($relatedEntries as $related) {
-            if (in_array($related['entry_type'], ['RATE_FIRST_FROM', 'RATE_TRANSFER_FROM'])) {
-                $fromAccountCode = $related['account_code'];
-                break;
+
+        // 精确匹配成对的 FROM 账户：
+        // - RATE_FIRST_TO  -> RATE_FIRST_FROM
+        // - RATE_TRANSFER_TO -> RATE_TRANSFER_FROM
+        if ($entryType === 'RATE_FIRST_TO') {
+            foreach ($relatedEntries as $related) {
+                if ($related['entry_type'] === 'RATE_FIRST_FROM') {
+                    $fromAccountCode = $related['account_code'];
+                    break;
+                }
+            }
+        } elseif ($entryType === 'RATE_TRANSFER_TO') {
+            foreach ($relatedEntries as $related) {
+                if ($related['entry_type'] === 'RATE_TRANSFER_FROM') {
+                    $fromAccountCode = $related['account_code'];
+                    break;
+                }
+            }
+        }
+        // 兼容旧数据：如果上面没找到，再退回到「任一 FROM 类型」的旧逻辑
+        if ($fromAccountCode === null) {
+            foreach ($relatedEntries as $related) {
+                if (in_array($related['entry_type'], ['RATE_FIRST_FROM', 'RATE_TRANSFER_FROM'])) {
+                    $fromAccountCode = $related['account_code'];
+                    break;
+                }
             }
         }
         $description = $rateRow['entry_description'] ?: 'RATE';
