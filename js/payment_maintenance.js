@@ -387,15 +387,30 @@
                 });
         }
 
-        // 针对手动 PROFIT（WIN/LOSE）账目：Maintenance - Payment 只保留「非 PROFIT 账户」一行，避免同一笔分成两行
+        // 针对手动 PROFIT（WIN/LOSE）账目：Maintenance - Payment 只显示一行，To=客户 From=PROFIT
         function mergeProfitRows(data) {
             if (!Array.isArray(data) || data.length === 0) return data || [];
+            const type = (row) => (row.transaction_type || '').toUpperCase();
+            const acc = (row) => (row.account || '').toString().toUpperCase();
+            const isProfitRow = (row) => (type(row) === 'WIN' || type(row) === 'LOSE') && acc(row).startsWith('PROFIT');
+            const isWinLoseRow = (row) => type(row) === 'WIN' || type(row) === 'LOSE';
+            const key = (row) => [row.dts_created, String(row.amount || ''), (row.currency || '').toUpperCase()].join('\t');
+            const profitByKey = {};
+            data.forEach(row => {
+                if (!isProfitRow(row)) return;
+                const k = key(row);
+                if (!profitByKey[k]) profitByKey[k] = [];
+                profitByKey[k].push(row.account || 'PROFIT');
+            });
             return data.filter(row => {
-                const type = (row.transaction_type || '').toUpperCase();
-                const acc = (row.account || '').toString().toUpperCase();
-                // 只在 WIN / LOSE 且 Account 是 PROFIT 时隐藏该行，其它全部保留
-                if ((type === 'WIN' || type === 'LOSE') && acc.startsWith('PROFIT')) {
-                    return false;
+                if (isProfitRow(row)) return false;
+                if (isWinLoseRow(row)) {
+                    const k = key(row);
+                    const fromCandidates = profitByKey[k];
+                    if (fromCandidates && fromCandidates.length > 0) {
+                        row.from_account = fromCandidates[0];
+                        fromCandidates.shift();
+                    }
                 }
                 return true;
             });
