@@ -763,6 +763,15 @@ function initCustomSelects() {
         function toggleDropdown() {
             isOpen = !isOpen;
             if (isOpen) {
+                // 先关闭其他已打开的下拉（同一页面的所有 custom select），避免多个一起展开
+                document.querySelectorAll('.custom-select-dropdown.show').forEach(otherDropdown => {
+                    if (otherDropdown === dropdown) return;
+                    otherDropdown.classList.remove('show');
+                    const otherBtn = otherDropdown.closest('.custom-select-wrapper')?.querySelector('.custom-select-button');
+                    if (otherBtn) {
+                        otherBtn.classList.remove('open');
+                    }
+                });
                 dropdown.classList.add('show');
                 button.classList.add('open');
                 searchInput.value = '';
