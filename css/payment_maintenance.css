@@ -494,13 +494,12 @@ h1 {
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 10%;   /* Currency & Amount*/
+    width: 8%;   /* Currency & Amount*/
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 15%;  /* Description*/
-    text-align: center;
+    width: 20%;  /* Description*/
 }
 
 .maintenance-table th:nth-child(7),
