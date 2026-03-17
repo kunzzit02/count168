@@ -531,6 +531,48 @@ function parseBalanceValue(rawBalance) {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+function normalizeRateRowsByCrDr(leftRows, rightRows) {
+    if (!(typeof isRateTypeSelected === 'function' && isRateTypeSelected())) {
+        return {
+            leftRows: Array.isArray(leftRows) ? leftRows : [],
+            rightRows: Array.isArray(rightRows) ? rightRows : []
+        };
+    }
+
+    const normalizedLeft = [];
+    const normalizedRight = [];
+    const safeLeft = Array.isArray(leftRows) ? leftRows : [];
+    const safeRight = Array.isArray(rightRows) ? rightRows : [];
+
+    safeLeft.forEach(row => {
+        const crDr = parseBalanceValue(row && row.cr_dr);
+        if (crDr === null || Math.abs(crDr) < 0.00001) {
+            normalizedLeft.push(row);
+            return;
+        }
+        if (crDr > 0) {
+            normalizedLeft.push(row);
+        } else {
+            normalizedRight.push(row);
+        }
+    });
+
+    safeRight.forEach(row => {
+        const crDr = parseBalanceValue(row && row.cr_dr);
+        if (crDr === null || Math.abs(crDr) < 0.00001) {
+            normalizedRight.push(row);
+            return;
+        }
+        if (crDr > 0) {
+            normalizedLeft.push(row);
+        } else {
+            normalizedRight.push(row);
+        }
+    });
+
+    return { leftRows: normalizedLeft, rightRows: normalizedRight };
+}
+
 function getProfitAccountSignSets() {
     const positiveIds = new Set();
     const negativeIds = new Set();
@@ -1595,9 +1637,10 @@ function searchTransactions(isInitialLoad) {
 // ==================== 渲染表格与总计 ====================
 // 可选第三个参数 totalsFromApi：如果后端已经计算好总计，就直接使用，保证和数据库一致
 function renderTables(leftRows, rightRows, totalsFromApi) {
+    const normalizedRows = normalizeRateRowsByCrDr(leftRows, rightRows);
     // 按 role 排序数据
-    const sortedLeftRows = sortByRole(leftRows);
-    const sortedRightRows = sortByRole(rightRows);
+    const sortedLeftRows = sortByRole(normalizedRows.leftRows);
+    const sortedRightRows = sortByRole(normalizedRows.rightRows);
     
     currentDisplayData = {
         left_table: [...sortedLeftRows],
