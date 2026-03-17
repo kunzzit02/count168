@@ -1436,6 +1436,35 @@ function searchTransactions(isInitialLoad) {
     if (groupedTables) groupedTables.style.display = 'none';
     const summarySection = document.querySelector('.transaction-summary-section');
     if (summarySection) summarySection.style.display = 'none';
+
+    const commitSearchData = (searchData) => {
+        // 保存搜索结果到全局变量
+        lastSearchData = searchData;
+        const totalAccounts = (searchData.left_table?.length || 0) + (searchData.right_table?.length || 0);
+
+        if (totalAccounts === 0) {
+            // 没有数据，隐藏表格区域
+            if (tablesSection) tablesSection.style.display = 'none';
+            if (summarySection) summarySection.style.display = 'none';
+            showNotification('Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted', 'info');
+            return;
+        }
+
+        // 有数据，显示表格区域（恢复 flex 布局，由 applyZeroBalanceFilterAndRender 显示对应容器）
+        if (tablesSection) {
+            tablesSection.style.display = 'flex';
+            tablesSection.style.flexDirection = '';
+        }
+        if (summarySection) summarySection.style.display = 'flex';
+
+        // 使用最新搜索结果，根据「Show 0 balance」状态在前端过滤并渲染
+        applyZeroBalanceFilterAndRender();
+        showNotification(`Search completed, found ${totalAccounts} record(s)`, 'success');
+    };
+
+    const singleSelectedCurrency = (!showAllCurrencies && selectedCurrencies.length === 1)
+        ? String(selectedCurrencies[0] || '').toUpperCase()
+        : '';
     
     fetch(url, {
         method: 'GET',
@@ -1446,7 +1475,6 @@ function searchTransactions(isInitialLoad) {
     })
         .then(response => response.json())
         .then(data => {
-            if (loadingEl) loadingEl.style.display = 'none';
             if (data.success) {
                 console.log('✅ 搜索成功:', data.data);
                 console.log('📊 数据统计:', {
@@ -1490,31 +1518,67 @@ function searchTransactions(isInitialLoad) {
 
                 // 直接使用后端左右表分配结果，避免前端再次重分配造成筛选冲突
                 console.log('✅ 使用后端返回的左右表分配结果');
+                const currentSearchData = data.data || {};
+                const leftRows = Array.isArray(currentSearchData.left_table) ? currentSearchData.left_table : [];
+                const rightRows = Array.isArray(currentSearchData.right_table) ? currentSearchData.right_table : [];
+                const totalAccounts = leftRows.length + rightRows.length;
 
-                // 保存搜索结果到全局变量
-                lastSearchData = data.data;
-
-                const totalAccounts = (data.data.left_table?.length || 0) + (data.data.right_table?.length || 0);
-
-                if (totalAccounts === 0) {
-                    // 没有数据，隐藏表格区域
-                    if (tablesSection) tablesSection.style.display = 'none';
-                    if (summarySection) summarySection.style.display = 'none';
-                    showNotification('Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted', 'info');
-                } else {
-                    // 有数据，显示表格区域（恢复 flex 布局，由 applyZeroBalanceFilterAndRender 显示对应容器）
-                    if (tablesSection) {
-                        tablesSection.style.display = 'flex';
-                        tablesSection.style.flexDirection = '';
+                // 兜底修复：单选币别时若后端返回空行，则自动重查全部币别并在前端按该币别过滤
+                if (singleSelectedCurrency && totalAccounts === 0) {
+                    let fallbackUrl = `/api/transactions/search_api.php?date_from=${dateFrom}&date_to=${dateTo}&category=${category}&show_inactive=${showInactive}&show_capture_only=${showCaptureOnly}&hide_zero_balance=${hideZero}`;
+                    if (currentCompanyId) {
+                        fallbackUrl += `&company_id=${currentCompanyId}`;
                     }
-                    if (summarySection) summarySection.style.display = 'flex';
-                    
-                    // 使用最新搜索结果，根据「Show 0 balance」状态在前端过滤并渲染
-                    applyZeroBalanceFilterAndRender();
-                    
-                    showNotification(`Search completed, found ${totalAccounts} record(s)`, 'success');
+                    fallbackUrl += '&_t=' + Date.now();
+                    if (loadingEl) {
+                        loadingEl.textContent = 'Loading data';
+                        loadingEl.style.display = 'flex';
+                    }
+
+                    return fetch(fallbackUrl, {
+                        method: 'GET',
+                        cache: 'no-cache',
+                        headers: {
+                            'Cache-Control': 'no-cache'
+                        }
+                    })
+                        .then(resp => resp.json())
+                        .then(fallback => {
+                            if (loadingEl) loadingEl.style.display = 'none';
+                            if (!fallback.success || !fallback.data) {
+                                commitSearchData(currentSearchData);
+                                return;
+                            }
+
+                            const fallbackLeft = (Array.isArray(fallback.data.left_table) ? fallback.data.left_table : [])
+                                .filter(row => String(row?.currency || '').toUpperCase() === singleSelectedCurrency);
+                            const fallbackRight = (Array.isArray(fallback.data.right_table) ? fallback.data.right_table : [])
+                                .filter(row => String(row?.currency || '').toUpperCase() === singleSelectedCurrency);
+
+                            const rebuiltData = {
+                                ...fallback.data,
+                                left_table: fallbackLeft,
+                                right_table: fallbackRight,
+                                totals: {
+                                    left: calculateTotals(fallbackLeft),
+                                    right: calculateTotals(fallbackRight),
+                                    summary: calculateTotals([...fallbackLeft, ...fallbackRight])
+                                }
+                            };
+
+                            commitSearchData(rebuiltData);
+                        })
+                        .catch(error => {
+                            if (loadingEl) loadingEl.style.display = 'none';
+                            console.error('❌ 单币别兜底搜索失败:', error);
+                            commitSearchData(currentSearchData);
+                        });
                 }
+
+                if (loadingEl) loadingEl.style.display = 'none';
+                commitSearchData(currentSearchData);
             } else {
+                if (loadingEl) loadingEl.style.display = 'none';
                 console.error('❌ 搜索失败:', data.error);
                 if (tablesSection) tablesSection.style.display = 'none';
                 showNotification(data.error || 'Search failed', 'error');
