@@ -802,31 +802,31 @@ try {
                     $myrToAmount   = (float)$rate_transfer_to_amount;   // 例如 320
                     $myrCurrencyId = (int)$rate_transfer_currency_id;
 
-                    // 第二行按你确认的业务规则：
-                    // - rate_transfer_from_account_id（Select To）显示净额：toAmount（如 3300-300=3000），并在列表为负数
-                    // - rate_transfer_to_account_id（Select From）显示毛额：fromAmount（如 3300），并在列表为正数
+                    // 第二行按当前需求将正负方向再次对调：
+                    // - rate_transfer_from_account_id（Select To）显示净额 toAmount，并在列表为正数
+                    // - rate_transfer_to_account_id（Select From）显示毛额 fromAmount，并在列表为负数
                     // search/history 会对 RATE_TRANSFER_* 统一乘以 -1，因此这里写入符号为：
-                    // - RATE_TRANSFER_FROM: 正数 toAmount（最终显示负数）
-                    // - RATE_TRANSFER_TO: 负数 fromAmount（最终显示正数）
+                    // - RATE_TRANSFER_FROM: 负数 toAmount（最终显示正数）
+                    // - RATE_TRANSFER_TO: 正数 fromAmount（最终显示负数）
 
-                    // account3（Select To）：写入 +toAmount，最终显示 -toAmount（净额）
+                    // account3（Select To）：写入 -toAmount，最终显示 +toAmount（净额）
                     $entryStmt->execute([
                         $main_transaction_id,
                         $company_id,
                         $rate_transfer_from_account_id,
                         $myrCurrencyId,
-                        $myrToAmount,
+                        -$myrToAmount,
                         'RATE_TRANSFER_FROM',
                         $rate_transfer_from_description
                     ]);
 
-                    // account4（Select From）：写入 -fromAmount，最终显示 +fromAmount（毛额）
+                    // account4（Select From）：写入 +fromAmount，最终显示 -fromAmount（毛额）
                     $entryStmt->execute([
                         $main_transaction_id,
                         $company_id,
                         $rate_transfer_to_account_id,
                         $myrCurrencyId,
-                        -$myrFromAmount,
+                        $myrFromAmount,
                         'RATE_TRANSFER_TO',
                         $rate_transfer_to_description
                     ]);
