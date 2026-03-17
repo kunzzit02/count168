@@ -502,6 +502,7 @@ h1 {
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
     width: 15%;  /* Description*/
+    text-align: center;
 }
 
 .maintenance-table th:nth-child(7),
