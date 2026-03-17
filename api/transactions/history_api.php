@@ -991,6 +991,11 @@ try {
         }
         $description = $row['entry_description'] ?: 'RATE';
 
+        // Middle-Man 行：将括号内的倍率从 "x0.3" 显示为 "0.3"（仅文字格式，金额逻辑不变）
+        if ($entryType === 'RATE_MIDDLEMAN' && $description) {
+            $description = preg_replace('/\((?:x|X)\s*([0-9]+(?:\.[0-9]+)?)\)/', '($1)', $description) ?? $description;
+        }
+
         // 针对「第二行 Account（Rate Transfer To）」显示净汇率：exchange_rate - middleman_rate
         // 仅当当前条目是 RATE_TRANSFER_TO 且 account 为 rate_transfer_to_account_id 时生效，其他情况保持原逻辑
         $displayRateForSuffix = null;
