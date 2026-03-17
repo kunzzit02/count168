@@ -1925,6 +1925,11 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     const isRateView = isRateTypeSelected();
     const currentType = document.getElementById('transaction_type')?.value || '';
     const isProfitType = !isRateView && currentType === 'PROFIT';
+    const numericBalance = parseBalanceValue(balance);
+    // PROFIT 场景下，以点击行的 balance 正负为准（避免左右表识别偏差）
+    const treatAsPositiveRow = isProfitType
+        ? (numericBalance === null ? isLeftTable : numericBalance >= 0)
+        : isLeftTable;
     
     // 获取表单元素
     const positiveAccountSelect = isRateView
@@ -1940,10 +1945,10 @@ function handleBalanceClick(balanceCell, isLeftTable) {
         ? rateTransferAmountInput
         : document.getElementById('action_amount');
     const currencySelect = isRateView
-        ? (isLeftTable ? document.getElementById('rate_currency_from') : document.getElementById('rate_currency_to'))
+        ? (treatAsPositiveRow ? document.getElementById('rate_currency_from') : document.getElementById('rate_currency_to'))
         : document.getElementById('transaction_currency');
     const currencyAmountInput = isRateView
-        ? (isLeftTable ? document.getElementById('rate_currency_from_amount') : document.getElementById('rate_currency_to_amount'))
+        ? (treatAsPositiveRow ? document.getElementById('rate_currency_from_amount') : document.getElementById('rate_currency_to_amount'))
         : null;
     
     let accountSet = false;
@@ -1998,7 +2003,7 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     
     // 根据是左边还是右边的表格，填充到对应的账户字段
     // 默认：左(正) -> To、右(负) -> From；PROFIT：左(正) -> From、右(负) -> To
-    if (isLeftTable) {
+    if (treatAsPositiveRow) {
         // 左边表格（正数）
         if (positiveAccountSelect) {
             positiveAccountSelect.textContent = accountDisplayText;
@@ -2078,9 +2083,11 @@ function handleBalanceClick(balanceCell, isLeftTable) {
         accountId,
         accountCode,
         balance,
+        numericBalance,
         currency,
         accountCurrency,
-        isLeftTable: isLeftTable ? 'From Account' : 'To Account',
+        type: currentType,
+        targetSide: treatAsPositiveRow ? 'positive' : 'negative',
         accountSet,
         amountSet,
         currencySet
@@ -2089,7 +2096,11 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     // 构建通知消息
     const parts = [];
     if (accountSet) {
-        parts.push(`${isLeftTable ? 'From' : 'To'} Account: ${accountCode}`);
+        if (isProfitType) {
+            parts.push(`${treatAsPositiveRow ? 'From' : 'To'} Account: ${accountCode}`);
+        } else {
+            parts.push(`${treatAsPositiveRow ? 'From' : 'To'} Account: ${accountCode}`);
+        }
     }
     if (amountSet) {
         parts.push(`Amount: ${formatNumber(balance)}`);
