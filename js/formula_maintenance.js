@@ -747,7 +747,7 @@ function renderDataCaptureTable(data) {
             </div>
             <div class="maintenance-list-card-item currency-cell">${toUpperDisplay(row.currency)}</div>
             <div class="maintenance-list-card-item source-cell" data-original-source="${escapeHtml(row.source || '')}">
-                <span class="source-display">${toUpperDisplay(row.source)}</span>
+                <span class="source-display" title="${escapeHtml(row.source || '')}">${toUpperDisplay(row.source)}</span>
                 <input type="text" class="source-input" value="${escapeHtml(row.source || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
             </div>
             <div class="maintenance-list-card-item">${toUpperDisplay(row.product)}</div>
@@ -968,6 +968,7 @@ function cancelEditDataCaptureRow(rowId, cancelBtn) {
     
     accountDisplay.textContent = toUpperDisplay(rowData.account);
     sourceDisplay.textContent = toUpperDisplay(rowData.source);
+    sourceDisplay.title = rowData.source || '';
     inputMethodDisplay.textContent = toUpperDisplay(rowData.input_method);
     formulaDisplay.textContent = toUpperDisplay(rowData.formula);
     descriptionDisplay.textContent = toUpperDisplay(rowData.description);
@@ -1072,6 +1073,7 @@ function saveDataCaptureRow(rowId, saveBtn) {
             // 更新显示文本
             accountDisplay.textContent = accountText ? toUpperDisplay(accountText.split(' (')[0]) : '-';
             sourceDisplay.textContent = toUpperDisplay(sourceValue);
+            sourceDisplay.title = sourceValue || '';
             inputMethodDisplay.textContent = toUpperDisplay(inputMethodValue);
             formulaDisplay.textContent = toUpperDisplay(formulaValue);
             descriptionDisplay.textContent = toUpperDisplay(descriptionValue);
