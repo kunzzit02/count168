@@ -1488,57 +1488,8 @@ function searchTransactions(isInitialLoad) {
                     console.log('  右表格数据不存在、不是数组或为空');
                 }
 
-                // 强制修复：始终根据balance正负重新分配数据，确保显示正确
-                console.log('🔧 执行强制修复：重新根据balance正负分配所有数据');
-
-                // 合并所有数据
-                const allData = [...(data.data.left_table || []), ...(data.data.right_table || [])];
-                console.log(`📊 总数据量: ${allData.length}`);
-
-                const newLeftTable = [];
-                const newRightTable = [];
-
-                console.log('🔍 逐个检查所有数据:');
-                allData.forEach((row, index) => {
-                    const originalBalance = row.balance;
-                    const parsedBalance = parseFloat(originalBalance.toString().replace(/,/g, '')); // 移除逗号
-                    const balanceType = typeof originalBalance;
-                    const isNaNResult = isNaN(parsedBalance);
-
-                    console.log(`  [${index}] ${row.account_id}:`);
-                    console.log(`    原始balance: "${originalBalance}" (类型: ${balanceType})`);
-                    console.log(`    清理后balance: ${parsedBalance} (isNaN: ${isNaNResult})`);
-                    console.log(`    > 0 判断: ${parsedBalance > 0}`);
-
-                    // 需求：正数的数据显示在左边；Middle-Man 行（is_rate_middleman）也显示在左边并按正数显示
-                    const isRateMiddleman = row.is_rate_middleman === 1 || row.is_rate_middleman === true;
-                    const goLeft = (!isNaNResult && parsedBalance > 0) || isRateMiddleman;
-                    if (goLeft) {
-                        newLeftTable.push(row);
-                        console.log(`    ✅ 分配到左表格${isRateMiddleman ? '（Middle-Man 正数）' : '（正数）'}`);
-                    } else {
-                        newRightTable.push(row);
-                        console.log(`    ❌ 分配到右表格（非正数）`);
-                    }
-                });
-
-                // 强制更新数据
-                data.data.left_table = newLeftTable;
-                data.data.right_table = newRightTable;
-
-                console.log('✅ 强制修复完成:');
-                console.log(`  左表格数量: ${newLeftTable.length}`);
-                console.log(`  右表格数量: ${newRightTable.length}`);
-
-                // 显示最终分配结果
-                console.log('🎯 最终左表格数据:');
-                newLeftTable.forEach((row, index) => {
-                    console.log(`  左[${index}]: ${row.account_id} balance=${row.balance}`);
-                });
-                console.log('🎯 最终右表格数据:');
-                newRightTable.forEach((row, index) => {
-                    console.log(`  右[${index}]: ${row.account_id} balance=${row.balance}`);
-                });
+                // 直接使用后端左右表分配结果，避免前端再次重分配造成筛选冲突
+                console.log('✅ 使用后端返回的左右表分配结果');
 
                 // 保存搜索结果到全局变量
                 lastSearchData = data.data;

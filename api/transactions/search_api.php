@@ -162,7 +162,10 @@ if (empty($target_account_ids) && $isMemberUser) {
     
     // 短期缓存（60 秒）：相同条件再次请求直接返回，减轻首屏/刷新等待
     $cache_ttl = 60;
+    // 把当前文件版本纳入缓存 key，避免代码更新后仍命中旧结果（尤其是单币别筛选场景）
+    $cache_version = (string)(@filemtime(__FILE__) ?: '0');
     $cache_key = md5(
+        $cache_version . '|' .
         ($_SESSION['user_id'] ?? '') . '|' . $company_id . '|' . $date_from_db . '|' . $date_to_db . '|' .
         implode(',', $currency_filters) . '|' . ($category ?? '') . '|' . ($show_inactive ? '1' : '0') . '|' .
         ($show_capture_only ? '1' : '0') . '|' . ($hide_zero_balance ? '1' : '0') . '|' .
