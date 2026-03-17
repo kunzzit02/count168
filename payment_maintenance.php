@@ -134,7 +134,7 @@ if (!empty($session_company_id)) {
                         <th>Dts Created</th>
                         <th>To Account</th>
                         <th>From Account</th>
-                        <th class="maintenance-header-amount">Currency / Amount</th>
+                        <th class="maintenance-header-amount">Amount</th>
                         <th>Description</th>
                         <th>Remark</th>
                         <th>Submitted By</th>
