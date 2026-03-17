@@ -507,7 +507,7 @@ h1 {
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 8%;  /* Remark*/
+    width: 11%;  /* Remark*/
     text-align: left;
 }
 
