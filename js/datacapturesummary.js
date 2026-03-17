@@ -680,6 +680,8 @@ function restoreFormulaSourceFromRefresh() {
             const key = getSummaryRowKey(row);
             const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
             const data = byKey[normKey] || byKey[key];
+
+            // 1) 恢复描述并更新 Id Product 显示
             if (data && data.originalDescription !== undefined && data.originalDescription !== null) {
                 const desc = String(data.originalDescription || '').trim();
                 if (desc) {
@@ -692,13 +694,57 @@ function restoreFormulaSourceFromRefresh() {
                     }
                 }
             }
+
+            const cells = row.querySelectorAll('td');
+
+            // 2) 恢复公式显示（仅在当前单元格为空时，避免覆盖后端最新公式）
+            if (data && data.formula !== undefined && cells[4]) {
+                const existingSpan = cells[4].querySelector('.formula-text');
+                const existingFormulaText = existingSpan ? (existingSpan.textContent || '').trim() : (cells[4].textContent || '').trim();
+                if (!existingFormulaText) {
+                    let formula = data.formula != null ? String(data.formula) : '';
+                    if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
+                    const source = data.source != null ? String(data.source) : '';
+                    if (data.sourceColumns != null) row.setAttribute('data-source-columns', data.sourceColumns);
+                    if (data.formulaOperators != null) row.setAttribute('data-formula-operators', data.formulaOperators);
+                    if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
+                    if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
+                    if (data.enableInputMethod != null) row.setAttribute('data-enable-input-method', String(data.enableInputMethod));
+
+                    const sourcePercentText = source;
+                    const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
+                    const inputMethod = row.getAttribute('data-input-method') || '';
+                    const enableInputMethod = !!(inputMethod && inputMethod.trim());
+                    const baseProcessedAmount = typeof calculateFormulaResultFromExpression === 'function'
+                        ? calculateFormulaResultFromExpression(formula, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent)
+                        : 0;
+                    row.setAttribute('data-base-processed-amount', (baseProcessedAmount != null && !isNaN(baseProcessedAmount)) ? baseProcessedAmount.toString() : '0');
+
+                    const imForTooltip = (data.inputMethod != null ? data.inputMethod : row.getAttribute('data-input-method')) || '';
+                    const titleAttr = imForTooltip ? ` title="${String(imForTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
+                    cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>`;
+                    const span = cells[4].querySelector('.formula-text');
+                    if (span) span.textContent = formula;
+                    row.setAttribute('data-formula-raw', formula || '');
+                    if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
+
+                    // 同时即时刷新 Processed Amount 显示
+                    if (cells[8] && typeof applyRateToProcessedAmount === 'function') {
+                        const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
+                        const rounded = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount);
+                        cells[8].textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(rounded) : String(finalAmount);
+                        cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+                    }
+                }
+            }
+
+            // 3) 恢复 Rate Value
             const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
             const stableRate = (stableRateValuesByKey && stableKey) ? stableRateValuesByKey[stableKey] : null;
             const resolvedRate = (stableRate != null && String(stableRate).trim() !== '')
                 ? stableRate
                 : (data && data.rateValue != null ? data.rateValue : '');
             if (resolvedRate == null || String(resolvedRate).trim() === '') return;
-            const cells = row.querySelectorAll('td');
             if (cells[7]) cells[7].textContent = String(resolvedRate).trim();
         });
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
