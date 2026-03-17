@@ -401,7 +401,7 @@ h1 {
 
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 4%;
+    width: 2%;
 }
 
 .maintenance-table th:nth-child(2),
