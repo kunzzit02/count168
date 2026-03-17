@@ -1964,11 +1964,15 @@ function handleBalanceClick(balanceCell, isLeftTable) {
         : isLeftTable;
     
     // 获取表单元素
+    // RATE 页面两个按钮的显示文案与 id 命名是反的：
+    // rate_account_from 显示 "Select To Account"
+    // rate_account_to   显示 "Select From Account"
+    // 这里按「显示文案语义」处理：Select From 要正数，Select To 要负数
     const positiveAccountSelect = isRateView
-        ? document.getElementById('rate_account_from')
+        ? document.getElementById('rate_account_to')
         : (isProfitType ? document.getElementById('action_account_id') : document.getElementById('action_account_from'));
     const negativeAccountSelect = isRateView
-        ? document.getElementById('rate_account_to')
+        ? document.getElementById('rate_account_from')
         : (isProfitType ? document.getElementById('action_account_from') : document.getElementById('action_account_id'));
     const rateTransferAmountInput = document.getElementById('rate_transfer_amount');
     const rateTransferFromSelect = document.getElementById('rate_transfer_from_account');
@@ -1977,10 +1981,10 @@ function handleBalanceClick(balanceCell, isLeftTable) {
         ? rateTransferAmountInput
         : document.getElementById('action_amount');
     const currencySelect = isRateView
-        ? (treatAsPositiveRow ? document.getElementById('rate_currency_from') : document.getElementById('rate_currency_to'))
+        ? (treatAsPositiveRow ? document.getElementById('rate_currency_to') : document.getElementById('rate_currency_from'))
         : document.getElementById('transaction_currency');
     const currencyAmountInput = isRateView
-        ? (treatAsPositiveRow ? document.getElementById('rate_currency_from_amount') : document.getElementById('rate_currency_to_amount'))
+        ? (treatAsPositiveRow ? document.getElementById('rate_currency_to_amount') : document.getElementById('rate_currency_from_amount'))
         : null;
     
     let accountSet = false;
@@ -2047,14 +2051,15 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 positiveAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            if (isRateView && rateTransferFromSelect) {
-                rateTransferFromSelect.textContent = accountDisplayText;
-                rateTransferFromSelect.setAttribute('data-value', accountId);
-                rateTransferFromSelect.setAttribute('data-account-code', foundAccountCode);
+            if (isRateView && rateTransferToSelect) {
+                // 第二行：rate_transfer_to_account 显示 "Select From Account"（正数）
+                rateTransferToSelect.textContent = accountDisplayText;
+                rateTransferToSelect.setAttribute('data-value', accountId);
+                rateTransferToSelect.setAttribute('data-account-code', foundAccountCode);
                 if (accountCurrency) {
-                    rateTransferFromSelect.setAttribute('data-currency', accountCurrency);
+                    rateTransferToSelect.setAttribute('data-currency', accountCurrency);
                 } else {
-                    rateTransferFromSelect.removeAttribute('data-currency');
+                    rateTransferToSelect.removeAttribute('data-currency');
                 }
             }
         }
@@ -2070,14 +2075,15 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 negativeAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            if (isRateView && rateTransferToSelect) {
-                rateTransferToSelect.textContent = accountDisplayText;
-                rateTransferToSelect.setAttribute('data-value', accountId);
-                rateTransferToSelect.setAttribute('data-account-code', foundAccountCode);
+            if (isRateView && rateTransferFromSelect) {
+                // 第二行：rate_transfer_from_account 显示 "Select To Account"（负数）
+                rateTransferFromSelect.textContent = accountDisplayText;
+                rateTransferFromSelect.setAttribute('data-value', accountId);
+                rateTransferFromSelect.setAttribute('data-account-code', foundAccountCode);
                 if (accountCurrency) {
-                    rateTransferToSelect.setAttribute('data-currency', accountCurrency);
+                    rateTransferFromSelect.setAttribute('data-currency', accountCurrency);
                 } else {
-                    rateTransferToSelect.removeAttribute('data-currency');
+                    rateTransferFromSelect.removeAttribute('data-currency');
                 }
             }
         }
