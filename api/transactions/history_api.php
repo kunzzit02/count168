@@ -659,13 +659,15 @@ try {
         switch ($t['transaction_type']) {
             case 'WIN':
                 if (!$is_internal_transfer && $is_to_account) {
-                    $cr_dr = $t['amount'];
+                    // 手动 PROFIT：Select To 显示负数、Select From 显示正数
+                    $cr_dr = $isManualProfit ? -(float)$t['amount'] : (float)$t['amount'];
                 }
                 break;
                 
             case 'LOSE':
                 if (!$is_internal_transfer && $is_to_account) {
-                    $cr_dr = -$t['amount'];
+                    // 手动 PROFIT：Select To 显示负数、Select From 显示正数（LOSE 条是 From 账户，显示正数）
+                    $cr_dr = $isManualProfit ? (float)$t['amount'] : -(float)$t['amount'];
                 }
                 break;
                 
