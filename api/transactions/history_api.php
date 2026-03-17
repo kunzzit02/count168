@@ -1002,17 +1002,13 @@ try {
             $description = preg_replace('/\((?:x|X)\s*([0-9]+(?:\.[0-9]+)?)\)/', '($1)', $description) ?? $description;
         }
 
-        // 第二行 Transfer：只对调后缀 RATE 数值，不改 Transaction TO/FROM 文案方向。
-        // 规则：
-        // - RATE_TRANSFER_TO 行显示净汇率（exchange_rate - middleman_rate）
-        // - RATE_TRANSFER_FROM 行保持原始汇率（description 里原有值）
+        // RATE 后缀：仅 TO 侧显示净汇率（exchange_rate - middleman_rate），FROM 侧保持原始汇率。
+        // 适用于第一行与第二行（RATE_FIRST_TO / RATE_TRANSFER_TO）。
         $displayRateForSuffix = null;
-        if ($entryType === 'RATE_TRANSFER_TO') {
-            $entryAccountId = isset($row['entry_account_id']) ? (int)$row['entry_account_id'] : null;
-            $transferToAccountId = isset($row['rate_transfer_to_account_id']) ? (int)$row['rate_transfer_to_account_id'] : null;
+        if (in_array($entryType, ['RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
             $exchangeRate = isset($row['exchange_rate']) ? (float)$row['exchange_rate'] : null;
             $middlemanRate = isset($row['rate_middleman_rate']) ? (float)$row['rate_middleman_rate'] : null;
-            if ($entryAccountId && $transferToAccountId && $entryAccountId === $transferToAccountId && $exchangeRate !== null && $middlemanRate !== null) {
+            if ($exchangeRate !== null && $middlemanRate !== null) {
                 $netRate = $exchangeRate - $middlemanRate;
                 if ($netRate > 0) {
                     // 保留最多 4 位小数，并去掉多余的 0
