@@ -174,8 +174,10 @@ try {
         }
     }
 
-    // Payment history（PAYMENT、CONTRA）仅显示在 Maintenance - Payment，不在 Maintenance - Transaction 显示
-    $where[] = "t.transaction_type NOT IN ('PAYMENT', 'CONTRA')";
+    // Payment / Receive / Contra / Claim / Rate / Clear / 手动 Profit(WIN/LOSE) 等
+    // 都通过 Transaction Payment / Payment Maintenance 页面维护，
+    // 不在 Maintenance - Transaction 中显示，避免重复。
+    $where[] = "t.transaction_type NOT IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'WIN', 'LOSE')";
 
     $whereSql = 'WHERE ' . implode(' AND ', $where);
 
@@ -389,7 +391,8 @@ try {
                     }
                 }
             }
-            $delWhere .= " AND td.transaction_type NOT IN ('PAYMENT', 'CONTRA')";
+            // 同样排除 Payment / Receive / Contra / Claim / Rate / Clear / WIN / LOSE 的已删除记录
+            $delWhere .= " AND td.transaction_type NOT IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'WIN', 'LOSE')";
             $deletedSql = "
                 SELECT
                     td.transaction_id,
