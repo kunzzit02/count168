@@ -1110,6 +1110,10 @@ try {
             elseif (($event['transaction_type'] ?? '') === 'PAYMENT') {
                 $finalDescription = 'Payment Settlement';
             }
+            // CLAIM 行：统一显示 Claim Settlement
+            elseif (($event['transaction_type'] ?? '') === 'CLAIM') {
+                $finalDescription = 'Claim Settlement';
+            }
         }
         
         $history[] = [
