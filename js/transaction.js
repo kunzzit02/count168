@@ -2288,6 +2288,12 @@ function applyZeroBalanceFilterAndRender() {
             }
         }
 
+        // 有 Cr/Dr 变动时也保留（即使 Balance 恰好为 0），避免单选币别时把有账目的行过滤掉
+        const crdr = parseFloat(row.cr_dr);
+        if (!isNaN(crdr) && Math.abs(crdr) > 0.00001) {
+            return true;
+        }
+
         const num = parseFloat(row.balance);
         if (isNaN(num)) return true;
         return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额（且没有 Win/Loss 的行）
@@ -2378,6 +2384,12 @@ function handlePaymentOnlyFilter() {
                 if (!isNaN(wl) && Math.abs(wl) > 0.00001) {
                     return true;
                 }
+            }
+
+            // 有 Cr/Dr 变动时也保留（即使 Balance 恰好为 0）
+            const crdr = parseFloat(row.cr_dr);
+            if (!isNaN(crdr) && Math.abs(crdr) > 0.00001) {
+                return true;
             }
 
             const num = parseFloat(row.balance);
