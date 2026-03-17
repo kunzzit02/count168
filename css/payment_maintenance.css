@@ -474,7 +474,7 @@ h1 {
 /* 按列设置宽度（thead / tbody 同时生效） */
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 0%;   /* No. */
+    width: 2%;   /* No. */
 }
 
 .maintenance-table th:nth-child(2),
