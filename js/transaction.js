@@ -2596,16 +2596,25 @@ function submitAction() {
         const fromAccountIdValue = getAccountId(rateFromAccountInput);
         const toAccountIdValue = getAccountId(rateToAccountInput);
         
-        // 获取 account_code（显示名称）用于 description
-        // 从自定义下拉选单的 button 中获取 data-account-code
-        let fromAccountCode = '';
-        let toAccountCode = '';
-        if (rateFromAccountInput) {
-            fromAccountCode = rateFromAccountInput.getAttribute('data-account-code') || '';
-        }
-        if (rateToAccountInput) {
-            toAccountCode = rateToAccountInput.getAttribute('data-account-code') || '';
-        }
+        // 通过 account id 反查 account_code，避免按钮 data-account-code 偶发不同步
+        const resolveAccountCodeById = (targetId, fallbackBtn) => {
+            const normalizedId = String(targetId ?? '');
+            if (!normalizedId) {
+                return fallbackBtn?.getAttribute('data-account-code') || '';
+            }
+            for (const [, data] of accountDataMap.entries()) {
+                if (String(data.id) === normalizedId) {
+                    return data.account_id || fallbackBtn?.getAttribute('data-account-code') || '';
+                }
+            }
+            return fallbackBtn?.getAttribute('data-account-code') || '';
+        };
+
+        // 第一行语义：
+        // fromAccountId = Select From（rate_account_to）
+        // accountId     = Select To（rate_account_from）
+        const fromAccountCode = resolveAccountCodeById(fromAccountId, rateToAccountInput);
+        const toAccountCode = resolveAccountCodeById(accountId, rateFromAccountInput);
         
         // 生成两条记录的 description（添加汇率信息）
         // rate_account_from 显示 Select To；rate_account_to 显示 Select From
