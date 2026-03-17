@@ -996,6 +996,13 @@ try {
 
         $description = $row['entry_description'] ?: 'RATE';
 
+        // 第二行 Transfer 已按新规则对调金额，Description 方向也同步对调（from <-> to）
+        if (in_array($entryType, ['RATE_TRANSFER_FROM', 'RATE_TRANSFER_TO'], true)
+            && preg_match('/^Transaction\s+(from|to)\s+(.+)$/i', $description, $m)) {
+            $dir = (strtolower($m[1]) === 'from') ? 'to' : 'from';
+            $description = 'Transaction ' . $dir . ' ' . $m[2];
+        }
+
         // Middle-Man 行：将括号内的倍率从 "x0.3" 显示为 "0.3"（仅文字格式，金额逻辑不变）
         if ($entryType === 'RATE_MIDDLEMAN' && $description) {
             $description = preg_replace('/\((?:x|X)\s*([0-9]+(?:\.[0-9]+)?)\)/', '($1)', $description) ?? $description;
