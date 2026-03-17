@@ -429,13 +429,13 @@
                 
                 tr.setAttribute('data-transaction-id', row.transaction_id);
                 
+                const amountDisplay = formatNumber(row.amount);
                 tr.innerHTML = `
                     <td class="maintenance-table-cell">${index + 1}</td>
                     <td class="maintenance-table-cell">${dateDisplay}</td>
                     <td class="maintenance-table-cell">${accountDisplay}</td>
                     <td class="maintenance-table-cell">${fromDisplay}</td>
-                    <td class="maintenance-table-cell maintenance-cell-currency">${currencyDisplay}</td>
-                    <td class="maintenance-table-cell maintenance-cell-amount">${formatNumber(row.amount)}</td>
+                    <td class="maintenance-table-cell maintenance-cell-amount">${currencyDisplay} ${amountDisplay}</td>
                     <td class="maintenance-table-cell">${safeDescription || '-'}</td>
                     <td class="maintenance-table-cell">${safeRemark || '-'}</td>
                     <td class="maintenance-table-cell">${createdByDisplay}</td>
