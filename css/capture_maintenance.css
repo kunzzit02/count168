@@ -465,7 +465,7 @@ h1 {
 
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 1%;
+    width: 2%;
     text-align: center;
 }
 
