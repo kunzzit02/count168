@@ -496,33 +496,33 @@ h1 {
 
 .maintenance-table th:nth-child(5),
 .maintenance-table td:nth-child(5) {
-    width: 5%;   /* Currency */
+    width: 10%;   /* Currency & Amount*/
 }
 
 .maintenance-table th:nth-child(6),
 .maintenance-table td:nth-child(6) {
-    width: 8%;  /* Amount */
+    width: 15%;  /* Description*/
 }
 
 .maintenance-table th:nth-child(7),
 .maintenance-table td:nth-child(7) {
-    width: 20%;  /* Description */
+    width: 8%;  /* Remark*/
     text-align: center;
 }
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 7%;  /* Remark */
+    width: 7%;  /* Submitted By */
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 8%;   /* Submitted By */
+    width: 8%;   /* Deleted By */
 }
 
 .maintenance-table th:nth-child(10),
 .maintenance-table td:nth-child(10) {
-    width: 15%;   /* Deleted By */
+    width: 3%;   /* Checkbox */
 }
 
 .maintenance-table th:nth-child(11),
