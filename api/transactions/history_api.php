@@ -34,42 +34,6 @@ function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
 }
 
 /**
- * RATE 专用：判断某个账户在当前公司是否需要对调 RATE 的符号
- * 目前仅针对账户代码为 CASH / TEST(04) / TEST04 的账户生效，其余返回 1.0（不做处理）
- */
-function historyGetRateSwapMultiplier(PDO $pdo, int $companyId, int $accountId): float
-{
-    static $cache = [];
-    $key = $companyId . ':' . $accountId;
-    if (isset($cache[$key])) {
-        return $cache[$key];
-    }
-
-    try {
-        $stmt = $pdo->prepare("
-            SELECT UPPER(TRIM(a.account_id)) AS account_code
-            FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE a.id = ? AND ac.company_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$accountId, $companyId]);
-        $code = (string)$stmt->fetchColumn();
-        $code = strtoupper(trim($code));
-
-        if ($code === 'CASH' || $code === 'TEST(04)' || $code === 'TEST04') {
-            $cache[$key] = -1.0;
-        } else {
-            $cache[$key] = 1.0;
-        }
-    } catch (Throwable $e) {
-        $cache[$key] = 1.0;
-    }
-
-    return $cache[$key];
-}
-
-/**
  * 将 entry_type 映射为友好的 Product 显示名称
  */
 function mapEntryTypeToProduct($entryType) {
@@ -1030,12 +994,6 @@ try {
             $amount = -$amount;
         }
 
-        // 仅对特定账户（CASH / TEST04）在 RATE 上做符号对调，其余账户不受影响
-        $entryAccountId = isset($row['entry_account_id']) ? (int)$row['entry_account_id'] : 0;
-        if ($entryAccountId > 0) {
-            $multiplier = historyGetRateSwapMultiplier($pdo, (int)$company_id, $entryAccountId);
-            $amount *= $multiplier;
-        }
         $description = $row['entry_description'] ?: 'RATE';
 
         // Middle-Man 行：将括号内的倍率从 "x0.3" 显示为 "0.3"（仅文字格式，金额逻辑不变）

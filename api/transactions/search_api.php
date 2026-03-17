@@ -39,44 +39,6 @@ function contraApprovedWhere(PDO $pdo, string $alias = 't'): string
 }
 
 /**
- * RATE 专用：判断某个账户在当前公司是否需要对调 RATE 的符号
- * 目前仅针对账户代码为 CASH / TEST(04) / TEST04 的账户生效，其余返回 1.0（不做处理）
- */
-function getRateSwapMultiplier(PDO $pdo, int $companyId, int $accountId): float
-{
-    static $cache = [];
-    $key = $companyId . ':' . $accountId;
-    if (isset($cache[$key])) {
-        return $cache[$key];
-    }
-
-    try {
-        $stmt = $pdo->prepare("
-            SELECT UPPER(TRIM(a.account_id)) AS account_code
-            FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE a.id = ? AND ac.company_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$accountId, $companyId]);
-        $code = (string)$stmt->fetchColumn();
-        $code = strtoupper(trim($code));
-
-        // 仅对这两个账户做 RATE 符号对调，其余账户 multiplier 固定为 1.0
-        if ($code === 'CASH' || $code === 'TEST(04)' || $code === 'TEST04') {
-            $cache[$key] = -1.0;
-        } else {
-            $cache[$key] = 1.0;
-        }
-    } catch (Throwable $e) {
-        // 查询异常时，不影响主流程，直接视为不对调
-        $cache[$key] = 1.0;
-    }
-
-    return $cache[$key];
-}
-
-/**
  * 将 currency 加入列表（根据 currency_id 去重）
  */
 function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $currencyCode): void
@@ -1256,11 +1218,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
           AND h.transaction_date < ?
     ");
     $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
-    $rateBf = (float)$rateStmt->fetchColumn();
-
-    // 仅对特定账户（CASH / TEST04）在 RATE 上做符号对调，其余账户不受影响
-    $multiplier = getRateSwapMultiplier($pdo, (int)$company_id, (int)$account_id);
-    $bf += $rateBf * $multiplier;
+    $bf += $rateStmt->fetchColumn();
     
     return $bf;
 }
@@ -1483,11 +1441,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     ");
     $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
     $rateRow = $rateStmt->fetch(PDO::FETCH_ASSOC);
-    $rateCrDr = (float)($rateRow['cr_dr'] ?? 0);
-
-    // 仅对特定账户（CASH / TEST04）在 RATE 上做符号对调，其余账户不受影响
-    $multiplier = getRateSwapMultiplier($pdo, (int)$company_id, (int)$account_id);
-    $cr_dr += $rateCrDr * $multiplier;
+    $cr_dr += (float)($rateRow['cr_dr'] ?? 0);
     $transaction_count += (int)($rateRow['txn_count'] ?? 0);
 
     return [
