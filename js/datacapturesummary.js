@@ -560,7 +560,7 @@ function saveFormulaSourceForRefresh(opts) {
             rateValuesByKey[stableKey] = rv;
         });
     }
-    const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowsByStableKey: byStableKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey };
+    const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowsByStableKey: byStableKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey, savedAt: Date.now() };
     try {
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
         if (includeRateValue && Object.keys(rateValuesByKey).length > 0) {
@@ -653,23 +653,47 @@ function getSavedSummaryRowData(row, rowsByKey, rowsByStableKey) {
     return (rowsByKey && typeof rowsByKey === 'object') ? (rowsByKey[normKey] || rowsByKey[key] || null) : null;
 }
 
+function readSummaryStateFromLocalStorage() {
+    try {
+        const raw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function getSummaryStateTimestamp(saved) {
+    if (!saved || typeof saved !== 'object') return 0;
+    const ts = Number(saved.savedAt);
+    return Number.isFinite(ts) && ts > 0 ? ts : 0;
+}
+
+function choosePreferredSummaryState(localState, serverState) {
+    const localExists = !!(localState && typeof localState === 'object' && !Array.isArray(localState));
+    const serverExists = !!(serverState && typeof serverState === 'object' && !Array.isArray(serverState));
+    if (localExists && serverExists) {
+        const localTs = getSummaryStateTimestamp(localState);
+        const serverTs = getSummaryStateTimestamp(serverState);
+        if (localTs > 0 || serverTs > 0) {
+            return localTs >= serverTs ? localState : serverState;
+        }
+        return localState;
+    }
+    return localExists ? localState : (serverExists ? serverState : null);
+}
+
 // Restore Formula + Source after load. 优先使用服务端状态，若无则用 localStorage（按 id_product + Account 匹配恢复，行顺序变化也不会贴错行）。
 function restoreFormulaSourceFromRefresh() {
     window._summaryHasRefreshStateToPreserve = false;
-    let saved;
-    // 优先使用进入页面前从服务端拉取的状态，避免仅依赖 localStorage 导致刷新后顺序不稳或数据丢失
-    if (window._summaryStateFromServer && typeof window._summaryStateFromServer === 'object' && !Array.isArray(window._summaryStateFromServer)) {
-        saved = window._summaryStateFromServer;
-        window._summaryStateFromServer = null;
-    } else {
-        try {
-            const raw = localStorage.getItem('capturedTableFormulaSourceForRefresh');
-            if (!raw) return;
-            saved = JSON.parse(raw);
-        } catch (e) {
-            return;
-        }
-    }
+    const localState = readSummaryStateFromLocalStorage();
+    const serverState = (window._summaryStateFromServer && typeof window._summaryStateFromServer === 'object' && !Array.isArray(window._summaryStateFromServer))
+        ? window._summaryStateFromServer
+        : null;
+    let saved = choosePreferredSummaryState(localState, serverState);
+    window._summaryStateFromServer = null;
+    if (!saved) return;
     if (Array.isArray(saved)) {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
         return;

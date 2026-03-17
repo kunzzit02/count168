@@ -1980,8 +1980,10 @@ if ($action === 'save_summary_state' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'processId' => $payload['processId'] ?? null,
             'processCode' => $payload['processCode'] ?? '',
             'rowsByKey' => $payload['rowsByKey'] ?? [],
+            'rowsByStableKey' => $payload['rowsByStableKey'] ?? [],
             'rowOrder' => $payload['rowOrder'] ?? [],
             'rateValuesByKey' => $payload['rateValuesByKey'] ?? [],
+            'savedAt' => $payload['savedAt'] ?? null,
         ]);
         $stmt = $pdo->prepare("
             INSERT INTO data_capture_summary_state (company_id, process_key, state_json, updated_at)
