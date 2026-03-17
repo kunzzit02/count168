@@ -526,6 +526,61 @@ function loadCategories() {
 let accountDataMap = new Map(); // 存储 account display_text -> {id, account_id, currency}
 let allAccountOptions = []; // 存储所有账号选项的完整列表（用于过滤）
 
+function parseBalanceValue(rawBalance) {
+    const parsed = parseFloat(String(rawBalance ?? '').replace(/,/g, '').trim());
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getProfitAccountSignSets() {
+    const positiveIds = new Set();
+    const negativeIds = new Set();
+
+    const collect = (rows, isPositive) => {
+        (rows || []).forEach(row => {
+            const accountId = row && (row.account_db_id ?? row.id);
+            const numericBalance = parseBalanceValue(row && row.balance);
+            if (!accountId || numericBalance === null) return;
+
+            if (isPositive && numericBalance >= 0) {
+                positiveIds.add(String(accountId));
+            }
+            if (!isPositive && numericBalance < 0) {
+                negativeIds.add(String(accountId));
+            }
+        });
+    };
+
+    collect(currentDisplayData.left_table, true);
+    collect(currentDisplayData.right_table, false);
+
+    return { positiveIds, negativeIds };
+}
+
+function isProfitSignFilterEnabled(selectId) {
+    const typeSel = document.getElementById('transaction_type');
+    const type = typeSel ? typeSel.value : '';
+    return type === 'PROFIT' && (selectId === 'action_account_id' || selectId === 'action_account_from');
+}
+
+function isAccountAllowedForProfitSign(selectId, accountId) {
+    if (!isProfitSignFilterEnabled(selectId)) return true;
+    if (!accountId) return false;
+
+    const normalizedId = String(accountId);
+    const { positiveIds, negativeIds } = getProfitAccountSignSets();
+
+    // 没有搜索数据时不强制限制，避免影响其他流程
+    if (positiveIds.size === 0 && negativeIds.size === 0) return true;
+
+    if (selectId === 'action_account_id') {
+        return positiveIds.has(normalizedId);
+    }
+    if (selectId === 'action_account_from') {
+        return negativeIds.has(normalizedId);
+    }
+    return true;
+}
+
 // ==================== 加载账户列表 ====================
 function loadAccounts() {
     const params = new URLSearchParams();
@@ -666,7 +721,10 @@ function initCustomSelects() {
             
             filteredOptions = allOptions.filter(option => {
                 const text = option.textContent.toLowerCase();
-                const matches = !filterLower || text.includes(filterLower);
+                const optionAccountId = option.getAttribute('data-value') || '';
+                const matchesText = !filterLower || text.includes(filterLower);
+                const matchesSign = isAccountAllowedForProfitSign(selectId, optionAccountId);
+                const matches = matchesText && matchesSign;
                 option.style.display = matches ? '' : 'none';
                 return matches;
             });
@@ -2325,6 +2383,20 @@ function submitAction() {
     if (!accountId) {
         showNotification('Please select To Account', 'error');
         return;
+    }
+
+    if (type === 'PROFIT') {
+        const profitFromAccountId = getAccountId(standardToAccountInput);   // UI: Select From Account
+        const profitToAccountId = getAccountId(standardFromAccountInput);   // UI: Select To Account
+
+        if (profitFromAccountId && !isAccountAllowedForProfitSign('action_account_id', profitFromAccountId)) {
+            showNotification('PROFIT: Select From Account must be positive balance', 'error');
+            return;
+        }
+        if (profitToAccountId && !isAccountAllowedForProfitSign('action_account_from', profitToAccountId)) {
+            showNotification('PROFIT: Select To Account must be negative balance', 'error');
+            return;
+        }
     }
     if (!transactionDate) {
         showNotification('Please select transaction date', 'error');
