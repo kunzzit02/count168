@@ -2272,20 +2272,7 @@ function applyZeroBalanceFilterAndRender() {
     const rawLeft = lastSearchData.left_table || [];
     const rawRight = lastSearchData.right_table || [];
 
-    // 默认场景（未勾选 Show Payment Only / Show Win/Loss Only）直接使用后端结果，
-    // 避免前端再次过滤导致单币别（MYR/SGD）行被误隐藏。
-    if (!showPaymentOnly && !showWinLossOnly) {
-        renderTables(rawLeft, rawRight, lastSearchData.totals);
-        return;
-    }
-    
-    // 仅勾选「Show Win/Loss Only」时：完全使用后端返回的数据，不再在前端额外过滤（避免记录数被误删）
-    if (showWinLossOnly && !showPaymentOnly) {
-        renderTables(rawLeft, rawRight, lastSearchData.totals);
-        return;
-    }
-    
-    // 先应用 Show Payment Only / Show Win/Loss 过滤
+    // 先应用 Show Payment Only / Show Win/Loss 过滤（如有）
     // 双勾选时：显示有 Cr/Dr 或有 Win/Loss 的行；仅勾选 Show Payment：只显示有 Cr/Dr 的行
     let filteredLeft = rawLeft;
     let filteredRight = rawRight;
@@ -2337,53 +2324,17 @@ function applyZeroBalanceFilterAndRender() {
         }
     }
     
-    const hasNonZeroMovement = (row) => {
-        const bf = parseBalanceValue(row?.bf);
-        const wl = parseBalanceValue(row?.win_loss);
-        const crdr = parseBalanceValue(row?.cr_dr);
-        const bal = parseBalanceValue(row?.balance);
-        const eps = 0.00001;
-        return (bf !== null && Math.abs(bf) > eps)
-            || (wl !== null && Math.abs(wl) > eps)
-            || (crdr !== null && Math.abs(crdr) > eps)
-            || (bal !== null && Math.abs(bal) > eps);
-    };
-
     // 再应用 Show 0 balance 过滤
     const filterFn = (row) => {
         if (showZero) return true; // 显示所有（包括 0 balance）
 
-        // 如果勾选了 Show Win/Loss Only，则只要该行有 Win/Loss，就保留，不再因为 Balance=0 被过滤掉
-        if (showWinLossOnly) {
-            const wl = parseFloat(row.win_loss);
-            if (!isNaN(wl) && Math.abs(wl) > 0.00001) {
-                return true;
-            }
-        }
-
-        // 有 Cr/Dr 变动时也保留（即使 Balance 恰好为 0），避免单选币别时把有账目的行过滤掉
-        const crdr = parseFloat(row.cr_dr);
-        if (!isNaN(crdr) && Math.abs(crdr) > 0.00001) {
-            return true;
-        }
-
         const num = parseFloat(row.balance);
         if (isNaN(num)) return true;
-        return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额（且没有 Win/Loss 的行）
+        return Math.abs(num) > 0.00001; // 未勾选 Show 0 balance：严格隐藏 balance=0 的行
     };
     
     filteredLeft = filteredLeft.filter(filterFn);
     filteredRight = filteredRight.filter(filterFn);
-
-    // 兜底：若过滤后为空，但原始数据存在非 0 账目，则保留这些非 0 行，避免单选币别时误清空
-    if (filteredLeft.length === 0 && filteredRight.length === 0) {
-        const fallbackLeft = rawLeft.filter(hasNonZeroMovement);
-        const fallbackRight = rawRight.filter(hasNonZeroMovement);
-        if (fallbackLeft.length > 0 || fallbackRight.length > 0) {
-            filteredLeft = fallbackLeft;
-            filteredRight = fallbackRight;
-        }
-    }
     
     // 使用后端 totals（不受前端过滤影响），保证和数据库一致
     renderTables(filteredLeft, filteredRight, lastSearchData.totals);
@@ -2459,52 +2410,14 @@ function handlePaymentOnlyFilter() {
     
     // 再应用 show_zero_balance 过滤（如果启用）
     const showZero = document.getElementById('show_zero_balance')?.checked || false;
-    const hasNonZeroMovement = (row) => {
-        const bf = parseBalanceValue(row?.bf);
-        const wl = parseBalanceValue(row?.win_loss);
-        const crdr = parseBalanceValue(row?.cr_dr);
-        const bal = parseBalanceValue(row?.balance);
-        const eps = 0.00001;
-        return (bf !== null && Math.abs(bf) > eps)
-            || (wl !== null && Math.abs(wl) > eps)
-            || (crdr !== null && Math.abs(crdr) > eps)
-            || (bal !== null && Math.abs(bal) > eps);
-    };
-
     if (!showZero) {
         const filterFn = (row) => {
-            // 如果勾选了 Show Win/Loss Only，则只要该行有 Win/Loss，就保留
-            if (showWinLossOnly) {
-                const wl = parseFloat(row.win_loss);
-                if (!isNaN(wl) && Math.abs(wl) > 0.00001) {
-                    return true;
-                }
-            }
-
-            // 有 Cr/Dr 变动时也保留（即使 Balance 恰好为 0）
-            const crdr = parseFloat(row.cr_dr);
-            if (!isNaN(crdr) && Math.abs(crdr) > 0.00001) {
-                return true;
-            }
-
             const num = parseFloat(row.balance);
             if (isNaN(num)) return true;
-            return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额（且没有 Win/Loss 的行）
+            return Math.abs(num) > 0.00001; // 未勾选 Show 0 balance：严格隐藏 balance=0 的行
         };
         filteredLeft = filteredLeft.filter(filterFn);
         filteredRight = filteredRight.filter(filterFn);
-
-        // 兜底：过滤后为空但存在非 0 账目时，回退到非 0 行，避免误隐藏
-        if (filteredLeft.length === 0 && filteredRight.length === 0) {
-            const rawLeft = lastSearchData.left_table || [];
-            const rawRight = lastSearchData.right_table || [];
-            const fallbackLeft = rawLeft.filter(hasNonZeroMovement);
-            const fallbackRight = rawRight.filter(hasNonZeroMovement);
-            if (fallbackLeft.length > 0 || fallbackRight.length > 0) {
-                filteredLeft = fallbackLeft;
-                filteredRight = fallbackRight;
-            }
-        }
     }
     
     if (filteredLeft.length === 0 && filteredRight.length === 0) {
