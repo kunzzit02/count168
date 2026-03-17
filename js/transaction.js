@@ -2276,6 +2276,18 @@ function applyZeroBalanceFilterAndRender() {
         filteredRight = rawRight.filter(shouldShow);
     }
     
+    const hasNonZeroMovement = (row) => {
+        const bf = parseBalanceValue(row?.bf);
+        const wl = parseBalanceValue(row?.win_loss);
+        const crdr = parseBalanceValue(row?.cr_dr);
+        const bal = parseBalanceValue(row?.balance);
+        const eps = 0.00001;
+        return (bf !== null && Math.abs(bf) > eps)
+            || (wl !== null && Math.abs(wl) > eps)
+            || (crdr !== null && Math.abs(crdr) > eps)
+            || (bal !== null && Math.abs(bal) > eps);
+    };
+
     // 再应用 Show 0 balance 过滤
     const filterFn = (row) => {
         if (showZero) return true; // 显示所有（包括 0 balance）
@@ -2301,6 +2313,16 @@ function applyZeroBalanceFilterAndRender() {
     
     filteredLeft = filteredLeft.filter(filterFn);
     filteredRight = filteredRight.filter(filterFn);
+
+    // 兜底：若过滤后为空，但原始数据存在非 0 账目，则保留这些非 0 行，避免单选币别时误清空
+    if (filteredLeft.length === 0 && filteredRight.length === 0) {
+        const fallbackLeft = rawLeft.filter(hasNonZeroMovement);
+        const fallbackRight = rawRight.filter(hasNonZeroMovement);
+        if (fallbackLeft.length > 0 || fallbackRight.length > 0) {
+            filteredLeft = fallbackLeft;
+            filteredRight = fallbackRight;
+        }
+    }
     
     // 使用后端 totals（不受前端过滤影响），保证和数据库一致
     renderTables(filteredLeft, filteredRight, lastSearchData.totals);
@@ -2376,6 +2398,18 @@ function handlePaymentOnlyFilter() {
     
     // 再应用 show_zero_balance 过滤（如果启用）
     const showZero = document.getElementById('show_zero_balance')?.checked || false;
+    const hasNonZeroMovement = (row) => {
+        const bf = parseBalanceValue(row?.bf);
+        const wl = parseBalanceValue(row?.win_loss);
+        const crdr = parseBalanceValue(row?.cr_dr);
+        const bal = parseBalanceValue(row?.balance);
+        const eps = 0.00001;
+        return (bf !== null && Math.abs(bf) > eps)
+            || (wl !== null && Math.abs(wl) > eps)
+            || (crdr !== null && Math.abs(crdr) > eps)
+            || (bal !== null && Math.abs(bal) > eps);
+    };
+
     if (!showZero) {
         const filterFn = (row) => {
             // 如果勾选了 Show Win/Loss Only，则只要该行有 Win/Loss，就保留
@@ -2398,6 +2432,18 @@ function handlePaymentOnlyFilter() {
         };
         filteredLeft = filteredLeft.filter(filterFn);
         filteredRight = filteredRight.filter(filterFn);
+
+        // 兜底：过滤后为空但存在非 0 账目时，回退到非 0 行，避免误隐藏
+        if (filteredLeft.length === 0 && filteredRight.length === 0) {
+            const rawLeft = lastSearchData.left_table || [];
+            const rawRight = lastSearchData.right_table || [];
+            const fallbackLeft = rawLeft.filter(hasNonZeroMovement);
+            const fallbackRight = rawRight.filter(hasNonZeroMovement);
+            if (fallbackLeft.length > 0 || fallbackRight.length > 0) {
+                filteredLeft = fallbackLeft;
+                filteredRight = fallbackRight;
+            }
+        }
     }
     
     if (filteredLeft.length === 0 && filteredRight.length === 0) {
