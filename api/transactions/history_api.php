@@ -1004,15 +1004,15 @@ try {
 
         // 第二行 Transfer：只对调后缀 RATE 数值，不改 Transaction TO/FROM 文案方向。
         // 规则：
-        // - RATE_TRANSFER_FROM 行显示净汇率（exchange_rate - middleman_rate）
-        // - RATE_TRANSFER_TO 行保持原始汇率（description 里原有值）
+        // - RATE_TRANSFER_TO 行显示净汇率（exchange_rate - middleman_rate）
+        // - RATE_TRANSFER_FROM 行保持原始汇率（description 里原有值）
         $displayRateForSuffix = null;
-        if ($entryType === 'RATE_TRANSFER_FROM') {
+        if ($entryType === 'RATE_TRANSFER_TO') {
             $entryAccountId = isset($row['entry_account_id']) ? (int)$row['entry_account_id'] : null;
-            $transferFromAccountId = isset($row['rate_transfer_from_account_id']) ? (int)$row['rate_transfer_from_account_id'] : null;
+            $transferToAccountId = isset($row['rate_transfer_to_account_id']) ? (int)$row['rate_transfer_to_account_id'] : null;
             $exchangeRate = isset($row['exchange_rate']) ? (float)$row['exchange_rate'] : null;
             $middlemanRate = isset($row['rate_middleman_rate']) ? (float)$row['rate_middleman_rate'] : null;
-            if ($entryAccountId && $transferFromAccountId && $entryAccountId === $transferFromAccountId && $exchangeRate !== null && $middlemanRate !== null) {
+            if ($entryAccountId && $transferToAccountId && $entryAccountId === $transferToAccountId && $exchangeRate !== null && $middlemanRate !== null) {
                 $netRate = $exchangeRate - $middlemanRate;
                 if ($netRate > 0) {
                     // 保留最多 4 位小数，并去掉多余的 0
