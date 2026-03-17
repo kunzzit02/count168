@@ -802,30 +802,31 @@ try {
                     $myrToAmount   = (float)$rate_transfer_to_amount;   // 例如 320
                     $myrCurrencyId = (int)$rate_transfer_currency_id;
 
-                    // 第二行固定对调：
-                    // - Select From（右边下拉）显示 -rate_transfer_to_amount
-                    // - Select To（左边下拉）显示 +rate_transfer_from_amount
-                    // 当前 search/history 会对 RATE_TRANSFER_* 统一再乘以 -1，
-                    // 因此这里写入时需先放“反向金额”以得到最终显示结果。
+                    // 第二行按 search/history 的统一反转规则（展示层会对 RATE_TRANSFER_* 再乘以 -1）：
+                    // - From（右边下拉）最终显示正数
+                    // - To（左边下拉）最终显示负数
+                    // 因此写入 transaction_entry 时需使用：
+                    // - RATE_TRANSFER_FROM: 负数（最终显示正数）
+                    // - RATE_TRANSFER_TO: 正数（最终显示负数）
 
-                    // account3（From）：写入 +toAmount，最终显示 -toAmount
+                    // account3（From）：写入 -fromAmount，最终显示 +fromAmount
                     $entryStmt->execute([
                         $main_transaction_id,
                         $company_id,
                         $rate_transfer_from_account_id,
                         $myrCurrencyId,
-                        $myrToAmount,
+                        -$myrFromAmount,
                         'RATE_TRANSFER_FROM',
                         $rate_transfer_from_description
                     ]);
 
-                    // account4（To）：写入 -fromAmount，最终显示 +fromAmount
+                    // account4（To）：写入 +toAmount，最终显示 -toAmount
                     $entryStmt->execute([
                         $main_transaction_id,
                         $company_id,
                         $rate_transfer_to_account_id,
                         $myrCurrencyId,
-                        -$myrFromAmount,
+                        $myrToAmount,
                         'RATE_TRANSFER_TO',
                         $rate_transfer_to_description
                     ]);

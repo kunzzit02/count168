@@ -2096,15 +2096,15 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 positiveAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            if (isRateView && rateTransferFromSelect) {
-                // 第二行（按你的要求对调）：正数填到左边 rate_transfer_from_account
-                rateTransferFromSelect.textContent = accountDisplayText;
-                rateTransferFromSelect.setAttribute('data-value', accountId);
-                rateTransferFromSelect.setAttribute('data-account-code', foundAccountCode);
+            if (isRateView && rateTransferToSelect) {
+                // 第二行（正负对调）：正数填到右边 rate_transfer_to_account
+                rateTransferToSelect.textContent = accountDisplayText;
+                rateTransferToSelect.setAttribute('data-value', accountId);
+                rateTransferToSelect.setAttribute('data-account-code', foundAccountCode);
                 if (accountCurrency) {
-                    rateTransferFromSelect.setAttribute('data-currency', accountCurrency);
+                    rateTransferToSelect.setAttribute('data-currency', accountCurrency);
                 } else {
-                    rateTransferFromSelect.removeAttribute('data-currency');
+                    rateTransferToSelect.removeAttribute('data-currency');
                 }
             }
         }
@@ -2120,15 +2120,15 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 negativeAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            if (isRateView && rateTransferToSelect) {
-                // 第二行（按你的要求对调）：负数填到右边 rate_transfer_to_account
-                rateTransferToSelect.textContent = accountDisplayText;
-                rateTransferToSelect.setAttribute('data-value', accountId);
-                rateTransferToSelect.setAttribute('data-account-code', foundAccountCode);
+            if (isRateView && rateTransferFromSelect) {
+                // 第二行（正负对调）：负数填到左边 rate_transfer_from_account
+                rateTransferFromSelect.textContent = accountDisplayText;
+                rateTransferFromSelect.setAttribute('data-value', accountId);
+                rateTransferFromSelect.setAttribute('data-account-code', foundAccountCode);
                 if (accountCurrency) {
-                    rateTransferToSelect.setAttribute('data-currency', accountCurrency);
+                    rateTransferFromSelect.setAttribute('data-currency', accountCurrency);
                 } else {
-                    rateTransferToSelect.removeAttribute('data-currency');
+                    rateTransferFromSelect.removeAttribute('data-currency');
                 }
             }
         }
