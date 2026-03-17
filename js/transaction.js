@@ -2760,15 +2760,13 @@ function submitAction() {
         
         // 第二个 Account 和 Middle-Man 的交易记录（如果填写了第二个 account 行）
         if (rateTransferFromAccount && rateTransferToAccount) {
-            // 计算 transfer amount：如果没有填写 rate_transfer_amount，使用 rate_currency_to_amount
-            const transferAmountInput = document.getElementById('rate_transfer_amount');
-            let transferAmountValue = parseFloat(rateTransferAmount) || 0;
-            if (transferAmountValue <= 0) {
-                transferAmountValue = parseFloat(rateCurrencyToAmount) || 0;
-            }
-            
-            // Select To 使用完整金额；Select From 使用扣除 Middle-Man 后的净额
-            let transferToAmountValue = transferAmountValue;
+            // 第二行金额规则：
+            // - Select To：使用毛额（currency_from_amount * exchange_rate）
+            // - Select From：使用净额（毛额 - middle-man）
+            const grossConvertedAmount = (parseFloat(rateCurrencyFromAmount) || 0) * (rateExchangeRate || 0);
+            let transferToAmountValue = grossConvertedAmount > 0
+                ? grossConvertedAmount
+                : (parseFloat(rateCurrencyToAmount) || 0);
             const middlemanAmountValue = (rateMiddlemanAccountId && middlemanAmount > 0) ? middlemanAmount : 0;
             const transferFromNetAmountValue = Math.max(transferToAmountValue - middlemanAmountValue, 0);
 
