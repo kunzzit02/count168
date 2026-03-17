@@ -451,15 +451,15 @@ try {
             
             $rate_transfer_from_account_id = !empty($_POST['rate_transfer_from_account_id']) ? (int)$_POST['rate_transfer_from_account_id'] : null;
             $rate_transfer_to_account_id = !empty($_POST['rate_transfer_to_account_id']) ? (int)$_POST['rate_transfer_to_account_id'] : null;
-            $rate_transfer_from_amount = !empty($_POST['rate_transfer_from_amount']) ? (float)$_POST['rate_transfer_from_amount'] : null;
-            $rate_transfer_to_amount = !empty($_POST['rate_transfer_to_amount']) ? (float)$_POST['rate_transfer_to_amount'] : null;
+            $rate_transfer_from_amount = !empty($_POST['rate_transfer_from_amount']) ? abs((float)$_POST['rate_transfer_from_amount']) : null;
+            $rate_transfer_to_amount = !empty($_POST['rate_transfer_to_amount']) ? abs((float)$_POST['rate_transfer_to_amount']) : null;
             $rate_transfer_from_description = trim($_POST['rate_transfer_from_description'] ?? '');
             $rate_transfer_to_description = trim($_POST['rate_transfer_to_description'] ?? '');
             $rate_transfer_from_currency = trim($_POST['rate_transfer_from_currency'] ?? '');
             $rate_transfer_to_currency = trim($_POST['rate_transfer_to_currency'] ?? '');
             
             $rate_middleman_account_id = !empty($_POST['rate_middleman_account_id']) ? (int)$_POST['rate_middleman_account_id'] : null;
-            $rate_middleman_amount = !empty($_POST['rate_middleman_amount']) ? (float)$_POST['rate_middleman_amount'] : null;
+            $rate_middleman_amount = !empty($_POST['rate_middleman_amount']) ? abs((float)$_POST['rate_middleman_amount']) : null;
             $rate_middleman_description = trim($_POST['rate_middleman_description'] ?? '');
             $rate_middleman_rate = !empty($_POST['rate_middleman_rate']) ? (float)$_POST['rate_middleman_rate'] : null;
             $rate_middleman_currency = trim($_POST['rate_middleman_currency'] ?? $rate_transfer_to_currency ?: $rate_to_currency ?: $rate_from_currency);
@@ -602,6 +602,9 @@ try {
             if ($rate_transfer_from_account_id && $rate_transfer_to_account_id) {
                 if (!$rate_transfer_from_amount || !$rate_transfer_to_amount) {
                     throw new Exception('Transfer Account 必须填写金额');
+                }
+                if ($rate_transfer_from_amount <= 0 || $rate_transfer_to_amount <= 0) {
+                    throw new Exception('Transfer Account 金额必须大于 0');
                 }
                 
                 // 验证 Transfer 账户（只使用 account_company 表）
