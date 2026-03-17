@@ -514,11 +514,13 @@ function saveFormulaSourceForRefresh(opts) {
         const source = sourceCell ? sourceCell.textContent.trim() : '';
         const rateValueCell = cells[7];
         const rateValue = includeRateValue && rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
+        const originalDescription = row.getAttribute('data-original-description') || '';
         const existing = byKey[normKey];
         // 若已存在记录且其中公式/来源/Rate 有有效值，而当前行为空，避免用“空值”覆盖已有数据
         const nextFormula = formula || '';
         const nextSource = source || '';
         const nextRateValue = rateValue || '';
+        const nextDescription = originalDescription || '';
         const shouldPreferExisting =
             existing &&
             (existing.formula || existing.source || existing.rateValue) &&
@@ -531,7 +533,8 @@ function saveFormulaSourceForRefresh(opts) {
             formulaOperators: (row.getAttribute('data-formula-operators') || ''),
             sourcePercent: (row.getAttribute('data-source-percent') || ''),
             rateValue: nextRateValue,
-            rowUid: rowUid
+            rowUid: rowUid,
+            originalDescription: nextDescription
         };
     });
     // 按稳定 key 保存 Rate Value（每行一份），避免 refresh 后因 Formula/Source/Rate 变化造成 key 漂移
@@ -697,6 +700,19 @@ function restoreFormulaSourceFromRefresh() {
         // 恢复 rowUid，确保 refresh 前后同一行具有相同的唯一 ID，便于按 rowOrder 重排
         if (data.rowUid) {
             row.setAttribute('data-row-uid', data.rowUid);
+        }
+        // 恢复原始描述并更新 Id Product 显示（仅在有描述时）
+        if (data.originalDescription !== undefined && data.originalDescription !== null) {
+            const desc = String(data.originalDescription || '').trim();
+            if (desc) {
+                row.setAttribute('data-original-description', desc);
+                if (typeof getProcessValueFromRow === 'function' && typeof updateIdProductWithDescription === 'function') {
+                    const baseId = getProcessValueFromRow(row);
+                    if (baseId) {
+                        updateIdProductWithDescription(baseId, desc);
+                    }
+                }
+            }
         }
         const cells = row.querySelectorAll('td');
 
