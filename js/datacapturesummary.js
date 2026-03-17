@@ -673,12 +673,25 @@ function restoreFormulaSourceFromRefresh() {
 
     const rows = summaryTableBody.querySelectorAll('tr');
     const stableRateValuesByKey = (saved && saved.rateValuesByKey && typeof saved.rateValuesByKey === 'object') ? saved.rateValuesByKey : null;
-    // 即使当前 process 无 Maintenance 模板，也先按 rowsByKey 恢复每行的 Rate Value，避免从 Data Capture submit 进来后全部 rate 消失
+    // 即使当前 process 无 Maintenance 模板，也先按 rowsByKey 恢复每行的 Rate Value 和 Description，
+    // 避免从 Data Capture submit 进来后全部 rate/描述消失
     if (window.currentProcessHadTemplates !== true) {
         rows.forEach((row) => {
             const key = getSummaryRowKey(row);
             const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
             const data = byKey[normKey] || byKey[key];
+            if (data && data.originalDescription !== undefined && data.originalDescription !== null) {
+                const desc = String(data.originalDescription || '').trim();
+                if (desc) {
+                    row.setAttribute('data-original-description', desc);
+                    if (typeof getProcessValueFromRow === 'function' && typeof updateIdProductWithDescription === 'function') {
+                        const baseId = getProcessValueFromRow(row);
+                        if (baseId) {
+                            updateIdProductWithDescription(baseId, desc);
+                        }
+                    }
+                }
+            }
             const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
             const stableRate = (stableRateValuesByKey && stableKey) ? stableRateValuesByKey[stableKey] : null;
             const resolvedRate = (stableRate != null && String(stableRate).trim() !== '')
