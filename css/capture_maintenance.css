@@ -465,12 +465,13 @@ h1 {
 
 .maintenance-table th:nth-child(1),
 .maintenance-table td:nth-child(1) {
-    width: 2%;
+    width: 1%;
+    text-align: center;
 }
 
 .maintenance-table th:nth-child(2),
 .maintenance-table td:nth-child(2) {
-    width: 10%;
+    width: 11%;
 }
 
 .maintenance-table th:nth-child(3),
