@@ -237,12 +237,28 @@ return null;
 // Flag: set true when navigating away by Back or Submit so beforeunload does not save rate values
 window.isNavigatingAwayByBackOrSubmit = false;
 
+// Id Product 规范化：去掉附加在 Id Product 后面的说明文字（例如 "FAH07P1* (红股10%)" -> "FAH07P1*"），
+// 保证在「显示带描述」与「仅显示基础 Id Product」两种场景下，生成的 key 仍然一致。
+function normalizeIdProductForKey(idProduct) {
+    if (!idProduct || typeof idProduct !== 'string') return '';
+    const s = idProduct.trim().replace(/\s+/g, ' ');
+    // 仅当存在「空格+左括号」时才认为是附加描述，避免误伤像 "ABC(NEW)" 这类真正包含括号的代码
+    const idx = s.indexOf(' (');
+    if (idx > 0) {
+        return s.substring(0, idx).trim();
+    }
+    return s;
+}
+
 // 用「Id Product + Account + Currency + Formula + Source + Rate Value」生成内容 key，
 // 确保同一 Id + Account 下，不同币种 / 公式 / 来源 / Rate Value 的多行不会互相覆盖（用于保存公式/Rate 等内容）
 function getSummaryRowKey(row) {
     const cells = row.querySelectorAll('td');
 
-    const idProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+    const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+    const idProduct = typeof normalizeIdProductForKey === 'function'
+        ? normalizeIdProductForKey(rawIdProduct)
+        : rawIdProduct;
     const account = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
     const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
 
@@ -273,7 +289,10 @@ function getSummaryRowKey(row) {
 // 结构：id_product\taccount(identity)\tcurrency\tproductType\tsubOrder
 function getSummaryRowStableKey(row) {
     const cells = row.querySelectorAll('td');
-    const idProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim().replace(/\s+/g, ' ') : '');
+    const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim().replace(/\s+/g, ' ') : '');
+    const idProduct = typeof normalizeIdProductForKey === 'function'
+        ? normalizeIdProductForKey(rawIdProduct)
+        : rawIdProduct;
     const accountCell = cells[1] || null;
     const accountId = accountCell && accountCell.getAttribute ? ((accountCell.getAttribute('data-account-id') || '').trim()) : '';
     const accountText = (accountCell && accountCell.textContent ? accountCell.textContent.trim().replace(/\s+/g, ' ') : '');
@@ -313,7 +332,10 @@ function accountCoreForOrder(account) {
 // 结构：id_product\taccountCore\tcurrency\tproductType
 function getSummaryRowOrderKey(row) {
     const cells = row.querySelectorAll('td');
-    const idProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+    const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+    const idProduct = typeof normalizeIdProductForKey === 'function'
+        ? normalizeIdProductForKey(rawIdProduct)
+        : rawIdProduct;
     const accountRaw = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
     const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
     const accountCore = typeof accountCoreForOrder === 'function'
