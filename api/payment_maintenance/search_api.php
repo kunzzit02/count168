@@ -107,7 +107,12 @@ function getCurrencySchema(PDO $pdo) {
         $schema['currencyFilterField'] = "UPPER(COALESCE(acc_default.currency_code, ''))";
     }
 
-    if ($schema['account_has_currency_column']) {
+    if ($schema['has_currency_id']) {
+        // deleted 表优先使用备份下来的 currency_id，与主表保持一致
+        $schema['deletedSelectCurrency'] = "UPPER(COALESCE(c_del.code, '')) AS currency_code";
+        $schema['deletedCurrencyJoinSql'] = " LEFT JOIN currency c_del ON td.currency_id = c_del.id";
+        $schema['deletedCurrencyFilterField'] = "UPPER(COALESCE(c_del.code, ''))";
+    } elseif ($schema['account_has_currency_column']) {
         $schema['deletedSelectCurrency'] = "UPPER(COALESCE(to_acc.currency, '')) AS currency_code";
         $schema['deletedCurrencyFilterField'] = "UPPER(COALESCE(to_acc.currency, ''))";
     } elseif ($schema['account_has_currency_id_column']) {
@@ -318,14 +323,8 @@ function fetchDeletedTransactions(PDO $pdo, $company_id, $date_from_db, $date_to
     }
     if (!empty($currency_filters) && $schema['deletedCurrencyFilterField'] !== null) {
         $placeholders = implode(',', array_fill(0, count($currency_filters), '?'));
-        $upperCodes = array_map('strtoupper', $currency_filters);
-        $condition = "{$schema['deletedCurrencyFilterField']} IN ($placeholders)";
-        // 兼容早期没有保存 currency_id 的删除记录：当筛选包含 MYR 时，同时包含 currency 为空的历史记录
-        if (in_array('MYR', $upperCodes, true)) {
-            $condition = "({$condition} OR {$schema['deletedCurrencyFilterField']} IS NULL)";
-        }
-        $sql .= " AND {$condition}";
-        $params = array_merge($params, $upperCodes);
+        $sql .= " AND {$schema['deletedCurrencyFilterField']} IN ($placeholders)";
+        $params = array_merge($params, array_map('strtoupper', $currency_filters));
     }
     // 包含所有被删除的交易类型（包括 RATE），以便在 Maintenance - Payment 中用红色删除线展示历史记录
     $sql .= " ORDER BY td.transaction_date DESC, td.created_at DESC";

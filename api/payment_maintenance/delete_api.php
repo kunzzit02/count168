@@ -36,6 +36,7 @@ function ensureTransactionsDeletedTable(PDO $pdo) {
             account_id INT NOT NULL,
             from_account_id INT NULL,
             amount DECIMAL(15, 2) NOT NULL,
+            currency_id INT NULL,
             transaction_date DATE NOT NULL,
             description VARCHAR(500) NULL,
             sms VARCHAR(500) NULL,
@@ -51,6 +52,16 @@ function ensureTransactionsDeletedTable(PDO $pdo) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ";
     $pdo->exec($sql);
+
+    // 兼容已有表结构：若缺少 currency_id 字段则补充
+    try {
+        $colStmt = $pdo->query("SHOW COLUMNS FROM transactions_deleted LIKE 'currency_id'");
+        if ($colStmt->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE transactions_deleted ADD COLUMN currency_id INT NULL AFTER amount");
+        }
+    } catch (PDOException $e) {
+        // 如果修改失败（例如列已存在），忽略错误，避免影响删除流程
+    }
 }
 
 /**
@@ -61,12 +72,12 @@ function backupTransactionsToDeleted(PDO $pdo, array $ids, $company_id, $deleted
     $sql = "
         INSERT INTO transactions_deleted (
             transaction_id, company_id, transaction_type, account_id, from_account_id,
-            amount, transaction_date, description, sms, created_by, created_by_owner, created_at,
+            amount, currency_id, transaction_date, description, sms, created_by, created_by_owner, created_at,
             deleted_by_user_id, deleted_by_owner_id, deleted_at
         )
         SELECT
             t.id AS transaction_id, ? AS company_id, t.transaction_type, t.account_id, t.from_account_id,
-            t.amount, t.transaction_date, t.description, t.sms, t.created_by, t.created_by_owner, t.created_at,
+            t.amount, t.currency_id, t.transaction_date, t.description, t.sms, t.created_by, t.created_by_owner, t.created_at,
             ?, ?, NOW()
         FROM transactions t
         INNER JOIN account a ON t.account_id = a.id
