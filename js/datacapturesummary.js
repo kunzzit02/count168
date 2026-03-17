@@ -492,10 +492,12 @@ function saveFormulaSourceForRefresh(opts) {
     const processCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
     const rows = summaryTableBody.querySelectorAll('tr');
     const byKey = {};
+    const byStableKey = {};
     const rowOrder = [];
     rows.forEach(row => {
         const key = getSummaryRowKey(row);
         const normKey = normalizeSummaryRowKey(key);
+        const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
         // 为每一行分配稳定且唯一的 rowUid，用于在 refresh 前后精确识别同一行
         let rowUid = row.getAttribute('data-row-uid');
         if (!rowUid) {
@@ -526,7 +528,7 @@ function saveFormulaSourceForRefresh(opts) {
             (existing.formula || existing.source || existing.rateValue) &&
             !nextFormula && !nextSource && !nextRateValue;
 
-        byKey[normKey] = shouldPreferExisting ? existing : {
+        const nextData = shouldPreferExisting ? existing : {
             formula: nextFormula,
             source: nextSource,
             sourceColumns: (row.getAttribute('data-source-columns') || ''),
@@ -536,6 +538,15 @@ function saveFormulaSourceForRefresh(opts) {
             rowUid: rowUid,
             originalDescription: nextDescription
         };
+        byKey[normKey] = nextData;
+        if (stableKey) {
+            const existingStable = byStableKey[stableKey];
+            const shouldPreferExistingStable =
+                existingStable &&
+                (existingStable.formula || existingStable.source || existingStable.rateValue || existingStable.originalDescription) &&
+                !nextFormula && !nextSource && !nextRateValue && !nextDescription;
+            byStableKey[stableKey] = shouldPreferExistingStable ? existingStable : nextData;
+        }
     });
     // 按稳定 key 保存 Rate Value（每行一份），避免 refresh 后因 Formula/Source/Rate 变化造成 key 漂移
     const rateValuesByKey = {};
@@ -549,7 +560,7 @@ function saveFormulaSourceForRefresh(opts) {
             rateValuesByKey[stableKey] = rv;
         });
     }
-    const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey };
+    const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowsByStableKey: byStableKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey };
     try {
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
         if (includeRateValue && Object.keys(rateValuesByKey).length > 0) {
@@ -599,8 +610,52 @@ function saveSummaryStateToServer(payload) {
     }).catch(function () {});
 }
 
+function hasRestorableSummaryRowData(data) {
+    if (!data || typeof data !== 'object') return false;
+    const candidateFields = [
+        'formula',
+        'source',
+        'sourceColumns',
+        'formulaOperators',
+        'sourcePercent',
+        'rateValue',
+        'originalDescription',
+        'inputMethod'
+    ];
+    return candidateFields.some(function(field) {
+        const value = data[field];
+        return value != null && String(value).trim() !== '';
+    }) || data.enableInputMethod != null;
+}
+
+function hasRestorableSummaryState(saved) {
+    if (!saved || typeof saved !== 'object') return false;
+    const maps = [saved.rowsByStableKey, saved.rowsByKey];
+    for (let i = 0; i < maps.length; i++) {
+        const map = maps[i];
+        if (!map || typeof map !== 'object') continue;
+        const entries = Object.values(map);
+        for (let j = 0; j < entries.length; j++) {
+            if (hasRestorableSummaryRowData(entries[j])) return true;
+        }
+    }
+    return false;
+}
+
+function getSavedSummaryRowData(row, rowsByKey, rowsByStableKey) {
+    if (!row) return null;
+    const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
+    if (stableKey && rowsByStableKey && typeof rowsByStableKey === 'object' && rowsByStableKey[stableKey]) {
+        return rowsByStableKey[stableKey];
+    }
+    const key = getSummaryRowKey(row);
+    const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+    return (rowsByKey && typeof rowsByKey === 'object') ? (rowsByKey[normKey] || rowsByKey[key] || null) : null;
+}
+
 // Restore Formula + Source after load. 优先使用服务端状态，若无则用 localStorage（按 id_product + Account 匹配恢复，行顺序变化也不会贴错行）。
 function restoreFormulaSourceFromRefresh() {
+    window._summaryHasRefreshStateToPreserve = false;
     let saved;
     // 优先使用进入页面前从服务端拉取的状态，避免仅依赖 localStorage 导致刷新后顺序不稳或数据丢失
     if (window._summaryStateFromServer && typeof window._summaryStateFromServer === 'object' && !Array.isArray(window._summaryStateFromServer)) {
@@ -621,13 +676,17 @@ function restoreFormulaSourceFromRefresh() {
     }
     // 新格式：按 id_product + Account 的 key 恢复
     const byKey = (saved && typeof saved === 'object' && saved.rowsByKey && typeof saved.rowsByKey === 'object') ? saved.rowsByKey : null;
-    if (!byKey || Object.keys(byKey).length === 0) {
+    const byStableKey = (saved && typeof saved === 'object' && saved.rowsByStableKey && typeof saved.rowsByStableKey === 'object') ? saved.rowsByStableKey : null;
+    const hasRowsByKey = !!(byKey && Object.keys(byKey).length > 0);
+    const hasRowsByStableKey = !!(byStableKey && Object.keys(byStableKey).length > 0);
+    if (!hasRowsByKey && !hasRowsByStableKey) {
         // 旧格式 saved.rows (array) 不再按 index 恢复，避免错位
         if (saved && saved.rows && Array.isArray(saved.rows)) {
             try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
         }
         return;
     }
+    window._summaryHasRefreshStateToPreserve = hasRestorableSummaryState(saved);
     const currentId = getCurrentProcessId();
     const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
     const savedId = saved.processId != null ? saved.processId : null;
@@ -649,9 +708,7 @@ function restoreFormulaSourceFromRefresh() {
         rowsForUidRestore.forEach((row) => {
             // 已经有稳定 rowUid 的行直接跳过
             if (row.getAttribute('data-row-uid')) return;
-            const key = getSummaryRowKey(row);
-            const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-            const dataForUid = byKey[normKey] || byKey[key];
+            const dataForUid = getSavedSummaryRowData(row, byKey, byStableKey);
             if (dataForUid && dataForUid.rowUid) {
                 row.setAttribute('data-row-uid', dataForUid.rowUid);
             }
@@ -673,30 +730,25 @@ function restoreFormulaSourceFromRefresh() {
 
     const rows = summaryTableBody.querySelectorAll('tr');
     const stableRateValuesByKey = (saved && saved.rateValuesByKey && typeof saved.rateValuesByKey === 'object') ? saved.rateValuesByKey : null;
-    // 即使当前 process 无 Maintenance 模板，也先按 rowsByKey 恢复每行的 Rate Value，避免从 Data Capture submit 进来后全部 rate 消失
-    if (window.currentProcessHadTemplates !== true) {
-        rows.forEach((row) => {
-            const key = getSummaryRowKey(row);
-            const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-            const data = byKey[normKey] || byKey[key];
-            const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
-            const stableRate = (stableRateValuesByKey && stableKey) ? stableRateValuesByKey[stableKey] : null;
-            const resolvedRate = (stableRate != null && String(stableRate).trim() !== '')
-                ? stableRate
-                : (data && data.rateValue != null ? data.rateValue : '');
-            if (resolvedRate == null || String(resolvedRate).trim() === '') return;
-            const cells = row.querySelectorAll('td');
-            if (cells[7]) cells[7].textContent = String(resolvedRate).trim();
-        });
-        try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
-        if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
-        return;
-    }
     rows.forEach((row) => {
-        const key = getSummaryRowKey(row);
-        const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-        const data = byKey[normKey] || byKey[key];
-        if (!data) return;
+        const data = getSavedSummaryRowData(row, byKey, byStableKey);
+        const cells = row.querySelectorAll('td');
+        const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
+        const stableRate = (stableRateValuesByKey && stableKey) ? stableRateValuesByKey[stableKey] : null;
+        if (!data) {
+            const resolvedRateOnly = (stableRate != null && String(stableRate).trim() !== '') ? stableRate : '';
+            if (resolvedRateOnly !== '' && cells[7]) {
+                cells[7].textContent = String(resolvedRateOnly).trim();
+            }
+            if (cells[8] && typeof applyRateToProcessedAmount === 'function') {
+                const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
+                const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+                const rounded = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount);
+                cells[8].textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(rounded) : String(finalAmount);
+                cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+            }
+            return;
+        }
         // 恢复 rowUid，确保 refresh 前后同一行具有相同的唯一 ID，便于按 rowOrder 重排
         if (data.rowUid) {
             row.setAttribute('data-row-uid', data.rowUid);
@@ -714,8 +766,6 @@ function restoreFormulaSourceFromRefresh() {
                 }
             }
         }
-        const cells = row.querySelectorAll('td');
-
         // 默认使用保存的公式，但如果当前行已经从后端加载了非空公式，则优先保留当前公式，
         // 避免用旧的本地缓存覆盖用户刚刚在其他页面/设备上更新过的公式。
         let formula = data.formula != null ? String(data.formula) : '';
@@ -757,8 +807,6 @@ function restoreFormulaSourceFromRefresh() {
             : 0;
         row.setAttribute('data-base-processed-amount', (baseProcessedAmount != null && !isNaN(baseProcessedAmount)) ? baseProcessedAmount.toString() : '0');
         // 同时恢复 Rate Value：优先使用稳定 key 映射，避免内容 key 变化时 Rate 丢失
-        const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
-        const stableRate = (stableRateValuesByKey && stableKey) ? stableRateValuesByKey[stableKey] : null;
         const resolvedRate = (stableRate != null && String(stableRate).trim() !== '')
             ? stableRate
             : (data.rateValue != null ? data.rateValue : '');
@@ -1481,7 +1529,7 @@ function populateOriginalTableWithColumnAData(tableData) {
                 setTimeout(restoreRateValuesFromRefresh, 80);
             }
             // Maintenance 没有该 process 的 formula 时，Summary 不显示任何 formula（最终保障）
-            if (window.currentProcessHadTemplates !== true) {
+            if (window.currentProcessHadTemplates !== true && window._summaryHasRefreshStateToPreserve !== true) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
                     summaryTableBody.querySelectorAll('tr').forEach((row) => {
