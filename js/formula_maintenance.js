@@ -752,11 +752,11 @@ function renderDataCaptureTable(data) {
             </div>
             <div class="maintenance-list-card-item">${toUpperDisplay(row.product)}</div>
             <div class="maintenance-list-card-item input-method-cell" data-original-input-method="${escapeHtml(row.input_method || '')}">
-                <span class="input-method-display">${toUpperDisplay(row.input_method)}</span>
+                <span class="input-method-display" title="${escapeHtml(row.input_method || '')}">${toUpperDisplay(row.input_method)}</span>
                 <select class="input-method-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">${inputMethodOptionsHtml}</select>
             </div>
             <div class="maintenance-list-card-item formula-cell" data-original-formula="${escapeHtml(row.formula || '')}">
-                <span class="formula-display" style="word-break: break-word;">${toUpperDisplay(row.formula)}</span>
+                <span class="formula-display" style="word-break: break-word;" title="${escapeHtml(row.formula || '')}">${toUpperDisplay(row.formula)}</span>
                 <input type="text" class="formula-input" value="${escapeHtml(row.formula || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
             </div>
             <div class="maintenance-list-card-item description-cell" data-original-description="${escapeHtml(row.description || '')}">
