@@ -2092,12 +2092,12 @@ function handleBalanceClick(balanceCell, isLeftTable) {
             amountInput.value = Math.abs(numericBalance).toFixed(2);
             if (currencyAmountInput) {
                 if (isRateView) {
-                    // RATE 模式：
-                    // 左表（正数行）→ 填入 rate_currency_from_amount（"Select To" 一侧）→ 负数
-                    // 右表（负数行）→ 填入 rate_currency_to_amount（"Select From" 一侧）→ 正数
+                    // RATE 模式（按你的要求）：
+                    // Select From -> 正数；Select To -> 负数
+                    // 这里维持原本左右字段映射，只调整符号方向
                     currencyAmountInput.value = treatAsPositiveRow
-                        ? (-Math.abs(numericBalance)).toFixed(2)
-                        : Math.abs(numericBalance).toFixed(2);
+                        ? Math.abs(numericBalance).toFixed(2)
+                        : (-Math.abs(numericBalance)).toFixed(2);
                 } else {
                     currencyAmountInput.value = Math.abs(numericBalance).toFixed(2);
                 }
