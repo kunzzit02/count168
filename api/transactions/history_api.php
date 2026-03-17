@@ -940,6 +940,10 @@ try {
                     e.description AS entry_description,
                     e.currency_id,
                     c.code AS currency_code,
+                    e.account_id AS entry_account_id,
+                    tr.exchange_rate,
+                    tr.rate_middleman_rate,
+                    tr.rate_transfer_to_account_id,
                     h.id AS header_id,
                     h.transaction_date,
                     h.sms,
@@ -951,6 +955,7 @@ try {
                 FROM transaction_entry e
                 JOIN transactions h ON e.header_id = h.id
                 LEFT JOIN currency c ON e.currency_id = c.id
+                LEFT JOIN transactions_rate tr ON h.id = tr.transaction_id
                 LEFT JOIN user u ON h.created_by = u.id
                 LEFT JOIN owner o ON h.created_by_owner = o.id
                 WHERE h.company_id = ?
@@ -985,7 +990,29 @@ try {
             $amount = -$amount;
         }
         $description = $row['entry_description'] ?: 'RATE';
-        if ($isMemberUser && $description !== 'RATE') {
+
+        // 针对「第二行 Account（Rate Transfer To）」显示净汇率：exchange_rate - middleman_rate
+        // 仅当当前条目是 RATE_TRANSFER_TO 且 account 为 rate_transfer_to_account_id 时生效，其他情况保持原逻辑
+        $displayRateForSuffix = null;
+        if ($entryType === 'RATE_TRANSFER_TO') {
+            $entryAccountId = isset($row['entry_account_id']) ? (int)$row['entry_account_id'] : null;
+            $transferToAccountId = isset($row['rate_transfer_to_account_id']) ? (int)$row['rate_transfer_to_account_id'] : null;
+            $exchangeRate = isset($row['exchange_rate']) ? (float)$row['exchange_rate'] : null;
+            $middlemanRate = isset($row['rate_middleman_rate']) ? (float)$row['rate_middleman_rate'] : null;
+            if ($entryAccountId && $transferToAccountId && $entryAccountId === $transferToAccountId && $exchangeRate !== null && $middlemanRate !== null) {
+                $netRate = $exchangeRate - $middlemanRate;
+                if ($netRate > 0) {
+                    // 保留最多 4 位小数，并去掉多余的 0
+                    $displayRateForSuffix = rtrim(rtrim(number_format($netRate, 4, '.', ''), '0'), '.');
+                }
+            }
+        }
+
+        if ($displayRateForSuffix !== null) {
+            // 先去掉原有的 "(Rate: x)" 后缀，再使用净汇率
+            $baseDescription = stripTrailingRateSuffix($description);
+            $description = $baseDescription . ' (RATE: ' . $displayRateForSuffix . ')';
+        } elseif ($isMemberUser && $description !== 'RATE') {
             $description = stripTrailingRateSuffix($description);
         }
         $transactionCurrency = $row['currency_code'] ?: $bfCurrency;
