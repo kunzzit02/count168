@@ -510,12 +510,12 @@ h1 {
 
 .maintenance-table th:nth-child(8),
 .maintenance-table td:nth-child(8) {
-    width: 7%;  /* Submitted By */
+    width: 5%;  /* Submitted By */
 }
 
 .maintenance-table th:nth-child(9),
 .maintenance-table td:nth-child(9) {
-    width: 8%;   /* Deleted By */
+    width: 12%;   /* Deleted By */
 }
 
 .maintenance-table th:nth-child(10),
