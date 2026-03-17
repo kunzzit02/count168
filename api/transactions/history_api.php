@@ -1059,7 +1059,8 @@ try {
             'remark' => null,
             'created_by' => $transactionCreatedBy,
             'from_currency_code' => $row['from_currency_code'] ?? null,
-            'to_currency_code' => $row['to_currency_code'] ?? null
+            'to_currency_code' => $row['to_currency_code'] ?? null,
+            'entry_type' => $entryType
         ];
     }
     
@@ -1085,15 +1086,22 @@ try {
         $balance_by_currency[$curKey] += (float)($event['win_loss'] ?? 0) + (float)($event['cr_dr'] ?? 0);
         $row_balance = $balance_by_currency[$curKey];
         
-        // 默认使用事件自身的 description；Member Win/Loss 对 RATE 采用货币兑换文案
+        // 默认使用事件自身的 description；Member Win/Loss 对 RATE 做文案优化
         $finalDescription = $event['description'];
         if ($isMemberUser && ($event['source'] ?? '') === 'RATE') {
-            $fromCode = $event['from_currency_code'] ?? null;
-            $toCode = $event['to_currency_code'] ?? null;
-            if ($fromCode && $toCode) {
-                $finalDescription = 'Currency Exchange (' . $fromCode . ' > ' . $toCode . ')';
+            $entryType = $event['entry_type'] ?? '';
+            if ($entryType === 'RATE_MIDDLEMAN') {
+                // Middle-Man 手续费：固定文案
+                $finalDescription = 'FX Markup & Processing Fee';
             } else {
-                $finalDescription = 'Currency Exchange';
+                // 汇率兑换本身：显示 Currency Exchange (FROM > TO)
+                $fromCode = $event['from_currency_code'] ?? null;
+                $toCode = $event['to_currency_code'] ?? null;
+                if ($fromCode && $toCode) {
+                    $finalDescription = 'Currency Exchange (' . $fromCode . ' > ' . $toCode . ')';
+                } else {
+                    $finalDescription = 'Currency Exchange';
+                }
             }
         }
         
