@@ -8278,7 +8278,32 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
             }
         }
     }
-    
+
+    // Fallback: 强制按「去掉说明文字后的 id_product」再比一次，确保像 "FAH07P1* (红股10%)"
+    // 这种把 Description 拼在括号里的情况，仍然只按纯 ID_PRODUCT 匹配。
+    try {
+        const fallbackTarget = (typeof normalizeIdProductText === 'function')
+            ? normalizeIdProductText(processValueResolved)
+            : processValueResolved.trim();
+        if (fallbackTarget) {
+            for (let i = 0; i < tableData.rows.length; i++) {
+                const row = tableData.rows[i];
+                if (row.length > 1 && row[1].type === 'data') {
+                    const raw = row[1].value;
+                    const candidate = (typeof normalizeIdProductText === 'function')
+                        ? normalizeIdProductText(raw)
+                        : String(raw || '').trim();
+                    if (candidate && candidate === fallbackTarget) {
+                        console.log('findProcessRow: Fallback matched row at index:', i, 'by normalized id_product only (ignoring description)');
+                        return row;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('findProcessRow: fallback normalized-id match failed:', e);
+    }
+
     console.error('findProcessRow: No row found for processValue:', processValueResolved, 'rowIndex:', rowIndex);
     return null;
 }
