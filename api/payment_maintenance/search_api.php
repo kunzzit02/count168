@@ -321,7 +321,8 @@ function fetchDeletedTransactions(PDO $pdo, $company_id, $date_from_db, $date_to
         $sql .= " AND {$schema['deletedCurrencyFilterField']} IN ($placeholders)";
         $params = array_merge($params, array_map('strtoupper', $currency_filters));
     }
-    $sql .= " AND td.transaction_type <> 'RATE' ORDER BY td.transaction_date DESC, td.created_at DESC";
+    // 包含所有被删除的交易类型（包括 RATE），以便在 Maintenance - Payment 中用红色删除线展示历史记录
+    $sql .= " ORDER BY td.transaction_date DESC, td.created_at DESC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);

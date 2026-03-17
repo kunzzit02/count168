@@ -977,8 +977,9 @@ try {
         
         $amount = (float)$row['amount'];
         // RATE 第二行/第四行：TO 负数、FROM 正数（与 PAYMENT 一致）
+        // Middle-Man（RATE_MIDDLEMAN）按用户需求在 Payment History 中显示为正数，不再反转符号
         $entryType = $row['entry_type'] ?? '';
-        if (in_array($entryType, ['RATE_FIRST_FROM', 'RATE_TRANSFER_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_TO', 'RATE_MIDDLEMAN'], true)) {
+        if (in_array($entryType, ['RATE_FIRST_FROM', 'RATE_TRANSFER_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
             $amount = -$amount;
         }
         $description = $row['entry_description'] ?: 'RATE';

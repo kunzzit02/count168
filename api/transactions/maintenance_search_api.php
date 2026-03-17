@@ -128,6 +128,10 @@ try {
     $is_bank_category = ($catUpper === 'BANK');
     $is_loan_rate_money = in_array($catUpper, ['LOAN', 'RATE', 'MONEY'], true);
 
+    // 默认不在 Maintenance - Transaction 中显示已删除的交易记录；
+    // 仅当显式传入 include_deleted=1 时，才附加 transactions_deleted / data_captures_deleted 的历史记录
+    $includeDeleted = isset($_GET['include_deleted']) && $_GET['include_deleted'] === '1';
+
     if ($is_loan_rate_money) {
         echo json_encode(['success' => true, 'data' => []]);
         return;
@@ -359,7 +363,9 @@ try {
     }
     }
     // ========== 3. 查询已删除的 Transaction 记录（transactions_deleted，可选；指定 Process 时不查）==========
-    if (empty($process)) {
+    // 为了避免在 Maintenance - Transaction 页面看到已在 Payment Maintenance 中删除的历史记录，
+    // 默认不返回这些已删除记录；仅当 include_deleted=1 且未指定 process 时才附加。
+    if ($includeDeleted && empty($process)) {
     try {
         $check = $pdo->query("SHOW TABLES LIKE 'transactions_deleted'");
         if ($check->rowCount() > 0) {
@@ -462,7 +468,8 @@ try {
     } // end if (empty($process)) — 指定 Process 时不返回已删除的 Transaction
 
     // ========== 4. 查询已删除的 Data Capture 记录（data_captures_deleted，可选；Bank category 不包含）==========
-    if (!$is_bank_category) {
+    // 同样仅在 include_deleted=1 时返回已删除的 Data Capture 记录
+    if ($includeDeleted && !$is_bank_category) {
     try {
         $check = $pdo->query("SHOW TABLES LIKE 'data_captures_deleted'");
         if ($check->rowCount() > 0) {

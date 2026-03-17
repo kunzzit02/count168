@@ -1491,14 +1491,17 @@ function searchTransactions(isInitialLoad) {
                     console.log(`  [${index}] ${row.account_id}:`);
                     console.log(`    原始balance: "${originalBalance}" (类型: ${balanceType})`);
                     console.log(`    清理后balance: ${parsedBalance} (isNaN: ${isNaNResult})`);
-                    console.log(`    >= 0 判断: ${parsedBalance >= 0}`);
+                    console.log(`    > 0 判断: ${parsedBalance > 0}`);
 
-                    if (!isNaNResult && parsedBalance >= 0) {
+                    // 需求：正数的数据显示在左边；Middle-Man 行（is_rate_middleman）也显示在左边并按正数显示
+                    const isRateMiddleman = row.is_rate_middleman === 1 || row.is_rate_middleman === true;
+                    const goLeft = (!isNaNResult && parsedBalance > 0) || isRateMiddleman;
+                    if (goLeft) {
                         newLeftTable.push(row);
-                        console.log(`    ✅ 分配到左表格`);
+                        console.log(`    ✅ 分配到左表格${isRateMiddleman ? '（Middle-Man 正数）' : '（正数）'}`);
                     } else {
                         newRightTable.push(row);
-                        console.log(`    ❌ 分配到右表格`);
+                        console.log(`    ❌ 分配到右表格（非正数）`);
                     }
                 });
 
@@ -1796,6 +1799,17 @@ function createCurrencyTable(tableId, rows) {
     tbody.id = `tbody_${tableId}`;
     
     if (rows && rows.length > 0) {
+        // 在 Rate 模式下，识别当前表单中选择的 Middle-Man 账户，用于正数显示金额
+        const isRateView = isRateTypeSelected && typeof isRateTypeSelected === 'function' ? isRateTypeSelected() : false;
+        let middlemanAccountId = '';
+        if (isRateView) {
+            const middlemanBtn = document.getElementById('rate_middleman_account');
+            if (middlemanBtn) {
+                // 使用内部 account 数据库 ID 与 row.account_db_id 对应，避免显示文本不一致导致匹配失败
+                middlemanAccountId = middlemanBtn.getAttribute('data-value') || '';
+            }
+        }
+        
         // 判断是左边还是右边的表格（根据 tableId 判断）
         const isLeftTable = tableId.includes('_left');
         
@@ -1811,6 +1825,18 @@ function createCurrencyTable(tableId, rows) {
                 ? `transaction-account-cell ${roleClass}` 
                 : 'transaction-account-cell';
             
+            // Middle-Man 行：将 Cr/Dr 和 Balance 显示为正数（后端 is_rate_middleman 或当前表单选的 Middle-Man）
+            let crDrValue = row.cr_dr;
+            let balanceValue = row.balance;
+            const isMiddlemanRow = (row.is_rate_middleman === 1 || row.is_rate_middleman === true) ||
+                (isRateView && middlemanAccountId && String(row.account_db_id) === String(middlemanAccountId));
+            if (isMiddlemanRow) {
+                const nCrDr = parseFloat(crDrValue);
+                const nBalance = parseFloat(balanceValue);
+                if (!isNaN(nCrDr)) crDrValue = Math.abs(nCrDr);
+                if (!isNaN(nBalance)) balanceValue = Math.abs(nBalance);
+            }
+            
             tr.innerHTML = `
                 <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">
                     ${row.account_id}
@@ -1818,8 +1844,8 @@ function createCurrencyTable(tableId, rows) {
                 <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
                 <td>${formatNumber(row.bf)}</td>
                 <td>${formatNumber(row.win_loss)}</td>
-                <td>${formatNumber(row.cr_dr)}</td>
-                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(row.balance)}</td>
+                <td>${formatNumber(crDrValue)}</td>
+                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(balanceValue)}</td>
             `;
             
             // 点击账户单元格打开历史记录
@@ -1863,10 +1889,28 @@ function createCurrencyTable(tableId, rows) {
 
 function calculateTotals(rows) {
     return rows.reduce((totals, row) => {
-        totals.bf += parseFloat(row.bf) || 0;
-        totals.win_loss += parseFloat(row.win_loss) || 0;
-        totals.cr_dr += parseFloat(row.cr_dr) || 0;
-        totals.balance += parseFloat(row.balance) || 0;
+        let bf = parseFloat(row.bf) || 0;
+        let winLoss = parseFloat(row.win_loss) || 0;
+        let crDr = parseFloat(row.cr_dr) || 0;
+        let balance = parseFloat(row.balance) || 0;
+
+        // Middle-Man 行（后端 is_rate_middleman 或当前表单选的 Middle-Man）的 Cr/Dr、Balance 用绝对值参与合计
+        const isRateMiddleman = row.is_rate_middleman === 1 || row.is_rate_middleman === true;
+        const isFormMiddleman = typeof isRateTypeSelected === 'function' && isRateTypeSelected() && (() => {
+            const middlemanBtn = document.getElementById('rate_middleman_account');
+            if (!middlemanBtn) return false;
+            const mid = middlemanBtn.getAttribute('data-value') || '';
+            return mid && String(row.account_db_id) === String(mid);
+        })();
+        if (isRateMiddleman || isFormMiddleman) {
+            crDr = Math.abs(crDr);
+            balance = Math.abs(balance);
+        }
+
+        totals.bf += bf;
+        totals.win_loss += winLoss;
+        totals.cr_dr += crDr;
+        totals.balance += balance;
         return totals;
     }, { bf: 0, win_loss: 0, cr_dr: 0, balance: 0 });
 }
@@ -2719,14 +2763,8 @@ function submitAction() {
                 ensureDefaultDates();
             }
 
-            // 为了保证刚刚提交的 PAYMENT / RECEIVE / CONTRA 等交易账号即使余额变成 0 也能看到，
-            // 自动刷新这一次强制勾选「Show 0 balance」，让列表显示所有账号。
-            const showZeroCheckbox = document.getElementById('show_zero_balance');
-            if (showZeroCheckbox && !showZeroCheckbox.checked) {
-                showZeroCheckbox.checked = true;
-            }
-
-            console.log('🔄 提交成功后立即刷新 Transaction List（含 0 balance）');
+            // 保持用户在 Show 0 balance 上的勾选状态，不再强制勾选
+            console.log('🔄 提交成功后立即刷新 Transaction List（保持当前 Show 0 balance 状态）');
             if (typeof searchTransactions === 'function') {
                 searchTransactions();
             }

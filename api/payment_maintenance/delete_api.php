@@ -105,6 +105,70 @@ function deleteTransactions(PDO $pdo, array $ids, $company_id) {
 }
 
 /**
+ * 根据 Rate 分组，扩展需要删除的 transaction_id 列表
+ *
+ * 场景：
+ * - 一笔换汇会生成一组交易（TEST02 / TEST01 / CASH / PROFIT 等），它们通过 transactions_rate_details.rate_group_id 关联
+ * - Maintenance - Payment 勾选时，只会传入其中部分 transaction_id（例如 TEST02 的主交易）
+ * - 为了做到「整组一起删除」，需要把同组的其它 transaction_id 一并加入删除列表
+ *
+ * 如果没有 transactions_rate_details 表，或当前公司没有对应记录，则直接返回原始 ID 列表。
+ */
+function expandTransactionIdsByRateGroup(PDO $pdo, array $ids, int $company_id): array {
+    if (empty($ids)) {
+        return $ids;
+    }
+
+    try {
+        $check = $pdo->query("SHOW TABLES LIKE 'transactions_rate_details'");
+        if (!$check || $check->rowCount() === 0) {
+            return $ids;
+        }
+    } catch (PDOException $e) {
+        return $ids;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+    // 1. 找出这些交易所属的所有 rate_group_id
+    $sqlGroups = "
+        SELECT DISTINCT rate_group_id
+        FROM transactions_rate_details
+        WHERE transaction_id IN ($placeholders)
+          AND company_id = ?
+    ";
+    $stmtGroups = $pdo->prepare($sqlGroups);
+    $paramsGroups = array_merge($ids, [$company_id]);
+    $stmtGroups->execute($paramsGroups);
+    $groupIds = $stmtGroups->fetchAll(PDO::FETCH_COLUMN);
+
+    if (empty($groupIds)) {
+        return $ids;
+    }
+
+    // 2. 找出这些 rate_group_id 下的所有 transaction_id
+    $groupPlaceholders = implode(',', array_fill(0, count($groupIds), '?'));
+    $sqlTx = "
+        SELECT DISTINCT transaction_id
+        FROM transactions_rate_details
+        WHERE rate_group_id IN ($groupPlaceholders)
+          AND company_id = ?
+    ";
+    $stmtTx = $pdo->prepare($sqlTx);
+    $paramsTx = array_merge($groupIds, [$company_id]);
+    $stmtTx->execute($paramsTx);
+    $extraIds = $stmtTx->fetchAll(PDO::FETCH_COLUMN);
+
+    if (empty($extraIds)) {
+        return $ids;
+    }
+
+    $allIds = array_map('intval', array_merge($ids, $extraIds));
+    $allIds = array_values(array_unique(array_filter($allIds, fn($id) => $id > 0)));
+    return $allIds;
+}
+
+/**
  * 删除 Transaction List 搜索缓存
  *
  * Transaction List 使用 api/transactions/search_api.php，并在系统临时目录下
@@ -154,6 +218,9 @@ try {
     if (empty($ids)) {
         throw new Exception('无效的交易记录');
     }
+
+    // 根据 Rate 分组扩展：把同一 rate_group_id 下的所有交易一起删除
+    $ids = expandTransactionIdsByRateGroup($pdo, $ids, $company_id);
 
     $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
     $userId = (int) $_SESSION['user_id'];
