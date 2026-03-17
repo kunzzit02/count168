@@ -1877,7 +1877,7 @@ function createCurrencyTable(tableId, rows) {
                 <td>${formatNumber(row.bf)}</td>
                 <td>${formatNumber(row.win_loss)}</td>
                 <td>${formatNumber(crDrValue)}</td>
-                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(balanceValue)}</td>
+                <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(balanceValue)}</td>
             `;
             
             // 点击账户单元格打开历史记录
@@ -1952,16 +1952,18 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     const accountId = balanceCell.getAttribute('data-account-id');
     const accountCode = balanceCell.getAttribute('data-account-code') || '';
     const balance = balanceCell.getAttribute('data-balance');
+    const rowCrDr = balanceCell.getAttribute('data-crdr');
     const currency = balanceCell.getAttribute('data-currency');
     
     const isRateView = isRateTypeSelected();
     const currentType = document.getElementById('transaction_type')?.value || '';
     const isProfitType = !isRateView && currentType === 'PROFIT';
     const numericBalance = parseBalanceValue(balance);
-    // PROFIT 场景下，以点击行的 balance 正负为准（避免左右表识别偏差）
-    const treatAsPositiveRow = isProfitType
-        ? (numericBalance === null ? isLeftTable : numericBalance >= 0)
-        : isLeftTable;
+    const numericCrDr = parseBalanceValue(rowCrDr);
+    // RATE 场景以当前行 Cr/Dr 正负决定 From/To；其余场景沿用原逻辑
+    const treatAsPositiveRow = isRateView
+        ? (numericCrDr === null || Math.abs(numericCrDr) < 0.00001 ? isLeftTable : numericCrDr > 0)
+        : (isProfitType ? (numericBalance === null ? isLeftTable : numericBalance >= 0) : isLeftTable);
     
     // 获取表单元素
     // RATE 页面两个按钮的显示文案与 id 命名是反的：
@@ -2194,7 +2196,7 @@ function fillTable(tbodyId, tableId, data) {
             <td>${formatNumber(row.bf)}</td>
             <td>${formatNumber(row.win_loss)}</td>
             <td>${formatNumber(row.cr_dr)}</td>
-            <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(row.balance)}</td>
+            <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(row.balance)}</td>
         `;
         tr.querySelector('.transaction-account-cell').addEventListener('click', function() {
             openHistoryModal(this.getAttribute('data-account-id'), this.getAttribute('data-account-code'), this.getAttribute('data-account-name'), this.getAttribute('data-currency'));
