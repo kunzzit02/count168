@@ -120,7 +120,7 @@ if (!empty($session_company_id)) {
                 <thead>
                     <tr>
                         <th>No.</th>
-                        <th>Dts Created</th>
+                        <th>Created At</th>
                         <th>Process</th>
                         <th>Account</th>
                         <th>Description</th>
@@ -130,7 +130,7 @@ if (!empty($session_company_id)) {
                         <th>Rate</th>
                         <th>Cr</th>
                         <th>Dr</th>
-                        <th>Created By</th>
+                        <th>Submitter</th>
                     </tr>
                 </thead>
                 <tbody id="dataTableBody">
