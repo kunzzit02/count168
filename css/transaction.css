@@ -223,6 +223,13 @@ body.transaction-page {
     position: relative;
 }
 
+/* Account 这两个下拉（To / From）允许文字换行，避免 PROFIT 之类账号名称被截断 */
+.transaction-page .transaction-account-inputs .custom-select-button {
+    white-space: normal;
+    text-overflow: clip;
+    line-height: 1.2;
+}
+
 .transaction-page .custom-select-button::after {
     content: '▼';
     position: absolute;
