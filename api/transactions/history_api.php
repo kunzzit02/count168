@@ -943,6 +943,7 @@ try {
                     e.account_id AS entry_account_id,
                     tr.exchange_rate,
                     tr.rate_middleman_rate,
+                    tr.rate_transfer_from_account_id,
                     tr.rate_transfer_to_account_id,
                     cf.code AS from_currency_code,
                     ct.code AS to_currency_code,
@@ -996,27 +997,22 @@ try {
 
         $description = $row['entry_description'] ?: 'RATE';
 
-        // 第二行 Transfer 已按新规则对调金额，Description 方向也同步对调（from <-> to）
-        if (in_array($entryType, ['RATE_TRANSFER_FROM', 'RATE_TRANSFER_TO'], true)
-            && preg_match('/^Transaction\s+(from|to)\s+(.+)$/i', $description, $m)) {
-            $dir = (strtolower($m[1]) === 'from') ? 'to' : 'from';
-            $description = 'Transaction ' . $dir . ' ' . $m[2];
-        }
-
         // Middle-Man 行：将括号内的倍率从 "x0.3" 显示为 "0.3"（仅文字格式，金额逻辑不变）
         if ($entryType === 'RATE_MIDDLEMAN' && $description) {
             $description = preg_replace('/\((?:x|X)\s*([0-9]+(?:\.[0-9]+)?)\)/', '($1)', $description) ?? $description;
         }
 
-        // 针对「第二行 Account（Rate Transfer To）」显示净汇率：exchange_rate - middleman_rate
-        // 仅当当前条目是 RATE_TRANSFER_TO 且 account 为 rate_transfer_to_account_id 时生效，其他情况保持原逻辑
+        // 第二行 Transfer：只对调后缀 RATE 数值，不改 Transaction TO/FROM 文案方向。
+        // 规则：
+        // - RATE_TRANSFER_FROM 行显示净汇率（exchange_rate - middleman_rate）
+        // - RATE_TRANSFER_TO 行保持原始汇率（description 里原有值）
         $displayRateForSuffix = null;
-        if ($entryType === 'RATE_TRANSFER_TO') {
+        if ($entryType === 'RATE_TRANSFER_FROM') {
             $entryAccountId = isset($row['entry_account_id']) ? (int)$row['entry_account_id'] : null;
-            $transferToAccountId = isset($row['rate_transfer_to_account_id']) ? (int)$row['rate_transfer_to_account_id'] : null;
+            $transferFromAccountId = isset($row['rate_transfer_from_account_id']) ? (int)$row['rate_transfer_from_account_id'] : null;
             $exchangeRate = isset($row['exchange_rate']) ? (float)$row['exchange_rate'] : null;
             $middlemanRate = isset($row['rate_middleman_rate']) ? (float)$row['rate_middleman_rate'] : null;
-            if ($entryAccountId && $transferToAccountId && $entryAccountId === $transferToAccountId && $exchangeRate !== null && $middlemanRate !== null) {
+            if ($entryAccountId && $transferFromAccountId && $entryAccountId === $transferFromAccountId && $exchangeRate !== null && $middlemanRate !== null) {
                 $netRate = $exchangeRate - $middlemanRate;
                 if ($netRate > 0) {
                     // 保留最多 4 位小数，并去掉多余的 0
