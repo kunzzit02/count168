@@ -2767,14 +2767,14 @@ function submitAction() {
                 transferAmountValue = parseFloat(rateCurrencyToAmount) || 0;
             }
             
-            // 🔧 修复：Transfer To Account 使用完整金额，不扣除手续费
-            // 根据用户需求：第四条记录（PROFIT）应该增加完整金额 318.40，手续费通过第五条记录单独处理
-            let transferToAmountValue = transferAmountValue; // 使用完整金额，不扣除手续费
-            
-            const originalTransferFromAmount = (parseFloat(rateCurrencyFromAmount) || 0) * (rateExchangeRate || 0);
+            // Select To 使用完整金额；Select From 使用扣除 Middle-Man 后的净额
+            let transferToAmountValue = transferAmountValue;
+            const middlemanAmountValue = (rateMiddlemanAccountId && middlemanAmount > 0) ? middlemanAmount : 0;
+            const transferFromNetAmountValue = Math.max(transferToAmountValue - middlemanAmountValue, 0);
+
             formData.append('rate_transfer_from_account_id', rateTransferFromAccountId);
             formData.append('rate_transfer_from_currency', rateCurrencyToSelect?.value || '');
-            formData.append('rate_transfer_from_amount', originalTransferFromAmount.toFixed(2));
+            formData.append('rate_transfer_from_amount', transferFromNetAmountValue.toFixed(2));
             formData.append('rate_transfer_from_description', transferFromAccountDescription);
             
             // Transfer To Account 记录：增加完整金额（不扣除手续费）
