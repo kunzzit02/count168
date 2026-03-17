@@ -250,8 +250,8 @@ function normalizeIdProductForKey(idProduct) {
     return s;
 }
 
-// 用「Id Product + Account + Currency + Formula + Source + Rate Value」生成内容 key，
-// 确保同一 Id + Account 下，不同币种 / 公式 / 来源 / Rate Value 的多行不会互相覆盖（用于保存公式/Rate 等内容）
+// 用「Id Product(去描述) + 原始 Description + Account + Currency + Formula + Source + Rate Value」生成内容 key，
+// 确保同一基础 Id + Account 下，不同描述 / 币种 / 公式 / 来源 / Rate Value 的多行不会互相覆盖（用于保存公式/Rate 等内容）
 function getSummaryRowKey(row) {
     const cells = row.querySelectorAll('td');
 
@@ -259,6 +259,8 @@ function getSummaryRowKey(row) {
     const idProduct = typeof normalizeIdProductForKey === 'function'
         ? normalizeIdProductForKey(rawIdProduct)
         : rawIdProduct;
+    // 使用行上的原始描述（不从单元格文本重新解析），确保带描述与不带描述的行在 key 上可区分
+    const description = (row && row.getAttribute) ? (row.getAttribute('data-original-description') || '') : '';
     const account = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
     const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
 
@@ -278,6 +280,7 @@ function getSummaryRowKey(row) {
     return [
         idProduct,
         account,
+        description,
         currency,
         formula,
         source,
@@ -511,13 +514,23 @@ function saveFormulaSourceForRefresh(opts) {
         const source = sourceCell ? sourceCell.textContent.trim() : '';
         const rateValueCell = cells[7];
         const rateValue = includeRateValue && rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
-        byKey[normKey] = {
-            formula: formula || '',
-            source: source || '',
+        const existing = byKey[normKey];
+        // 若已存在记录且其中公式/来源/Rate 有有效值，而当前行为空，避免用“空值”覆盖已有数据
+        const nextFormula = formula || '';
+        const nextSource = source || '';
+        const nextRateValue = rateValue || '';
+        const shouldPreferExisting =
+            existing &&
+            (existing.formula || existing.source || existing.rateValue) &&
+            !nextFormula && !nextSource && !nextRateValue;
+
+        byKey[normKey] = shouldPreferExisting ? existing : {
+            formula: nextFormula,
+            source: nextSource,
             sourceColumns: (row.getAttribute('data-source-columns') || ''),
             formulaOperators: (row.getAttribute('data-formula-operators') || ''),
             sourcePercent: (row.getAttribute('data-source-percent') || ''),
-            rateValue: rateValue || '',
+            rateValue: nextRateValue,
             rowUid: rowUid
         };
     });
@@ -18455,18 +18468,11 @@ async function submitSummaryData() {
             
             // Extract product ID：id_product 整串保留（含冒号等），与资料库一致
             let cleanIdProductMain = '';
-            let descriptionMain = '';
+            // Description 不再从单元格文本重新截取，而是统一使用行上的 data-original-description，
+            // 避免像 "FAH07P1* (红股10%)" 这类已经带描述的值在再次提交时被误判为“无描述”并清空。
+            let descriptionMain = row.getAttribute('data-original-description') || '';
             if (idProductMainRaw) {
                 cleanIdProductMain = idProductMainRaw.trim();
-                // 如果单元格文本中在主产品后面还有括号内容（例如 "IK-SPORT (红股)"），
-                // 将括号内的文字提取为 descriptionMain，方便在 Payment History 中显示为 "IK-SPORT (红股)"。
-                if (idProductCellText && idProductCellText.length > cleanIdProductMain.length) {
-                    const trailing = idProductCellText.substring(cleanIdProductMain.length).trim();
-                    const bracketMatch = trailing.match(/\(([^)]+)\)\s*$/);
-                    if (bracketMatch && bracketMatch[1]) {
-                        descriptionMain = bracketMatch[1].trim();
-                    }
-                }
             }
             let cleanIdProductSub = '';
             let descriptionSub = '';
