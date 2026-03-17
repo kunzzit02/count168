@@ -450,6 +450,7 @@ if (!empty($target_account_ids)) {
             // 补充：账户在日期范围内有交易（含 WIN/LOSE/PROFIT）的货币，确保有 PROFIT 的账户能显示
             $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
             if ($stmt->rowCount() > 0) {
+                // 新环境：transactions 有 currency_id，直接按 currency_id 收集
                 $txn_cur_stmt = $pdo->prepare("
                     SELECT DISTINCT t.currency_id, UPPER(c.code) AS currency_code
                     FROM transactions t
@@ -460,13 +461,41 @@ if (!empty($target_account_ids)) {
                 ");
                 $txn_cur_stmt->execute([$company_id, $account_id, $date_from_db, $date_to_db]);
                 foreach ($txn_cur_stmt->fetchAll(PDO::FETCH_ASSOC) as $tc) {
-                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $tc['currency_id'] ?? null, $tc['currency_code'] ?? null);
+                    addAccountCurrencyCombo(
+                        $account_currencies,
+                        $account_currency_ids,
+                        $tc['currency_id'] ?? null,
+                        $tc['currency_code'] ?? null
+                    );
                 }
+            } else {
+                // 旧环境：transactions 没有 currency_id 时，从 data_capture_details 里补充本期有数据的币别
+                // 仅在存在 currency 筛选时启用，避免影响原有「全部币别」逻辑
                 if (!empty($filter_currency_codes)) {
-                    $account_currencies = array_values(array_filter($account_currencies, function($ac) use ($filter_currency_codes) {
-                        return in_array(strtoupper($ac['currency_code'] ?? ''), $filter_currency_codes);
-                    }));
+                    $dc_cur_stmt = $pdo->prepare("
+                        SELECT DISTINCT dcd.currency_id, UPPER(c.code) AS currency_code
+                        FROM data_capture_details dcd
+                        INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+                        INNER JOIN currency c ON dcd.currency_id = c.id AND c.company_id = ?
+                        WHERE CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+                          AND dcd.currency_id IS NOT NULL
+                          AND dc.capture_date BETWEEN ? AND ?
+                    ");
+                    $dc_cur_stmt->execute([$company_id, $account_id, $date_from_db, $date_to_db]);
+                    foreach ($dc_cur_stmt->fetchAll(PDO::FETCH_ASSOC) as $dc) {
+                        addAccountCurrencyCombo(
+                            $account_currencies,
+                            $account_currency_ids,
+                            $dc['currency_id'] ?? null,
+                            $dc['currency_code'] ?? null
+                        );
+                    }
                 }
+            }
+            if (!empty($filter_currency_codes)) {
+                $account_currencies = array_values(array_filter($account_currencies, function($ac) use ($filter_currency_codes) {
+                    return in_array(strtoupper($ac['currency_code'] ?? ''), $filter_currency_codes);
+                }));
             }
         } else {
             // 未勾选 Show 0 balance 或没有 account_currency 表：沿用原逻辑（data_capture + transactions + 全公司货币）
