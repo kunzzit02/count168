@@ -1086,22 +1086,29 @@ try {
         $balance_by_currency[$curKey] += (float)($event['win_loss'] ?? 0) + (float)($event['cr_dr'] ?? 0);
         $row_balance = $balance_by_currency[$curKey];
         
-        // 默认使用事件自身的 description；Member Win/Loss 对 RATE 做文案优化
+        // 默认使用事件自身的 description；Member Win/Loss 对 RATE / PAYMENT 做文案优化
         $finalDescription = $event['description'];
-        if ($isMemberUser && ($event['source'] ?? '') === 'RATE') {
-            $entryType = $event['entry_type'] ?? '';
-            if ($entryType === 'RATE_MIDDLEMAN') {
-                // Middle-Man 手续费：固定文案
-                $finalDescription = 'FX Markup & Processing Fee';
-            } else {
-                // 汇率兑换本身：显示 Currency Exchange (FROM > TO)
-                $fromCode = $event['from_currency_code'] ?? null;
-                $toCode = $event['to_currency_code'] ?? null;
-                if ($fromCode && $toCode) {
-                    $finalDescription = 'Currency Exchange (' . $fromCode . ' > ' . $toCode . ')';
+        if ($isMemberUser) {
+            // RATE 行：Currency Exchange / FX Markup 文案
+            if (($event['source'] ?? '') === 'RATE') {
+                $entryType = $event['entry_type'] ?? '';
+                if ($entryType === 'RATE_MIDDLEMAN') {
+                    // Middle-Man 手续费：固定文案
+                    $finalDescription = 'FX Markup & Processing Fee';
                 } else {
-                    $finalDescription = 'Currency Exchange';
+                    // 汇率兑换本身：显示 Currency Exchange (FROM > TO)
+                    $fromCode = $event['from_currency_code'] ?? null;
+                    $toCode = $event['to_currency_code'] ?? null;
+                    if ($fromCode && $toCode) {
+                        $finalDescription = 'Currency Exchange (' . $fromCode . ' > ' . $toCode . ')';
+                    } else {
+                        $finalDescription = 'Currency Exchange';
+                    }
                 }
+            }
+            // PAYMENT 行：统一显示 Payment Settlement
+            elseif (($event['transaction_type'] ?? '') === 'PAYMENT') {
+                $finalDescription = 'Payment Settlement';
             }
         }
         
