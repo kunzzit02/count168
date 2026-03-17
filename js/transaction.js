@@ -581,7 +581,7 @@ function isAccountAllowedForProfitSign(selectId, accountId) {
     return true;
 }
 
-// 下拉列表里的显示：为了方便选择，不再按正负号过滤，全部账号都显示
+image.png// 下拉列表里的显示：为了方便选择，不再按正负号过滤，全部账号都显示
 function isAccountVisibleInDropdown(selectId, accountId) {
     // PROFIT 也返回 true，只在提交校验时用 isAccountAllowedForProfitSign 限制
     return true;

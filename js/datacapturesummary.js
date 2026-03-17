@@ -10040,8 +10040,14 @@ function evaluateExpression(expression) {
         // Validate that the expression doesn't contain invalid characters
         // Allow: numbers, operators (+-*/), parentheses, decimal points, spaces
         if (!/^[0-9+\-*/().\s]+$/.test(jsExpression)) {
-            console.warn('Expression contains invalid characters:', jsExpression);
-            return 0;
+            console.warn('Expression contains invalid characters, trying to sanitize:', jsExpression);
+            // 尽量保留可识别的数字与运算符，其余全部移除作为兜底
+            jsExpression = jsExpression.replace(/[^0-9+\-*/().\s]/g, '').trim();
+            // 若清理后仍然为空，则只能返回 0（与原来的行为一致）
+            if (!jsExpression) {
+                console.warn('Expression still invalid after sanitization, fallback to 0.');
+                return 0;
+            }
         }
         
         // Remove spaces for cleaner evaluation
