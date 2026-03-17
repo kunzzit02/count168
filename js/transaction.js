@@ -2198,6 +2198,13 @@ function applyZeroBalanceFilterAndRender() {
     const showWinLossOnly = document.getElementById('show_capture_only')?.checked || false;
     const rawLeft = lastSearchData.left_table || [];
     const rawRight = lastSearchData.right_table || [];
+
+    // 默认场景（未勾选 Show Payment Only / Show Win/Loss Only）直接使用后端结果，
+    // 避免前端再次过滤导致单币别（MYR/SGD）行被误隐藏。
+    if (!showPaymentOnly && !showWinLossOnly) {
+        renderTables(rawLeft, rawRight, lastSearchData.totals);
+        return;
+    }
     
     // 仅勾选「Show Win/Loss Only」时：完全使用后端返回的数据，不再在前端额外过滤（避免记录数被误删）
     if (showWinLossOnly && !showPaymentOnly) {
