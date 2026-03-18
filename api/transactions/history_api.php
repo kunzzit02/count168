@@ -1173,8 +1173,29 @@ try {
             if (($event['source'] ?? '') === 'RATE') {
                 $entryType = $event['entry_type'] ?? '';
                 if ($entryType === 'RATE_MIDDLEMAN') {
-                    // Middle-Man 手续费：固定文案
-                    $finalDescription = 'FX Markup & Processing Fee';
+                    // Middle-Man：显示 Markup (FROM amount > TO) Rate x
+                    $fromCode = $event['from_currency_code'] ?? null;
+                    $toCode = $event['to_currency_code'] ?? null;
+                    $fromAmount = $event['rate_from_amount'] ?? null;
+                    $exchangeRate = $event['exchange_rate'] ?? null;
+                    if ($fromCode && $toCode) {
+                        $finalDescription = 'Markup (' . $fromCode;
+                        if ($fromAmount !== null && $fromAmount !== '') {
+                            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
+                            if ($formattedAmount !== '') {
+                                $finalDescription .= ' ' . $formattedAmount;
+                            }
+                        }
+                        $finalDescription .= ' > ' . $toCode . ')';
+                        if ($exchangeRate !== null && $exchangeRate !== '') {
+                            $formattedRate = rtrim(rtrim(number_format((float)$exchangeRate, 6, '.', ''), '0'), '.');
+                            if ($formattedRate !== '') {
+                                $finalDescription .= ' Rate ' . $formattedRate;
+                            }
+                        }
+                    } else {
+                        $finalDescription = 'Markup';
+                    }
                 } else {
                     // 汇率兑换本身：显示 Currency Exchange (FROM amount > TO) Rate x
                     $fromCode = $event['from_currency_code'] ?? null;
