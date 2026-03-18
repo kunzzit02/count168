@@ -67,7 +67,7 @@ function stripTrailingRateSuffix(string $description): string
  * 将旧版 RATE 描述改为：
  * EXCH RATE {rate} {from} > {to} | TO/FROM {account}
  */
-function formatExchangeRateDescription(string $description, ?string $fromCurrencyCode = null, ?string $toCurrencyCode = null, $rateOverride = null): string
+function formatExchangeRateDescription(string $description, ?string $fromCurrencyCode = null, ?string $toCurrencyCode = null, $rateOverride = null, $fromAmount = null): string
 {
     if (!preg_match('/^Transaction\s+(from|to)\s+(.+?)\s*\((?:Rate|RATE):\s*([^)]+)\)\s*$/i', $description, $matches)) {
         return $description;
@@ -82,6 +82,13 @@ function formatExchangeRateDescription(string $description, ?string $fromCurrenc
     $formatted = 'EXCH RATE ' . $rateText;
     if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
         $formatted .= ' ' . trim($fromCurrencyCode) . ' > ' . trim($toCurrencyCode);
+    }
+
+    if ($fromAmount !== null && $fromAmount !== '') {
+        $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
+        if ($formattedAmount !== '') {
+            $formatted .= ' | AMT: ' . $formattedAmount;
+        }
     }
 
     return $formatted . ' | ' . $direction . ' ' . $otherAccount;
@@ -990,6 +997,7 @@ try {
                     e.account_id AS entry_account_id,
                     tr.exchange_rate,
                     tr.rate_middleman_rate,
+                    tr.rate_from_amount,
                     tr.rate_transfer_from_account_id,
                     tr.rate_transfer_to_account_id,
                     cf.code AS from_currency_code,
@@ -1071,7 +1079,8 @@ try {
                 $description,
                 $row['from_currency_code'] ?? null,
                 $row['to_currency_code'] ?? null,
-                $displayRateForSuffix
+                $displayRateForSuffix,
+                $row['rate_from_amount'] ?? null
             );
         }
 
