@@ -88,6 +88,29 @@ function formatExchangeRateDescription(string $description, ?string $fromCurrenc
 }
 
 /**
+ * 将 middle-man 描述改为：
+ * MARKUP {rate} | {from} > {to}
+ */
+function formatMarkupDescription(string $description, ?string $fromCurrencyCode = null, ?string $toCurrencyCode = null, $middlemanRate = null): string
+{
+    if ($middlemanRate === null || $middlemanRate === '') {
+        if (!preg_match('/^Rate\s+charge\s+\((?:x|X)?\s*([^)]+)\)\s+from\s+.+$/i', $description, $matches)) {
+            return $description;
+        }
+        $middlemanRate = trim($matches[1]);
+    } else {
+        $middlemanRate = trim((string)$middlemanRate);
+    }
+
+    $formatted = 'MARKUP ' . $middlemanRate;
+    if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
+        $formatted .= ' | ' . trim($fromCurrencyCode) . ' > ' . trim($toCurrencyCode);
+    }
+
+    return $formatted;
+}
+
+/**
  * 确保 data_capture_details.rate 至少支持 8 位小数，避免历史弹窗读取时已被截断到 4 位。
  */
 function ensureHistoryRatePrecision(PDO $pdo): void
@@ -1021,11 +1044,6 @@ try {
 
         $description = $row['entry_description'] ?: 'RATE';
 
-        // Middle-Man 行：将括号内的倍率从 "x0.3" 显示为 "0.3"（仅文字格式，金额逻辑不变）
-        if ($entryType === 'RATE_MIDDLEMAN' && $description) {
-            $description = preg_replace('/\((?:x|X)\s*([0-9]+(?:\.[0-9]+)?)\)/', '($1)', $description) ?? $description;
-        }
-
         // RATE 后缀：仅 TO 侧显示净汇率（exchange_rate - middleman_rate），FROM 侧保持原始汇率。
         // 适用于第一行与第二行（RATE_FIRST_TO / RATE_TRANSFER_TO）。
         $displayRateForSuffix = null;
@@ -1041,7 +1059,14 @@ try {
             }
         }
 
-        if ($entryType !== 'RATE_MIDDLEMAN') {
+        if ($entryType === 'RATE_MIDDLEMAN') {
+            $description = formatMarkupDescription(
+                $description,
+                $row['from_currency_code'] ?? null,
+                $row['to_currency_code'] ?? null,
+                $row['rate_middleman_rate'] ?? null
+            );
+        } else {
             $description = formatExchangeRateDescription(
                 $description,
                 $row['from_currency_code'] ?? null,
