@@ -1140,6 +1140,7 @@ try {
             'to_currency_code' => $row['to_currency_code'] ?? null,
             'rate_from_amount' => $row['rate_from_amount'] ?? null,
             'exchange_rate' => $row['exchange_rate'] ?? null,
+            'rate_middleman_rate' => $row['rate_middleman_rate'] ?? null,
             'entry_type' => $entryType
         ];
     }
@@ -1177,7 +1178,7 @@ try {
                     $fromCode = $event['from_currency_code'] ?? null;
                     $toCode = $event['to_currency_code'] ?? null;
                     $fromAmount = $event['rate_from_amount'] ?? null;
-                    $exchangeRate = $event['exchange_rate'] ?? null;
+                    $middlemanRate = $event['rate_middleman_rate'] ?? null;
                     if ($fromCode && $toCode) {
                         $finalDescription = 'Markup (' . $fromCode;
                         if ($fromAmount !== null && $fromAmount !== '') {
@@ -1187,8 +1188,8 @@ try {
                             }
                         }
                         $finalDescription .= ' > ' . $toCode . ')';
-                        if ($exchangeRate !== null && $exchangeRate !== '') {
-                            $formattedRate = rtrim(rtrim(number_format((float)$exchangeRate, 6, '.', ''), '0'), '.');
+                        if ($middlemanRate !== null && $middlemanRate !== '') {
+                            $formattedRate = rtrim(rtrim(number_format((float)$middlemanRate, 6, '.', ''), '0'), '.');
                             if ($formattedRate !== '') {
                                 $finalDescription .= ' Rate ' . $formattedRate;
                             }
