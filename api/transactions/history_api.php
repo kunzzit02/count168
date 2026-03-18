@@ -1138,6 +1138,8 @@ try {
             'created_by' => $transactionCreatedBy,
             'from_currency_code' => $row['from_currency_code'] ?? null,
             'to_currency_code' => $row['to_currency_code'] ?? null,
+            'rate_from_amount' => $row['rate_from_amount'] ?? null,
+            'exchange_rate' => $row['exchange_rate'] ?? null,
             'entry_type' => $entryType
         ];
     }
@@ -1174,11 +1176,26 @@ try {
                     // Middle-Man 手续费：固定文案
                     $finalDescription = 'FX Markup & Processing Fee';
                 } else {
-                    // 汇率兑换本身：显示 Currency Exchange (FROM > TO)
+                    // 汇率兑换本身：显示 Currency Exchange (FROM amount > TO) Rate x
                     $fromCode = $event['from_currency_code'] ?? null;
                     $toCode = $event['to_currency_code'] ?? null;
+                    $fromAmount = $event['rate_from_amount'] ?? null;
+                    $exchangeRate = $event['exchange_rate'] ?? null;
                     if ($fromCode && $toCode) {
-                        $finalDescription = 'Currency Exchange (' . $fromCode . ' > ' . $toCode . ')';
+                        $finalDescription = 'Currency Exchange (' . $fromCode;
+                        if ($fromAmount !== null && $fromAmount !== '') {
+                            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
+                            if ($formattedAmount !== '') {
+                                $finalDescription .= ' ' . $formattedAmount;
+                            }
+                        }
+                        $finalDescription .= ' > ' . $toCode . ')';
+                        if ($exchangeRate !== null && $exchangeRate !== '') {
+                            $formattedRate = rtrim(rtrim(number_format((float)$exchangeRate, 6, '.', ''), '0'), '.');
+                            if ($formattedRate !== '') {
+                                $finalDescription .= ' Rate ' . $formattedRate;
+                            }
+                        }
                     } else {
                         $finalDescription = 'Currency Exchange';
                     }
