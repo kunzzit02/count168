@@ -99,7 +99,7 @@ function formatMarkupDescription(string $description, ?string $fromCurrencyCode 
         }
         $middlemanRate = trim($matches[1]);
     } else {
-        $middlemanRate = trim((string)$middlemanRate);
+        $middlemanRate = rtrim(rtrim(number_format((float)$middlemanRate, 6, '.', ''), '0'), '.');
     }
 
     $formatted = 'MARKUP ' . $middlemanRate;
