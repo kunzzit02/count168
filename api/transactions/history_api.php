@@ -79,16 +79,17 @@ function formatExchangeRateDescription(string $description, ?string $fromCurrenc
         ? trim((string)$rateOverride)
         : trim($matches[3]);
 
-    $formatted = 'EXCH RATE ' . $rateText;
+    $formatted = 'EXCH';
     if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
-        $formatted .= ' ' . trim($fromCurrencyCode) . ' > ' . trim($toCurrencyCode);
-    }
-
-    if ($fromAmount !== null && $fromAmount !== '') {
-        $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
-        if ($formattedAmount !== '') {
-            $formatted .= ' | AMT: ' . $formattedAmount;
+        if ($fromAmount !== null && $fromAmount !== '') {
+            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
+            if ($formattedAmount !== '') {
+                $formatted .= ' ' . $formattedAmount;
+            }
         }
+        $formatted .= ' RATE ' . $rateText . ' ' . trim($fromCurrencyCode) . ' > ' . trim($toCurrencyCode);
+    } else {
+        $formatted .= ' RATE ' . $rateText;
     }
 
     return $formatted . ' | ' . $direction . ' ' . $otherAccount;
