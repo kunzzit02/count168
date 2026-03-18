@@ -111,7 +111,7 @@ function formatMarkupDescription(string $description, ?string $fromCurrencyCode 
 
     $formatted = 'MARKUP ' . $middlemanRate;
     if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
-        $formatted .= ' | ' . trim($fromCurrencyCode);
+        $formatted .= ' ' . trim($fromCurrencyCode);
         if ($fromAmount !== null && $fromAmount !== '') {
             $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
             if ($formattedAmount !== '') {
