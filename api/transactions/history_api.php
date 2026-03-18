@@ -96,9 +96,9 @@ function formatExchangeRateDescription(string $description, ?string $fromCurrenc
 
 /**
  * 将 middle-man 描述改为：
- * MARKUP {rate} | {from} > {to}
+ * MARKUP {rate} | {from} {amount} > {to} | FROM {account}
  */
-function formatMarkupDescription(string $description, ?string $fromCurrencyCode = null, ?string $toCurrencyCode = null, $middlemanRate = null): string
+function formatMarkupDescription(string $description, ?string $fromCurrencyCode = null, ?string $toCurrencyCode = null, $middlemanRate = null, $fromAmount = null, ?string $fromAccountCode = null): string
 {
     if ($middlemanRate === null || $middlemanRate === '') {
         if (!preg_match('/^Rate\s+charge\s+\((?:x|X)?\s*([^)]+)\)\s+from\s+.+$/i', $description, $matches)) {
@@ -111,7 +111,18 @@ function formatMarkupDescription(string $description, ?string $fromCurrencyCode 
 
     $formatted = 'MARKUP ' . $middlemanRate;
     if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
-        $formatted .= ' | ' . trim($fromCurrencyCode) . ' > ' . trim($toCurrencyCode);
+        $formatted .= ' | ' . trim($fromCurrencyCode);
+        if ($fromAmount !== null && $fromAmount !== '') {
+            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
+            if ($formattedAmount !== '') {
+                $formatted .= ' ' . $formattedAmount;
+            }
+        }
+        $formatted .= ' > ' . trim($toCurrencyCode);
+    }
+
+    if (!empty($fromAccountCode)) {
+        $formatted .= ' | FROM ' . trim($fromAccountCode);
     }
 
     return $formatted;
@@ -1000,6 +1011,7 @@ try {
                     tr.rate_from_amount,
                     tr.rate_transfer_from_account_id,
                     tr.rate_transfer_to_account_id,
+                    transfer_from_acc.account_id AS rate_transfer_from_account_code,
                     cf.code AS from_currency_code,
                     ct.code AS to_currency_code,
                     h.id AS header_id,
@@ -1014,6 +1026,7 @@ try {
                 JOIN transactions h ON e.header_id = h.id
                 LEFT JOIN currency c ON e.currency_id = c.id
                 LEFT JOIN transactions_rate tr ON h.id = tr.transaction_id
+                LEFT JOIN account transfer_from_acc ON tr.rate_transfer_from_account_id = transfer_from_acc.id
                 LEFT JOIN currency cf ON tr.rate_from_currency_id = cf.id
                 LEFT JOIN currency ct ON tr.rate_to_currency_id = ct.id
                 LEFT JOIN user u ON h.created_by = u.id
@@ -1072,7 +1085,9 @@ try {
                 $description,
                 $row['from_currency_code'] ?? null,
                 $row['to_currency_code'] ?? null,
-                $row['rate_middleman_rate'] ?? null
+                $row['rate_middleman_rate'] ?? null,
+                $row['rate_from_amount'] ?? null,
+                $row['rate_transfer_from_account_code'] ?? null
             );
         } else {
             $description = formatExchangeRateDescription(
