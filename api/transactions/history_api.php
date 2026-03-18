@@ -64,6 +64,30 @@ function stripTrailingRateSuffix(string $description): string
 }
 
 /**
+ * 将旧版 RATE 描述改为：
+ * EXCH RATE {rate} {from} > {to} | TO/FROM {account}
+ */
+function formatExchangeRateDescription(string $description, ?string $fromCurrencyCode = null, ?string $toCurrencyCode = null, $rateOverride = null): string
+{
+    if (!preg_match('/^Transaction\s+(from|to)\s+(.+?)\s*\((?:Rate|RATE):\s*([^)]+)\)\s*$/i', $description, $matches)) {
+        return $description;
+    }
+
+    $direction = strtoupper(trim($matches[1]));
+    $otherAccount = trim($matches[2]);
+    $rateText = $rateOverride !== null && $rateOverride !== ''
+        ? trim((string)$rateOverride)
+        : trim($matches[3]);
+
+    $formatted = 'EXCH RATE ' . $rateText;
+    if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
+        $formatted .= ' ' . trim($fromCurrencyCode) . ' > ' . trim($toCurrencyCode);
+    }
+
+    return $formatted . ' | ' . $direction . ' ' . $otherAccount;
+}
+
+/**
  * 确保 data_capture_details.rate 至少支持 8 位小数，避免历史弹窗读取时已被截断到 4 位。
  */
 function ensureHistoryRatePrecision(PDO $pdo): void
@@ -1017,11 +1041,16 @@ try {
             }
         }
 
-        if ($displayRateForSuffix !== null) {
-            // 先去掉原有的 "(Rate: x)" 后缀，再使用净汇率
-            $baseDescription = stripTrailingRateSuffix($description);
-            $description = $baseDescription . ' (RATE: ' . $displayRateForSuffix . ')';
-        } elseif ($isMemberUser && $description !== 'RATE') {
+        if ($entryType !== 'RATE_MIDDLEMAN') {
+            $description = formatExchangeRateDescription(
+                $description,
+                $row['from_currency_code'] ?? null,
+                $row['to_currency_code'] ?? null,
+                $displayRateForSuffix
+            );
+        }
+
+        if ($isMemberUser && $description !== 'RATE') {
             $description = stripTrailingRateSuffix($description);
         }
         $transactionCurrency = $row['currency_code'] ?: $bfCurrency;
