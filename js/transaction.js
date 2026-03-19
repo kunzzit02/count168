@@ -614,10 +614,10 @@ function isAccountAllowedForProfitSign(selectId, accountId) {
     // 没有搜索数据时不强制限制，避免影响其他流程
     if (positiveIds.size === 0 && negativeIds.size === 0) return true;
 
-    if (selectId === 'action_account_id') {
+    if (selectId === 'action_account_from') {
         return positiveIds.has(normalizedId);
     }
-    if (selectId === 'action_account_from') {
+    if (selectId === 'action_account_id') {
         return negativeIds.has(normalizedId);
     }
     return true;
@@ -2003,7 +2003,7 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     const isProfitType = !isRateView && currentType === 'PROFIT';
     const numericBalance = parseBalanceValue(balance);
     const numericCrDr = parseBalanceValue(rowCrDr);
-    // RATE 场景以当前行 Cr/Dr 正负决定 From/To；其余场景沿用原逻辑
+    // RATE 场景以当前行 Cr/Dr 正负决定 From/To；其余场景沿用左右表映射
     const treatAsPositiveRow = isRateView
         ? (numericCrDr === null || Math.abs(numericCrDr) < 0.00001 ? isLeftTable : numericCrDr > 0)
         : (isProfitType ? (numericBalance === null ? isLeftTable : numericBalance >= 0) : isLeftTable);
@@ -2012,13 +2012,13 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     // RATE 页面两个按钮的显示文案与 id 命名是反的：
     // rate_account_from 显示 "Select To Account"
     // rate_account_to   显示 "Select From Account"
-    // 这里按「显示文案语义」处理：Select From 要正数，Select To 要负数
+    // 这里按「显示文案语义」处理
     const positiveAccountSelect = isRateView
         ? document.getElementById('rate_account_to')
-        : (isProfitType ? document.getElementById('action_account_id') : document.getElementById('action_account_from'));
+        : document.getElementById('action_account_from');
     const negativeAccountSelect = isRateView
         ? document.getElementById('rate_account_from')
-        : (isProfitType ? document.getElementById('action_account_from') : document.getElementById('action_account_id'));
+        : document.getElementById('action_account_id');
     const rateTransferAmountInput = document.getElementById('rate_transfer_amount');
     const rateTransferFromSelect = document.getElementById('rate_transfer_from_account');
     const rateTransferToSelect = document.getElementById('rate_transfer_to_account');
@@ -2083,7 +2083,7 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     }
     
     // 根据是左边还是右边的表格，填充到对应的账户字段
-    // 默认：左(正) -> To、右(负) -> From；PROFIT：左(正) -> From、右(负) -> To
+    // 左(正) -> Select To，右(负) -> Select From
     if (treatAsPositiveRow) {
         // 左边表格（正数）
         if (positiveAccountSelect) {
@@ -2543,15 +2543,15 @@ function submitAction() {
     }
 
     if (type === 'PROFIT') {
-        const profitFromAccountId = getAccountId(standardToAccountInput);   // UI: Select From Account
         const profitToAccountId = getAccountId(standardFromAccountInput);   // UI: Select To Account
+        const profitFromAccountId = getAccountId(standardToAccountInput);   // UI: Select From Account
 
-        if (profitFromAccountId && !isAccountAllowedForProfitSign('action_account_id', profitFromAccountId)) {
-            showNotification('PROFIT: Select From Account must be positive balance', 'error');
+        if (profitToAccountId && !isAccountAllowedForProfitSign('action_account_from', profitToAccountId)) {
+            showNotification('PROFIT: Select To Account must be positive balance', 'error');
             return;
         }
-        if (profitToAccountId && !isAccountAllowedForProfitSign('action_account_from', profitToAccountId)) {
-            showNotification('PROFIT: Select To Account must be negative balance', 'error');
+        if (profitFromAccountId && !isAccountAllowedForProfitSign('action_account_id', profitFromAccountId)) {
+            showNotification('PROFIT: Select From Account must be negative balance', 'error');
             return;
         }
     }
