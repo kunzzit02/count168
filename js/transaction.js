@@ -2012,12 +2012,12 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     // RATE 页面两个按钮的显示文案与 id 命名是反的：
     // rate_account_from 显示 "Select To Account"
     // rate_account_to   显示 "Select From Account"
-    // 这里按「显示文案语义」处理
+    // 点击带入时统一按显示文案语义处理：左/正 -> Select To，右/负 -> Select From
     const positiveAccountSelect = isRateView
-        ? document.getElementById('rate_account_to')
+        ? document.getElementById('rate_account_from')
         : document.getElementById('action_account_from');
     const negativeAccountSelect = isRateView
-        ? document.getElementById('rate_account_from')
+        ? document.getElementById('rate_account_to')
         : document.getElementById('action_account_id');
     const rateTransferAmountInput = document.getElementById('rate_transfer_amount');
     const rateTransferFromSelect = document.getElementById('rate_transfer_from_account');
@@ -2096,15 +2096,15 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 positiveAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            if (isRateView && rateTransferToSelect) {
-                // 第二行（正负对调）：正数填到右边 rate_transfer_to_account
-                rateTransferToSelect.textContent = accountDisplayText;
-                rateTransferToSelect.setAttribute('data-value', accountId);
-                rateTransferToSelect.setAttribute('data-account-code', foundAccountCode);
+            if (isRateView && rateTransferFromSelect) {
+                // RATE 第二行也按显示文案语义：正数填到 Select To
+                rateTransferFromSelect.textContent = accountDisplayText;
+                rateTransferFromSelect.setAttribute('data-value', accountId);
+                rateTransferFromSelect.setAttribute('data-account-code', foundAccountCode);
                 if (accountCurrency) {
-                    rateTransferToSelect.setAttribute('data-currency', accountCurrency);
+                    rateTransferFromSelect.setAttribute('data-currency', accountCurrency);
                 } else {
-                    rateTransferToSelect.removeAttribute('data-currency');
+                    rateTransferFromSelect.removeAttribute('data-currency');
                 }
             }
         }
@@ -2120,15 +2120,15 @@ function handleBalanceClick(balanceCell, isLeftTable) {
                 negativeAccountSelect.removeAttribute('data-currency');
             }
             accountSet = true;
-            if (isRateView && rateTransferFromSelect) {
-                // 第二行（正负对调）：负数填到左边 rate_transfer_from_account
-                rateTransferFromSelect.textContent = accountDisplayText;
-                rateTransferFromSelect.setAttribute('data-value', accountId);
-                rateTransferFromSelect.setAttribute('data-account-code', foundAccountCode);
+            if (isRateView && rateTransferToSelect) {
+                // RATE 第二行也按显示文案语义：负数填到 Select From
+                rateTransferToSelect.textContent = accountDisplayText;
+                rateTransferToSelect.setAttribute('data-value', accountId);
+                rateTransferToSelect.setAttribute('data-account-code', foundAccountCode);
                 if (accountCurrency) {
-                    rateTransferFromSelect.setAttribute('data-currency', accountCurrency);
+                    rateTransferToSelect.setAttribute('data-currency', accountCurrency);
                 } else {
-                    rateTransferFromSelect.removeAttribute('data-currency');
+                    rateTransferToSelect.removeAttribute('data-currency');
                 }
             }
         }
