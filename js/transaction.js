@@ -616,26 +616,7 @@ function isAccountAllowedForProfitSign(selectId, accountId) {
     if (!isProfitSignFilterEnabled(selectId)) return true;
     if (!accountId) return false;
 
-    const normalizedId = String(accountId);
-    const { positiveIds, negativeIds } = getProfitAccountSignSets();
-    const profitSide = (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN').toUpperCase();
-
-    // 没有搜索数据时不强制限制，避免影响其他流程
-    if (positiveIds.size === 0 && negativeIds.size === 0) return true;
-
-    // PROFIT 符号规则按 WIN/LOSE 方向：
-    // WIN : To(左侧下拉/action_account_from) 负数，From(右侧下拉/action_account_id) 正数
-    // LOSE: To 正数，From 负数
-    if (selectId === 'action_account_from') {
-        return profitSide === 'LOSE'
-            ? positiveIds.has(normalizedId)
-            : negativeIds.has(normalizedId);
-    }
-    if (selectId === 'action_account_id') {
-        return profitSide === 'LOSE'
-            ? negativeIds.has(normalizedId)
-            : positiveIds.has(normalizedId);
-    }
+    // 业务规则：balance 正负只用于表格左右展示，不作为 PROFIT 提交限制
     return true;
 }
 
@@ -2562,40 +2543,9 @@ function submitAction() {
         const profitToAccountId = getAccountId(standardFromAccountInput);   // UI: Select To Account
         const profitFromAccountId = getAccountId(standardToAccountInput);   // UI: Select From Account
 
-        // 若 To/From 都已选择，自动按余额正负推断 WIN/LOSE，避免用户手动方向与账户组合冲突
-        if (profitToAccountId && profitFromAccountId) {
-            const { positiveIds, negativeIds } = getProfitAccountSignSets();
-            const toId = String(profitToAccountId);
-            const fromId = String(profitFromAccountId);
-            const toPositive = positiveIds.has(toId);
-            const toNegative = negativeIds.has(toId);
-            const fromPositive = positiveIds.has(fromId);
-            const fromNegative = negativeIds.has(fromId);
-
-            let inferredSide = '';
-            if (toNegative && fromPositive) {
-                inferredSide = 'WIN';
-            } else if (toPositive && fromNegative) {
-                inferredSide = 'LOSE';
-            }
-
-            if (inferredSide) {
-                effectiveType = inferredSide;
-                const matchedRadio = document.querySelector(`input[name="win_lose_side"][value="${inferredSide}"]`);
-                if (matchedRadio) matchedRadio.checked = true;
-            }
-        }
-
-        const profitSide = String(effectiveType || 'WIN').toUpperCase();
-        const toExpected = profitSide === 'LOSE' ? 'positive' : 'negative';
-        const fromExpected = profitSide === 'LOSE' ? 'negative' : 'positive';
-
-        if (profitToAccountId && !isAccountAllowedForProfitSign('action_account_from', profitToAccountId)) {
-            showNotification(`PROFIT (${profitSide}): Select To Account must be ${toExpected} balance`, 'error');
-            return;
-        }
-        if (profitFromAccountId && !isAccountAllowedForProfitSign('action_account_id', profitFromAccountId)) {
-            showNotification(`PROFIT (${profitSide}): Select From Account must be ${fromExpected} balance`, 'error');
+        // PROFIT 不做余额正负校验，仅限制 To / From 不能同一账户
+        if (profitToAccountId && profitFromAccountId && String(profitToAccountId) === String(profitFromAccountId)) {
+            showNotification('PROFIT: Select To Account and Select From Account cannot be the same', 'error');
             return;
         }
     }
