@@ -2142,11 +2142,10 @@
         let searchTimeout;
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
-            // 搜索框：只允许字母和数字
+            // 搜索框：允许字母、数字和空格；保持大写，避免影响现有搜索行为
             searchInput.addEventListener('input', function () {
                 const cursorPosition = this.selectionStart;
-                // 只保留大写字母和数字
-                const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                const filteredValue = this.value.replace(/[^A-Z0-9 ]/gi, '').toUpperCase();
                 this.value = filteredValue;
                 this.setSelectionRange(cursorPosition, cursorPosition);
 
@@ -2162,7 +2161,7 @@
             searchInput.addEventListener('paste', function () {
                 setTimeout(() => {
                     const cursorPosition = this.selectionStart;
-                    const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                    const filteredValue = this.value.replace(/[^A-Z0-9 ]/gi, '').toUpperCase();
                     this.value = filteredValue;
                     this.setSelectionRange(cursorPosition, cursorPosition);
                 }, 0);
