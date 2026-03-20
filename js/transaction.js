@@ -577,23 +577,31 @@ function getProfitAccountSignSets() {
     const positiveIds = new Set();
     const negativeIds = new Set();
 
-    const collect = (rows, isPositive) => {
+    const collect = (rows) => {
         (rows || []).forEach(row => {
             const accountId = row && (row.account_db_id ?? row.id);
             const numericBalance = parseBalanceValue(row && row.balance);
             if (!accountId || numericBalance === null) return;
 
-            if (isPositive && numericBalance >= 0) {
+            if (numericBalance >= 0) {
                 positiveIds.add(String(accountId));
             }
-            if (!isPositive && numericBalance < 0) {
+            if (numericBalance < 0) {
                 negativeIds.add(String(accountId));
             }
         });
     };
 
-    collect(currentDisplayData.left_table, true);
-    collect(currentDisplayData.right_table, false);
+    // 使用最近一次搜索的原始数据做 PROFIT 正负校验，避免受前端展示过滤（Show Payment / Show 0）影响
+    const sourceLeft = (lastSearchData && Array.isArray(lastSearchData.left_table))
+        ? lastSearchData.left_table
+        : currentDisplayData.left_table;
+    const sourceRight = (lastSearchData && Array.isArray(lastSearchData.right_table))
+        ? lastSearchData.right_table
+        : currentDisplayData.right_table;
+
+    collect(sourceLeft);
+    collect(sourceRight);
 
     return { positiveIds, negativeIds };
 }
