@@ -618,15 +618,23 @@ function isAccountAllowedForProfitSign(selectId, accountId) {
 
     const normalizedId = String(accountId);
     const { positiveIds, negativeIds } = getProfitAccountSignSets();
+    const profitSide = (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN').toUpperCase();
 
     // 没有搜索数据时不强制限制，避免影响其他流程
     if (positiveIds.size === 0 && negativeIds.size === 0) return true;
 
+    // PROFIT 符号规则按 WIN/LOSE 方向：
+    // WIN : To(左侧下拉/action_account_from) 负数，From(右侧下拉/action_account_id) 正数
+    // LOSE: To 正数，From 负数
     if (selectId === 'action_account_from') {
-        return positiveIds.has(normalizedId);
+        return profitSide === 'LOSE'
+            ? positiveIds.has(normalizedId)
+            : negativeIds.has(normalizedId);
     }
     if (selectId === 'action_account_id') {
-        return negativeIds.has(normalizedId);
+        return profitSide === 'LOSE'
+            ? negativeIds.has(normalizedId)
+            : positiveIds.has(normalizedId);
     }
     return true;
 }
@@ -2553,13 +2561,16 @@ function submitAction() {
     if (type === 'PROFIT') {
         const profitToAccountId = getAccountId(standardFromAccountInput);   // UI: Select To Account
         const profitFromAccountId = getAccountId(standardToAccountInput);   // UI: Select From Account
+        const profitSide = (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN').toUpperCase();
+        const toExpected = profitSide === 'LOSE' ? 'positive' : 'negative';
+        const fromExpected = profitSide === 'LOSE' ? 'negative' : 'positive';
 
         if (profitToAccountId && !isAccountAllowedForProfitSign('action_account_from', profitToAccountId)) {
-            showNotification('PROFIT: Select To Account must be positive balance', 'error');
+            showNotification(`PROFIT (${profitSide}): Select To Account must be ${toExpected} balance`, 'error');
             return;
         }
         if (profitFromAccountId && !isAccountAllowedForProfitSign('action_account_id', profitFromAccountId)) {
-            showNotification('PROFIT: Select From Account must be negative balance', 'error');
+            showNotification(`PROFIT (${profitSide}): Select From Account must be ${fromExpected} balance`, 'error');
             return;
         }
     }
