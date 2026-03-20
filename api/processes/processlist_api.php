@@ -122,6 +122,30 @@ function checkCompanyAccess(PDO $pdo, int $requestedCompanyId): bool
     return $stmt->fetchColumn() > 0;
 }
 
+/**
+ * Parse profit_sharing text like "STAFF - 50, AA - 10.5" and return total amount.
+ */
+function parseProfitSharingTotal(?string $profitSharing): float
+{
+    if ($profitSharing === null) {
+        return 0.0;
+    }
+
+    $text = trim($profitSharing);
+    if ($text === '') {
+        return 0.0;
+    }
+
+    $total = 0.0;
+    if (preg_match_all('/-\s*(-?\d+(?:\.\d+)?)/', $text, $matches)) {
+        foreach ($matches[1] as $num) {
+            $total += (float)$num;
+        }
+    }
+
+    return $total;
+}
+
 // Handle different actions
 $action = $_GET['action'] ?? '';
 
@@ -632,6 +656,9 @@ function getBankProcesses() {
 
         $formattedProcesses = [];
         foreach ($rows as $r) {
+            $storedProfit = isset($r['profit']) && $r['profit'] !== '' ? (float)$r['profit'] : 0.0;
+            $profitSharingTotal = parseProfitSharingTotal($r['profit_sharing'] ?? null);
+            $netProfit = max(0, $storedProfit - $profitSharingTotal);
             $formattedProcesses[] = [
                 'id' => $r['id'],
                 'supplier' => $r['name'] ?? '',
@@ -644,7 +671,7 @@ function getBankProcesses() {
                 'customer' => $r['customer_account'] ?? '',
                 'cost' => $r['cost'],
                 'price' => $r['price'],
-                'profit' => $r['profit'],
+                'profit' => number_format($netProfit, 2, '.', ''),
                 'status' => $r['status'],
                 'date' => $r['day_start'] ?? '',
                 'day_start' => $r['day_start'] ?? null,
