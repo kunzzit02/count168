@@ -2504,7 +2504,7 @@ function submitAction() {
     }
 
     const type = document.getElementById('transaction_type').value;
-    const effectiveType = (type === 'PROFIT') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
+    let effectiveType = (type === 'PROFIT') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
     const isRate = type === RATE_TYPE_VALUE;
     
     const standardToAccountInput = document.getElementById('action_account_id');
@@ -2561,7 +2561,32 @@ function submitAction() {
     if (type === 'PROFIT') {
         const profitToAccountId = getAccountId(standardFromAccountInput);   // UI: Select To Account
         const profitFromAccountId = getAccountId(standardToAccountInput);   // UI: Select From Account
-        const profitSide = (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN').toUpperCase();
+
+        // 若 To/From 都已选择，自动按余额正负推断 WIN/LOSE，避免用户手动方向与账户组合冲突
+        if (profitToAccountId && profitFromAccountId) {
+            const { positiveIds, negativeIds } = getProfitAccountSignSets();
+            const toId = String(profitToAccountId);
+            const fromId = String(profitFromAccountId);
+            const toPositive = positiveIds.has(toId);
+            const toNegative = negativeIds.has(toId);
+            const fromPositive = positiveIds.has(fromId);
+            const fromNegative = negativeIds.has(fromId);
+
+            let inferredSide = '';
+            if (toNegative && fromPositive) {
+                inferredSide = 'WIN';
+            } else if (toPositive && fromNegative) {
+                inferredSide = 'LOSE';
+            }
+
+            if (inferredSide) {
+                effectiveType = inferredSide;
+                const matchedRadio = document.querySelector(`input[name="win_lose_side"][value="${inferredSide}"]`);
+                if (matchedRadio) matchedRadio.checked = true;
+            }
+        }
+
+        const profitSide = String(effectiveType || 'WIN').toUpperCase();
         const toExpected = profitSide === 'LOSE' ? 'positive' : 'negative';
         const fromExpected = profitSide === 'LOSE' ? 'negative' : 'positive';
 
