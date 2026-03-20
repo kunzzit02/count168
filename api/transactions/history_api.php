@@ -64,6 +64,71 @@ function stripTrailingRateSuffix(string $description): string
 }
 
 /**
+ * 将旧版 RATE 描述改为：
+ * EXCH RATE {rate} {from} > {to} | TO/FROM {account}
+ */
+function formatExchangeRateDescription(string $description, ?string $fromCurrencyCode = null, ?string $toCurrencyCode = null, $rateOverride = null, $fromAmount = null): string
+{
+    if (!preg_match('/^Transaction\s+(from|to)\s+(.+?)\s*\((?:Rate|RATE):\s*([^)]+)\)\s*$/i', $description, $matches)) {
+        return $description;
+    }
+
+    $direction = strtoupper(trim($matches[1]));
+    $otherAccount = trim($matches[2]);
+    $rateText = $rateOverride !== null && $rateOverride !== ''
+        ? trim((string)$rateOverride)
+        : trim($matches[3]);
+
+    $formatted = 'EXCH RATE ' . $rateText;
+    if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
+        $formatted .= ' ' . trim($fromCurrencyCode);
+        if ($fromAmount !== null && $fromAmount !== '') {
+            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
+            if ($formattedAmount !== '') {
+                $formatted .= ' ' . $formattedAmount;
+            }
+        }
+        $formatted .= ' > ' . trim($toCurrencyCode);
+    }
+
+    return $formatted . ' | ' . $direction . ' ' . $otherAccount;
+}
+
+/**
+ * 将 middle-man 描述改为：
+ * MARKUP {rate} | {from} {amount} > {to} | FROM {account}
+ */
+function formatMarkupDescription(string $description, ?string $fromCurrencyCode = null, ?string $toCurrencyCode = null, $middlemanRate = null, $fromAmount = null, ?string $fromAccountCode = null): string
+{
+    if ($middlemanRate === null || $middlemanRate === '') {
+        if (!preg_match('/^Rate\s+charge\s+\((?:x|X)?\s*([^)]+)\)\s+from\s+.+$/i', $description, $matches)) {
+            return $description;
+        }
+        $middlemanRate = trim($matches[1]);
+    } else {
+        $middlemanRate = rtrim(rtrim(number_format((float)$middlemanRate, 6, '.', ''), '0'), '.');
+    }
+
+    $formatted = 'MARKUP ' . $middlemanRate;
+    if (!empty($fromCurrencyCode) && !empty($toCurrencyCode)) {
+        $formatted .= ' ' . trim($fromCurrencyCode);
+        if ($fromAmount !== null && $fromAmount !== '') {
+            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
+            if ($formattedAmount !== '') {
+                $formatted .= ' ' . $formattedAmount;
+            }
+        }
+        $formatted .= ' > ' . trim($toCurrencyCode);
+    }
+
+    if (!empty($fromAccountCode)) {
+        $formatted .= ' | FROM ' . trim($fromAccountCode);
+    }
+
+    return $formatted;
+}
+
+/**
  * 确保 data_capture_details.rate 至少支持 8 位小数，避免历史弹窗读取时已被截断到 4 位。
  */
 function ensureHistoryRatePrecision(PDO $pdo): void
@@ -943,8 +1008,10 @@ try {
                     e.account_id AS entry_account_id,
                     tr.exchange_rate,
                     tr.rate_middleman_rate,
+                    tr.rate_from_amount,
                     tr.rate_transfer_from_account_id,
                     tr.rate_transfer_to_account_id,
+                    transfer_from_acc.account_id AS rate_transfer_from_account_code,
                     cf.code AS from_currency_code,
                     ct.code AS to_currency_code,
                     h.id AS header_id,
@@ -959,6 +1026,7 @@ try {
                 JOIN transactions h ON e.header_id = h.id
                 LEFT JOIN currency c ON e.currency_id = c.id
                 LEFT JOIN transactions_rate tr ON h.id = tr.transaction_id
+                LEFT JOIN account transfer_from_acc ON tr.rate_transfer_from_account_id = transfer_from_acc.id
                 LEFT JOIN currency cf ON tr.rate_from_currency_id = cf.id
                 LEFT JOIN currency ct ON tr.rate_to_currency_id = ct.id
                 LEFT JOIN user u ON h.created_by = u.id
@@ -997,11 +1065,6 @@ try {
 
         $description = $row['entry_description'] ?: 'RATE';
 
-        // Middle-Man 行：将括号内的倍率从 "x0.3" 显示为 "0.3"（仅文字格式，金额逻辑不变）
-        if ($entryType === 'RATE_MIDDLEMAN' && $description) {
-            $description = preg_replace('/\((?:x|X)\s*([0-9]+(?:\.[0-9]+)?)\)/', '($1)', $description) ?? $description;
-        }
-
         // RATE 后缀：仅 TO 侧显示净汇率（exchange_rate - middleman_rate），FROM 侧保持原始汇率。
         // 适用于第一行与第二行（RATE_FIRST_TO / RATE_TRANSFER_TO）。
         $displayRateForSuffix = null;
@@ -1017,11 +1080,26 @@ try {
             }
         }
 
-        if ($displayRateForSuffix !== null) {
-            // 先去掉原有的 "(Rate: x)" 后缀，再使用净汇率
-            $baseDescription = stripTrailingRateSuffix($description);
-            $description = $baseDescription . ' (RATE: ' . $displayRateForSuffix . ')';
-        } elseif ($isMemberUser && $description !== 'RATE') {
+        if ($entryType === 'RATE_MIDDLEMAN') {
+            $description = formatMarkupDescription(
+                $description,
+                $row['from_currency_code'] ?? null,
+                $row['to_currency_code'] ?? null,
+                $row['rate_middleman_rate'] ?? null,
+                $row['rate_from_amount'] ?? null,
+                $row['rate_transfer_from_account_code'] ?? null
+            );
+        } else {
+            $description = formatExchangeRateDescription(
+                $description,
+                $row['from_currency_code'] ?? null,
+                $row['to_currency_code'] ?? null,
+                $displayRateForSuffix,
+                $row['rate_from_amount'] ?? null
+            );
+        }
+
+        if ($isMemberUser && $description !== 'RATE') {
             $description = stripTrailingRateSuffix($description);
         }
         $transactionCurrency = $row['currency_code'] ?: $bfCurrency;
@@ -1060,6 +1138,9 @@ try {
             'created_by' => $transactionCreatedBy,
             'from_currency_code' => $row['from_currency_code'] ?? null,
             'to_currency_code' => $row['to_currency_code'] ?? null,
+            'rate_from_amount' => $row['rate_from_amount'] ?? null,
+            'exchange_rate' => $row['exchange_rate'] ?? null,
+            'rate_middleman_rate' => $row['rate_middleman_rate'] ?? null,
             'entry_type' => $entryType
         ];
     }
@@ -1093,14 +1174,50 @@ try {
             if (($event['source'] ?? '') === 'RATE') {
                 $entryType = $event['entry_type'] ?? '';
                 if ($entryType === 'RATE_MIDDLEMAN') {
-                    // Middle-Man 手续费：固定文案
-                    $finalDescription = 'FX Markup & Processing Fee';
-                } else {
-                    // 汇率兑换本身：显示 Currency Exchange (FROM > TO)
+                    // Middle-Man：显示 Markup (FROM amount > TO) Rate x
                     $fromCode = $event['from_currency_code'] ?? null;
                     $toCode = $event['to_currency_code'] ?? null;
+                    $fromAmount = $event['rate_from_amount'] ?? null;
+                    $middlemanRate = $event['rate_middleman_rate'] ?? null;
                     if ($fromCode && $toCode) {
-                        $finalDescription = 'Currency Exchange (' . $fromCode . ' > ' . $toCode . ')';
+                        $finalDescription = 'Markup (' . $fromCode;
+                        if ($fromAmount !== null && $fromAmount !== '') {
+                            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
+                            if ($formattedAmount !== '') {
+                                $finalDescription .= ' ' . $formattedAmount;
+                            }
+                        }
+                        $finalDescription .= ' > ' . $toCode . ')';
+                        if ($middlemanRate !== null && $middlemanRate !== '') {
+                            $formattedRate = rtrim(rtrim(number_format((float)$middlemanRate, 6, '.', ''), '0'), '.');
+                            if ($formattedRate !== '') {
+                                $finalDescription .= ' Rate ' . $formattedRate;
+                            }
+                        }
+                    } else {
+                        $finalDescription = 'Markup';
+                    }
+                } else {
+                    // 汇率兑换本身：显示 Currency Exchange (FROM amount > TO) Rate x
+                    $fromCode = $event['from_currency_code'] ?? null;
+                    $toCode = $event['to_currency_code'] ?? null;
+                    $fromAmount = $event['rate_from_amount'] ?? null;
+                    $exchangeRate = $event['exchange_rate'] ?? null;
+                    if ($fromCode && $toCode) {
+                        $finalDescription = 'Currency Exchange (' . $fromCode;
+                        if ($fromAmount !== null && $fromAmount !== '') {
+                            $formattedAmount = rtrim(rtrim(number_format((float)$fromAmount, 6, '.', ''), '0'), '.');
+                            if ($formattedAmount !== '') {
+                                $finalDescription .= ' ' . $formattedAmount;
+                            }
+                        }
+                        $finalDescription .= ' > ' . $toCode . ')';
+                        if ($exchangeRate !== null && $exchangeRate !== '') {
+                            $formattedRate = rtrim(rtrim(number_format((float)$exchangeRate, 6, '.', ''), '0'), '.');
+                            if ($formattedRate !== '') {
+                                $finalDescription .= ' Rate ' . $formattedRate;
+                            }
+                        }
                     } else {
                         $finalDescription = 'Currency Exchange';
                     }
