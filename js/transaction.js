@@ -1897,15 +1897,16 @@ function createCurrencyTable(tableId, rows) {
                 ? `transaction-account-cell ${roleClass}` 
                 : 'transaction-account-cell';
             
-            // Middle-Man 行：将 Cr/Dr 和 Balance 显示为正数（后端 is_rate_middleman 或当前表单选的 Middle-Man）
+            // Middle-Man 行：将 Win/Loss 和 Balance 显示为正数
+            let winLossValue = row.win_loss;
             let crDrValue = row.cr_dr;
             let balanceValue = row.balance;
             const isMiddlemanRow = (row.is_rate_middleman === 1 || row.is_rate_middleman === true) ||
                 (isRateView && middlemanAccountId && String(row.account_db_id) === String(middlemanAccountId));
             if (isMiddlemanRow) {
-                const nCrDr = parseFloat(crDrValue);
+                const nWinLoss = parseFloat(winLossValue);
                 const nBalance = parseFloat(balanceValue);
-                if (!isNaN(nCrDr)) crDrValue = Math.abs(nCrDr);
+                if (!isNaN(nWinLoss)) winLossValue = Math.abs(nWinLoss);
                 if (!isNaN(nBalance)) balanceValue = Math.abs(nBalance);
             }
             
@@ -1915,7 +1916,7 @@ function createCurrencyTable(tableId, rows) {
                 </td>
                 <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
                 <td>${formatNumber(row.bf)}</td>
-                <td>${formatNumber(row.win_loss)}</td>
+                <td>${formatNumber(winLossValue)}</td>
                 <td>${formatNumber(crDrValue)}</td>
                 <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${balanceValue}" data-crdr="${row.cr_dr}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(balanceValue)}</td>
             `;
@@ -1966,7 +1967,7 @@ function calculateTotals(rows) {
         let crDr = parseFloat(row.cr_dr) || 0;
         let balance = parseFloat(row.balance) || 0;
 
-        // Middle-Man 行（后端 is_rate_middleman 或当前表单选的 Middle-Man）的 Cr/Dr、Balance 用绝对值参与合计
+        // Middle-Man 行（后端 is_rate_middleman 或当前表单选的 Middle-Man）的 Win/Loss、Balance 用绝对值参与合计
         const isRateMiddleman = row.is_rate_middleman === 1 || row.is_rate_middleman === true;
         const isFormMiddleman = typeof isRateTypeSelected === 'function' && isRateTypeSelected() && (() => {
             const middlemanBtn = document.getElementById('rate_middleman_account');
@@ -1975,7 +1976,7 @@ function calculateTotals(rows) {
             return mid && String(row.account_db_id) === String(mid);
         })();
         if (isRateMiddleman || isFormMiddleman) {
-            crDr = Math.abs(crDr);
+            winLoss = Math.abs(winLoss);
             balance = Math.abs(balance);
         }
 

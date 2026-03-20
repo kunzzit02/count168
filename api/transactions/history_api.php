@@ -1057,7 +1057,7 @@ try {
         
         $amount = (float)$row['amount'];
         // RATE 第二行/第四行：TO 负数、FROM 正数（与 PAYMENT 一致）
-        // Middle-Man（RATE_MIDDLEMAN）按用户需求在 Payment History 中显示为正数，不再反转符号
+        // Middle-Man（RATE_MIDDLEMAN）保留正数，并显示在 Win/Loss
         $entryType = $row['entry_type'] ?? '';
         if (in_array($entryType, ['RATE_FIRST_FROM', 'RATE_TRANSFER_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_TO'], true)) {
             $amount = -$amount;
@@ -1122,8 +1122,8 @@ try {
             'transaction_type' => 'RATE',
             'order_ts' => $transactionTimestamp ?: 0,
             'order_index' => $eventIndex++,
-            'win_loss' => 0,
-            'cr_dr' => $amount,
+            'win_loss' => $entryType === 'RATE_MIDDLEMAN' ? $amount : 0,
+            'cr_dr' => $entryType === 'RATE_MIDDLEMAN' ? 0 : $amount,
             'date' => date('d/m/Y', strtotime($row['transaction_date'])),
             'source' => 'RATE',
             'product' => mapEntryTypeToProduct($row['entry_type']),

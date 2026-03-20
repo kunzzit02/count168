@@ -640,7 +640,7 @@ if (!empty($target_account_ids)) {
         // 公式：Balance = B/F + Win/Loss + Cr/Dr
         $balance = $bf + $win_loss + $cr_dr;
         
-        // 4b. 本期是否有 RATE Middle-Man 分录（该账户+货币在本期作为 Middle-Man 收取手续费，前端需按正数显示）
+        // 4b. 本期是否有 RATE Middle-Man 分录（该账户+货币在本期作为 Middle-Man 收取手续费）
         $is_rate_middleman = hasRateMiddlemanInPeriod($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
         
         // 5. 检查 Alert 条件是否达成
@@ -1228,7 +1228,9 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 
 /**
  * 按 Currency 计算 Win/Loss
- * Win/Loss = Data Capture + Bank Process 的 WIN/LOSE（description 以 "Process: " 开头）+ 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）
+ * Win/Loss = Data Capture + Bank Process 的 WIN/LOSE（description 以 "Process: " 开头）
+ *          + 手动 PROFIT（WIN/LOSE 且 description 不以 Process: 开头）
+ *          + RATE Middle-Man 手续费（RATE_MIDDLEMAN）
  */
 function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id) {
     $win_loss = 0;
@@ -1267,6 +1269,22 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
         $win_loss += $stmt->fetchColumn();
+
+        // 4. RATE Middle-Man：手续费应显示在 Win/Loss，而不是 Cr/Dr
+        $rateStmt = $pdo->prepare("
+            SELECT COALESCE(SUM(e.amount), 0) AS total
+            FROM transaction_entry e
+            JOIN transactions h ON e.header_id = h.id
+            WHERE h.company_id = ?
+              AND e.company_id = ?
+              AND h.transaction_type = 'RATE'
+              AND e.entry_type = 'RATE_MIDDLEMAN'
+              AND e.account_id = ?
+              AND e.currency_id = ?
+              AND h.transaction_date BETWEEN ? AND ?
+        ");
+        $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
+        $win_loss += (float)$rateStmt->fetchColumn();
     }
 
     return $win_loss;
@@ -1285,7 +1303,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
 /**
  * 本期（date_from ~ date_to）内该 account_id + currency_id 是否有 RATE_MIDDLEMAN 分录
- * 用于前端将 Middle-Man 行的 Cr/Dr、Balance 按正数显示并归入左侧表格
+ * 用于前端识别 Middle-Man 行并保持其显示在左侧
  */
 function hasRateMiddlemanInPeriod(PDO $pdo, $account_id, $currency_id, $date_from, $date_to, $company_id): bool
 {
@@ -1424,15 +1442,15 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     }
 
     // 3) 追加本期 RATE 分录（统一从 transaction_entry 计算）
+    // RATE_MIDDLEMAN 已改归类到 Win/Loss，这里只保留其余 RATE 分录在 Cr/Dr
     $rateStmt = $pdo->prepare("
         SELECT 
             COALESCE(SUM(CASE
               WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
               WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-              WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
               ELSE e.amount
             END), 0) AS cr_dr,
-            COUNT(*) AS txn_count
+            COUNT(CASE WHEN e.entry_type <> 'RATE_MIDDLEMAN' THEN 1 END) AS txn_count
         FROM transaction_entry e
         JOIN transactions h ON e.header_id = h.id
         WHERE h.company_id = ?
@@ -1441,6 +1459,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
           AND e.account_id = ?
           AND e.currency_id = ?
           AND h.transaction_date BETWEEN ? AND ?
+          AND e.entry_type <> 'RATE_MIDDLEMAN'
     ");
     $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
     $rateRow = $rateStmt->fetch(PDO::FETCH_ASSOC);
