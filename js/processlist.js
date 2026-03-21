@@ -869,13 +869,84 @@
                     return;
                 }
                 const process = result.data;
-                await bankDataRequest;
                 document.getElementById('bank_edit_id').value = process.id;
                 document.getElementById('bankModalTitle').textContent = 'Edit Process';
                 document.getElementById('bankSubmitBtn').textContent = 'Update Process';
-                document.getElementById('bankSubmitBtn').disabled = false;
+                document.getElementById('bankSubmitBtn').disabled = true;
+                document.getElementById('bank_type').value = process.type || '';
+                document.getElementById('bank_name').value = process.name || '';
+                document.getElementById('bank_contract').value = process.contract || '';
+                document.getElementById('bank_insurance').value = process.insurance != null && process.insurance !== '' ? process.insurance : '';
+                const bankSopEl = document.getElementById('bank_sop');
+                const bankRemarkEl = document.getElementById('bank_remark');
+                if (bankSopEl) bankSopEl.value = (process.sop != null && process.sop !== undefined) ? String(process.sop).toUpperCase() : '';
+                if (bankRemarkEl) bankRemarkEl.value = (process.remark != null && process.remark !== undefined) ? String(process.remark).toUpperCase() : '';
+                document.getElementById('bank_cost').value = process.cost != null && process.cost !== '' ? process.cost : '';
+                document.getElementById('bank_price').value = process.price != null && process.price !== '' ? process.price : '';
+                document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
+                const dayStart = process.day_start || '';
+                document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
+                const freqEl = document.getElementById('bank_day_start_frequency');
+                if (freqEl) freqEl.value = process.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
+                document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
+                window.selectedProfitSharingEntries = [];
+                const psStr = (process.profit_sharing || '').trim();
+                if (psStr) {
+                    psStr.split(',').forEach(function (part) {
+                        const t = part.trim();
+                        const dash = t.lastIndexOf(' - ');
+                        if (dash > -1) {
+                            window.selectedProfitSharingEntries.push({
+                                accountId: '',
+                                accountText: t.substring(0, dash).trim(),
+                                amount: t.substring(dash + 3).trim()
+                            });
+                        }
+                    });
+                }
+                renderSelectedProfitSharing();
+                if (typeof updateBankProfitDisplay === 'function') updateBankProfitDisplay();
+                if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
+
                 const countrySelect = document.getElementById('bank_country');
                 const bankSelect = document.getElementById('bank_bank');
+                if (process.country && countrySelect && !Array.from(countrySelect.options).some(o => o.value === process.country)) {
+                    const opt = document.createElement('option');
+                    opt.value = process.country;
+                    opt.textContent = process.country;
+                    countrySelect.appendChild(opt);
+                }
+                if (countrySelect) {
+                    countrySelect.value = process.country || '';
+                }
+                if (process.bank && bankSelect && !Array.from(bankSelect.options).some(o => o.value === process.bank)) {
+                    const opt = document.createElement('option');
+                    opt.value = process.bank;
+                    opt.textContent = process.bank;
+                    bankSelect.appendChild(opt);
+                }
+                if (bankSelect) {
+                    bankSelect.value = process.bank || '';
+                }
+                const cardMerchantBtnEarly = document.getElementById('bank_card_merchant');
+                const customerBtnEarly = document.getElementById('bank_customer');
+                const profitAccountBtnEarly = document.getElementById('bank_profit_account');
+                if (cardMerchantBtnEarly) {
+                    cardMerchantBtnEarly.setAttribute('data-value', process.card_merchant_id || '');
+                    const cmCode = (process.card_merchant_account_id != null && String(process.card_merchant_account_id).trim() !== '') ? String(process.card_merchant_account_id).trim() : '';
+                    const cmName = (process.card_merchant_name != null && String(process.card_merchant_name).trim() !== '') ? String(process.card_merchant_name).trim() : '';
+                    cardMerchantBtnEarly.textContent = process.card_merchant_id ? (cmCode !== '' ? cmCode : (cmName || process.card_merchant_account_id || process.card_merchant_id || 'Select Account')) : (cardMerchantBtnEarly.getAttribute('data-placeholder') || 'Select Account');
+                }
+                if (customerBtnEarly) {
+                    customerBtnEarly.setAttribute('data-value', process.customer_id || '');
+                    customerBtnEarly.textContent = process.customer_id ? ((process.customer_account || process.customer_name || process.customer_id) || 'Select Account') : (customerBtnEarly.getAttribute('data-placeholder') || 'Select Account');
+                }
+                if (profitAccountBtnEarly) {
+                    profitAccountBtnEarly.setAttribute('data-value', process.profit_account_id || '');
+                    profitAccountBtnEarly.textContent = process.profit_account_id ? ((process.profit_account_name || process.profit_account_id) || 'Select Account') : (profitAccountBtnEarly.getAttribute('data-placeholder') || 'Select Account');
+                }
+
+                await bankDataRequest;
                 if (process.country) {
                     if (!Array.from(countrySelect.options).some(o => o.value === process.country)) {
                         const opt = document.createElement('option');
@@ -903,8 +974,6 @@
                 } else {
                     bankSelect.value = '';
                 }
-                document.getElementById('bank_type').value = process.type || '';
-                document.getElementById('bank_name').value = process.name || '';
                 const cardMerchantBtn = document.getElementById('bank_card_merchant');
                 const customerBtn = document.getElementById('bank_customer');
                 if (cardMerchantBtn && process.card_merchant_id) {
@@ -931,40 +1000,8 @@
                     profitAccountBtn.removeAttribute('data-value');
                     profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
                 }
-                document.getElementById('bank_contract').value = process.contract || '';
-                document.getElementById('bank_insurance').value = process.insurance != null && process.insurance !== '' ? process.insurance : '';
-                const bankSopEl = document.getElementById('bank_sop');
-                const bankRemarkEl = document.getElementById('bank_remark');
-                if (bankSopEl) bankSopEl.value = (process.sop != null && process.sop !== undefined) ? String(process.sop).toUpperCase() : '';
-                if (bankRemarkEl) bankRemarkEl.value = (process.remark != null && process.remark !== undefined) ? String(process.remark).toUpperCase() : '';
-                document.getElementById('bank_cost').value = process.cost != null && process.cost !== '' ? process.cost : '';
-                document.getElementById('bank_price').value = process.price != null && process.price !== '' ? process.price : '';
-                document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
-                const dayStart = process.day_start || '';
-                document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
-                const freqEl = document.getElementById('bank_day_start_frequency');
-                if (freqEl) freqEl.value = process.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
-                document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
-                // Parse profit_sharing string (e.g. "BB - 6, AA - 10") into selectedProfitSharingEntries
-                window.selectedProfitSharingEntries = [];
-                const psStr = (process.profit_sharing || '').trim();
-                if (psStr) {
-                    psStr.split(',').forEach(function (part) {
-                        const t = part.trim();
-                        const dash = t.lastIndexOf(' - ');
-                        if (dash > -1) {
-                            window.selectedProfitSharingEntries.push({
-                                accountId: '',
-                                accountText: t.substring(0, dash).trim(),
-                                amount: t.substring(dash + 3).trim()
-                            });
-                        }
-                    });
-                }
-                renderSelectedProfitSharing();
                 updateBankSubmitButtonState();
-                if (typeof updateBankProfitDisplay === 'function') updateBankProfitDisplay();
-                if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
+                document.getElementById('bankSubmitBtn').disabled = false;
             } catch (error) {
                 console.error('Error opening bank edit modal:', error);
                 closeAddBankModal();
