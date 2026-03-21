@@ -1565,6 +1565,7 @@ function populateOriginalTableWithColumnAData(tableData) {
                         }
                         if (cells[5]) cells[5].textContent = '';
                         row.removeAttribute('data-formula-operators');
+                        row.removeAttribute('data-template-formula-operators');
                         row.removeAttribute('data-formula-display');
                         row.removeAttribute('data-formula-raw');
                         row.removeAttribute('data-source-columns');
@@ -11977,7 +11978,8 @@ function editRowFormula(button) {
     // Priority: 使用 data-formula-operators（原始值，包含 $数字）
     // 这样编辑时显示的是原始值（如 "$10+$8*0.7/5"），而不是转换后的值（如 "9+7*0.7/5"）
     let formulaValue = '';
-    const storedFormulaOperators = row.getAttribute('data-formula-operators') || '';
+    const storedTemplateFormulaOperators = row.getAttribute('data-template-formula-operators') || '';
+    const storedFormulaOperators = storedTemplateFormulaOperators || row.getAttribute('data-formula-operators') || '';
     const isReferenceFormat = storedFormulaOperators && /\[[^\]]+\s*:\s*\d+\]/.test(storedFormulaOperators);
     
     // Check if Source % is empty (no source percent) - define outside if/else so it's available later
@@ -12524,6 +12526,7 @@ function enableFormulaInlineEdit(element, row) {
             
             // Update data attribute with base formula (without Source %)
             row.setAttribute('data-formula-operators', finalBaseFormula);
+            row.setAttribute('data-template-formula-operators', finalBaseFormula);
             
             // Recalculate processed amount
             // IMPORTANT: Use displayFormula (with actual values, without Source %) for calculation
@@ -12846,6 +12849,7 @@ function enableSourcePercentInlineEdit(element, row) {
                 if (!existingFormulaOperators || existingFormulaOperators.trim() === '') {
                     // Only set if it was empty before
                     row.setAttribute('data-formula-operators', sourceExpression);
+                    row.setAttribute('data-template-formula-operators', sourceExpression);
                 } else {
                     // Check if existing contains column references (like $3) and new doesn't
                     const hasColumnRefs = /\$(\d+)/.test(existingFormulaOperators);
@@ -12858,6 +12862,7 @@ function enableSourcePercentInlineEdit(element, row) {
                     } else {
                         // Update to new value
                         row.setAttribute('data-formula-operators', sourceExpression);
+                        row.setAttribute('data-template-formula-operators', sourceExpression);
                     }
                 }
                 
@@ -13735,6 +13740,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     }
     if (data.formulaOperators !== undefined) {
         row.setAttribute('data-formula-operators', data.formulaOperators);
+        row.setAttribute('data-template-formula-operators', data.formulaOperators);
     } else {
         // If formulaOperators is not provided but formula text exists, try to preserve it
         // This ensures sub rows can be edited even if formulaOperators was not set during creation
@@ -13987,6 +13993,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         // This ensures tooltip and formula display use the correct values
         if (data.formulaOperators !== undefined) {
             row.setAttribute('data-formula-operators', data.formulaOperators);
+            row.setAttribute('data-template-formula-operators', data.formulaOperators);
         }
         if (data.inputMethod !== undefined) {
             row.setAttribute('data-input-method', data.inputMethod);
@@ -14560,6 +14567,7 @@ if (summaryTableBody) {
                 if (span) span.textContent = '';
             }
             summaryRow.removeAttribute('data-formula-operators');
+            summaryRow.removeAttribute('data-template-formula-operators');
             summaryRow.removeAttribute('data-formula-display');
             summaryRow.removeAttribute('data-formula-raw');
             summaryRow.removeAttribute('data-source-columns');
