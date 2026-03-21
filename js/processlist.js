@@ -22,6 +22,7 @@
         let bankAddProcessDataLoaded = false;
         let currentQuickRemarkProcessId = null;
         let pendingBankStatusSelection = null;
+        let bankProcessSubmitInFlight = false;
 
         function sortBankProcessesBySupplier() {
             if (!Array.isArray(processes) || processes.length === 0) return;
@@ -900,10 +901,14 @@
             document.getElementById('addBankModal').style.display = 'none';
             document.getElementById('bank_edit_id').value = '';
             window.selectedProfitSharingEntries = [];
+            bankProcessSubmitInFlight = false;
             const titleEl = document.getElementById('bankModalTitle');
             const submitBtn = document.getElementById('bankSubmitBtn');
             if (titleEl) titleEl.textContent = 'Add Process';
-            if (submitBtn) submitBtn.textContent = 'Add Process';
+            if (submitBtn) {
+                submitBtn.textContent = 'Add Process';
+                submitBtn.disabled = false;
+            }
             document.getElementById('addBankProcessForm').reset();
             document.getElementById('bank_edit_id').value = '';
             const profitInput = document.getElementById('bank_profit');
@@ -2909,6 +2914,9 @@
             bindBankFieldErrorClear();
             addBankProcessForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
+                if (bankProcessSubmitInFlight) {
+                    return;
+                }
                 if (markBankRequiredErrors()) {
                     showNotification('Please fill in all required fields. Only Insurance and Profit Sharing are optional.', 'danger');
                     return;
@@ -2931,6 +2939,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     return;
                 }
                 const editId = document.getElementById('bank_edit_id').value;
+                bankProcessSubmitInFlight = true;
+                const submitBtn = document.getElementById('bankSubmitBtn');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = editId ? 'Updating...' : 'Saving...';
+                }
                 const formData = new FormData(this);
                 // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
                 const grossProfit = (parseFloat(document.getElementById('bank_price').value) || 0) - (parseFloat(document.getElementById('bank_cost').value) || 0);
@@ -2995,6 +3009,14 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 } catch (error) {
                     console.error('Error saving bank process:', error);
                     showNotification('Failed to save bank process', 'danger');
+                } finally {
+                    bankProcessSubmitInFlight = false;
+                    const modal = document.getElementById('addBankModal');
+                    const activeSubmitBtn = document.getElementById('bankSubmitBtn');
+                    if (modal && modal.style.display === 'block' && activeSubmitBtn) {
+                        activeSubmitBtn.disabled = false;
+                        activeSubmitBtn.textContent = editId ? 'Update Process' : 'Add Process';
+                    }
                 }
             });
         }
