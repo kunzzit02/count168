@@ -95,36 +95,176 @@
 
         function renderBankStatusSelect(processId, process) {
             const currentValue = getBankStatusSelectValue(process);
+            const currentOption = BANK_STATUS_SELECT_OPTIONS.find(function (option) {
+                return option.value === currentValue;
+            }) || BANK_STATUS_SELECT_OPTIONS[0];
             const optionsHtml = BANK_STATUS_SELECT_OPTIONS.map(function (option) {
-                return '<option value="' + option.value + '"' + (option.value === currentValue ? ' selected' : '') + '>' + option.label + '</option>';
+                const isSelected = option.value === currentValue;
+                return '<button type="button" class="bank-status-option' + (isSelected ? ' selected' : '') + '" data-value="' + option.value + '" onclick="selectBankStatusOption(this, ' + processId + '); event.stopPropagation();">' + option.label + '</button>';
             }).join('');
-            return '<select class="bank-status-select" data-current-value="' + currentValue + '" onchange="handleBankStatusSelectChange(this, ' + processId + ')">' + optionsHtml + '</select>';
+
+            return '<div class="bank-status-dropdown" data-current-value="' + currentValue + '" data-open="0">' +
+                '<button type="button" class="bank-status-button" data-value="' + currentValue + '" onclick="toggleBankStatusDropdown(this, ' + processId + '); event.stopPropagation();">' + currentOption.label + '</button>' +
+                '<div class="bank-status-menu" onclick="event.stopPropagation();">' + optionsHtml + '</div>' +
+                '</div>';
         }
 
-        function applyBankStatusSelectAppearance(selectEl, rawValue) {
-            if (!selectEl) return;
+        function applyBankStatusSelectAppearance(dropdownEl, rawValue) {
+            if (!dropdownEl) return;
             const normalizedFlag = normalizeBankIssueFlag(rawValue);
             const normalized = normalizedFlag || (String(rawValue || '').toLowerCase() === 'inactive' ? 'inactive' : 'active');
-            selectEl.value = normalized;
-            selectEl.setAttribute('data-current-value', normalized);
-            selectEl.classList.remove('is-active', 'is-inactive', 'is-official', 'is-e-invoice');
-            if (normalized === 'inactive') {
-                selectEl.classList.add('is-inactive');
-            } else if (normalized === 'official') {
-                selectEl.classList.add('is-official');
-            } else if (normalized === 'e_invoice') {
-                selectEl.classList.add('is-e-invoice');
-            } else {
-                selectEl.classList.add('is-active');
+            const buttonEl = dropdownEl.querySelector('.bank-status-button');
+            const optionEls = dropdownEl.querySelectorAll('.bank-status-option');
+            const currentOption = BANK_STATUS_SELECT_OPTIONS.find(function (option) {
+                return option.value === normalized;
+            }) || BANK_STATUS_SELECT_OPTIONS[0];
+
+            dropdownEl.setAttribute('data-current-value', normalized);
+            if (buttonEl) {
+                buttonEl.textContent = currentOption.label;
+                buttonEl.setAttribute('data-value', normalized);
+                buttonEl.classList.remove('is-active', 'is-inactive', 'is-official', 'is-e-invoice');
             }
+            if (normalized === 'inactive') {
+                if (buttonEl) buttonEl.classList.add('is-inactive');
+            } else if (normalized === 'official') {
+                if (buttonEl) buttonEl.classList.add('is-official');
+            } else if (normalized === 'e_invoice') {
+                if (buttonEl) buttonEl.classList.add('is-e-invoice');
+            } else {
+                if (buttonEl) buttonEl.classList.add('is-active');
+            }
+
+            optionEls.forEach(function (optionEl) {
+                optionEl.classList.toggle('selected', String(optionEl.getAttribute('data-value') || '').toLowerCase() === normalized);
+            });
         }
 
         function refreshBankStatusCell(processId) {
             const process = processes.find(function (item) { return item.id === processId; });
             const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
             if (!process || !row) return;
-            const selectEl = row.querySelector('.bank-status-select');
-            applyBankStatusSelectAppearance(selectEl, getBankStatusSelectValue(process));
+            const dropdownEl = row.querySelector('.bank-status-dropdown');
+            applyBankStatusSelectAppearance(dropdownEl, getBankStatusSelectValue(process));
+        }
+
+        function closeAllBankStatusDropdowns() {
+            document.querySelectorAll('.bank-status-dropdown').forEach(function (dropdownEl) {
+                dropdownEl.classList.remove('open');
+                dropdownEl.setAttribute('data-open', '0');
+                const buttonEl = dropdownEl.querySelector('.bank-status-button');
+                if (buttonEl) buttonEl.classList.remove('open');
+                restoreBankStatusMenu(dropdownEl);
+            });
+        }
+
+        function moveBankStatusMenuToBody(dropdownEl) {
+            if (!dropdownEl) return;
+            const menuEl = dropdownEl.querySelector('.bank-status-menu');
+            const buttonEl = dropdownEl.querySelector('.bank-status-button');
+            if (!menuEl || !buttonEl) return;
+
+            if (!menuEl.__originalParent) {
+                menuEl.__originalParent = menuEl.parentNode;
+                menuEl.__originalNextSibling = menuEl.nextSibling;
+            }
+            if (menuEl.parentNode !== document.body) {
+                document.body.appendChild(menuEl);
+            }
+
+            menuEl.__ownerDropdown = dropdownEl;
+            menuEl.classList.add('bank-status-menu-floating');
+            menuEl.style.display = 'block';
+            menuEl.style.visibility = 'hidden';
+
+            const rect = buttonEl.getBoundingClientRect();
+            const menuWidth = Math.max(rect.width, 112);
+            menuEl.style.width = menuWidth + 'px';
+            menuEl.style.minWidth = menuWidth + 'px';
+            menuEl.style.maxWidth = menuWidth + 'px';
+
+            const menuHeight = menuEl.offsetHeight || 150;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            let left = rect.left;
+            let top = rect.bottom + 6;
+
+            if (left + menuWidth > viewportWidth - 12) {
+                left = Math.max(12, viewportWidth - menuWidth - 12);
+            }
+            if (top + menuHeight > viewportHeight - 12 && rect.top - menuHeight - 6 > 12) {
+                top = rect.top - menuHeight - 6;
+            }
+
+            menuEl.style.left = Math.round(left) + 'px';
+            menuEl.style.top = Math.round(top) + 'px';
+            menuEl.style.visibility = 'visible';
+        }
+
+        function restoreBankStatusMenu(dropdownEl) {
+            if (!dropdownEl) return;
+            let menuEl = dropdownEl.querySelector('.bank-status-menu');
+            if (!menuEl) {
+                menuEl = Array.from(document.body.querySelectorAll('.bank-status-menu-floating')).find(function (el) {
+                    return el.__ownerDropdown === dropdownEl;
+                }) || null;
+            }
+            if (!menuEl) return;
+
+            if (menuEl.__originalParent && menuEl.parentNode === document.body) {
+                if (menuEl.__originalNextSibling && menuEl.__originalNextSibling.parentNode === menuEl.__originalParent) {
+                    menuEl.__originalParent.insertBefore(menuEl, menuEl.__originalNextSibling);
+                } else {
+                    menuEl.__originalParent.appendChild(menuEl);
+                }
+            }
+
+            menuEl.classList.remove('bank-status-menu-floating');
+            menuEl.style.display = '';
+            menuEl.style.visibility = '';
+            menuEl.style.left = '';
+            menuEl.style.top = '';
+            menuEl.style.width = '';
+            menuEl.style.minWidth = '';
+            menuEl.style.maxWidth = '';
+        }
+
+        function toggleBankStatusDropdown(buttonEl) {
+            const dropdownEl = buttonEl ? buttonEl.closest('.bank-status-dropdown') : null;
+            if (!dropdownEl) return;
+
+            const isOpen = dropdownEl.classList.contains('open');
+            closeAllBankStatusDropdowns();
+            if (!isOpen) {
+                dropdownEl.classList.add('open');
+                dropdownEl.setAttribute('data-open', '1');
+                buttonEl.classList.add('open');
+                moveBankStatusMenuToBody(dropdownEl);
+            }
+        }
+
+        async function selectBankStatusOption(optionEl, processId) {
+            const menuEl = optionEl ? optionEl.closest('.bank-status-menu') : null;
+            const dropdownEl = menuEl && menuEl.__ownerDropdown
+                ? menuEl.__ownerDropdown
+                : (optionEl ? optionEl.closest('.bank-status-dropdown') : null);
+            if (!dropdownEl) return;
+
+            const newValue = String(optionEl.getAttribute('data-value') || '').toLowerCase();
+            await handleBankStatusSelectChange(dropdownEl, processId, newValue);
+        }
+
+        if (!window.__bankStatusDropdownBound) {
+            window.__bankStatusDropdownBound = true;
+            document.addEventListener('click', function () {
+                closeAllBankStatusDropdowns();
+            });
+            window.addEventListener('resize', function () {
+                closeAllBankStatusDropdowns();
+            });
+            window.addEventListener('scroll', function () {
+                closeAllBankStatusDropdowns();
+            }, true);
         }
 
         function matchesCurrentBankFilters(process) {
@@ -137,13 +277,17 @@
         async function updateBankIssueFlag(processId, newValue, options) {
             const settings = options || {};
             const process = processes.find(function (item) { return item.id === processId; });
-            const selectEl = settings.selectEl || document.querySelector('#bankTableBody tr[data-id="' + processId + '"] .bank-status-select');
+            const dropdownEl = settings.dropdownEl || document.querySelector('#bankTableBody tr[data-id="' + processId + '"] .bank-status-dropdown');
+            const buttonEl = dropdownEl ? dropdownEl.querySelector('.bank-status-button') : null;
             const previousValue = normalizeBankIssueFlag(process ? process.issue_flag : '');
             const normalizedNewValue = normalizeBankIssueFlag(newValue);
 
-            if (selectEl) {
-                applyBankStatusSelectAppearance(selectEl, normalizedNewValue || (process ? process.status : 'active'));
-                selectEl.disabled = true;
+            if (dropdownEl) {
+                applyBankStatusSelectAppearance(dropdownEl, normalizedNewValue || (process ? process.status : 'active'));
+                closeAllBankStatusDropdowns();
+            }
+            if (buttonEl) {
+                buttonEl.disabled = true;
             }
 
             try {
@@ -178,35 +322,37 @@
                 showNotification(error.message || 'Status flag update failed', 'danger');
                 throw error;
             } finally {
-                const latestSelectEl = document.querySelector('#bankTableBody tr[data-id="' + processId + '"] .bank-status-select');
-                if (latestSelectEl) latestSelectEl.disabled = false;
+                const latestButtonEl = document.querySelector('#bankTableBody tr[data-id="' + processId + '"] .bank-status-button');
+                if (latestButtonEl) latestButtonEl.disabled = false;
             }
         }
 
-        async function handleBankStatusSelectChange(selectEl, processId) {
+        async function handleBankStatusSelectChange(dropdownEl, processId, forcedValue) {
             const process = processes.find(function (item) { return item.id === processId; });
-            if (!selectEl || !process) return;
+            if (!dropdownEl || !process) return;
 
-            const selectedValue = String(selectEl.value || '').toLowerCase();
+            const selectedValue = String(forcedValue || dropdownEl.getAttribute('data-current-value') || '').toLowerCase();
             const previousDisplayValue = getBankStatusSelectValue(process);
 
             if (selectedValue === previousDisplayValue) {
-                applyBankStatusSelectAppearance(selectEl, previousDisplayValue);
+                applyBankStatusSelectAppearance(dropdownEl, previousDisplayValue);
+                closeAllBankStatusDropdowns();
                 return;
             }
 
             if (selectedValue === 'official' || selectedValue === 'e_invoice') {
-                await updateBankIssueFlag(processId, selectedValue, { selectEl: selectEl });
+                await updateBankIssueFlag(processId, selectedValue, { dropdownEl: dropdownEl });
                 return;
             }
 
             if (selectedValue !== 'active' && selectedValue !== 'inactive') {
-                applyBankStatusSelectAppearance(selectEl, previousDisplayValue);
+                applyBankStatusSelectAppearance(dropdownEl, previousDisplayValue);
+                closeAllBankStatusDropdowns();
                 return;
             }
 
             if (String(process.status || '').toLowerCase() === selectedValue) {
-                await updateBankIssueFlag(processId, '', { selectEl: selectEl });
+                await updateBankIssueFlag(processId, '', { dropdownEl: dropdownEl });
                 return;
             }
 
@@ -214,7 +360,8 @@
                 processId: processId,
                 desiredStatus: selectedValue
             };
-            applyBankStatusSelectAppearance(selectEl, previousDisplayValue);
+            applyBankStatusSelectAppearance(dropdownEl, previousDisplayValue);
+            closeAllBankStatusDropdowns();
             showConfirmInactiveModal(processId, selectedValue);
         }
 
@@ -484,7 +631,7 @@
                     '<td>' + escapeHtml(dashIfEmpty((process.date === '0000-00-00' || !process.date) ? '' : process.date)) + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
-                applyBankStatusSelectAppearance(tr.querySelector('.bank-status-select'), getBankStatusSelectValue(process));
+                applyBankStatusSelectAppearance(tr.querySelector('.bank-status-dropdown'), getBankStatusSelectValue(process));
             });
 
             renderPagination();
@@ -1637,7 +1784,7 @@
                                 // Status & action cells
                                 cells[12].innerHTML = statusSelect;
                                 cells[14].innerHTML = bankActionCellHtml;
-                                applyBankStatusSelectAppearance(cells[12].querySelector('.bank-status-select'), getBankStatusSelectValue(process));
+                                applyBankStatusSelectAppearance(cells[12].querySelector('.bank-status-dropdown'), getBankStatusSelectValue(process));
                             }
                         }
                     } else {
