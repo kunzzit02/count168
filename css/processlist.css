@@ -570,6 +570,15 @@
     flex-direction: column;
     min-height: 0;
 }
+.bank-form-row-last .bank-form-cell-right .bank-remark-wrap .bank-remark-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.bank-form-row-last .bank-form-cell-right .bank-remark-wrap .bank-remark-actions .btn {
+    min-width: 120px;
+}
 .bank-form-row-last .bank-form-cell-right .bank-remark-wrap .bank-input {
     flex: 1;
     min-height: 2.5em;

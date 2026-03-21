@@ -890,7 +890,10 @@ if ($current_user_id && count($user_companies) > 0) {
                             <!-- SOP：与当前 Process 关联的记录事项，点击按钮在弹窗中编辑 -->
                             <div class="form-group bank-remark-wrap" style="margin-top: 12px;">
                                 <input type="hidden" id="bank_remark" name="remark" value="">
-                                <button type="button" id="bank_sop_btn" class="btn btn-save" onclick="openSopModal()">SOP</button>
+                                <div class="bank-remark-actions">
+                                    <button type="button" id="bank_sop_btn" class="btn btn-save" onclick="openSopModal()">SOP</button>
+                                    <button type="button" id="bank_remark_btn" class="btn btn-save" onclick="openSopModal()">Remark</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -909,7 +912,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <div id="sopModal" class="modal bank-modal sop-modal" style="display: none;">
         <div class="modal-content sop-modal-content">
             <div class="modal-header">
-                <h2>SOP Remarks</h2>
+                <h2>Process Remarks</h2>
                 <span class="close" onclick="closeSopModal()">&times;</span>
             </div>
             <div class="modal-body sop-modal-body">
