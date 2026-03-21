@@ -14997,7 +14997,10 @@ if (mainTemplate && !hasExistingData) {
         ? resolveFormulaOperatorsExpression(formulaOperatorsValue, sourceColumnsValue, idProduct)
         : '';
     
-    if (resolvedFormulaFromOperators && resolvedFormulaFromOperators.trim() !== '') {
+    // 用户要求 Summary 的 Formula 与 Edit Formula 灰色只读框保持一致。
+    // 因此：只在没有保存的 formula_display 时，才退回用 formula_operators 现算展示值。
+    if ((!savedFormulaDisplay || savedFormulaDisplay.trim() === '' || savedFormulaDisplay === 'Formula') &&
+        resolvedFormulaFromOperators && resolvedFormulaFromOperators.trim() !== '') {
         formulaDisplay = createFormulaDisplayFromExpression(resolvedFormulaFromOperators, percentValue, enableSourcePercent);
         console.log('Using formula_operators resolved from current table data (applyTemplateToSummaryRow):', formulaDisplay);
     } else if (isBatchSelectedTemplate) {
