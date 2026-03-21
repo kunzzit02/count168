@@ -13945,7 +13945,13 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             const shouldKeepMain = !isSubRow && mainHasValue && !idProductText;
             if (preserveIdProduct || shouldKeepMain) {
                 const mainVal = (productValues.main || '').trim();
-                if (mainVal) cells[0].setAttribute('data-main-product', mainVal);
+                if (mainVal) {
+                    cells[0].setAttribute('data-main-product', mainVal);
+                    productValues.main = mainVal;
+                }
+                // main 行不能残留旧的 sub 值，否则会被 mergeProductValues 错拼成 "main / sub"
+                productValues.sub = '';
+                cells[0].setAttribute('data-sub-product', '');
             } else if (!preserveIdProduct && idProductText) {
                 if (isSubRow) {
                     productValues.sub = idProductText;
@@ -13953,6 +13959,8 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 } else {
                     productValues.main = idProductText;
                     cells[0].setAttribute('data-main-product', idProductText);
+                    productValues.sub = '';
+                    cells[0].setAttribute('data-sub-product', '');
                 }
             }
             
