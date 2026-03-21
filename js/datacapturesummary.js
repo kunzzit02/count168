@@ -13582,10 +13582,8 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         const parentFull = (processValue || row.getAttribute('data-parent-id-product') || '').trim();
         if (parentFull && parentFull.indexOf(' - ') >= 0) idProductText = parentFull;
     }
-    if (data.description && data.description.trim() !== '') {
-        const bare = idProductText.replace(/\s*\([^)]+\)\s*$/, '').trim();
-        idProductText = bare ? `${bare} (${data.description})` : idProductText;
-    }
+    // sub 行保持原始 id_product，不在这里拼接 description，
+    // 避免出现“没有 description 却在 Id Product 显示括号说明”的情况。
     // Update sub product value
     const productValues = getProductValuesFromCell(idProductCell);
     productValues.sub = idProductText;
@@ -17968,11 +17966,6 @@ function updateIdProductWithDescription(processValue, descriptionValue) {
             if (mainText === processValue) {
                 const displayMain = mainText.includes(`(${descriptionValue})`) ? mainText : `${processValue} (${descriptionValue})`;
                 idProductCell.textContent = mergeProductValues(displayMain, productValues.sub);
-                idProductCell.setAttribute('title', idProductCell.textContent);
-                break;
-            } else if (subText === processValue) {
-                const displaySub = subText.includes(`(${descriptionValue})`) ? subText : `${processValue} (${descriptionValue})`;
-                idProductCell.textContent = mergeProductValues(productValues.main, displaySub);
                 idProductCell.setAttribute('title', idProductCell.textContent);
                 break;
             }
