@@ -189,7 +189,10 @@
         }
 
         async function selectBankIssueFlag(optionEl, processId) {
-            const dropdownEl = optionEl ? optionEl.closest('.bank-issue-flag-dropdown') : null;
+            const menuEl = optionEl ? optionEl.closest('.bank-issue-flag-menu') : null;
+            const dropdownEl = menuEl && menuEl.__ownerDropdown
+                ? menuEl.__ownerDropdown
+                : (optionEl ? optionEl.closest('.bank-issue-flag-dropdown') : null);
             if (!dropdownEl) return;
             const newValue = normalizeBankIssueFlag(optionEl.getAttribute('data-value'));
             await updateBankIssueFlag(dropdownEl, processId, newValue);
