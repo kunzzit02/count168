@@ -677,6 +677,8 @@
             }
         }
 
+        let currentBankNoteTarget = 'sop';
+
         function closeAddBankModal() {
             document.getElementById('addBankModal').style.display = 'none';
             document.getElementById('bank_edit_id').value = '';
@@ -704,14 +706,27 @@
                 profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
                 profitAccountBtn.removeAttribute('data-value');
             }
+            const bankSopEl = document.getElementById('bank_sop');
+            const bankRemarkEl = document.getElementById('bank_remark');
+            if (bankSopEl) bankSopEl.value = '';
+            if (bankRemarkEl) bankRemarkEl.value = '';
         }
 
-        function openSopModal() {
+        function openProcessNoteModal(target) {
             const modal = document.getElementById('sopModal');
-            const bankRemark = document.getElementById('bank_remark');
+            const modalTitle = document.getElementById('processNoteModalTitle');
             const sopContent = document.getElementById('sop_content');
-            if (modal && bankRemark && sopContent) {
-                sopContent.value = (bankRemark.value || '').trim();
+            const normalizedTarget = target === 'remark' ? 'remark' : 'sop';
+            const sourceField = document.getElementById(normalizedTarget === 'remark' ? 'bank_remark' : 'bank_sop');
+            currentBankNoteTarget = normalizedTarget;
+            if (modal && sourceField && sopContent) {
+                if (modalTitle) {
+                    modalTitle.textContent = normalizedTarget === 'remark' ? 'Process Remark' : 'Process SOP';
+                }
+                sopContent.placeholder = normalizedTarget === 'remark'
+                    ? 'Enter remark for this process...'
+                    : 'Enter SOP notes for this process...';
+                sopContent.value = (sourceField.value || '').trim();
                 modal.style.display = 'block';
             }
         }
@@ -719,11 +734,11 @@
             const modal = document.getElementById('sopModal');
             if (modal) modal.style.display = 'none';
         }
-        function saveSopAndClose() {
-            const bankRemark = document.getElementById('bank_remark');
+        function saveProcessNoteAndClose() {
             const sopContent = document.getElementById('sop_content');
-            if (bankRemark && sopContent) {
-                bankRemark.value = (sopContent.value || '').trim().toUpperCase();
+            const targetField = document.getElementById(currentBankNoteTarget === 'remark' ? 'bank_remark' : 'bank_sop');
+            if (targetField && sopContent) {
+                targetField.value = (sopContent.value || '').trim().toUpperCase();
             }
             closeSopModal();
         }
@@ -874,7 +889,9 @@
                 }
                 document.getElementById('bank_contract').value = process.contract || '';
                 document.getElementById('bank_insurance').value = process.insurance != null && process.insurance !== '' ? process.insurance : '';
+                const bankSopEl = document.getElementById('bank_sop');
                 const bankRemarkEl = document.getElementById('bank_remark');
+                if (bankSopEl) bankSopEl.value = (process.sop != null && process.sop !== undefined) ? String(process.sop).toUpperCase() : '';
                 if (bankRemarkEl) bankRemarkEl.value = (process.remark != null && process.remark !== undefined) ? String(process.remark).toUpperCase() : '';
                 document.getElementById('bank_cost').value = process.cost != null && process.cost !== '' ? process.cost : '';
                 document.getElementById('bank_price').value = process.price != null && process.price !== '' ? process.price : '';

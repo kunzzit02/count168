@@ -21,6 +21,16 @@ function jsonResponse(bool $success, string $message, $data = null): void {
     echo json_encode($out, JSON_UNESCAPED_UNICODE);
 }
 
+function bankProcessHasColumn(PDO $pdo, string $column): bool {
+    try {
+        $stmt = $pdo->prepare("SHOW COLUMNS FROM bank_process LIKE ?");
+        $stmt->execute([$column]);
+        return $stmt && $stmt->rowCount() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 // ---------- 权限与用户 ----------
 function validateCompanyAccessProcess(PDO $pdo, int $companyId): void {
     $current_user_id = $_SESSION['user_id'];
@@ -256,20 +266,37 @@ function copyTemplatesToNewProcess(PDO $pdo, int $companyId, int $newProcessId, 
 
 // ---------- 数据层：Bank ----------
 function insertBankProcess(PDO $pdo, array $params): int {
-    $stmt = $pdo->prepare("
-        INSERT INTO bank_process (
-            company_id, country, bank, type, name, card_merchant_id, customer_id, profit_account_id,
-            contract, insurance, remark, cost, price, profit, profit_sharing, day_start, day_start_frequency, day_end, status,
-            created_by, created_by_type, created_by_owner_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
-    ");
-    $stmt->execute([
+    $columns = [
+        'company_id', 'country', 'bank', 'type', 'name', 'card_merchant_id', 'customer_id', 'profit_account_id',
+        'contract', 'insurance'
+    ];
+    $values = [
         $params['company_id'], $params['country'], $params['bank'], $params['type'], $params['name'],
         $params['card_merchant_id'], $params['customer_id'], $params['profit_account_id'],
-        $params['contract'], $params['insurance'], $params['remark'], $params['cost'], $params['price'], $params['profit'],
-        $params['profit_sharing'], $params['day_start'], $params['day_start_frequency'], $params['day_end'],
+        $params['contract'], $params['insurance']
+    ];
+
+    if (bankProcessHasColumn($pdo, 'sop')) {
+        $columns[] = 'sop';
+        $values[] = $params['sop'] ?? '';
+    }
+
+    $columns = array_merge($columns, [
+        'remark', 'cost', 'price', 'profit', 'profit_sharing', 'day_start', 'day_start_frequency', 'day_end', 'status',
+        'created_by', 'created_by_type', 'created_by_owner_id'
+    ]);
+    $values = array_merge($values, [
+        $params['remark'], $params['cost'], $params['price'], $params['profit'],
+        $params['profit_sharing'], $params['day_start'], $params['day_start_frequency'], $params['day_end'], 'active',
         $params['created_by'], $params['created_by_type'], $params['created_by_owner_id']
     ]);
+
+    $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+    $stmt = $pdo->prepare("
+        INSERT INTO bank_process (" . implode(', ', $columns) . ")
+        VALUES (" . $placeholders . ")
+    ");
+    $stmt->execute($values);
     return (int)$pdo->lastInsertId();
 }
 
@@ -439,6 +466,7 @@ try {
             'profit_account_id' => (isset($_POST['profit_account_id']) && $_POST['profit_account_id'] !== '') ? (int)$_POST['profit_account_id'] : null,
             'contract' => trim($_POST['contract'] ?? ''),
             'insurance' => (isset($_POST['insurance']) && $_POST['insurance'] !== '') ? (float)$_POST['insurance'] : null,
+            'sop' => trim($_POST['sop'] ?? ''),
             'remark' => trim($_POST['remark'] ?? ''),
             'cost' => (isset($_POST['cost']) && $_POST['cost'] !== '') ? (float)$_POST['cost'] : null,
             'price' => (isset($_POST['price']) && $_POST['price'] !== '') ? (float)$_POST['price'] : null,
