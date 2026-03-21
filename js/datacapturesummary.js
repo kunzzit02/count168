@@ -777,18 +777,16 @@ function restoreFormulaSourceFromRefresh() {
         if (data.rowUid) {
             row.setAttribute('data-row-uid', data.rowUid);
         }
-        // 恢复原始描述并更新 Id Product 显示（仅在有描述时）
+        // 恢复原始描述，并统一按当前 data-* 重新生成 Id Product 显示，
+        // 这样可以清掉旧逻辑遗留在可见文本里的 description 残留。
         if (data.originalDescription !== undefined && data.originalDescription !== null) {
             const desc = String(data.originalDescription || '').trim();
             if (desc) {
                 row.setAttribute('data-original-description', desc);
-                if (typeof getProcessValueFromRow === 'function' && typeof updateIdProductWithDescription === 'function') {
-                    const baseId = getProcessValueFromRow(row);
-                    if (baseId) {
-                        updateIdProductWithDescription(baseId, desc);
-                    }
-                }
+            } else {
+                row.removeAttribute('data-original-description');
             }
+            if (typeof refreshIdProductCellDisplay === 'function') refreshIdProductCellDisplay(row);
         }
         // 默认使用保存的公式，但如果当前行已经从后端加载了非空公式，则优先保留当前公式，
         // 避免用旧的本地缓存覆盖用户刚刚在其他页面/设备上更新过的公式。
@@ -13588,9 +13586,9 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     const productValues = getProductValuesFromCell(idProductCell);
     productValues.sub = idProductText;
     idProductCell.setAttribute('data-sub-product', idProductText);
-    const mergedDisplay = mergeProductValues(productValues.main, productValues.sub);
-    idProductCell.textContent = mergedDisplay;
-    if (mergedDisplay) idProductCell.setAttribute('title', mergedDisplay);
+    if (typeof refreshIdProductCellDisplay === 'function') {
+        refreshIdProductCellDisplay(row);
+    }
     idProductCell.setAttribute('data-processed-sub', 'true');
 
     // Account column (index 1)
@@ -14015,16 +14013,14 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 }
             }
             
-            let mergedText = mergeProductValues(productValues.main, productValues.sub);
-            if (!isSubRow && rowDescription) {
-                const descToken = `(${rowDescription})`.toUpperCase();
-                const mergedUpper = (mergedText || '').toUpperCase();
-                if (mergedText && mergedUpper.indexOf(descToken) === -1) {
-                    mergedText = `${mergedText} (${rowDescription})`;
-                }
+            if (rowDescription) {
+                row.setAttribute('data-original-description', rowDescription);
+            } else {
+                row.removeAttribute('data-original-description');
             }
-            cells[0].textContent = mergedText;
-            if (mergedText) cells[0].setAttribute('title', mergedText);
+            if (typeof refreshIdProductCellDisplay === 'function') {
+                refreshIdProductCellDisplay(row);
+            }
             // cells[0].style.backgroundColor = '#e8f5e8'; // Removed
         }
         
@@ -17731,6 +17727,36 @@ return {
 };
 }
 return { main, sub };
+}
+
+function refreshIdProductCellDisplay(row) {
+if (!row) return;
+const cell = row.querySelector('td:first-child');
+if (!cell) return;
+
+const productValues = getProductValuesFromCell(cell);
+const productType = (row.getAttribute('data-product-type') || 'main').trim();
+const rowDescription = (row.getAttribute('data-original-description') || '').trim();
+
+let mainDisplay = (productValues.main || '').trim();
+const subDisplay = (productValues.sub || '').trim();
+
+if (productType !== 'sub' && mainDisplay) {
+    if (rowDescription) {
+        const suffix = ` (${rowDescription})`;
+        if (!mainDisplay.endsWith(suffix)) {
+            mainDisplay = `${mainDisplay}${suffix}`;
+        }
+    }
+}
+
+const displayText = mergeProductValues(mainDisplay, subDisplay);
+cell.textContent = displayText;
+if (displayText) {
+    cell.setAttribute('title', displayText);
+} else {
+    cell.removeAttribute('title');
+}
 }
 
 // 保留 id_product 完整形式（含末尾冒号等符号），便于与资料库一致查找；仅去掉首尾空格
