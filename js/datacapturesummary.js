@@ -16308,55 +16308,6 @@ groups.sort((a, b) => {
     return a.originalGroupIndex - b.originalGroupIndex;
 });
 
-// 同一个 Id Product 的多个分段（例如同名 main 出现两段）在这里合并，
-// 保证 Main/Sub 永远连续，不会被其它组插开。
-const mergedGroups = [];
-const mergedByKey = new Map();
-groups.forEach(group => {
-    const key = group.groupKey || `__group_${group.originalGroupIndex}`;
-    if (key && mergedByKey.has(key)) {
-        const existing = mergedByKey.get(key);
-        existing.rows = existing.rows.concat(group.rows);
-        existing.sortIndex = Math.min(existing.sortIndex, group.sortIndex);
-        return;
-    }
-    const entry = {
-        rows: group.rows.slice(),
-        sortIndex: group.sortIndex,
-        originalGroupIndex: group.originalGroupIndex,
-        groupKey: key
-    };
-    mergedGroups.push(entry);
-    if (key) {
-        mergedByKey.set(key, entry);
-    }
-});
-
-mergedGroups.sort((a, b) => {
-    if (a.sortIndex !== b.sortIndex) {
-        return a.sortIndex - b.sortIndex;
-    }
-    return a.originalGroupIndex - b.originalGroupIndex;
-});
-
-// 最后再做一次“同 id product 强制连续”兜底，防止不同阶段写入导致同组再次被拆分。
-const contiguousBlocks = [];
-const blockByKey = new Map();
-mergedGroups.forEach(group => {
-    group.rows.forEach(row => {
-        const key = getRowGroupKey(row, '');
-        if (key && blockByKey.has(key)) {
-            blockByKey.get(key).rows.push(row);
-            return;
-        }
-        const block = { key, rows: [row] };
-        contiguousBlocks.push(block);
-        if (key) {
-            blockByKey.set(key, block);
-        }
-    });
-});
-
 const getEffectiveProductType = (row) => {
     const type = (row.getAttribute('data-product-type') || 'main').trim();
     if (type === 'main') {
@@ -16373,8 +16324,8 @@ const getSubOrderValue = (row) => {
 };
 
 // 组内强制排序：main 在前，sub 严格按 sub_order 升序。
-contiguousBlocks.forEach(block => {
-    block.rows.sort((a, b) => {
+groups.forEach(group => {
+    group.rows.sort((a, b) => {
         const typeA = getEffectiveProductType(a);
         const typeB = getEffectiveProductType(b);
         if (typeA !== typeB) {
@@ -16391,13 +16342,13 @@ contiguousBlocks.forEach(block => {
     });
 });
 
-contiguousBlocks.forEach(block => {
-    block.rows.forEach(row => summaryTableBody.appendChild(row));
+groups.forEach(group => {
+    group.rows.forEach(row => summaryTableBody.appendChild(row));
 });
 
 console.log(
     'Reordered rows by preserved row_index groups (main + subs).',
-    'Total groups:', mergedGroups.length,
+    'Total groups:', groups.length,
     'Total rows:', rows.length
 );
 return;
