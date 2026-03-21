@@ -83,8 +83,13 @@
         function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag) {
             const actionButtons = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
                 buildBankRemarkActionButton(processId);
-            const canDelete = isRealBankInactive(status) && !hasTransactions;
-            return actionButtons + (canDelete ? '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">' : '');
+            const showDeleteCheckbox = isRealBankInactive(status);
+            if (!showDeleteCheckbox) {
+                return actionButtons;
+            }
+            const disabledAttr = hasTransactions ? ' disabled' : '';
+            const titleText = hasTransactions ? 'Cannot delete: process has transactions' : 'Select for deletion';
+            return actionButtons + '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="' + titleText + '"' + disabledAttr + ' onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
         }
 
         function syncBankFilterCheckboxes() {
