@@ -616,9 +616,14 @@ try {
             }
         }
         
-        // 如果有 description，将其附加到 product 后面（用括号括起来）
+        // 如果产品编号里已包含相同 description，则不要重复追加，避免出现
+        // "ABB5ADMIN (PROCESS FEE 3%) (PROCESS FEE 3%)" 这类重复显示
         if (!empty($productDescription)) {
-            $product = $product . ' (' . trim($productDescription) . ')';
+            $normalizedProductDescription = trim((string)$productDescription);
+            $wrappedProductDescription = '(' . $normalizedProductDescription . ')';
+            if ($normalizedProductDescription !== '' && stripos((string)$product, $wrappedProductDescription) === false) {
+                $product = $product . ' ' . $wrappedProductDescription;
+            }
         }
         
         // Percent: 不再使用 source_percent，留空
