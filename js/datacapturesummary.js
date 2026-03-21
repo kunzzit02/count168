@@ -8837,6 +8837,135 @@ function parseReferenceFormula(formula) {
     }
 }
 
+function replaceFormulaSegmentWithResolvedValue(expression, startIndex, matchLength, rawValue) {
+    const safeExpression = expression != null ? String(expression) : '';
+    const numericText = rawValue === null || rawValue === undefined ? '0' : String(rawValue).trim();
+    let replacementValue = numericText === '' ? '0' : numericText;
+    const numericValue = parseFloat(replacementValue);
+    if (!isNaN(numericValue) && numericValue < 0) {
+        const charBefore = startIndex > 0 ? safeExpression[startIndex - 1] : '';
+        const needsParentheses = startIndex === 0 || /[+\-*/\(\s]/.test(charBefore);
+        if (needsParentheses) {
+            replacementValue = `(${replacementValue})`;
+        }
+    }
+    return safeExpression.substring(0, startIndex) +
+        replacementValue +
+        safeExpression.substring(startIndex + matchLength);
+}
+
+function buildSourceColumnReferenceMap(sourceColumnsValue) {
+    const refMap = new Map();
+    if (!sourceColumnsValue || typeof sourceColumnsValue !== 'string') {
+        return refMap;
+    }
+    const parts = sourceColumnsValue.split(/\s+/).filter(part => part && part.trim() !== '');
+    parts.forEach(part => {
+        const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(part) : null;
+        if (!parsed) return;
+        const displayColumnIndex = parsed.dataColumnIndex + 1;
+        if (!Number.isFinite(displayColumnIndex) || displayColumnIndex <= 0) return;
+        refMap.set(displayColumnIndex, {
+            idProduct: parsed.idProduct,
+            rowLabel: parsed.rowLabel,
+            dataColumnIndex: parsed.dataColumnIndex,
+            displayColumnIndex
+        });
+    });
+    return refMap;
+}
+
+function hasMeaningfulFormulaOperators(formulaOperatorsValue) {
+    const value = formulaOperatorsValue != null ? String(formulaOperatorsValue).trim() : '';
+    if (!value) return false;
+    return /(\$|\[[^\]]+\]|[A-Za-z]+\d|\d)/.test(value);
+}
+
+function resolveFormulaOperatorsExpression(formulaOperatorsValue, sourceColumnsValue, fallbackIdProduct) {
+    try {
+        let expression = formulaOperatorsValue != null ? String(formulaOperatorsValue).trim() : '';
+        if (!expression) {
+            return '';
+        }
+
+        const sourceColumnRefsMap = buildSourceColumnReferenceMap(sourceColumnsValue);
+        const fallbackRowLabel = (fallbackIdProduct && typeof getRowLabelFromProcessValue === 'function')
+            ? getRowLabelFromProcessValue(fallbackIdProduct)
+            : null;
+
+        const dollarPattern = /\$(\d+)(?!\d)/g;
+        const dollarMatches = [];
+        let match;
+        dollarPattern.lastIndex = 0;
+        while ((match = dollarPattern.exec(expression)) !== null) {
+            const displayColumnIndex = parseInt(match[1], 10);
+            if (!isNaN(displayColumnIndex) && displayColumnIndex > 0) {
+                dollarMatches.push({
+                    fullMatch: match[0],
+                    displayColumnIndex,
+                    index: match.index
+                });
+            }
+        }
+
+        dollarMatches.sort((a, b) => b.index - a.index);
+        dollarMatches.forEach(dollarMatch => {
+            let columnValue = null;
+            const mappedRef = sourceColumnRefsMap.get(dollarMatch.displayColumnIndex);
+            if (mappedRef) {
+                columnValue = getCellValueByIdProductAndColumn(
+                    mappedRef.idProduct,
+                    mappedRef.dataColumnIndex,
+                    mappedRef.rowLabel
+                );
+            }
+            if (columnValue === null && fallbackIdProduct) {
+                columnValue = getCellValueByIdProductAndColumn(
+                    fallbackIdProduct,
+                    dollarMatch.displayColumnIndex - 1,
+                    fallbackRowLabel
+                );
+            }
+            expression = replaceFormulaSegmentWithResolvedValue(
+                expression,
+                dollarMatch.index,
+                dollarMatch.fullMatch.length,
+                columnValue
+            );
+        });
+
+        const cellReferencePattern = /\b([A-Za-z]+)(\d+)\b/g;
+        const cellReferences = [];
+        while ((match = cellReferencePattern.exec(expression)) !== null) {
+            const beforeMatch = expression.substring(Math.max(0, match.index - 1), match.index);
+            const afterMatch = expression.substring(match.index + match[0].length, Math.min(expression.length, match.index + match[0].length + 1));
+            if (!/[A-Za-z0-9]/.test(beforeMatch) && !/[A-Za-z]/.test(afterMatch)) {
+                cellReferences.push({
+                    fullMatch: match[0],
+                    index: match.index
+                });
+            }
+        }
+
+        cellReferences.sort((a, b) => b.index - a.index);
+        cellReferences.forEach(ref => {
+            const cellValue = fallbackIdProduct ? getColumnValueFromCellReference(ref.fullMatch, fallbackIdProduct) : null;
+            expression = replaceFormulaSegmentWithResolvedValue(
+                expression,
+                ref.index,
+                ref.fullMatch.length,
+                cellValue
+            );
+        });
+
+        const parsedExpression = parseReferenceFormula(expression);
+        return parsedExpression != null ? String(parsedExpression).trim() : expression;
+    } catch (error) {
+        console.error('Error resolving formula operators expression:', error);
+        return formulaOperatorsValue != null ? String(formulaOperatorsValue).trim() : '';
+    }
+}
+
 // Evaluate formula expression directly
 function evaluateFormulaExpression(formula) {
     try {
@@ -11347,11 +11476,17 @@ function updateRowFormulaFromColumns(row) {
     // If we have a saved formula_display, try to preserve its structure while updating numbers
     // But if displayExpression is reference format, use it directly
     let formulaDisplay;
+    const resolvedFormulaFromOperators = hasMeaningfulFormulaOperators(savedFormulaOperators)
+        ? resolveFormulaOperatorsExpression(savedFormulaOperators, row.getAttribute('data-source-columns') || columnsValue || '', processValue)
+        : '';
     // 支持旧格式 [ID,6] 与新格式 [ID : 6]
     const isDisplayReferenceFormat = displayExpression && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(displayExpression);
     const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
 
-    if (isDisplayReferenceFormat) {
+    if (resolvedFormulaFromOperators && resolvedFormulaFromOperators.trim() !== '') {
+        formulaDisplay = createFormulaDisplayFromExpression(resolvedFormulaFromOperators, sourcePercentText, enableSourcePercent);
+        console.log('Resolved formula display from formula_operators:', formulaDisplay);
+    } else if (isDisplayReferenceFormat) {
         // Parse reference format to actual values before creating display
         const parsedExpression = parseReferenceFormula(displayExpression);
         if (enableSourcePercent && sourcePercentText) {
@@ -14891,17 +15026,23 @@ if (mainTemplate && !hasExistingData) {
     let formulaDisplay = '';
     const savedFormulaDisplay = mainTemplate.formula_display || '';
     const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
+    const resolvedFormulaFromOperators = hasMeaningfulFormulaOperators(formulaOperatorsValue)
+        ? resolveFormulaOperatorsExpression(formulaOperatorsValue, sourceColumnsValue, idProduct)
+        : '';
     
-    if (isBatchSelectedTemplate) {
+    if (!savedFormulaDisplay || savedFormulaDisplay.trim() === '' || savedFormulaDisplay === 'Formula') {
+        // Formula was explicitly cleared, keep it empty
+        formulaDisplay = '';
+        console.log('Saved formula_display is empty, keeping formula empty (not regenerating from sourceColumns)');
+    } else if (resolvedFormulaFromOperators && resolvedFormulaFromOperators.trim() !== '') {
+        formulaDisplay = createFormulaDisplayFromExpression(resolvedFormulaFromOperators, percentValue, enableSourcePercent);
+        console.log('Using formula_operators resolved from current table data (main):', formulaDisplay);
+    } else if (isBatchSelectedTemplate) {
         // 对于 Batch Selection 的模板，优先使用保存的 formula_display（如果包含括号）
         // 如果保存的 formula_display 包含括号，使用 preserveFormulaStructure 来保留括号结构
         // 否则，重新从当前的 resolvedSourceExpression 计算
         // IMPORTANT: If saved formula_display is empty, don't regenerate formula from sourceColumns
-        if (!savedFormulaDisplay || savedFormulaDisplay.trim() === '' || savedFormulaDisplay === 'Formula') {
-            // Formula was explicitly cleared, keep it empty
-            formulaDisplay = '';
-            console.log('Batch template: Saved formula_display is empty, keeping formula empty (not regenerating from sourceColumns)');
-        } else if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+        if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
             // Check if saved formula contains parentheses
             const hasParentheses = /[()]/.test(savedFormulaDisplay);
             if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
@@ -14964,11 +15105,7 @@ if (mainTemplate && !hasExistingData) {
         // Not batch selection template
         // IMPORTANT: If saved formula_display is empty, don't regenerate formula from sourceColumns
         // This ensures that when user clears formula, it stays cleared after page refresh
-        if (!savedFormulaDisplay || savedFormulaDisplay.trim() === '' || savedFormulaDisplay === 'Formula') {
-            // Formula was explicitly cleared, keep it empty
-            formulaDisplay = '';
-            console.log('Saved formula_display is empty, keeping formula empty (not regenerating from sourceColumns)');
-        } else {
+        if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
             // Check if resolvedSourceExpression or savedFormulaDisplay is reference format
             const isResolvedReferenceFormat = resolvedSourceExpression && /\[[^\]]+\s*:\s*\d+\]/.test(resolvedSourceExpression);
             const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
@@ -15735,13 +15872,21 @@ const enableSourcePercent = percentValue && percentValue.trim() !== '';
 // Priority: Use saved formula_display if available (savedFormulaDisplay declared above with savedSourceValue)
 let formulaDisplay = '';
 const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
+const resolvedFormulaFromOperators = hasMeaningfulFormulaOperators(formulaOperatorsValue)
+    ? resolveFormulaOperatorsExpression(formulaOperatorsValue, sourceColumnsValue, idProduct)
+    : '';
+
+if (resolvedFormulaFromOperators && resolvedFormulaFromOperators.trim() !== '') {
+    formulaDisplay = createFormulaDisplayFromExpression(resolvedFormulaFromOperators, percentValue, enableSourcePercent);
+    console.log('applyMainTemplateToRow: resolved formula from formula_operators:', formulaDisplay);
+}
 
 // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
 // 需要从当前表格数据重新计算，将 $数字 转换为实际值（如 1+1*0.7/5）
 // 这样当用户修改表格数据后，公式会反映最新的数据
 // CRITICAL: 必须使用 sourceColumns 中保存的 id_product，而不是当前行的 id_product
 const hasDollarSigns = formulaOperatorsValue && /\$(\d+)(?!\d)/.test(formulaOperatorsValue);
-if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
+if (!formulaDisplay && hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
     // 从当前表格数据重新计算 formula
     // IMPORTANT: 使用 sourceColumns 中保存的 id_product，而不是当前行的 id_product
     let displayFormula = formulaOperatorsValue;
@@ -15845,14 +15990,14 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
     }
     
     console.log('applyMainTemplateToRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
-} else if (hasDollarSigns && !sourceColumnsValue) {
+} else if (!formulaDisplay && hasDollarSigns && !sourceColumnsValue) {
     // 如果无法获取 sourceColumns，使用保存的 formula_display 作为后备
     formulaDisplay = savedFormulaDisplay || formulaOperatorsValue;
     console.log('applyMainTemplateToRow: cannot get sourceColumns, using saved formula_display:', formulaDisplay);
 }
 
 // 如果已经计算好 formulaDisplay（包含 $数字 的情况），跳过后续的 batch selection 逻辑
-const hasCalculatedFormulaDisplay = hasDollarSigns && formulaDisplay && formulaDisplay.trim() !== '';
+const hasCalculatedFormulaDisplay = formulaDisplay && formulaDisplay.trim() !== '';
 
 if (isBatchSelectedTemplate && !hasCalculatedFormulaDisplay) {
     if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
@@ -17119,13 +17264,21 @@ const enableSourcePercent = percentValue && percentValue.trim() !== '';
 let formulaDisplay = '';
 const savedFormulaDisplay = template.formula_display || '';
 const isBatchSelectedTemplate = template.batch_selection == 1;
+const resolvedFormulaFromOperators = hasMeaningfulFormulaOperators(formulaOperatorsValue)
+    ? resolveFormulaOperatorsExpression(formulaOperatorsValue, sourceColumnsValue, idProduct)
+    : '';
+
+if (resolvedFormulaFromOperators && resolvedFormulaFromOperators.trim() !== '') {
+    formulaDisplay = createFormulaDisplayFromExpression(resolvedFormulaFromOperators, percentValue, enableSourcePercent);
+    console.log('applySubTemplatesToSummaryRow: resolved formula from formula_operators:', formulaDisplay);
+}
 
 // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
 // 需要从当前表格数据重新计算，将 $数字 转换为实际值（如 1+1*0.7/5）
 // 这样当用户修改表格数据后，公式会反映最新的数据
 // CRITICAL: 必须从 sourceColumnsValue 中提取正确的 id_product 和 row_label，而不是使用当前 sub row 的 idProduct
 const hasDollarSigns = formulaOperatorsValue && /\$(\d+)(?!\d)/.test(formulaOperatorsValue);
-if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
+if (!formulaDisplay && hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
     let displayFormula = formulaOperatorsValue;
     
     // 匹配所有 $数字 模式
@@ -17223,7 +17376,7 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
     }
     
     console.log('applySubTemplatesToSummaryRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
-} else if (!hasDollarSigns && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+} else if (!formulaDisplay && !hasDollarSigns && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
     // CRITICAL: 如果公式中没有 $ 符号，直接使用保存的 formula_display，不尝试解析或重建
     // Check if savedFormulaDisplay has reference format (e.g., [id_product : column])
     const savedHasReferenceFormat = /\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay);
