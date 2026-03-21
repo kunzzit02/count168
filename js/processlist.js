@@ -7,12 +7,19 @@
         const pageSize = 20;
         /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
         const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.3fr';
+        const BANK_STATUS_SELECT_OPTIONS = [
+            { value: 'active', label: 'ACTIVE' },
+            { value: 'inactive', label: 'INACTIVE' },
+            { value: 'official', label: 'OFFICIAL' },
+            { value: 'e_invoice', label: 'E-INVOICE' }
+        ];
 
         // Bank Supplier 列的排序状态（A→Z / Z→A）
         let bankSupplierSortDirection = 'asc'; // 'asc' | 'desc'
         let bankAddProcessDataPromise = null;
         let bankAddProcessDataLoaded = false;
         let currentQuickRemarkProcessId = null;
+        let pendingBankStatusSelection = null;
 
         function sortBankProcessesBySupplier() {
             if (!Array.isArray(processes) || processes.length === 0) return;
@@ -71,11 +78,144 @@
             syncBankFilterCheckboxes();
         }
 
+        function normalizeBankIssueFlag(value) {
+            const normalized = String(value || '').trim().toLowerCase();
+            if (normalized === 'official' || normalized === 'e_invoice') {
+                return normalized;
+            }
+            return '';
+        }
+
+        function getBankStatusSelectValue(process) {
+            if (!process) return 'active';
+            const issueFlag = normalizeBankIssueFlag(process.issue_flag);
+            if (issueFlag) return issueFlag;
+            return String(process.status || '').toLowerCase() === 'inactive' ? 'inactive' : 'active';
+        }
+
+        function renderBankStatusSelect(processId, process) {
+            const currentValue = getBankStatusSelectValue(process);
+            const optionsHtml = BANK_STATUS_SELECT_OPTIONS.map(function (option) {
+                return '<option value="' + option.value + '"' + (option.value === currentValue ? ' selected' : '') + '>' + option.label + '</option>';
+            }).join('');
+            return '<select class="bank-status-select" data-current-value="' + currentValue + '" onchange="handleBankStatusSelectChange(this, ' + processId + ')">' + optionsHtml + '</select>';
+        }
+
+        function applyBankStatusSelectAppearance(selectEl, rawValue) {
+            if (!selectEl) return;
+            const normalizedFlag = normalizeBankIssueFlag(rawValue);
+            const normalized = normalizedFlag || (String(rawValue || '').toLowerCase() === 'inactive' ? 'inactive' : 'active');
+            selectEl.value = normalized;
+            selectEl.setAttribute('data-current-value', normalized);
+            selectEl.classList.remove('is-active', 'is-inactive', 'is-official', 'is-e-invoice');
+            if (normalized === 'inactive') {
+                selectEl.classList.add('is-inactive');
+            } else if (normalized === 'official') {
+                selectEl.classList.add('is-official');
+            } else if (normalized === 'e_invoice') {
+                selectEl.classList.add('is-e-invoice');
+            } else {
+                selectEl.classList.add('is-active');
+            }
+        }
+
+        function refreshBankStatusCell(processId) {
+            const process = processes.find(function (item) { return item.id === processId; });
+            const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
+            if (!process || !row) return;
+            const selectEl = row.querySelector('.bank-status-select');
+            applyBankStatusSelectAppearance(selectEl, getBankStatusSelectValue(process));
+        }
+
         function matchesCurrentBankFilters(process) {
             if (!process) return false;
             if (showAll) return true;
             const status = String(process.status || '').toLowerCase();
             return showInactive ? status === 'inactive' : status === 'active';
+        }
+
+        async function updateBankIssueFlag(processId, newValue, options) {
+            const settings = options || {};
+            const process = processes.find(function (item) { return item.id === processId; });
+            const selectEl = settings.selectEl || document.querySelector('#bankTableBody tr[data-id="' + processId + '"] .bank-status-select');
+            const previousValue = normalizeBankIssueFlag(process ? process.issue_flag : '');
+            const normalizedNewValue = normalizeBankIssueFlag(newValue);
+
+            if (selectEl) {
+                applyBankStatusSelectAppearance(selectEl, normalizedNewValue || (process ? process.status : 'active'));
+                selectEl.disabled = true;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('id', processId);
+                formData.append('issue_flag', normalizedNewValue);
+
+                const response = await fetch(buildApiUrl('api/processes/update_bank_issue_flag_api.php'), {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || result.message || 'Status flag update failed');
+                }
+
+                if (process) {
+                    process.issue_flag = normalizedNewValue || null;
+                }
+
+                refreshBankStatusCell(processId);
+                if (!settings.silent) {
+                    showNotification('Status option updated', 'success');
+                }
+            } catch (error) {
+                console.error('Status flag update failed:', error);
+                if (process) {
+                    process.issue_flag = previousValue || null;
+                }
+                refreshBankStatusCell(processId);
+                showNotification(error.message || 'Status flag update failed', 'danger');
+                throw error;
+            } finally {
+                const latestSelectEl = document.querySelector('#bankTableBody tr[data-id="' + processId + '"] .bank-status-select');
+                if (latestSelectEl) latestSelectEl.disabled = false;
+            }
+        }
+
+        async function handleBankStatusSelectChange(selectEl, processId) {
+            const process = processes.find(function (item) { return item.id === processId; });
+            if (!selectEl || !process) return;
+
+            const selectedValue = String(selectEl.value || '').toLowerCase();
+            const previousDisplayValue = getBankStatusSelectValue(process);
+
+            if (selectedValue === previousDisplayValue) {
+                applyBankStatusSelectAppearance(selectEl, previousDisplayValue);
+                return;
+            }
+
+            if (selectedValue === 'official' || selectedValue === 'e_invoice') {
+                await updateBankIssueFlag(processId, selectedValue, { selectEl: selectEl });
+                return;
+            }
+
+            if (selectedValue !== 'active' && selectedValue !== 'inactive') {
+                applyBankStatusSelectAppearance(selectEl, previousDisplayValue);
+                return;
+            }
+
+            if (String(process.status || '').toLowerCase() === selectedValue) {
+                await updateBankIssueFlag(processId, '', { selectEl: selectEl });
+                return;
+            }
+
+            pendingBankStatusSelection = {
+                processId: processId,
+                desiredStatus: selectedValue
+            };
+            applyBankStatusSelectAppearance(selectEl, previousDisplayValue);
+            showConfirmInactiveModal(processId, selectedValue);
         }
 
         // 构造 API 绝对 URL（始终基于站点根目录，避免相对路径解析错误）
@@ -309,7 +449,6 @@
                 return s === '' ? '-' : val;
             }
             pageItems.forEach((process, idx) => {
-                const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
                 const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
                 // Special rule: 1 MONTH / 1+1 / 1+2 / 1+3 during active period use gray style
@@ -323,8 +462,7 @@
                 const cost = dashIfEmpty(process.cost);
                 const price = dashIfEmpty(process.price);
                 const profit = dashIfEmpty(process.profit);
-                // 状态徽章：Bank 现在允许 INACTIVE ↔ ACTIVE 自由切换，前端只做确认弹窗，不再禁止点击
-                const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
+                const statusSelect = renderBankStatusSelect(process.id, process);
                 const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions);
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
@@ -342,10 +480,11 @@
                     '<td>' + escapeHtml(String(cost)) + '</td>' +
                     '<td>' + escapeHtml(String(price)) + '</td>' +
                     '<td>' + escapeHtml(String(profit)) + '</td>' +
-                    '<td class="bank-td-status">' + statusBadge + '</td>' +
+                    '<td class="bank-td-status">' + statusSelect + '</td>' +
                     '<td>' + escapeHtml(dashIfEmpty((process.date === '0000-00-00' || !process.date) ? '' : process.date)) + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
+                applyBankStatusSelectAppearance(tr.querySelector('.bank-status-select'), getBankStatusSelectValue(process));
             });
 
             renderPagination();
@@ -1472,9 +1611,8 @@
                 } else if (newDayEnd) {
                     renderTable();
                 } else {
-                    const statusClass = newStatus === 'active' ? 'status-active' : (newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
                     const process = processes.find(p => p.id === processId);
-                    const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
+                    const statusSelect = renderBankStatusSelect(processId, process);
 
                     if (selectedPermission === 'Bank') {
                         const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
@@ -1483,7 +1621,7 @@
                         if (row) {
                             row.setAttribute('data-status', newStatus || '');
                             const cells = row.querySelectorAll('td');
-                            if (cells.length >= 16) {
+                            if (cells.length >= 15) {
                                 // Contract cell (index 6): apply gray rule for 1 MONTH / 1+1 / 1+2 / 1+3 during active period
                                 const contractRaw = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
                                 const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
@@ -1497,11 +1635,14 @@
                                 cells[6].innerHTML = contractCellHtml;
 
                                 // Status & action cells
-                                cells[12].innerHTML = statusBadge;
-                                cells[15].innerHTML = bankActionCellHtml;
+                                cells[12].innerHTML = statusSelect;
+                                cells[14].innerHTML = bankActionCellHtml;
+                                applyBankStatusSelectAppearance(cells[12].querySelector('.bank-status-select'), getBankStatusSelectValue(process));
                             }
                         }
                     } else {
+                        const statusClass = newStatus === 'active' ? 'status-active' : (newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
+                        const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
                         const card = document.querySelector(`.process-card[data-id="${processId}"]`);
                         if (card) {
                             const items = card.querySelectorAll('.card-item');
@@ -1591,6 +1732,7 @@
             if (modal) modal.style.display = 'none';
             pendingToggleProcessId = null;
             pendingToggleNewStatus = null;
+            pendingBankStatusSelection = null;
         }
 
         async function confirmInactive() {
@@ -1599,10 +1741,17 @@
                 return;
             }
             const processId = pendingToggleProcessId;
+            const pendingStatusSelection = pendingBankStatusSelection ? {
+                processId: pendingBankStatusSelection.processId,
+                desiredStatus: pendingBankStatusSelection.desiredStatus
+            } : null;
             closeConfirmInactiveModal();
             try {
                 // 无论目标是 Active 还是 Inactive，都交给同一个切换函数处理
                 await performToggleStatus(processId);
+                if (pendingStatusSelection && pendingStatusSelection.processId === processId) {
+                    await updateBankIssueFlag(processId, '', { silent: true });
+                }
             } catch (error) {
                 console.error('Error:', error);
                 showNotification('Status toggle failed', 'danger');

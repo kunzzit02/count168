@@ -613,9 +613,11 @@ function getBankProcesses() {
             $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
             $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
         } catch (PDOException $e) { /* ignore */ }
+        $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
         $hasTxnSubquery = $hasSourceBankProcessId
             ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
             : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
+        $issueFlagSelect = $hasIssueFlagColumn ? "bp.issue_flag" : "NULL AS issue_flag";
 
         $sql = "SELECT 
                     bp.id,
@@ -636,6 +638,7 @@ function getBankProcesses() {
                     bp.day_start_frequency,
                     bp.day_end,
                     bp.status,
+                    $issueFlagSelect,
                     bp.dts_modified,
                     a_cm.name as card_merchant_name,
                     a_cm.account_id as card_merchant_account_id,
@@ -683,6 +686,10 @@ function getBankProcesses() {
             $storedProfit = isset($r['profit']) && $r['profit'] !== '' ? (float)$r['profit'] : 0.0;
             $profitSharingTotal = parseProfitSharingTotal($r['profit_sharing'] ?? null);
             $netProfit = max(0, $storedProfit - $profitSharingTotal);
+            $issueFlag = strtolower(trim((string)($r['issue_flag'] ?? '')));
+            if (!in_array($issueFlag, ['official', 'e_invoice'], true)) {
+                $issueFlag = null;
+            }
             $formattedProcesses[] = [
                 'id' => $r['id'],
                 'supplier' => $r['name'] ?? '',
@@ -697,6 +704,7 @@ function getBankProcesses() {
                 'price' => $r['price'],
                 'profit' => number_format($netProfit, 2, '.', ''),
                 'status' => $r['status'],
+                'issue_flag' => $issueFlag,
                 'remark' => $r['remark'] ?? '',
                 'date' => $r['day_start'] ?? '',
                 'day_start' => $r['day_start'] ?? null,
@@ -729,11 +737,13 @@ function getBankProcess() {
             return;
         }
         $hasSopColumn = bankProcessHasColumn($pdo, 'sop');
+        $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
         $sopSelect = $hasSopColumn ? "bp.sop" : "NULL AS sop";
+        $issueFlagSelect = $hasIssueFlagColumn ? "bp.issue_flag" : "NULL AS issue_flag";
         $stmt = $pdo->prepare("SELECT 
                 bp.id, bp.country, bp.bank, bp.type, bp.name,
                 bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.contract, bp.insurance, bp.remark, $sopSelect,
-                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, bp.status,
+                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, bp.status, $issueFlagSelect,
                 bp.dts_modified, bp.dts_created,
                 a_cm.account_id as card_merchant_account_id, a_cm.name as card_merchant_name, a_cust.account_id as customer_account, a_cust.name as customer_name,
                 a_pa.account_id as profit_account_account_id, a_pa.name as profit_account_name
@@ -775,6 +785,7 @@ function getBankProcess() {
             'day_start_frequency' => $process['day_start_frequency'] ?? '1st_of_every_month',
             'day_end' => $process['day_end'] ?? null,
             'status' => $process['status'],
+            'issue_flag' => (in_array(strtolower(trim((string)($process['issue_flag'] ?? ''))), ['official', 'e_invoice'], true) ? strtolower(trim((string)$process['issue_flag'])) : null),
             'dts_modified' => $process['dts_modified'],
             'dts_created' => $process['dts_created'],
         ];

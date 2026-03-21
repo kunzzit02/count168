@@ -381,9 +381,61 @@ body.process-page {
     max-width: 120px;
     white-space: nowrap;
 }
+.process-page .bank-data-table .bank-th-status,
+.process-page .bank-data-table .bank-td-status {
+    width: 8%;
+    min-width: 98px;
+    max-width: 132px;
+}
 .process-page .bank-data-table th:not(.bank-th-no):not(.bank-th-country):not(.bank-th-types):not(.bank-th-card-owner):not(.bank-th-status):not(.bank-th-action),
 .process-page .bank-data-table td:not(.bank-td-no):not(.bank-td-country):not(.bank-td-types):not(.bank-td-card-owner):not(.bank-td-status):not(.bank-td-action) {
     min-width: 0;
+}
+.process-page .bank-status-select {
+    width: 100%;
+    height: 28px;
+    padding: 4px 28px 4px 10px;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    font-size: clamp(7px, 0.63vw, 12px);
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    text-align-last: center;
+    cursor: pointer;
+    outline: none;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 14px 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5.25 7.5L10 12.25L14.75 7.5' stroke='%2364758b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.process-page .bank-status-select:disabled {
+    cursor: wait;
+    opacity: 0.8;
+}
+.process-page .bank-status-select.is-active {
+    background-color: #beffd4;
+    color: #000000;
+    border-color: #8ed7a6;
+}
+.process-page .bank-status-select.is-inactive {
+    background-color: #ffc3c3;
+    color: #000000;
+    border-color: #e7a4a4;
+}
+.process-page .bank-status-select.is-official {
+    background-color: #fef3c7;
+    color: #854d0e;
+    border-color: #facc15;
+}
+.process-page .bank-status-select.is-e-invoice {
+    background-color: #ffedd5;
+    color: #9a3412;
+    border-color: #fb923c;
 }
 /* Action 列表头：文字与勾选格垂直居中 */
 .process-page .bank-data-table .bank-th-action {
