@@ -13980,6 +13980,11 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             const productValues = getProductValuesFromCell(cells[0]);
             const idProductText = (data.idProduct || '').trim();
             const isSubRow = !productValues.main || !productValues.main.trim();
+            const rowDescription = (
+                data.originalDescription !== undefined && data.originalDescription !== null
+                    ? data.originalDescription
+                    : (row.getAttribute('data-original-description') || '')
+            ).toString().trim();
             // main 行：若 data.idProduct 为空且已有 main 显示，不覆盖，避免 main 的 Id_product 消失
             const preserveIdProduct = data.preserveIdProductDisplay && (productValues.main || '').trim() !== '';
             const mainHasValue = (productValues.main || '').trim() !== '';
@@ -14005,7 +14010,14 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                 }
             }
             
-            const mergedText = mergeProductValues(productValues.main, productValues.sub);
+            let mergedText = mergeProductValues(productValues.main, productValues.sub);
+            if (!isSubRow && rowDescription) {
+                const descToken = `(${rowDescription})`.toUpperCase();
+                const mergedUpper = (mergedText || '').toUpperCase();
+                if (mergedText && mergedUpper.indexOf(descToken) === -1) {
+                    mergedText = `${mergedText} (${rowDescription})`;
+                }
+            }
             cells[0].textContent = mergedText;
             if (mergedText) cells[0].setAttribute('title', mergedText);
             // cells[0].style.backgroundColor = '#e8f5e8'; // Removed
