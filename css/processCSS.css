@@ -52,18 +52,50 @@ body.process-page {
 .process-page .process-list-date-filter {
     display: inline-flex;
     align-items: center;
-    min-width: clamp(220px, 18vw, 300px);
+    min-width: clamp(180px, 15vw, 250px);
 }
 
 .process-page .process-list-date-filter .date-range-picker {
-    min-width: clamp(220px, 18vw, 300px);
-    width: clamp(220px, 18vw, 300px);
+    min-width: clamp(180px, 15vw, 250px);
+    width: clamp(180px, 15vw, 250px);
+    justify-content: flex-start;
+    padding-right: clamp(30px, 2vw, 38px);
 }
 
 .process-page .process-list-date-filter .date-range-picker span {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    padding-right: 4px;
+}
+
+.process-page .process-list-date-filter .date-range-picker {
+    position: relative;
+}
+
+.process-page .process-list-date-clear {
+    position: absolute;
+    right: clamp(8px, 0.83vw, 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: clamp(14px, 1vw, 18px);
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+
+.process-page .process-list-date-clear:hover {
+    color: #475569;
 }
 
 .process-page .search-icon {
@@ -279,12 +311,12 @@ body.process-page {
 
 @media (max-width: 1200px) {
     .process-page .process-list-date-filter {
-        min-width: 220px;
+        min-width: 180px;
     }
 
     .process-page .process-list-date-filter .date-range-picker {
-        width: min(300px, 55vw);
-        min-width: min(300px, 55vw);
+        width: min(250px, 48vw);
+        min-width: min(250px, 48vw);
     }
 }
 
