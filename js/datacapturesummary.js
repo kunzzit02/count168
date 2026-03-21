@@ -11583,17 +11583,19 @@ function updateFormulaAndProcessedAmount(row, data) {
         let formulaText = '';
         let rawFormula = '';
         const preferredFormulaDisplay = getPreferredFormulaDisplay(data, row);
-        if (preferredFormulaDisplay && preferredFormulaDisplay !== 'Formula') {
+        const formulaOperatorsForDisplay = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
+        const shouldRecalculateFromFormulaOperators = !!(formulaOperatorsForDisplay && formulaOperatorsForDisplay.trim() !== '' && formulaOperatorsForDisplay !== 'Formula');
+        if (!shouldRecalculateFromFormulaOperators && preferredFormulaDisplay && preferredFormulaDisplay !== 'Formula') {
             rawFormula = preferredFormulaDisplay;
             formulaText = formatNegativeNumbersInFormula(preferredFormulaDisplay);
-        } else if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+        } else if (!shouldRecalculateFromFormulaOperators && data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
             rawFormula = data.formula;
             formulaText = formatNegativeNumbersInFormula(data.formula);
         }
         
         // If formula is empty, try to get from formulaOperators
         if (!formulaText || formulaText.trim() === '') {
-            const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
+            const formulaOperators = formulaOperatorsForDisplay;
             if (formulaOperators && formulaOperators.trim() !== '' && formulaOperators !== 'Formula') {
                 // Check if formulaOperators contains column references (like $3)
                 const hasColumnRefs = /\$(\d+)/.test(formulaOperators);
@@ -11703,6 +11705,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                                 : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
                             
                             formulaText = createFormulaDisplayFromExpression(displayFormula, sourcePercentText, enableSourcePercent);
+                            rawFormula = formulaText;
                             console.log('updateFormulaAndProcessedAmount: Parsed column references for display:', formulaOperators, '->', formulaText);
                         } else {
                             // No row label, use formulaOperators as-is
@@ -11713,6 +11716,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                                 ? data.enableSourcePercent 
                                 : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
                             formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
+                            rawFormula = formulaText;
                         }
                     } else {
                         // No process value, use formulaOperators as-is
@@ -11723,6 +11727,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                             ? data.enableSourcePercent 
                             : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
                         formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
+                        rawFormula = formulaText;
                     }
                 } else {
                     // No column references, use formulaOperators directly with source percent
@@ -11733,6 +11738,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                         ? data.enableSourcePercent 
                         : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
                     formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
+                    rawFormula = formulaText;
                 }
             }
         }
