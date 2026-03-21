@@ -1536,6 +1536,7 @@
             const buttonEl = dropdownEl.querySelector('.bank-issue-flag-button');
 
             applyBankIssueFlagSelectAppearance(dropdownEl, newValue);
+            closeAllBankIssueFlagDropdowns();
             if (buttonEl) buttonEl.disabled = true;
             try {
                 const formData = new FormData();
@@ -1564,7 +1565,6 @@
                     row.setAttribute('data-issue-flag', newValue);
                 }
 
-                closeAllBankIssueFlagDropdowns();
                 showNotification('Issue flag updated', 'success');
             } catch (error) {
                 console.error('Issue flag update failed:', error);
