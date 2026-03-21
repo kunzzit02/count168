@@ -15844,6 +15844,7 @@ const enableSourcePercent = percentValue && percentValue.trim() !== '';
 // Priority: Use saved formula_display if available (savedFormulaDisplay declared above with savedSourceValue)
 let formulaDisplay = '';
 const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
+const hasBracketReferenceFormula = formulaOperatorsValue && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(formulaOperatorsValue);
 
 // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
 // 需要从当前表格数据重新计算，将 $数字 转换为实际值（如 1+1*0.7/5）
@@ -15954,6 +15955,12 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
     }
     
     console.log('applyMainTemplateToRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
+} else if (!hasDollarSigns && hasBracketReferenceFormula) {
+    const parsedOperatorFormula = parseReferenceFormula(formulaOperatorsValue);
+    if (parsedOperatorFormula && parsedOperatorFormula.trim() !== '') {
+        formulaDisplay = createFormulaDisplayFromExpression(parsedOperatorFormula, percentValue, enableSourcePercent);
+        console.log('applyMainTemplateToRow: formula_operators contains bracket references, recalculated from current table data:', formulaDisplay);
+    }
 } else if (hasDollarSigns && !sourceColumnsValue) {
     // 如果无法获取 sourceColumns，使用保存的 formula_display 作为后备
     formulaDisplay = savedFormulaDisplay || formulaOperatorsValue;
@@ -17180,6 +17187,7 @@ const enableSourcePercent = percentValue && percentValue.trim() !== '';
 let formulaDisplay = '';
 const savedFormulaDisplay = template.formula_display || '';
 const isBatchSelectedTemplate = template.batch_selection == 1;
+const hasBracketReferenceFormula = formulaOperatorsValue && /\[[^\]]+\s*[: ,]\s*\d+\]/.test(formulaOperatorsValue);
 
 // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
 // 需要从当前表格数据重新计算，将 $数字 转换为实际值（如 1+1*0.7/5）
@@ -17284,6 +17292,12 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
     }
     
     console.log('applySubTemplatesToSummaryRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
+} else if (!hasDollarSigns && hasBracketReferenceFormula) {
+    const parsedOperatorFormula = parseReferenceFormula(formulaOperatorsValue);
+    if (parsedOperatorFormula && parsedOperatorFormula.trim() !== '') {
+        formulaDisplay = createFormulaDisplayFromExpression(parsedOperatorFormula, percentValue, enableSourcePercent);
+        console.log('applySubTemplatesToSummaryRow: formula_operators contains bracket references, recalculated from current table data:', formulaDisplay);
+    }
 } else if (!hasDollarSigns && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
     // CRITICAL: 如果公式中没有 $ 符号，直接使用保存的 formula_display，不尝试解析或重建
     // Check if savedFormulaDisplay has reference format (e.g., [id_product : column])
