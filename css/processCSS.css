@@ -411,7 +411,7 @@ body.process-page {
     background-repeat: no-repeat;
     background-position: right 9px center;
     background-size: 14px 14px;
-    font-size: clamp(9px, 0.72vw, 13px);
+    font-size: clamp(7px, 0.63vw, 12px);
     font-weight: 700;
     letter-spacing: 0.02em;
     line-height: 1;
