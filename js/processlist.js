@@ -62,6 +62,21 @@
             return '<select class="bank-issue-flag-select" data-current-value="' + currentValue + '" onchange="updateBankIssueFlag(this, ' + processId + ')" onclick="event.stopPropagation()">' + optionsHtml + '</select>';
         }
 
+        function applyBankIssueFlagSelectAppearance(selectEl, rawValue) {
+            if (!selectEl) return;
+            const normalized = normalizeBankIssueFlag(rawValue != null ? rawValue : selectEl.value);
+            selectEl.value = normalized;
+            selectEl.setAttribute('data-flag', normalized || 'none');
+            selectEl.classList.remove('is-empty', 'is-official', 'is-e-invoice');
+            if (normalized === 'official') {
+                selectEl.classList.add('is-official');
+            } else if (normalized === 'e_invoice') {
+                selectEl.classList.add('is-e-invoice');
+            } else {
+                selectEl.classList.add('is-empty');
+            }
+        }
+
         // 构造 API 绝对 URL（始终基于站点根目录，避免相对路径解析错误）
         function buildApiUrl(fileName) {
             const pathname = window.location.pathname || '/';
@@ -335,6 +350,8 @@
                     '<td>' + escapeHtml(dashIfEmpty((process.date === '0000-00-00' || !process.date) ? '' : process.date)) + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
+                const issueFlagSelectEl = tr.querySelector('.bank-issue-flag-select');
+                applyBankIssueFlagSelectAppearance(issueFlagSelectEl, process.issue_flag);
             });
 
             renderPagination();
@@ -1397,6 +1414,7 @@
             const newValue = normalizeBankIssueFlag(selectEl.value);
             const previousValue = normalizeBankIssueFlag(selectEl.getAttribute('data-current-value'));
 
+            applyBankIssueFlagSelectAppearance(selectEl, newValue);
             selectEl.disabled = true;
             try {
                 const formData = new FormData();
@@ -1419,6 +1437,7 @@
                 }
 
                 selectEl.setAttribute('data-current-value', newValue);
+                applyBankIssueFlagSelectAppearance(selectEl, newValue);
                 const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                 if (row) {
                     row.setAttribute('data-issue-flag', newValue);
@@ -1428,6 +1447,7 @@
             } catch (error) {
                 console.error('Issue flag update failed:', error);
                 selectEl.value = previousValue;
+                applyBankIssueFlagSelectAppearance(selectEl, previousValue);
                 showNotification(error.message || 'Issue flag update failed', 'danger');
             } finally {
                 selectEl.disabled = false;

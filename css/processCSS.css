@@ -395,22 +395,61 @@ body.process-page {
 .process-page .bank-issue-flag-select {
     width: 100%;
     min-width: 92px;
-    padding: 4px 24px 4px 8px;
+    height: 28px;
+    padding: 4px 30px 4px 10px;
     border: 1px solid #cbd5e1;
-    border-radius: 6px;
+    border-radius: 999px;
     background-color: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5.25 7.5L10 12.25L14.75 7.5' stroke='%2364758b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    background-size: 14px 14px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
     font-size: clamp(9px, 0.72vw, 13px);
-    color: #1f2937;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    text-align: center;
+    text-align-last: center;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
 .process-page .bank-issue-flag-select:focus {
     outline: none;
     border-color: #2563eb;
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
 }
+.process-page .bank-issue-flag-select:hover:not(:disabled) {
+    border-color: #94a3b8;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
 .process-page .bank-issue-flag-select:disabled {
     background-color: #f8fafc;
     color: #94a3b8;
     cursor: wait;
+}
+.process-page .bank-issue-flag-select.is-empty {
+    color: #64748b;
+    background-color: #f8fafc;
+    border-color: #d7dee7;
+}
+.process-page .bank-issue-flag-select.is-official {
+    color: #9a3412;
+    background-color: #ffedd5;
+    border-color: #fdba74;
+}
+.process-page .bank-issue-flag-select.is-e-invoice {
+    color: #1d4ed8;
+    background-color: #dbeafe;
+    border-color: #93c5fd;
+}
+.process-page .bank-issue-flag-select option {
+    color: #1f2937;
+    background-color: #ffffff;
+    font-weight: 600;
 }
 /* Action 列表头：文字与勾选格垂直居中 */
 .process-page .bank-data-table .bank-th-action {
