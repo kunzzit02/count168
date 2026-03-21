@@ -258,16 +258,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         </div>
                         <?php
                             $showAllChecked = isset($_GET['showAll']);
-                            $hasNonAllFilter = isset($_GET['showActive']) || isset($_GET['showInactive']) || isset($_GET['showOfficial']) || isset($_GET['showEInvoice']);
-                            $showActiveChecked = !$showAllChecked && (!$hasNonAllFilter || isset($_GET['showActive']));
+                            $hasNonAllFilter = isset($_GET['showInactive']) || isset($_GET['showOfficial']) || isset($_GET['showEInvoice']);
                             $showInactiveChecked = !$showAllChecked && isset($_GET['showInactive']);
                             $showOfficialChecked = !$showAllChecked && isset($_GET['showOfficial']);
                             $showEInvoiceChecked = !$showAllChecked && isset($_GET['showEInvoice']);
                         ?>
-                        <div class="checkbox-section">
-                            <input type="checkbox" id="showActive" name="showActive" <?php echo $showActiveChecked ? 'checked' : ''; ?>>
-                            <label for="showActive">Show Active</label>
-                        </div>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactiveChecked ? 'checked' : ''; ?>>
                             <label for="showInactive">Show Inactive</label>
@@ -1400,7 +1395,6 @@ if ($current_user_id && count($user_companies) > 0) {
     </div>
 
     <script>
-        window.PROCESSLIST_SHOW_ACTIVE = <?php echo $showActiveChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_INACTIVE = <?php echo $showInactiveChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_OFFICIAL = <?php echo $showOfficialChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_E_INVOICE = <?php echo $showEInvoiceChecked ? 'true' : 'false'; ?>;

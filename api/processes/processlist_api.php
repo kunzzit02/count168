@@ -210,7 +210,6 @@ function getProcesses() {
         $targetCompanyId = $requested_company_id;
         
         $searchTerm = $_GET['search'] ?? '';
-        $showActive = isset($_GET['showActive']) && $_GET['showActive'] == '1';
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
         $showOfficial = isset($_GET['showOfficial']) && $_GET['showOfficial'] == '1';
         $showEInvoice = isset($_GET['showEInvoice']) && $_GET['showEInvoice'] == '1';
@@ -597,7 +596,6 @@ function getBankProcesses() {
         }
         $targetCompanyId = $requested_company_id;
         $searchTerm = $_GET['search'] ?? '';
-        $showActive = isset($_GET['showActive']) && $_GET['showActive'] == '1';
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
         $showOfficial = isset($_GET['showOfficial']) && $_GET['showOfficial'] == '1';
         $showEInvoice = isset($_GET['showEInvoice']) && $_GET['showEInvoice'] == '1';
@@ -657,16 +655,13 @@ function getBankProcesses() {
             $params[] = $term;
             $params[] = $term;
         }
-        $hasSpecificFilter = $showActive || $showInactive || $showOfficial || $showEInvoice;
+        $hasSpecificFilter = $showInactive || $showOfficial || $showEInvoice;
         if ($showAll) {
             // no additional filter
         } elseif (!$hasSpecificFilter) {
             $sql .= " AND bp.status = 'active'";
         } else {
             $filterClauses = [];
-            if ($showActive) {
-                $filterClauses[] = "bp.status = 'active'";
-            }
             if ($showInactive) {
                 $filterClauses[] = "bp.status = 'inactive'";
             }

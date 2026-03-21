@@ -1,6 +1,5 @@
         // 全局变量
         let processes = [];
-        let showActive = (typeof window.PROCESSLIST_SHOW_ACTIVE !== 'undefined' ? window.PROCESSLIST_SHOW_ACTIVE : true);
         let showInactive = (typeof window.PROCESSLIST_SHOW_INACTIVE !== 'undefined' ? window.PROCESSLIST_SHOW_INACTIVE : false);
         let showOfficial = (typeof window.PROCESSLIST_SHOW_OFFICIAL !== 'undefined' ? window.PROCESSLIST_SHOW_OFFICIAL : false);
         let showEInvoice = (typeof window.PROCESSLIST_SHOW_E_INVOICE !== 'undefined' ? window.PROCESSLIST_SHOW_E_INVOICE : false);
@@ -49,16 +48,14 @@
         }
 
         function hasAnySpecificBankFilterSelected() {
-            return !!(showActive || showInactive || showOfficial || showEInvoice);
+            return !!(showInactive || showOfficial || showEInvoice);
         }
 
         function syncBankFilterCheckboxes() {
-            const showActiveCheckbox = document.getElementById('showActive');
             const showInactiveCheckbox = document.getElementById('showInactive');
             const showOfficialCheckbox = document.getElementById('showOfficial');
             const showEInvoiceCheckbox = document.getElementById('showEInvoice');
             const showAllCheckbox = document.getElementById('showAll');
-            if (showActiveCheckbox) showActiveCheckbox.checked = !!showActive;
             if (showInactiveCheckbox) showInactiveCheckbox.checked = !!showInactive;
             if (showOfficialCheckbox) showOfficialCheckbox.checked = !!showOfficial;
             if (showEInvoiceCheckbox) showEInvoiceCheckbox.checked = !!showEInvoice;
@@ -67,16 +64,11 @@
 
         function normalizeBankFilterState() {
             if (showAll) {
-                showActive = false;
                 showInactive = false;
                 showOfficial = false;
                 showEInvoice = false;
                 syncBankFilterCheckboxes();
                 return;
-            }
-
-            if (!hasAnySpecificBankFilterSelected()) {
-                showActive = true;
             }
             syncBankFilterCheckboxes();
         }
@@ -89,7 +81,6 @@
             const status = String(process.status || '').toLowerCase();
             const issueFlag = normalizeBankIssueFlag(process.issue_flag);
 
-            if (showActive) matches.push(status === 'active');
             if (showInactive) matches.push(status === 'inactive');
             if (showOfficial) matches.push(issueFlag === 'official');
             if (showEInvoice) matches.push(issueFlag === 'e_invoice');
@@ -290,9 +281,6 @@
                 }
                 if (showInactive) {
                     url.searchParams.set('showInactive', '1');
-                }
-                if (showActive) {
-                    url.searchParams.set('showActive', '1');
                 }
                 if (showOfficial) {
                     url.searchParams.set('showOfficial', '1');
@@ -2462,17 +2450,6 @@
                     this.value = filteredValue;
                     this.setSelectionRange(cursorPosition, cursorPosition);
                 }, 0);
-            });
-        }
-
-        const showActiveCheckbox = document.getElementById('showActive');
-        if (showActiveCheckbox) {
-            showActiveCheckbox.addEventListener('change', function () {
-                showActive = this.checked;
-                if (showActive) showAll = false;
-                normalizeBankFilterState();
-                currentPage = 1;
-                fetchProcesses();
             });
         }
 
