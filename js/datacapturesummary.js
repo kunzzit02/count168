@@ -9270,6 +9270,17 @@ function removeTrailingSourcePercentExpression(formulaText) {
     return result;
 }
 
+function normalizeSummaryFormulaDisplay(formulaText, sourcePercentValue, enableSourcePercent = true) {
+    let result = String(formulaText || '').trim();
+    if (!result || result === 'Formula') return '';
+    const sourceText = String(sourcePercentValue || '').trim();
+    if (enableSourcePercent && sourceText !== '' && typeof removeTrailingSourcePercentExpression === 'function') {
+        const stripped = removeTrailingSourcePercentExpression(result);
+        if (stripped) result = stripped;
+    }
+    return result;
+}
+
 // Calculate formula result from expression
 function calculateFormulaResultFromExpression(formula, sourcePercentValue, inputMethod = '', enableInputMethod = false, enableSourcePercent = true) {
     try {
@@ -11742,6 +11753,14 @@ function updateFormulaAndProcessedAmount(row, data) {
             formulaText = '';
         }
 
+        const finalSourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
+            ? data.sourcePercent.toString().trim()
+            : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+        const finalEnableSourcePercent = data.enableSourcePercent !== undefined
+            ? data.enableSourcePercent
+            : (finalSourcePercentText && finalSourcePercentText.trim() !== '' && finalSourcePercentText !== '1');
+        formulaText = normalizeSummaryFormulaDisplay(formulaText, finalSourcePercentText, finalEnableSourcePercent);
+
         // Special handling: for MG95-96 + KL-ELSON, display processed amount as formula
         if (isMg95ElsonSpecialRow(data, row)) {
             let specialAmount = (data.processedAmount !== undefined && data.processedAmount !== null)
@@ -13130,6 +13149,7 @@ function recalculateRowFormula(row, newSourcePercent) {
             if (baseFormula && baseFormula.trim() !== '') {
                 formulaDisplay = createFormulaDisplayFromExpression(baseFormula, newSourcePercent, enableSourcePercent);
             }
+            formulaDisplay = normalizeSummaryFormulaDisplay(formulaDisplay, newSourcePercent, enableSourcePercent);
             // Get input method from row for tooltip (escape for HTML attribute)
             const inputMethod = row.getAttribute('data-input-method') || '';
             const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
@@ -13666,7 +13686,12 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         // Prefer saved formula_display so this row matches Edit Formula exactly.
         const preferredFormulaDisplay = getPreferredFormulaDisplay(data, row);
         const rawFormula = preferredFormulaDisplay || ((data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '');
-        const formulaText = rawFormula ? formatNegativeNumbersInFormula(rawFormula) : '';
+        const formulaTextRaw = rawFormula ? formatNegativeNumbersInFormula(rawFormula) : '';
+        const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null ? String(data.sourcePercent).trim() : '';
+        const enableSourcePercent = data.enableSourcePercent !== undefined
+            ? data.enableSourcePercent
+            : (sourcePercentText && sourcePercentText !== '1');
+        const formulaText = normalizeSummaryFormulaDisplay(formulaTextRaw, sourcePercentText, enableSourcePercent);
         row.setAttribute('data-formula-raw', rawFormula || '');
         if (formulaText) row.setAttribute('data-formula-display', formulaText);
         else row.removeAttribute('data-formula-display');
@@ -14223,6 +14248,14 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                     formulaText = createFormulaDisplayFromExpression(formulaOperatorsValue, sourcePercentText, enableSourcePercent);
                 }
             }
+
+            const finalSourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
+                ? data.sourcePercent.toString().trim()
+                : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+            const finalEnableSourcePercent = data.enableSourcePercent !== undefined
+                ? data.enableSourcePercent
+                : (finalSourcePercentText && finalSourcePercentText.trim() !== '' && finalSourcePercentText !== '1');
+            formulaText = normalizeSummaryFormulaDisplay(formulaText, finalSourcePercentText, finalEnableSourcePercent);
 
             // Special handling: for MG95-96 + KL-ELSON, display processed amount as formula
             if (isMg95ElsonSpecialRow(data, row)) {
@@ -14958,14 +14991,15 @@ if (mainTemplate && !hasExistingData) {
         (!formulaOperatorsValue || formulaOperatorsValue.trim() === '') &&
         savedFormulaDisplay && savedFormulaDisplay.trim() !== '') {
         const formulaCell = targetRow.querySelector('td:nth-child(5)');
-        if (formulaCell) formulaCell.innerHTML = `<span class="formula-text">${savedFormulaDisplay}</span>`;
+        const normalizedSavedFormulaDisplay = normalizeSummaryFormulaDisplay(savedFormulaDisplay, mainTemplate.source_percent || '1', true);
+        if (formulaCell) formulaCell.innerHTML = `<span class="formula-text">${normalizedSavedFormulaDisplay}</span>`;
         const processedCell = targetRow.querySelector('td:nth-child(8)');
         if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
             const val = Number(mainTemplate.last_processed_amount);
             processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
             processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
         }
-        targetRow.setAttribute('data-formula-display', savedFormulaDisplay);
+        targetRow.setAttribute('data-formula-display', normalizedSavedFormulaDisplay);
         targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
         targetRow.setAttribute('data-source-percent', mainTemplate.source_percent || '1');
         updateProcessedAmountTotal();
@@ -15801,6 +15835,7 @@ if (currentSourceData && currentSourceData.trim() !== '') {
         if (manualSrcPct !== '' && Math.abs(parseFloat(manualSrcPct) - 1) < 0.0001 && typeof removeTrailingSourcePercentExpression === 'function') {
             formulaDisplayForManual = removeTrailingSourcePercentExpression(formulaDisplayForManual) || formulaDisplayForManual;
         }
+        formulaDisplayForManual = normalizeSummaryFormulaDisplay(formulaDisplayForManual, mainTemplate.source_percent || '1', true);
         const formulaCell = targetRow.querySelector('td:nth-child(5)');
         if (formulaCell) {
             formulaCell.innerHTML = `<span class="formula-text">${formulaDisplayForManual}</span>`;
