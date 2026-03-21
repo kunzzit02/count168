@@ -19,6 +19,7 @@
         let bankSupplierSortDirection = 'asc'; // 'asc' | 'desc'
         let bankAddProcessDataPromise = null;
         let bankAddProcessDataLoaded = false;
+        let currentQuickRemarkProcessId = null;
 
         function sortBankProcessesBySupplier() {
             if (!Array.isArray(processes) || processes.length === 0) return;
@@ -47,6 +48,20 @@
             renderBankTable();
             renderPagination();
             updateBankSupplierSortIndicator();
+        }
+
+        function buildBankRemarkActionButton(processId) {
+            return '<button class="edit-btn remark-action-btn" onclick="openQuickRemarkModal(' + processId + ')" aria-label="Remark" title="Remark">' +
+                '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+                '<path d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+                '</svg>' +
+                '</button>';
+        }
+
+        function buildBankActionCellHtml(processId, status, hasTransactions) {
+            const actionButtons = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
+                buildBankRemarkActionButton(processId);
+            return actionButtons + (status === 'active' ? '' : (hasTransactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
         }
 
         function hasAnySpecificBankFilterSelected() {
@@ -501,8 +516,7 @@
                 // 状态徽章：Bank 现在允许 INACTIVE ↔ ACTIVE 自由切换，前端只做确认弹窗，不再禁止点击
                 const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
                 const issueFlagSelect = renderBankIssueFlagSelect(process.id, process.issue_flag);
-                const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                    (process.status === 'active' ? '' : (process.has_transactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
+                const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions);
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.setAttribute('data-status', process.status || '');
@@ -757,6 +771,7 @@
             const normalizedTarget = target === 'remark' ? 'remark' : 'sop';
             const sourceField = document.getElementById(normalizedTarget === 'remark' ? 'bank_remark' : 'bank_sop');
             currentBankNoteTarget = normalizedTarget;
+            currentQuickRemarkProcessId = null;
             if (modal && sourceField && sopContent) {
                 if (modalTitle) {
                     modalTitle.textContent = normalizedTarget === 'remark' ? 'Process Remark' : 'Process SOP';
@@ -771,14 +786,61 @@
         function closeSopModal() {
             const modal = document.getElementById('sopModal');
             if (modal) modal.style.display = 'none';
+            currentQuickRemarkProcessId = null;
         }
-        function saveProcessNoteAndClose() {
+        async function saveProcessNoteAndClose() {
             const sopContent = document.getElementById('sop_content');
+            if (currentBankNoteTarget === 'quick_remark') {
+                const remark = (sopContent && sopContent.value ? sopContent.value : '').trim().toUpperCase();
+                if (!currentQuickRemarkProcessId) {
+                    closeSopModal();
+                    return;
+                }
+                try {
+                    const formData = new FormData();
+                    formData.append('id', String(currentQuickRemarkProcessId));
+                    formData.append('remark', remark);
+                    const response = await fetch(buildApiUrl('api/processes/update_bank_remark_api.php'), {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+                    if (!result.success) {
+                        throw new Error(result.error || result.message || 'Remark update failed');
+                    }
+                    const process = processes.find(function (p) { return p.id === currentQuickRemarkProcessId; });
+                    if (process) {
+                        process.remark = remark;
+                    }
+                    closeSopModal();
+                    showNotification('Remark updated', 'success');
+                } catch (error) {
+                    console.error('Remark update failed:', error);
+                    showNotification(error.message || 'Remark update failed', 'danger');
+                }
+                return;
+            }
             const targetField = document.getElementById(currentBankNoteTarget === 'remark' ? 'bank_remark' : 'bank_sop');
             if (targetField && sopContent) {
                 targetField.value = (sopContent.value || '').trim().toUpperCase();
             }
             closeSopModal();
+        }
+
+        function openQuickRemarkModal(processId) {
+            const modal = document.getElementById('sopModal');
+            const modalTitle = document.getElementById('processNoteModalTitle');
+            const sopContent = document.getElementById('sop_content');
+            const process = processes.find(function (p) { return p.id === processId; });
+            if (!modal || !sopContent || !process) return;
+            currentBankNoteTarget = 'quick_remark';
+            currentQuickRemarkProcessId = processId;
+            if (modalTitle) {
+                modalTitle.textContent = 'Process Remark';
+            }
+            sopContent.placeholder = 'Enter remark for this process...';
+            sopContent.value = (process.remark || '').trim();
+            modal.style.display = 'block';
         }
 
         function closeAddModal() {
@@ -1612,8 +1674,7 @@
                     if (selectedPermission === 'Bank') {
                         const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                         const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
-                        const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                            (newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
+                        const bankActionCellHtml = buildBankActionCellHtml(processId, newStatus, hasTx);
                         if (row) {
                             row.setAttribute('data-status', newStatus || '');
                             const cells = row.querySelectorAll('td');

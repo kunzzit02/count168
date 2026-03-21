@@ -377,8 +377,8 @@ body.process-page {
 .process-page .bank-data-table .bank-th-action,
 .process-page .bank-data-table .bank-td-action {
     width: 5%;
-    min-width: 72px;
-    max-width: 95px;
+    min-width: 92px;
+    max-width: 120px;
     white-space: nowrap;
 }
 .process-page .bank-data-table .bank-th-flag,
@@ -670,6 +670,18 @@ body.process-page {
     display: block;
     object-fit: contain;
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
+}
+.process-page .remark-action-btn {
+    margin-left: 6px;
+}
+.process-page .remark-action-btn svg {
+    width: clamp(11px, 0.88vw, 17px);
+    height: clamp(11px, 0.88vw, 17px);
+    display: block;
+    color: #475569;
+}
+.process-page .remark-action-btn:hover svg {
+    color: #2563eb;
 }
 
 .process-page .row-checkbox {
