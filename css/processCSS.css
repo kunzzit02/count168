@@ -381,9 +381,36 @@ body.process-page {
     max-width: 95px;
     white-space: nowrap;
 }
+.process-page .bank-data-table .bank-th-flag,
+.process-page .bank-data-table .bank-td-flag {
+    width: 8%;
+    min-width: 98px;
+    max-width: 130px;
+    white-space: nowrap;
+}
 .process-page .bank-data-table th:not(.bank-th-no):not(.bank-th-country):not(.bank-th-types):not(.bank-th-card-owner):not(.bank-th-status):not(.bank-th-action),
 .process-page .bank-data-table td:not(.bank-td-no):not(.bank-td-country):not(.bank-td-types):not(.bank-td-card-owner):not(.bank-td-status):not(.bank-td-action) {
     min-width: 0;
+}
+.process-page .bank-issue-flag-select {
+    width: 100%;
+    min-width: 92px;
+    padding: 4px 24px 4px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background-color: #fff;
+    font-size: clamp(9px, 0.72vw, 13px);
+    color: #1f2937;
+}
+.process-page .bank-issue-flag-select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+.process-page .bank-issue-flag-select:disabled {
+    background-color: #f8fafc;
+    color: #94a3b8;
+    cursor: wait;
 }
 /* Action 列表头：文字与勾选格垂直居中 */
 .process-page .bank-data-table .bank-th-action {

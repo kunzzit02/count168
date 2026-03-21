@@ -6,7 +6,12 @@
         let currentPage = 1;
         const pageSize = 20;
         /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
-        const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
+        const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.6fr 0.5fr 0.3fr';
+        const BANK_ISSUE_FLAG_OPTIONS = [
+            { value: '', label: '-' },
+            { value: 'official', label: 'OFFICIAL' },
+            { value: 'e_invoice', label: 'E-INVOICE' }
+        ];
 
         // Bank Supplier 列的排序状态（A→Z / Z→A）
         let bankSupplierSortDirection = 'asc'; // 'asc' | 'desc'
@@ -38,6 +43,23 @@
             renderBankTable();
             renderPagination();
             updateBankSupplierSortIndicator();
+        }
+
+        function normalizeBankIssueFlag(value) {
+            const normalized = String(value || '').trim().toLowerCase();
+            if (normalized === 'official' || normalized === 'e_invoice') {
+                return normalized;
+            }
+            return '';
+        }
+
+        function renderBankIssueFlagSelect(processId, rawValue) {
+            const currentValue = normalizeBankIssueFlag(rawValue);
+            const optionsHtml = BANK_ISSUE_FLAG_OPTIONS.map(function (option) {
+                const selected = option.value === currentValue ? ' selected' : '';
+                return '<option value="' + option.value + '"' + selected + '>' + option.label + '</option>';
+            }).join('');
+            return '<select class="bank-issue-flag-select" data-current-value="' + currentValue + '" onchange="updateBankIssueFlag(this, ' + processId + ')" onclick="event.stopPropagation()">' + optionsHtml + '</select>';
         }
 
         // 构造 API 绝对 URL（始终基于站点根目录，避免相对路径解析错误）
@@ -204,7 +226,7 @@
             const tbody = document.getElementById('bankTableBody');
             if (!headRow || !tbody) return;
 
-            const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
+            const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Flag', 'Date', 'Action'];
             headRow.innerHTML = thLabels.map((label, i) => {
                 if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
                 if (label === 'Supplier') {
@@ -219,6 +241,7 @@
                 if (label === 'Types') return '<th class="bank-th-types">' + escapeHtml(label) + '</th>';
                 if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
                 if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
+                if (label === 'Flag') return '<th class="bank-th-flag">' + escapeHtml(label) + '</th>';
                 if (label === 'Action') {
                     const showActionCheckbox = showInactive || showAll;
                     return '<th class="bank-th-action">Action' + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
@@ -248,7 +271,7 @@
             window.__bankFilteredLength = waiting ? listToShow.length : null;
 
             if (listToShow.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="15" class="bank-empty-cell">No process data found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="16" class="bank-empty-cell">No process data found</td></tr>';
                 renderPagination();
                 updateSelectAllProcessesVisibility();
                 return;
@@ -287,11 +310,13 @@
                 const profit = dashIfEmpty(process.profit);
                 // 状态徽章：Bank 现在允许 INACTIVE ↔ ACTIVE 自由切换，前端只做确认弹窗，不再禁止点击
                 const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
+                const issueFlagSelect = renderBankIssueFlagSelect(process.id, process.issue_flag);
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
                     (process.status === 'active' ? '' : (process.has_transactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.setAttribute('data-status', process.status || '');
+                tr.setAttribute('data-issue-flag', normalizeBankIssueFlag(process.issue_flag));
                 tr.setAttribute('data-has-transactions', process.has_transactions ? '1' : '0');
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
                     '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
@@ -306,6 +331,7 @@
                     '<td>' + escapeHtml(String(price)) + '</td>' +
                     '<td>' + escapeHtml(String(profit)) + '</td>' +
                     '<td class="bank-td-status">' + statusBadge + '</td>' +
+                    '<td class="bank-td-flag">' + issueFlagSelect + '</td>' +
                     '<td>' + escapeHtml(dashIfEmpty((process.date === '0000-00-00' || !process.date) ? '' : process.date)) + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
@@ -1301,7 +1327,7 @@
                         if (row) {
                             row.setAttribute('data-status', newStatus || '');
                             const cells = row.querySelectorAll('td');
-                            if (cells.length >= 15) {
+                            if (cells.length >= 16) {
                                 // Contract cell (index 6): apply gray rule for 1 MONTH / 1+1 / 1+2 / 1+3 during active period
                                 const contractRaw = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
                                 const baseContractClass = getContractStateClass(process.day_start || null, process.day_end || null);
@@ -1316,7 +1342,7 @@
 
                                 // Status & action cells
                                 cells[12].innerHTML = statusBadge;
-                                cells[14].innerHTML = bankActionCellHtml;
+                                cells[15].innerHTML = bankActionCellHtml;
                             }
                         }
                     } else {
@@ -1362,6 +1388,49 @@
                 showNotification(`Process status changed to ${statusText}`, 'success');
             } else {
                 showNotification(result.error || 'Status toggle failed', 'danger');
+            }
+        }
+
+        async function updateBankIssueFlag(selectEl, processId) {
+            if (!selectEl || !processId) return;
+
+            const newValue = normalizeBankIssueFlag(selectEl.value);
+            const previousValue = normalizeBankIssueFlag(selectEl.getAttribute('data-current-value'));
+
+            selectEl.disabled = true;
+            try {
+                const formData = new FormData();
+                formData.append('id', processId);
+                formData.append('issue_flag', newValue);
+
+                const response = await fetch(buildApiUrl('api/processes/update_bank_issue_flag_api.php'), {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || result.message || 'Flag update failed');
+                }
+
+                const process = processes.find(function (p) { return p.id === processId; });
+                if (process) {
+                    process.issue_flag = newValue || null;
+                }
+
+                selectEl.setAttribute('data-current-value', newValue);
+                const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
+                if (row) {
+                    row.setAttribute('data-issue-flag', newValue);
+                }
+
+                showNotification('Issue flag updated', 'success');
+            } catch (error) {
+                console.error('Issue flag update failed:', error);
+                selectEl.value = previousValue;
+                showNotification(error.message || 'Issue flag update failed', 'danger');
+            } finally {
+                selectEl.disabled = false;
             }
         }
 

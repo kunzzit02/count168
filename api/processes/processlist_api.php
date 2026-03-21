@@ -602,9 +602,15 @@ function getBankProcesses() {
             $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
             $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
         } catch (PDOException $e) { /* ignore */ }
+        $hasIssueFlagColumn = false;
+        try {
+            $colStmt = $pdo->query("SHOW COLUMNS FROM bank_process LIKE 'issue_flag'");
+            $hasIssueFlagColumn = $colStmt && $colStmt->rowCount() > 0;
+        } catch (PDOException $e) { /* ignore */ }
         $hasTxnSubquery = $hasSourceBankProcessId
             ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
             : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
+        $issueFlagSelect = $hasIssueFlagColumn ? "bp.issue_flag" : "NULL AS issue_flag";
 
         $sql = "SELECT 
                     bp.id,
@@ -624,6 +630,7 @@ function getBankProcesses() {
                     bp.day_start_frequency,
                     bp.day_end,
                     bp.status,
+                    $issueFlagSelect,
                     bp.dts_modified,
                     a_cm.name as card_merchant_name,
                     a_cm.account_id as card_merchant_account_id,
@@ -661,6 +668,10 @@ function getBankProcesses() {
             $storedProfit = isset($r['profit']) && $r['profit'] !== '' ? (float)$r['profit'] : 0.0;
             $profitSharingTotal = parseProfitSharingTotal($r['profit_sharing'] ?? null);
             $netProfit = max(0, $storedProfit - $profitSharingTotal);
+            $issueFlag = strtolower(trim((string)($r['issue_flag'] ?? '')));
+            if (!in_array($issueFlag, ['official', 'e_invoice'], true)) {
+                $issueFlag = null;
+            }
             $formattedProcesses[] = [
                 'id' => $r['id'],
                 'supplier' => $r['name'] ?? '',
@@ -675,6 +686,7 @@ function getBankProcesses() {
                 'price' => $r['price'],
                 'profit' => number_format($netProfit, 2, '.', ''),
                 'status' => $r['status'],
+                'issue_flag' => $issueFlag,
                 'date' => $r['day_start'] ?? '',
                 'day_start' => $r['day_start'] ?? null,
                 'day_start_frequency' => $r['day_start_frequency'] ?? '1st_of_every_month',
