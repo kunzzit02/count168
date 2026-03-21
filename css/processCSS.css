@@ -398,7 +398,7 @@ body.process-page {
 .process-page .bank-status-button {
     width: 66%;
     min-height: 28px;
-    padding: 5px 30px 5px 10px;
+    padding: 5px 10px 5px 10px;
     border-radius: 999px;
     border: 1px solid #cbd5e1;
     font-size: clamp(7px, 0.63vw, 12px);
