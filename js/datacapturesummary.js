@@ -2396,6 +2396,7 @@ function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedD
         if (descriptionSelect1) {
             descriptionSelect1.addEventListener('change', function() {
                 updateIdProductRowData(this.value);
+                updateFormulaDataGrid();
             });
         }
         
@@ -3748,14 +3749,38 @@ function updateFormulaDataGrid() {
     // Clear existing grid items
     formulaDataGrid.innerHTML = '';
 
-    // Get current editing id product from process input
+    // 优先使用 Data 的第一个下拉当前选中值；若为空，再退回到只读的 process input。
+    // 这样灰色数据框与上面的 Data 下拉使用同一套匹配规则，避免
+    // process 显示 "T8BET (FEE 3%)" 而下拉实际选中 "T8BET" 时，底部灰框匹配不到任何行。
+    const descriptionSelect1 = document.getElementById('descriptionSelect1');
     const processInput = document.getElementById('process');
-    if (!processInput) return;
+    if (!processInput && !descriptionSelect1) return;
 
-    const idProduct = processInput.value.trim();
-    if (!idProduct || idProduct === '') {
+    let selectedIdProductValue = '';
+    if (descriptionSelect1 && descriptionSelect1.value && descriptionSelect1.value.trim() !== '') {
+        selectedIdProductValue = descriptionSelect1.value.trim();
+    } else if (processInput && processInput.value) {
+        selectedIdProductValue = processInput.value.trim();
+    }
+
+    if (!selectedIdProductValue || selectedIdProductValue === '') {
         return;
     }
+
+    let idProduct = selectedIdProductValue;
+    let rowLabel = null;
+    const lastColonIndex = selectedIdProductValue.lastIndexOf(':');
+    if (lastColonIndex > 0 && lastColonIndex < selectedIdProductValue.length - 1) {
+        const afterColon = selectedIdProductValue.substring(lastColonIndex + 1).trim();
+        if (/^[A-Z]$/i.test(afterColon) || afterColon.length <= 3) {
+            idProduct = selectedIdProductValue.substring(0, lastColonIndex).trim();
+            rowLabel = afterColon;
+        }
+    }
+
+    const normalizeSpaces = function(s) { return (s || '').trim().replace(/\s+/g, ''); };
+    const isFullId = typeof isTruncatedIdProduct === 'function' && !isTruncatedIdProduct(idProduct);
+    const normalizedTargetIdProduct = isFullId ? normalizeSpaces(idProduct) : normalizeIdProductText(idProduct);
 
     // Get table data
     let parsedTableData;
@@ -3792,11 +3817,27 @@ function updateFormulaDataGrid() {
             }
         }
         
-        // 方案 B：收紧匹配规则，按「完整 id_product」匹配（trim + 忽略大小写），避免不同子项（如 4DDMYMYR (T07) 与 AB4D55MYR (T38)）被当作同一行导致显示两行数据
-        const normalizedRowIdProduct = (rowIdProduct || '').trim().toUpperCase();
-        const normalizedIdProduct = (idProduct || '').trim().toUpperCase();
-        
-        if (normalizedRowIdProduct && normalizedIdProduct && normalizedRowIdProduct === normalizedIdProduct) {
+        const rowIdTrim = (rowIdProduct || '').trim();
+        const idTrim = (idProduct || '').trim();
+        const normalizedRowIdProduct = isFullId ? normalizeSpaces(rowIdProduct || '') : normalizeIdProductText(rowIdProduct || '');
+
+        const idProductMatches = isFullId
+            ? (normalizeSpaces(rowIdTrim) === normalizeSpaces(idTrim))
+            : (normalizedRowIdProduct && normalizedRowIdProduct === normalizedTargetIdProduct);
+
+        if (!idProductMatches) {
+            return;
+        }
+
+        if (rowLabel) {
+            const rowHeaderCell = row.querySelector('.row-header');
+            const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+            if (rowHeaderLabel !== rowLabel) {
+                return;
+            }
+        }
+
+        {
             // Create a separate row container for each matching row
             const rowContainer = document.createElement('div');
             rowContainer.className = 'formula-data-grid-row';
