@@ -55,26 +55,73 @@
 
         function renderBankIssueFlagSelect(processId, rawValue) {
             const currentValue = normalizeBankIssueFlag(rawValue);
+            const currentOption = BANK_ISSUE_FLAG_OPTIONS.find(function (option) {
+                return option.value === currentValue;
+            }) || BANK_ISSUE_FLAG_OPTIONS[0];
             const optionsHtml = BANK_ISSUE_FLAG_OPTIONS.map(function (option) {
-                const selected = option.value === currentValue ? ' selected' : '';
-                return '<option value="' + option.value + '"' + selected + '>' + option.label + '</option>';
+                const isSelected = option.value === currentValue;
+                return '<button type="button" class="bank-issue-flag-option' + (isSelected ? ' selected' : '') + '" data-value="' + option.value + '" onclick="selectBankIssueFlag(this, ' + processId + '); event.stopPropagation();">' + option.label + '</button>';
             }).join('');
-            return '<select class="bank-issue-flag-select" data-current-value="' + currentValue + '" onchange="updateBankIssueFlag(this, ' + processId + ')" onclick="event.stopPropagation()">' + optionsHtml + '</select>';
+            return '<div class="bank-issue-flag-dropdown" data-current-value="' + currentValue + '" data-open="0">' +
+                '<button type="button" class="bank-issue-flag-button" data-flag="' + (currentValue || 'none') + '" onclick="toggleBankIssueFlagDropdown(this, ' + processId + '); event.stopPropagation();">' + currentOption.label + '</button>' +
+                '<div class="bank-issue-flag-menu" onclick="event.stopPropagation();">' + optionsHtml + '</div>' +
+                '</div>';
         }
 
-        function applyBankIssueFlagSelectAppearance(selectEl, rawValue) {
-            if (!selectEl) return;
-            const normalized = normalizeBankIssueFlag(rawValue != null ? rawValue : selectEl.value);
-            selectEl.value = normalized;
-            selectEl.setAttribute('data-flag', normalized || 'none');
-            selectEl.classList.remove('is-empty', 'is-official', 'is-e-invoice');
-            if (normalized === 'official') {
-                selectEl.classList.add('is-official');
-            } else if (normalized === 'e_invoice') {
-                selectEl.classList.add('is-e-invoice');
-            } else {
-                selectEl.classList.add('is-empty');
+        function closeAllBankIssueFlagDropdowns() {
+            document.querySelectorAll('.bank-issue-flag-dropdown').forEach(function (dropdown) {
+                dropdown.classList.remove('open');
+                dropdown.setAttribute('data-open', '0');
+                const button = dropdown.querySelector('.bank-issue-flag-button');
+                if (button) button.classList.remove('open');
+            });
+        }
+
+        function applyBankIssueFlagSelectAppearance(dropdownEl, rawValue) {
+            if (!dropdownEl) return;
+            const normalized = normalizeBankIssueFlag(rawValue != null ? rawValue : dropdownEl.getAttribute('data-current-value'));
+            const button = dropdownEl.querySelector('.bank-issue-flag-button');
+            const options = dropdownEl.querySelectorAll('.bank-issue-flag-option');
+            const currentOption = BANK_ISSUE_FLAG_OPTIONS.find(function (option) {
+                return option.value === normalized;
+            }) || BANK_ISSUE_FLAG_OPTIONS[0];
+
+            dropdownEl.setAttribute('data-current-value', normalized);
+            if (button) {
+                button.textContent = currentOption.label;
+                button.setAttribute('data-flag', normalized || 'none');
+                button.classList.remove('is-empty', 'is-official', 'is-e-invoice');
+                if (normalized === 'official') {
+                    button.classList.add('is-official');
+                } else if (normalized === 'e_invoice') {
+                    button.classList.add('is-e-invoice');
+                } else {
+                    button.classList.add('is-empty');
+                }
             }
+
+            options.forEach(function (optionEl) {
+                optionEl.classList.toggle('selected', normalizeBankIssueFlag(optionEl.getAttribute('data-value')) === normalized);
+            });
+        }
+
+        function toggleBankIssueFlagDropdown(buttonEl, processId) {
+            const dropdownEl = buttonEl ? buttonEl.closest('.bank-issue-flag-dropdown') : null;
+            if (!dropdownEl) return;
+            const isOpen = dropdownEl.classList.contains('open');
+            closeAllBankIssueFlagDropdowns();
+            if (!isOpen) {
+                dropdownEl.classList.add('open');
+                dropdownEl.setAttribute('data-open', '1');
+                buttonEl.classList.add('open');
+            }
+        }
+
+        async function selectBankIssueFlag(optionEl, processId) {
+            const dropdownEl = optionEl ? optionEl.closest('.bank-issue-flag-dropdown') : null;
+            if (!dropdownEl) return;
+            const newValue = normalizeBankIssueFlag(optionEl.getAttribute('data-value'));
+            await updateBankIssueFlag(dropdownEl, processId, newValue);
         }
 
         // 构造 API 绝对 URL（始终基于站点根目录，避免相对路径解析错误）
@@ -350,8 +397,8 @@
                     '<td>' + escapeHtml(dashIfEmpty((process.date === '0000-00-00' || !process.date) ? '' : process.date)) + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
-                const issueFlagSelectEl = tr.querySelector('.bank-issue-flag-select');
-                applyBankIssueFlagSelectAppearance(issueFlagSelectEl, process.issue_flag);
+                const issueFlagDropdownEl = tr.querySelector('.bank-issue-flag-dropdown');
+                applyBankIssueFlagSelectAppearance(issueFlagDropdownEl, process.issue_flag);
             });
 
             renderPagination();
@@ -1408,14 +1455,14 @@
             }
         }
 
-        async function updateBankIssueFlag(selectEl, processId) {
-            if (!selectEl || !processId) return;
+        async function updateBankIssueFlag(dropdownEl, processId, newValue) {
+            if (!dropdownEl || !processId) return;
 
-            const newValue = normalizeBankIssueFlag(selectEl.value);
-            const previousValue = normalizeBankIssueFlag(selectEl.getAttribute('data-current-value'));
+            const previousValue = normalizeBankIssueFlag(dropdownEl.getAttribute('data-current-value'));
+            const buttonEl = dropdownEl.querySelector('.bank-issue-flag-button');
 
-            applyBankIssueFlagSelectAppearance(selectEl, newValue);
-            selectEl.disabled = true;
+            applyBankIssueFlagSelectAppearance(dropdownEl, newValue);
+            if (buttonEl) buttonEl.disabled = true;
             try {
                 const formData = new FormData();
                 formData.append('id', processId);
@@ -1436,22 +1483,29 @@
                     process.issue_flag = newValue || null;
                 }
 
-                selectEl.setAttribute('data-current-value', newValue);
-                applyBankIssueFlagSelectAppearance(selectEl, newValue);
+                dropdownEl.setAttribute('data-current-value', newValue);
+                applyBankIssueFlagSelectAppearance(dropdownEl, newValue);
                 const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                 if (row) {
                     row.setAttribute('data-issue-flag', newValue);
                 }
 
+                closeAllBankIssueFlagDropdowns();
                 showNotification('Issue flag updated', 'success');
             } catch (error) {
                 console.error('Issue flag update failed:', error);
-                selectEl.value = previousValue;
-                applyBankIssueFlagSelectAppearance(selectEl, previousValue);
+                applyBankIssueFlagSelectAppearance(dropdownEl, previousValue);
                 showNotification(error.message || 'Issue flag update failed', 'danger');
             } finally {
-                selectEl.disabled = false;
+                if (buttonEl) buttonEl.disabled = false;
             }
+        }
+
+        if (!window.__bankIssueFlagDropdownBound) {
+            window.__bankIssueFlagDropdownBound = true;
+            document.addEventListener('click', function () {
+                closeAllBankIssueFlagDropdowns();
+            });
         }
 
         // 切换流程状态
