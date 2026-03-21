@@ -14539,10 +14539,14 @@ if (summaryTableBody) {
         const mainId = (productValues.main || '').trim();
         if (!mainId) return;
         // 按完整 id 检测是否有模板，避免 GAMS(SV)HKD 只匹配到 GAMS 而误判
+        const mainIdNormalized = normalizeIdProductText(mainId);
         let hasTemplate = !!templates[mainId];
         if (!hasTemplate) {
             for (const templateKey of Object.keys(templates)) {
-                if (templateKey === mainId || mainId.startsWith(templateKey + ' ') || mainId.startsWith(templateKey + '(')) {
+                const templateKeyNormalized = normalizeIdProductText(templateKey);
+                const normalizedMatch = mainIdNormalized && templateKeyNormalized && templateKeyNormalized === mainIdNormalized;
+                const prefixMatch = templateKey === mainId || mainId.startsWith(templateKey + ' ') || mainId.startsWith(templateKey + '(');
+                if (normalizedMatch || prefixMatch) {
                     hasTemplate = true;
                     break;
                 }
@@ -14891,8 +14895,14 @@ if (mainTemplate && !hasExistingData) {
     let formulaDisplay = '';
     const savedFormulaDisplay = mainTemplate.formula_display || '';
     const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
+    const resolvedFormulaFromOperators = hasMeaningfulFormulaOperators(formulaOperatorsValue)
+        ? resolveFormulaOperatorsExpression(formulaOperatorsValue, sourceColumnsValue, idProduct)
+        : '';
     
-    if (isBatchSelectedTemplate) {
+    if (resolvedFormulaFromOperators && resolvedFormulaFromOperators.trim() !== '') {
+        formulaDisplay = createFormulaDisplayFromExpression(resolvedFormulaFromOperators, percentValue, enableSourcePercent);
+        console.log('Using formula_operators resolved from current table data (applyTemplateToSummaryRow):', formulaDisplay);
+    } else if (isBatchSelectedTemplate) {
         // 对于 Batch Selection 的模板，优先使用保存的 formula_display（如果包含括号）
         // 如果保存的 formula_display 包含括号，使用 preserveFormulaStructure 来保留括号结构
         // 否则，重新从当前的 resolvedSourceExpression 计算
