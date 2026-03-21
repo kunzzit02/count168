@@ -12220,10 +12220,17 @@ function editRowFormula(button) {
 function getProcessValueFromRow(row) {
     const idProductCell = row.querySelector('td:first-child'); // Merged product column
     const productValues = getProductValuesFromCell(idProductCell);
+    const rowDescription = (row && row.getAttribute ? (row.getAttribute('data-original-description') || '') : '').trim();
+    const stripDescriptionSuffix = function(value) {
+        const text = (value || '').trim();
+        if (!text || !rowDescription) return text;
+        const suffix = ` (${rowDescription})`;
+        return text.endsWith(suffix) ? text.substring(0, text.length - suffix.length).trim() : text;
+    };
     
     // Check if Main value has content (this is a main row)
     if (productValues.main) {
-        let mainText = productValues.main.trim();
+        let mainText = stripDescriptionSuffix(productValues.main);
         if (mainText) {
             // 仅对明确截断的 id（如 "(T07):AF"）解析为完整 id_product，ALLBET95MS (KM)/(SV) MYR 等不解析
             if (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(mainText)) {
@@ -12236,7 +12243,7 @@ function getProcessValueFromRow(row) {
     
     // Check if Sub value has content (this is a sub row)
     if (productValues.sub) {
-        let subText = productValues.sub.trim();
+        let subText = stripDescriptionSuffix(productValues.sub);
         if (subText) {
             // 仅对明确截断的 id 解析为完整 id_product
             if (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(subText)) {
@@ -17959,24 +17966,14 @@ function updateIdProductWithDescription(processValue, descriptionValue) {
         // Update the Id Product cell with description in parentheses
         if (descriptionValue && descriptionValue.trim() !== '') {
             if (mainText === processValue) {
-                // Update Main value
-                const currentText = productValues.main;
-                if (!currentText.includes(`(${descriptionValue})`)) {
-                    productValues.main = `${processValue} (${descriptionValue})`;
-                    idProductCell.setAttribute('data-main-product', productValues.main);
-                    idProductCell.textContent = mergeProductValues(productValues.main, productValues.sub);
-                    // idProductCell.style.backgroundColor = '#e8f5e8'; // Removed
-                }
+                const displayMain = mainText.includes(`(${descriptionValue})`) ? mainText : `${processValue} (${descriptionValue})`;
+                idProductCell.textContent = mergeProductValues(displayMain, productValues.sub);
+                idProductCell.setAttribute('title', idProductCell.textContent);
                 break;
             } else if (subText === processValue) {
-                // Update Sub value
-                const currentText = productValues.sub;
-                if (!currentText.includes(`(${descriptionValue})`)) {
-                    productValues.sub = `${processValue} (${descriptionValue})`;
-                    idProductCell.setAttribute('data-sub-product', productValues.sub);
-                    idProductCell.textContent = mergeProductValues(productValues.main, productValues.sub);
-                    // idProductCell.style.backgroundColor = '#e8f5e8'; // Removed
-                }
+                const displaySub = subText.includes(`(${descriptionValue})`) ? subText : `${processValue} (${descriptionValue})`;
+                idProductCell.textContent = mergeProductValues(productValues.main, displaySub);
+                idProductCell.setAttribute('title', idProductCell.textContent);
                 break;
             }
         }
