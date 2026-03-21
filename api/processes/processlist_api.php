@@ -210,7 +210,10 @@ function getProcesses() {
         $targetCompanyId = $requested_company_id;
         
         $searchTerm = $_GET['search'] ?? '';
+        $showActive = isset($_GET['showActive']) && $_GET['showActive'] == '1';
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
+        $showOfficial = isset($_GET['showOfficial']) && $_GET['showOfficial'] == '1';
+        $showEInvoice = isset($_GET['showEInvoice']) && $_GET['showEInvoice'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
         
         $hasTxnProcessId = false;
@@ -594,7 +597,10 @@ function getBankProcesses() {
         }
         $targetCompanyId = $requested_company_id;
         $searchTerm = $_GET['search'] ?? '';
+        $showActive = isset($_GET['showActive']) && $_GET['showActive'] == '1';
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
+        $showOfficial = isset($_GET['showOfficial']) && $_GET['showOfficial'] == '1';
+        $showEInvoice = isset($_GET['showEInvoice']) && $_GET['showEInvoice'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
 
         $hasSourceBankProcessId = false;
@@ -651,12 +657,31 @@ function getBankProcesses() {
             $params[] = $term;
             $params[] = $term;
         }
+        $hasSpecificFilter = $showActive || $showInactive || $showOfficial || $showEInvoice;
         if ($showAll) {
+            // no additional filter
+        } elseif (!$hasSpecificFilter) {
             $sql .= " AND bp.status = 'active'";
-        } elseif ($showInactive) {
-            $sql .= " AND bp.status = 'inactive'";
         } else {
-            $sql .= " AND bp.status = 'active'";
+            $filterClauses = [];
+            if ($showActive) {
+                $filterClauses[] = "bp.status = 'active'";
+            }
+            if ($showInactive) {
+                $filterClauses[] = "bp.status = 'inactive'";
+            }
+            if ($showOfficial && $hasIssueFlagColumn) {
+                $filterClauses[] = "bp.issue_flag = 'official'";
+            }
+            if ($showEInvoice && $hasIssueFlagColumn) {
+                $filterClauses[] = "bp.issue_flag = 'e_invoice'";
+            }
+
+            if (empty($filterClauses)) {
+                $sql .= " AND 1 = 0";
+            } else {
+                $sql .= " AND (" . implode(' OR ', array_unique($filterClauses)) . ")";
+            }
         }
         $sql .= " ORDER BY bp.dts_created DESC";
         $stmt = $pdo->prepare($sql);
