@@ -257,6 +257,10 @@ try {
             if (strtotime($dayStart) === false) {
                 continue;
             }
+            $startDate = date('Y-m-d', strtotime($dayStart));
+            if ($today < $startDate) {
+                continue;
+            }
             $processId = (int) $r['id'];
             if (isPartialFirstMonthAlreadyPosted($pdo, $company_id, $processId)) {
                 continue;
@@ -287,6 +291,8 @@ try {
         $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
         $dayStart = $r['day_start'] ?? null;
         $need = false;
+        $startTs = (!empty($dayStart)) ? strtotime($dayStart) : false;
+        $startDate = $startTs !== false ? date('Y-m-d', $startTs) : '';
 
         if ($frequency === '1st_of_every_month') {
             if ($dayOfMonth !== 1) {
@@ -294,7 +300,6 @@ try {
             } elseif (empty($dayStart)) {
                 $need = true;
             } else {
-                $startTs = strtotime($dayStart);
                 $firstAccountingTs = $startTs !== false ? strtotime('+1 month', $startTs) : false;
                 $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
                 $need = ($firstAccountingDate !== '' && $today >= $firstAccountingDate);
@@ -307,9 +312,8 @@ try {
             $processId = (int) $r['id'];
             $neverPostedMonthly = !in_array($processId, $monthlyEverPostedIds, true);
             if ($neverPostedMonthly) {
-                $need = true;
+                $need = ($startDate !== '' && $today >= $startDate);
             } else {
-                $startTs = strtotime($dayStart);
                 if ($startTs === false) {
                     continue;
                 }
