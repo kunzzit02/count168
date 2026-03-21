@@ -7,6 +7,7 @@
         let waiting = false;
         let currentPage = 1;
         const pageSize = 20;
+        let selectedPermission = null;
         /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
         const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.3fr';
         const BANK_STATUS_SELECT_OPTIONS = [
@@ -79,6 +80,87 @@
 
         function isRealBankInactive(status) {
             return String(status || '').trim().toLowerCase() === 'inactive';
+        }
+
+        function parseDmyDate(value) {
+            const text = String(value || '').trim();
+            if (!/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(text)) return null;
+            const parts = text.split('/').map(Number);
+            const date = new Date(parts[2], parts[1] - 1, parts[0]);
+            if (isNaN(date.getTime())) return null;
+            date.setHours(0, 0, 0, 0);
+            return date;
+        }
+
+        function parseIsoDate(value) {
+            const text = String(value || '').trim();
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || text === '0000-00-00') return null;
+            const parts = text.split('-').map(Number);
+            const date = new Date(parts[0], parts[1] - 1, parts[2]);
+            if (isNaN(date.getTime())) return null;
+            date.setHours(0, 0, 0, 0);
+            return date;
+        }
+
+        function getProcessListDateRange() {
+            const fromInput = document.getElementById('date_from');
+            const toInput = document.getElementById('date_to');
+            return {
+                from: parseDmyDate(fromInput ? fromInput.value : ''),
+                to: parseDmyDate(toInput ? toInput.value : '')
+            };
+        }
+
+        function updateProcessListDateClearButton() {
+            const clearBtn = document.getElementById('processListDateClearBtn');
+            if (!clearBtn) return;
+            const range = getProcessListDateRange();
+            clearBtn.style.display = range.from || range.to ? 'inline-flex' : 'none';
+        }
+
+        function processMatchesSelectedDate(process) {
+            if (selectedPermission !== 'Bank') return true;
+            const range = getProcessListDateRange();
+            if (!range.from || !range.to) return true;
+            const processDate = parseIsoDate(process && (process.date || process.day_start));
+            if (!processDate) return false;
+            const time = processDate.getTime();
+            return time >= range.from.getTime() && time <= range.to.getTime();
+        }
+
+        function updateProcessListDateFilterVisibility() {
+            const filterEl = document.getElementById('processListDateFilter');
+            if (!filterEl) return;
+            filterEl.style.display = selectedPermission === 'Bank' ? 'inline-flex' : 'none';
+            updateProcessListDateClearButton();
+        }
+
+        function initProcessListDateFilter() {
+            if (!window.MaintenanceDateRangePicker) return;
+            window.MaintenanceDateRangePicker.init({
+                dateFromId: 'date_from',
+                dateToId: 'date_to',
+                allowEmpty: true,
+                placeholder: 'Select date range',
+                onChange: function () {
+                    updateProcessListDateClearButton();
+                    currentPage = 1;
+                    renderTable();
+                    renderPagination();
+                }
+            });
+            updateProcessListDateClearButton();
+
+            const clearBtn = document.getElementById('processListDateClearBtn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (window.MaintenanceDateRangePicker && typeof window.MaintenanceDateRangePicker.clear === 'function') {
+                        window.MaintenanceDateRangePicker.clear();
+                    }
+                });
+            }
         }
 
         function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag) {
@@ -307,6 +389,7 @@
 
         function matchesCurrentBankFilters(process) {
             if (!process) return false;
+            if (!processMatchesSelectedDate(process)) return false;
             if (showAll) return true;
             const status = String(process.status || '').toLowerCase();
             const issueFlag = normalizeBankIssueFlag(process.issue_flag);
@@ -5595,6 +5678,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
 
+            initProcessListDateFilter();
             console.log('DOM loaded, calling fetchProcesses...');
             try {
                 loadPermissionButtons().then(() => {
@@ -5630,10 +5714,6 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         window.addEventListener('resize', function () {
             if (selectedPermission === 'Bank') syncBankTableColumnWidth();
         });
-
-        // 切换 process list 的 company
-        // 当前选择的权限
-        let selectedPermission = null;
 
         // 加载权限按钮
         async function loadPermissionButtons() {
@@ -5756,6 +5836,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     card.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1.1fr 0.19fr';
                 });
             }
+
+            updateProcessListDateFilterVisibility();
 
             // Post to Transaction 仅 Bank 显示，Games 隐藏
             updatePostToTransactionButton();

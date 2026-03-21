@@ -212,6 +212,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/processlist.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="css/date-range-picker.css?v=<?php echo time(); ?>">
 </head>
 
 <body class="process-page">
@@ -246,8 +247,17 @@ if ($current_user_id && count($user_companies) > 0) {
 
             <div class="action-buttons-container">
                 <div class="action-buttons">
-                    <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                         <button class="btn btn-add" onclick="addProcess()">Add Process</button>
+                        <div class="process-list-date-filter" id="processListDateFilter" style="display: none;">
+                            <div class="date-range-picker" id="date-range-picker">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span id="date-range-display">Select date range</span>
+                            </div>
+                            <button type="button" class="process-list-date-clear" id="processListDateClearBtn" title="Clear date range" aria-label="Clear date range" style="display: none;">&times;</button>
+                            <input type="hidden" id="date_from" value="">
+                            <input type="hidden" id="date_to" value="">
+                        </div>
                         <div class="search-container">
                             <svg class="search-icon" fill="currentColor" viewBox="0 0 24 24">
                                 <path
@@ -1405,6 +1415,44 @@ if ($current_user_id && count($user_companies) > 0) {
         window.PROCESSLIST_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
         window.PROCESSLIST_SELECTED_COMPANY_IDS_FOR_ADD = [<?php echo json_encode($company_id); ?>];
     </script>
+    <div class="calendar-popup" id="calendar-popup" style="display: none;">
+        <div class="calendar-header">
+            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(-1)">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="calendar-month-year" onclick="event.stopPropagation();">
+                <select id="calendar-month-select">
+                    <option value="0">Jan</option>
+                    <option value="1">Feb</option>
+                    <option value="2">Mar</option>
+                    <option value="3">Apr</option>
+                    <option value="4">May</option>
+                    <option value="5">Jun</option>
+                    <option value="6">Jul</option>
+                    <option value="7">Aug</option>
+                    <option value="8">Sep</option>
+                    <option value="9">Oct</option>
+                    <option value="10">Nov</option>
+                    <option value="11">Dec</option>
+                </select>
+                <select id="calendar-year-select"></select>
+            </div>
+            <button type="button" class="calendar-nav-btn" onclick="event.stopPropagation(); window.changeMonth(1)">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <div class="calendar-weekdays">
+            <div class="calendar-weekday">Sun</div>
+            <div class="calendar-weekday">Mon</div>
+            <div class="calendar-weekday">Tue</div>
+            <div class="calendar-weekday">Wed</div>
+            <div class="calendar-weekday">Thu</div>
+            <div class="calendar-weekday">Fri</div>
+            <div class="calendar-weekday">Sat</div>
+        </div>
+        <div class="calendar-days" id="calendar-days"></div>
+    </div>
+    <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
     <script src="js/processlist.js?v=<?php echo time(); ?>"></script>
 </body>
 

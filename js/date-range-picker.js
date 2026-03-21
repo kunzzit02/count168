@@ -8,7 +8,13 @@
     let calendarEndDate = null;
     let isSelectingRange = false;
     let calendarCurrentDate = new Date();
-    let config = { dateFromId: 'date_from', dateToId: 'date_to', onChange: null };
+    let config = {
+        dateFromId: 'date_from',
+        dateToId: 'date_to',
+        onChange: null,
+        allowEmpty: false,
+        placeholder: 'Select date range'
+    };
 
     function formatDateDisplay(date) {
         const year = date.getFullYear();
@@ -25,15 +31,15 @@
         } else if (calendarStartDate) {
             display.textContent = formatDateDisplay(calendarStartDate) + ' - Select end date';
         } else {
-            display.textContent = 'Select date range';
+            display.textContent = config.placeholder || 'Select date range';
         }
     }
 
     function syncToHiddenInputs() {
         const fromEl = document.getElementById(config.dateFromId);
         const toEl = document.getElementById(config.dateToId);
-        if (fromEl && calendarStartDate) fromEl.value = formatDateDisplay(calendarStartDate);
-        if (toEl && calendarEndDate) toEl.value = formatDateDisplay(calendarEndDate);
+        if (fromEl) fromEl.value = calendarStartDate ? formatDateDisplay(calendarStartDate) : '';
+        if (toEl) toEl.value = calendarEndDate ? formatDateDisplay(calendarEndDate) : '';
     }
 
     function toggleCalendar() {
@@ -68,7 +74,7 @@
 
     function initCalendar() {
         const today = new Date();
-        if (!calendarStartDate) {
+        if (!calendarStartDate && !config.allowEmpty) {
             calendarStartDate = new Date(today);
             calendarStartDate.setHours(0, 0, 0, 0);
             calendarEndDate = new Date(today);
@@ -203,6 +209,21 @@
         updateDateRangeDisplay();
     }
 
+    function clearSelection(triggerOnChange) {
+        calendarStartDate = null;
+        calendarEndDate = null;
+        isSelectingRange = false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        calendarCurrentDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        syncToHiddenInputs();
+        updateDateRangeDisplay();
+        renderCalendar();
+        const popup = document.getElementById('calendar-popup');
+        if (popup) popup.style.display = 'none';
+        if (triggerOnChange !== false && typeof config.onChange === 'function') config.onChange();
+    }
+
     function renderCalendar() {
         const yearSelect = document.getElementById('calendar-year-select');
         const monthSelect = document.getElementById('calendar-month-select');
@@ -333,6 +354,10 @@
                 if (options.dateFromId) config.dateFromId = options.dateFromId;
                 if (options.dateToId) config.dateToId = options.dateToId;
                 if (options.onChange) config.onChange = options.onChange;
+                if (typeof options.allowEmpty === 'boolean') config.allowEmpty = options.allowEmpty;
+                if (typeof options.placeholder === 'string' && options.placeholder.trim() !== '') {
+                    config.placeholder = options.placeholder;
+                }
             }
             // 如果隐藏输入里已有默认值（dd/mm/yyyy），优先用它们作为初始范围
             const fromEl = document.getElementById(config.dateFromId);
@@ -355,7 +380,7 @@
                     calendarEndDate = toDate ? new Date(toDate) : new Date(fromDate);
                     calendarStartDate.setHours(0, 0, 0, 0);
                     calendarEndDate.setHours(0, 0, 0, 0);
-                } else {
+                } else if (!config.allowEmpty) {
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
                     calendarStartDate = new Date(today);
@@ -387,6 +412,9 @@
             });
         },
         setQuickRange: setQuickRange,
+        clear: function() {
+            clearSelection(true);
+        },
         getDateFrom: function() {
             const fromEl = document.getElementById(config.dateFromId);
             return fromEl ? fromEl.value : '';
