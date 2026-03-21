@@ -685,9 +685,19 @@ function getBankProcesses() {
                 WHERE bp.company_id = ?";
         $params = [$targetCompanyId];
         if (!empty($searchTerm)) {
-            // Bank Process 搜索仅扩充到表格中需要的 Supplier / Card Owner 字段，避免影响其他逻辑
-            $sql .= " AND (bp.country LIKE ? OR bp.bank LIKE ? OR bp.type LIKE ? OR bp.name LIKE ? OR a_cm.account_id LIKE ?)";
+            // Bank 列表搜索需要覆盖页面上实际会看到的 Supplier / Card Owner 文本。
+            // Card Owner 现在可能来自 bank_process.name，也可能来自关联 account.name，
+            // 两边都查，避免字段映射调整后出现“列表看得到但搜不到”。
+            $sql .= " AND (
+                bp.country LIKE ?
+                OR bp.bank LIKE ?
+                OR bp.type LIKE ?
+                OR bp.name LIKE ?
+                OR a_cm.account_id LIKE ?
+                OR a_cm.name LIKE ?
+            )";
             $term = "%$searchTerm%";
+            $params[] = $term;
             $params[] = $term;
             $params[] = $term;
             $params[] = $term;
