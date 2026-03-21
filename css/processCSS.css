@@ -52,43 +52,18 @@ body.process-page {
 .process-page .process-list-date-filter {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    min-width: clamp(230px, 20vw, 320px);
+    min-width: clamp(220px, 18vw, 300px);
 }
 
 .process-page .process-list-date-filter .date-range-picker {
-    min-width: clamp(220px, 19vw, 300px);
-    width: clamp(220px, 19vw, 300px);
-    padding-right: clamp(10px, 0.83vw, 16px);
+    min-width: clamp(220px, 18vw, 300px);
+    width: clamp(220px, 18vw, 300px);
 }
 
 .process-page .process-list-date-filter .date-range-picker span {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.process-page .process-list-date-clear {
-    width: 28px;
-    height: 28px;
-    border: 1px solid rgba(148, 163, 184, 0.45);
-    border-radius: 6px;
-    background: #ffffff;
-    color: #64748b;
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    box-shadow: 0 3px 4px rgba(15, 23, 42, 0.08);
-}
-
-.process-page .process-list-date-clear:hover {
-    color: #dc2626;
-    border-color: rgba(220, 38, 38, 0.35);
-    background: #fff5f5;
 }
 
 .process-page .search-icon {
@@ -308,8 +283,8 @@ body.process-page {
     }
 
     .process-page .process-list-date-filter .date-range-picker {
-        width: min(320px, 55vw);
-        min-width: min(320px, 55vw);
+        width: min(300px, 55vw);
+        min-width: min(300px, 55vw);
     }
 }
 

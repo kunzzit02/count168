@@ -254,7 +254,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <i class="fas fa-calendar-alt"></i>
                                 <span id="date-range-display">Select date range</span>
                             </div>
-                            <button type="button" class="process-list-date-clear" id="processListDateClearBtn" title="Clear date range" aria-label="Clear date range" style="display: none;">&times;</button>
                             <input type="hidden" id="date_from" value="">
                             <input type="hidden" id="date_to" value="">
                         </div>
