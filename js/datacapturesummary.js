@@ -790,6 +790,7 @@ function restoreFormulaSourceFromRefresh() {
         }
         // 默认使用保存的公式，但如果当前行已经从后端加载了非空公式，则优先保留当前公式，
         // 避免用旧的本地缓存覆盖用户刚刚在其他页面/设备上更新过的公式。
+        const savedFormulaDisplay = getPreferredFormulaDisplay(data, row);
         let formula = data.formula != null ? String(data.formula) : '';
         if (formula && formula.includes('✏️')) formula = formula.replace(/✏️/g, '').trim();
         const source = data.source != null ? String(data.source) : '';
@@ -811,12 +812,14 @@ function restoreFormulaSourceFromRefresh() {
             const existingFormulaText = existingSpan ? (existingSpan.textContent || '').trim() : '';
 
             // 若当前已有非空公式，则优先使用当前值；只有在当前为空时才使用本地缓存的 formula
-            const finalFormula = existingFormulaText || formula;
+            const finalFormula = existingFormulaText || savedFormulaDisplay || formula;
 
             cells[4].innerHTML = `<div class="formula-cell-content"${titleAttr}><span class="formula-text"${titleAttr}></span><button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button></div>`;
             const span = cells[4].querySelector('.formula-text');
             if (span) span.textContent = finalFormula;
             row.setAttribute('data-formula-raw', finalFormula || '');
+            if (finalFormula) row.setAttribute('data-formula-display', finalFormula);
+            else row.removeAttribute('data-formula-display');
             if (typeof attachInlineEditListeners === 'function') attachInlineEditListeners(row);
         }
         if (cells[5]) cells[5].textContent = source;
@@ -11556,16 +11559,30 @@ function toggleAllRate(button) {
     }
 }
 
+function getPreferredFormulaDisplay(data, row) {
+    const fromData = (
+        (data && data.formulaDisplay !== undefined && data.formulaDisplay !== null ? data.formulaDisplay : '') ||
+        (data && data.formula_display !== undefined && data.formula_display !== null ? data.formula_display : '')
+    );
+    const fromRow = row ? (row.getAttribute('data-formula-display') || '') : '';
+    return String(fromData || fromRow || '').trim();
+}
+
 // Update formula and processed amount when batch selection is checked
 function updateFormulaAndProcessedAmount(row, data) {
     const cells = row.querySelectorAll('td');
     
     // Update Formula column (now index 4)
     if (cells[4]) {
-        // Get the formula to display - prioritize data.formula, then data.formulaOperators
+        // Get the formula to display - always prioritize saved formula_display so
+        // Summary table stays identical to the Edit Formula read-only display.
         let formulaText = '';
         let rawFormula = '';
-        if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+        const preferredFormulaDisplay = getPreferredFormulaDisplay(data, row);
+        if (preferredFormulaDisplay && preferredFormulaDisplay !== 'Formula') {
+            rawFormula = preferredFormulaDisplay;
+            formulaText = formatNegativeNumbersInFormula(preferredFormulaDisplay);
+        } else if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
             rawFormula = data.formula;
             formulaText = formatNegativeNumbersInFormula(data.formula);
         }
@@ -11757,6 +11774,8 @@ function updateFormulaAndProcessedAmount(row, data) {
         if (!rawFormula) rawFormula = formulaText;
         row.setAttribute('data-formula-raw', rawFormula || '');
         const displayText = formulaText;
+        if (displayText) row.setAttribute('data-formula-display', displayText);
+        else row.removeAttribute('data-formula-display');
         
         // Get input method from row or data for tooltip (escape for HTML attribute)
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
@@ -13640,10 +13659,13 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
 
     // Formula column (index 4)
     if (cells[4]) {
-        // If formula is empty, don't display "Formula" text, just leave it empty
-        const rawFormula = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
-        const formulaText = rawFormula ? formatNegativeNumbersInFormula(data.formula) : '';
+        // Prefer saved formula_display so this row matches Edit Formula exactly.
+        const preferredFormulaDisplay = getPreferredFormulaDisplay(data, row);
+        const rawFormula = preferredFormulaDisplay || ((data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '');
+        const formulaText = rawFormula ? formatNegativeNumbersInFormula(rawFormula) : '';
         row.setAttribute('data-formula-raw', rawFormula || '');
+        if (formulaText) row.setAttribute('data-formula-display', formulaText);
+        else row.removeAttribute('data-formula-display');
         // Get input method from row or data for tooltip
         const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
         const inputMethodTooltip = inputMethod || '';
@@ -14225,6 +14247,8 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             if (!rawFormula) rawFormula = formulaText;
             row.setAttribute('data-formula-raw', rawFormula || '');
             const displayText = formulaText;
+            if (displayText) row.setAttribute('data-formula-display', displayText);
+            else row.removeAttribute('data-formula-display');
             
             const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
             const inputMethodTooltip = (inputMethod && String(inputMethod).trim()) ? String(inputMethod).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
