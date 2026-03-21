@@ -387,6 +387,8 @@ body.process-page {
     min-width: 98px;
     max-width: 130px;
     white-space: nowrap;
+    position: relative;
+    overflow: visible;
 }
 .process-page .bank-data-table th:not(.bank-th-no):not(.bank-th-country):not(.bank-th-types):not(.bank-th-card-owner):not(.bank-th-status):not(.bank-th-action),
 .process-page .bank-data-table td:not(.bank-td-no):not(.bank-td-country):not(.bank-td-types):not(.bank-td-card-owner):not(.bank-td-status):not(.bank-td-action) {
@@ -396,6 +398,7 @@ body.process-page {
     position: relative;
     width: 100%;
     min-width: 92px;
+    box-sizing: border-box;
 }
 .process-page .bank-issue-flag-button {
     width: 100%;
@@ -419,6 +422,7 @@ body.process-page {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    box-sizing: border-box;
 }
 .process-page .bank-issue-flag-button.open {
     border-color: #94a3b8;
@@ -466,6 +470,10 @@ body.process-page {
     box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
     backdrop-filter: blur(8px);
     z-index: 30;
+}
+.process-page .bank-issue-flag-menu.bank-issue-flag-menu-floating {
+    position: fixed;
+    z-index: 10020;
 }
 .process-page .bank-issue-flag-dropdown.open .bank-issue-flag-menu {
     display: block;

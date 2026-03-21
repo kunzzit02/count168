@@ -74,7 +74,77 @@
                 dropdown.setAttribute('data-open', '0');
                 const button = dropdown.querySelector('.bank-issue-flag-button');
                 if (button) button.classList.remove('open');
+                restoreBankIssueFlagMenu(dropdown);
             });
+        }
+
+        function moveBankIssueFlagMenuToBody(dropdownEl) {
+            if (!dropdownEl) return;
+            const menu = dropdownEl.querySelector('.bank-issue-flag-menu');
+            const button = dropdownEl.querySelector('.bank-issue-flag-button');
+            if (!menu || !button) return;
+            if (!menu.__originalParent) {
+                menu.__originalParent = menu.parentNode;
+                menu.__originalNextSibling = menu.nextSibling;
+            }
+            if (menu.parentNode !== document.body) {
+                document.body.appendChild(menu);
+            }
+
+            menu.__ownerDropdown = dropdownEl;
+            menu.classList.add('bank-issue-flag-menu-floating');
+            menu.style.display = 'block';
+            menu.style.visibility = 'hidden';
+
+            const rect = button.getBoundingClientRect();
+            const menuWidth = Math.max(rect.width, 132);
+            menu.style.width = menuWidth + 'px';
+            menu.style.minWidth = menuWidth + 'px';
+            menu.style.maxWidth = menuWidth + 'px';
+
+            const menuHeight = menu.offsetHeight || 120;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            let left = rect.left;
+            let top = rect.bottom + 6;
+
+            if (left + menuWidth > viewportWidth - 12) {
+                left = Math.max(12, viewportWidth - menuWidth - 12);
+            }
+
+            if (top + menuHeight > viewportHeight - 12 && rect.top - menuHeight - 6 > 12) {
+                top = rect.top - menuHeight - 6;
+            }
+
+            menu.style.left = Math.round(left) + 'px';
+            menu.style.top = Math.round(top) + 'px';
+            menu.style.visibility = 'visible';
+        }
+
+        function restoreBankIssueFlagMenu(dropdownEl) {
+            if (!dropdownEl) return;
+            let menu = dropdownEl.querySelector('.bank-issue-flag-menu');
+            if (!menu) {
+                menu = Array.from(document.body.querySelectorAll('.bank-issue-flag-menu-floating')).find(function (el) {
+                    return el.__ownerDropdown === dropdownEl;
+                }) || null;
+            }
+            if (!menu) return;
+            if (menu.__originalParent && menu.parentNode === document.body) {
+                if (menu.__originalNextSibling && menu.__originalNextSibling.parentNode === menu.__originalParent) {
+                    menu.__originalParent.insertBefore(menu, menu.__originalNextSibling);
+                } else {
+                    menu.__originalParent.appendChild(menu);
+                }
+            }
+            menu.classList.remove('bank-issue-flag-menu-floating');
+            menu.style.display = '';
+            menu.style.visibility = '';
+            menu.style.left = '';
+            menu.style.top = '';
+            menu.style.width = '';
+            menu.style.minWidth = '';
+            menu.style.maxWidth = '';
         }
 
         function applyBankIssueFlagSelectAppearance(dropdownEl, rawValue) {
@@ -114,6 +184,7 @@
                 dropdownEl.classList.add('open');
                 dropdownEl.setAttribute('data-open', '1');
                 buttonEl.classList.add('open');
+                moveBankIssueFlagMenuToBody(dropdownEl);
             }
         }
 
@@ -1506,6 +1577,12 @@
             document.addEventListener('click', function () {
                 closeAllBankIssueFlagDropdowns();
             });
+            window.addEventListener('resize', function () {
+                closeAllBankIssueFlagDropdowns();
+            });
+            window.addEventListener('scroll', function () {
+                closeAllBankIssueFlagDropdowns();
+            }, true);
         }
 
         // 切换流程状态
