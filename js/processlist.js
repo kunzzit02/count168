@@ -108,7 +108,10 @@
         }
 
         function normalizeBankIssueFlag(value) {
-            const normalized = String(value || '').trim().toLowerCase();
+            const normalized = String(value || '')
+                .trim()
+                .toLowerCase()
+                .replace(/[\s-]+/g, '_');
             if (normalized === 'official' || normalized === 'e_invoice') {
                 return normalized;
             }

@@ -61,14 +61,26 @@ function hasBankProcessFrequencyColumn(PDO $pdo): bool
     }
 }
 
-function hasBankProcessIssueFlagColumn(PDO $pdo): bool
+function getBankProcessIssueFlagColumn(PDO $pdo): ?string
 {
     try {
         $stmt = $pdo->query("SHOW COLUMNS FROM bank_process LIKE 'issue_flag'");
-        return $stmt && $stmt->rowCount() > 0;
+        if ($stmt && $stmt->rowCount() > 0) {
+            return 'issue_flag';
+        }
+        $stmt = $pdo->query("SHOW COLUMNS FROM bank_process LIKE 'flag'");
+        if ($stmt && $stmt->rowCount() > 0) {
+            return 'flag';
+        }
+        return null;
     } catch (Throwable $e) {
-        return false;
+        return null;
     }
+}
+
+function normalizedBankIssueFlagSql(string $columnRef): string
+{
+    return "LOWER(REPLACE(REPLACE(TRIM(COALESCE($columnRef, '')), '-', '_'), ' ', '_'))";
 }
 
 /** 获取当前公司下可用于 Accounting Inbox 的 active Bank Process 列表 */
@@ -87,12 +99,12 @@ function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFre
 }
 
 /** 获取当前公司下 inactive-like 且尚未在本轮做过 manual_inactive 入账的 Bank Process。real inactive 与 OFFICIAL / E-INVOICE 共用这套 Accounting Due 逻辑。 */
-function fetchInactiveBankProcessesPendingTransaction(PDO $pdo, int $companyId, bool $hasPeriodType, bool $hasIssueFlagColumn): array
+function fetchInactiveBankProcessesPendingTransaction(PDO $pdo, int $companyId, bool $hasPeriodType, ?string $issueFlagColumn): array
 {
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.contract
             FROM bank_process bp
-            WHERE bp.company_id = ? AND " . ($hasIssueFlagColumn
-                ? "(bp.status = 'inactive' OR bp.issue_flag IN ('official','e_invoice'))"
+            WHERE bp.company_id = ? AND " . ($issueFlagColumn
+                ? "(bp.status = 'inactive' OR " . normalizedBankIssueFlagSql("bp.`$issueFlagColumn`") . " IN ('official','e_invoice'))"
                 : "bp.status = 'inactive'") . "
             AND bp.contract IN ('1+1','1+2','1+3')
             AND (bp.card_merchant_id IS NOT NULL OR bp.customer_id IS NOT NULL OR bp.profit_account_id IS NOT NULL)
@@ -223,7 +235,7 @@ try {
     $dayOfMonth = (int) date('j');
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
-    $hasIssueFlagColumn = hasBankProcessIssueFlagColumn($pdo);
+    $issueFlagColumn = getBankProcessIssueFlagColumn($pdo);
     $hasPeriodType = false;
     try {
         $hasPeriodType = tableHasColumn($pdo, 'process_accounting_posted', 'period_type');
@@ -337,7 +349,7 @@ try {
     }
 
     // 3) 用户从 active 改为 inactive 的流程：进入 Accounting Due；做完 Transaction 后该行从列表消失，status 保持 inactive
-    $inactivePending = fetchInactiveBankProcessesPendingTransaction($pdo, $company_id, $hasPeriodType, $hasIssueFlagColumn);
+    $inactivePending = fetchInactiveBankProcessesPendingTransaction($pdo, $company_id, $hasPeriodType, $issueFlagColumn);
     foreach ($inactivePending as $r) {
         $needToday[] = [
             'id' => (int) $r['id'],

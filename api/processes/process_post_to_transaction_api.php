@@ -28,6 +28,22 @@ function tableHasColumn(PDO $pdo, string $table, string $column): bool
     return $stmt->rowCount() > 0;
 }
 
+function getBankProcessIssueFlagColumn(PDO $pdo): ?string
+{
+    if (tableHasColumn($pdo, 'bank_process', 'issue_flag')) {
+        return 'issue_flag';
+    }
+    if (tableHasColumn($pdo, 'bank_process', 'flag')) {
+        return 'flag';
+    }
+    return null;
+}
+
+function normalizedBankIssueFlagSql(string $columnRef): string
+{
+    return "LOWER(REPLACE(REPLACE(TRIM(COALESCE($columnRef, '')), '-', '_'), ' ', '_'))";
+}
+
 function insertTransactionRow(PDO $pdo, array $data): int
 {
     $columns = array_keys($data);
@@ -66,14 +82,14 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
         return [];
     }
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
+    $issueFlagColumn = getBankProcessIssueFlagColumn($pdo);
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
             WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND (" .
-                ($hasIssueFlagColumn
-                    ? "bp.status IN ('active','inactive') OR bp.issue_flag IN ('official','e_invoice')"
+                ($issueFlagColumn
+                    ? "bp.status IN ('active','inactive') OR " . normalizedBankIssueFlagSql("bp.`$issueFlagColumn`") . " IN ('official','e_invoice')"
                     : "bp.status IN ('active','inactive')") .
             ")";
     $stmt = $pdo->prepare($sql);
