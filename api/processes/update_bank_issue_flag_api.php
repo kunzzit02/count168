@@ -29,20 +29,21 @@ function api_error(string $message, int $status = 400): void
     exit;
 }
 
-function getBankProcessIssueFlagColumn(PDO $pdo): ?string
+function getBankProcessIssueFlagColumns(PDO $pdo): array
 {
     try {
+        $columns = [];
         $stmt = $pdo->query("SHOW COLUMNS FROM bank_process LIKE 'issue_flag'");
         if ($stmt && $stmt->rowCount() > 0) {
-            return 'issue_flag';
+            $columns[] = 'issue_flag';
         }
         $stmt = $pdo->query("SHOW COLUMNS FROM bank_process LIKE 'flag'");
         if ($stmt && $stmt->rowCount() > 0) {
-            return 'flag';
+            $columns[] = 'flag';
         }
-        return null;
+        return $columns;
     } catch (Throwable $e) {
-        return null;
+        return [];
     }
 }
 
@@ -68,15 +69,21 @@ try {
         api_error('Invalid issue flag value');
     }
 
-    $issueFlagColumn = getBankProcessIssueFlagColumn($pdo);
-    if ($issueFlagColumn === null) {
+    $issueFlagColumns = getBankProcessIssueFlagColumns($pdo);
+    if (empty($issueFlagColumns)) {
         api_error('bank_process.flag / issue_flag column is missing. Please run the latest SQL update first.', 400);
     }
 
     $valueToSave = ($issueFlag === '') ? null : $issueFlag;
 
-    $stmt = $pdo->prepare("UPDATE bank_process SET `$issueFlagColumn` = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?");
-    $stmt->execute([$valueToSave, $id, $companyId]);
+    $setClauses = array_map(function ($column) {
+        return "`$column` = ?";
+    }, $issueFlagColumns);
+    $stmt = $pdo->prepare("UPDATE bank_process SET " . implode(', ', $setClauses) . ", dts_modified = NOW() WHERE id = ? AND company_id = ?");
+    $params = array_fill(0, count($issueFlagColumns), $valueToSave);
+    $params[] = $id;
+    $params[] = $companyId;
+    $stmt->execute($params);
 
     if ($stmt->rowCount() === 0) {
         $checkStmt = $pdo->prepare("SELECT id FROM bank_process WHERE id = ? AND company_id = ?");

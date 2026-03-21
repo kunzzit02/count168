@@ -32,15 +32,18 @@ function bankProcessHasColumn(PDO $pdo, string $column): bool
     }
 }
 
-function getBankProcessIssueFlagColumn(PDO $pdo): ?string
+function getBankProcessIssueFlagSql(string $tableAlias, bool $hasIssueFlagColumn, bool $hasFlagColumn): string
 {
-    if (bankProcessHasColumn($pdo, 'issue_flag')) {
-        return 'issue_flag';
+    if ($hasIssueFlagColumn && $hasFlagColumn) {
+        return "COALESCE(NULLIF($tableAlias.`flag`, ''), NULLIF($tableAlias.`issue_flag`, ''))";
     }
-    if (bankProcessHasColumn($pdo, 'flag')) {
-        return 'flag';
+    if ($hasFlagColumn) {
+        return "$tableAlias.`flag`";
     }
-    return null;
+    if ($hasIssueFlagColumn) {
+        return "$tableAlias.`issue_flag`";
+    }
+    return "NULL";
 }
 
 function normalizeBankIssueFlagValue($value): ?string
@@ -636,16 +639,18 @@ function getBankProcesses() {
             $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
             $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
         } catch (PDOException $e) { /* ignore */ }
-        $issueFlagColumn = getBankProcessIssueFlagColumn($pdo);
-        $hasIssueFlagColumn = $issueFlagColumn !== null;
+        $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
+        $hasFlagColumn = bankProcessHasColumn($pdo, 'flag');
+        $hasAnyIssueFlagColumn = $hasIssueFlagColumn || $hasFlagColumn;
         $hasTxnSubquery = $hasSourceBankProcessId
             ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
             : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
-        $issueFlagSelect = $hasIssueFlagColumn ? "bp.`$issueFlagColumn` AS issue_flag" : "NULL AS issue_flag";
-        $normalizedIssueFlagSql = $hasIssueFlagColumn
-            ? "LOWER(REPLACE(REPLACE(TRIM(COALESCE(bp.`$issueFlagColumn`, '')), '-', '_'), ' ', '_'))"
+        $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
+        $issueFlagSelect = $hasAnyIssueFlagColumn ? $issueFlagSql . " AS issue_flag" : "NULL AS issue_flag";
+        $normalizedIssueFlagSql = $hasAnyIssueFlagColumn
+            ? "LOWER(REPLACE(REPLACE(TRIM(COALESCE($issueFlagSql, '')), '-', '_'), ' ', '_'))"
             : "''";
-        $defaultVisibleClause = $hasIssueFlagColumn
+        $defaultVisibleClause = $hasAnyIssueFlagColumn
             ? "(bp.status = 'active' AND (" . $normalizedIssueFlagSql . " = '' OR " . $normalizedIssueFlagSql . " NOT IN ('official', 'e_invoice')))"
             : "bp.status = 'active'";
 
@@ -699,10 +704,10 @@ function getBankProcesses() {
             if ($showInactive) {
                 $filterClauses[] = "bp.status = 'inactive'";
             }
-            if ($showOfficial && $hasIssueFlagColumn) {
+            if ($showOfficial && $hasAnyIssueFlagColumn) {
                 $filterClauses[] = $normalizedIssueFlagSql . " = 'official'";
             }
-            if ($showEInvoice && $hasIssueFlagColumn) {
+            if ($showEInvoice && $hasAnyIssueFlagColumn) {
                 $filterClauses[] = $normalizedIssueFlagSql . " = 'e_invoice'";
             }
 
@@ -770,10 +775,11 @@ function getBankProcess() {
             return;
         }
         $hasSopColumn = bankProcessHasColumn($pdo, 'sop');
-        $issueFlagColumn = getBankProcessIssueFlagColumn($pdo);
-        $hasIssueFlagColumn = $issueFlagColumn !== null;
+        $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
+        $hasFlagColumn = bankProcessHasColumn($pdo, 'flag');
+        $hasAnyIssueFlagColumn = $hasIssueFlagColumn || $hasFlagColumn;
         $sopSelect = $hasSopColumn ? "bp.sop" : "NULL AS sop";
-        $issueFlagSelect = $hasIssueFlagColumn ? "bp.`$issueFlagColumn` AS issue_flag" : "NULL AS issue_flag";
+        $issueFlagSelect = $hasAnyIssueFlagColumn ? getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn) . " AS issue_flag" : "NULL AS issue_flag";
         $stmt = $pdo->prepare("SELECT 
                 bp.id, bp.country, bp.bank, bp.type, bp.name,
                 bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.contract, bp.insurance, bp.remark, $sopSelect,
