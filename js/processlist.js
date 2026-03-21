@@ -627,10 +627,13 @@
                 if (dayStart && todayStr >= dayStart) return 'contract-active';
                 return 'contract-expired';
             }
+            let listToShow = Array.isArray(processes)
+                ? processes.filter(function (p) { return matchesCurrentBankFilters(p); })
+                : [];
+
             // When Waiting is checked, only show rows where contract is pending (yellow)
-            let listToShow = processes;
             if (waiting) {
-                listToShow = processes.filter(function (p) { return getContractStateClass(p.day_start || null, p.day_end || null) === 'contract-pending'; });
+                listToShow = listToShow.filter(function (p) { return getContractStateClass(p.day_start || null, p.day_end || null) === 'contract-pending'; });
             }
             window.__bankFilteredLength = waiting ? listToShow.length : null;
 
