@@ -17,6 +17,8 @@
 
         // Bank Supplier 列的排序状态（A→Z / Z→A）
         let bankSupplierSortDirection = 'asc'; // 'asc' | 'desc'
+        let bankAddProcessDataPromise = null;
+        let bankAddProcessDataLoaded = false;
 
         function sortBankProcessesBySupplier() {
             if (!Array.isArray(processes) || processes.length === 0) return;
@@ -662,14 +664,19 @@
         function openAddProcessForSelectedPermission() {
             if (selectedPermission === 'Bank') {
                 window.selectedProfitSharingEntries = [];
-                loadAddBankProcessData().then(async () => {
+                document.getElementById('addBankModal').style.display = 'block';
+                setBankModalLoadingState(true, 'Add Process');
+                ensureAddBankProcessDataLoaded().then(async () => {
                     const countryEl = document.getElementById('bank_country');
                     if (countryEl) countryEl.value = '';
                     applySelectedBanksToDropdown('');
                     renderSelectedProfitSharing();
-                    document.getElementById('addBankModal').style.display = 'block';
                     if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
+                    setBankModalLoadingState(false, 'Add Process');
                     updateBankSubmitButtonState();
+                }).catch(() => {
+                    setBankModalLoadingState(false, 'Add Process');
+                    closeAddBankModal();
                 });
             } else {
                 loadAddProcessData();
@@ -678,6 +685,37 @@
         }
 
         let currentBankNoteTarget = 'sop';
+
+        function setBankModalLoadingState(isLoading, titleText) {
+            const titleEl = document.getElementById('bankModalTitle');
+            const submitBtn = document.getElementById('bankSubmitBtn');
+            if (titleEl && titleText) titleEl.textContent = titleText;
+            if (submitBtn) {
+                submitBtn.disabled = !!isLoading;
+                submitBtn.textContent = isLoading ? 'Loading...' : (titleText === 'Edit Process' ? 'Update Process' : 'Add Process');
+            }
+        }
+
+        function ensureAddBankProcessDataLoaded(forceReload) {
+            if (bankAddProcessDataLoaded && !forceReload) {
+                return Promise.resolve();
+            }
+            if (bankAddProcessDataPromise && !forceReload) {
+                return bankAddProcessDataPromise;
+            }
+            bankAddProcessDataPromise = loadAddBankProcessData()
+                .then(function () {
+                    bankAddProcessDataLoaded = true;
+                })
+                .catch(function (error) {
+                    bankAddProcessDataLoaded = false;
+                    throw error;
+                })
+                .finally(function () {
+                    bankAddProcessDataPromise = null;
+                });
+            return bankAddProcessDataPromise;
+        }
 
         function closeAddBankModal() {
             document.getElementById('addBankModal').style.display = 'none';
@@ -818,18 +856,24 @@
 
         /** Bank 编辑：打开与 Add 同格式的弹窗，预填数据，提交时走 update_process */
         async function openBankEditModal(id) {
+            document.getElementById('addBankModal').style.display = 'block';
+            setBankModalLoadingState(true, 'Edit Process');
             try {
-                const response = await fetch(buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank`));
+                const processRequest = fetch(buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${id}&permission=Bank`));
+                const bankDataRequest = ensureAddBankProcessDataLoaded();
+                const response = await processRequest;
                 const result = await response.json();
                 if (!result.success || !result.data) {
                     showNotification(result.error || 'Failed to load process data', 'danger');
+                    closeAddBankModal();
                     return;
                 }
                 const process = result.data;
-                await loadAddBankProcessData();
+                await bankDataRequest;
                 document.getElementById('bank_edit_id').value = process.id;
                 document.getElementById('bankModalTitle').textContent = 'Edit Process';
                 document.getElementById('bankSubmitBtn').textContent = 'Update Process';
+                document.getElementById('bankSubmitBtn').disabled = false;
                 const countrySelect = document.getElementById('bank_country');
                 const bankSelect = document.getElementById('bank_bank');
                 if (process.country) {
@@ -921,9 +965,9 @@
                 updateBankSubmitButtonState();
                 if (typeof updateBankProfitDisplay === 'function') updateBankProfitDisplay();
                 if (typeof clearBankFieldErrors === 'function') clearBankFieldErrors();
-                document.getElementById('addBankModal').style.display = 'block';
             } catch (error) {
                 console.error('Error opening bank edit modal:', error);
+                closeAddBankModal();
                 showNotification('Failed to load process data', 'danger');
             }
         }
