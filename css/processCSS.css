@@ -500,9 +500,9 @@ body.process-page {
     color: #1d4ed8;
 }
 .process-page .bank-issue-flag-option.selected {
-    background: linear-gradient(180deg, #0d60ff 0%, #63c4ff 100%);
-    color: #ffffff;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    background: transparent;
+    color: #334155;
+    box-shadow: none;
 }
 /* Action 列表头：文字与勾选格垂直居中 */
 .process-page .bank-data-table .bank-th-action {
