@@ -59,18 +59,23 @@ function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, f
     ];
 }
 
-/** 根据 id 列表获取 Bank Process（含 company/owner），支持 active 与 inactive（Accounting Due 中 manual_inactive 可入账） */
+/** 根据 id 列表获取 Bank Process（含 company/owner），支持 active、inactive，以及 OFFICIAL / E-INVOICE 这类 inactive-like 记录（Accounting Due 中 manual_inactive 可入账） */
 function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
 {
     if (empty($ids)) {
         return [];
     }
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
-            WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND bp.status IN ('active','inactive')";
+            WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND (" .
+                ($hasIssueFlagColumn
+                    ? "bp.status IN ('active','inactive') OR bp.issue_flag IN ('official','e_invoice')"
+                    : "bp.status IN ('active','inactive')") .
+            ")";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(array_merge($ids, [$companyId]));
     $byId = [];

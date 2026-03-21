@@ -618,6 +618,12 @@ function getBankProcesses() {
             ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
             : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
         $issueFlagSelect = $hasIssueFlagColumn ? "bp.issue_flag" : "NULL AS issue_flag";
+        $inactiveLikeClause = $hasIssueFlagColumn
+            ? "(bp.status = 'inactive' OR bp.issue_flag IN ('official', 'e_invoice'))"
+            : "bp.status = 'inactive'";
+        $defaultVisibleClause = $hasIssueFlagColumn
+            ? "(bp.status = 'active' AND (bp.issue_flag IS NULL OR bp.issue_flag NOT IN ('official', 'e_invoice')))"
+            : "bp.status = 'active'";
 
         $sql = "SELECT 
                     bp.id,
@@ -663,11 +669,11 @@ function getBankProcesses() {
         if ($showAll) {
             // no additional filter
         } elseif (!$hasSpecificFilter) {
-            $sql .= " AND bp.status = 'active'";
+            $sql .= " AND $defaultVisibleClause";
         } else {
             $filterClauses = [];
             if ($showInactive) {
-                $filterClauses[] = "bp.status = 'inactive'";
+                $filterClauses[] = $inactiveLikeClause;
             }
 
             if (empty($filterClauses)) {

@@ -58,10 +58,31 @@
                 '</button>';
         }
 
-        function buildBankActionCellHtml(processId, status, hasTransactions) {
+        function isBankInactiveLike(status, issueFlag) {
+            const normalizedStatus = String(status || '').trim().toLowerCase();
+            const normalizedIssueFlag = normalizeBankIssueFlag(issueFlag);
+            return normalizedStatus === 'inactive' || normalizedIssueFlag === 'official' || normalizedIssueFlag === 'e_invoice';
+        }
+
+        function isBankProcessInactiveLike(process) {
+            if (!process) return false;
+            return isBankInactiveLike(process.status, process.issue_flag);
+        }
+
+        function isBankRowInactiveLike(row) {
+            if (!row) return false;
+            return isBankInactiveLike(row.getAttribute('data-status'), row.getAttribute('data-issue-flag'));
+        }
+
+        function isRealBankInactive(status) {
+            return String(status || '').trim().toLowerCase() === 'inactive';
+        }
+
+        function buildBankActionCellHtml(processId, status, hasTransactions, issueFlag) {
             const actionButtons = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
                 buildBankRemarkActionButton(processId);
-            return actionButtons + (status === 'active' ? '' : (hasTransactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
+            const canDelete = isRealBankInactive(status) && !hasTransactions;
+            return actionButtons + (canDelete ? '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">' : '');
         }
 
         function syncBankFilterCheckboxes() {
@@ -271,7 +292,8 @@
             if (!process) return false;
             if (showAll) return true;
             const status = String(process.status || '').toLowerCase();
-            return showInactive ? status === 'inactive' : status === 'active';
+            const inactiveLike = isBankProcessInactiveLike(process);
+            return showInactive ? inactiveLike : (status === 'active' && !inactiveLike);
         }
 
         async function updateBankIssueFlag(processId, newValue, options) {
@@ -309,7 +331,26 @@
                     process.issue_flag = normalizedNewValue || null;
                 }
 
+                const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
+                if (row) {
+                    row.setAttribute('data-issue-flag', normalizedNewValue);
+                    const actionCell = row.querySelector('.bank-td-action');
+                    if (actionCell) {
+                        actionCell.innerHTML = buildBankActionCellHtml(processId, process ? process.status : '', row.getAttribute('data-has-transactions') === '1', normalizedNewValue);
+                    }
+                }
+
+                if (process && !matchesCurrentBankFilters(process)) {
+                    renderTable();
+                }
+
                 refreshBankStatusCell(processId);
+                updateDeleteButton();
+                updateSelectAllProcessesVisibility();
+                updatePostToTransactionButton();
+                if (selectedPermission === 'Bank' && typeof loadAccountingInbox === 'function') {
+                    await loadAccountingInbox();
+                }
                 if (!settings.silent) {
                     showNotification('Status option updated', 'success');
                 }
@@ -610,10 +651,11 @@
                 const price = dashIfEmpty(process.price);
                 const profit = dashIfEmpty(process.profit);
                 const statusSelect = renderBankStatusSelect(process.id, process);
-                const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions);
+                const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions, process.issue_flag);
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.setAttribute('data-status', process.status || '');
+                tr.setAttribute('data-issue-flag', normalizeBankIssueFlag(process.issue_flag));
                 tr.setAttribute('data-has-transactions', process.has_transactions ? '1' : '0');
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
                     '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
@@ -1427,7 +1469,7 @@
             if (selectedPermission === 'Bank' && selectedCheckboxes.length > 0) {
                 const hasInactive = Array.from(selectedCheckboxes).some(cb => {
                     const row = cb.closest('tr');
-                    return row && row.getAttribute('data-status') !== 'active';
+                    return row && isRealBankInactive(row.getAttribute('data-status'));
                 });
                 deleteEnabled = hasInactive;
             } else if (selectedCheckboxes.length > 0) {
@@ -1456,7 +1498,7 @@
             const selectedCheckboxes = document.querySelectorAll('.bank-checkbox:checked');
             const activeSelectedIds = Array.from(selectedCheckboxes).filter(cb => {
                 const row = cb.closest('tr');
-                return row && row.getAttribute('data-status') === 'active';
+                return row && !isBankRowInactiveLike(row) && String(row.getAttribute('data-status') || '').toLowerCase() === 'active';
             }).map(cb => cb.dataset.id);
             postBtn.disabled = activeSelectedIds.length === 0;
             postBtn.textContent = activeSelectedIds.length > 0 ? `Transaction (${activeSelectedIds.length})` : 'Transaction';
@@ -1695,7 +1737,7 @@
             const selectedCheckboxes = document.querySelectorAll('.bank-checkbox:checked');
             const activeSelectedIds = Array.from(selectedCheckboxes).filter(cb => {
                 const row = cb.closest('tr');
-                return row && row.getAttribute('data-status') === 'active';
+                return row && !isBankRowInactiveLike(row) && String(row.getAttribute('data-status') || '').toLowerCase() === 'active';
             }).map(cb => cb.dataset.id);
             if (activeSelectedIds.length === 0) {
                 showNotification('Please select Process(es) to post (only active processes can be posted)', 'warning');
@@ -1764,9 +1806,10 @@
                     if (selectedPermission === 'Bank') {
                         const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                         const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
-                        const bankActionCellHtml = buildBankActionCellHtml(processId, newStatus, hasTx);
+                        const bankActionCellHtml = buildBankActionCellHtml(processId, newStatus, hasTx, process ? process.issue_flag : '');
                         if (row) {
                             row.setAttribute('data-status', newStatus || '');
+                            row.setAttribute('data-issue-flag', normalizeBankIssueFlag(process ? process.issue_flag : ''));
                             const cells = row.querySelectorAll('td');
                             if (cells.length >= 15) {
                                 // Contract cell (index 6): apply gray rule for 1 MONTH / 1+1 / 1+2 / 1+3 during active period
