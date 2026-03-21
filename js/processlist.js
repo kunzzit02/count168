@@ -459,17 +459,17 @@
                 if (searchTerm.trim()) {
                     url.searchParams.set('search', searchTerm);
                 }
-                if (showInactive) {
-                    url.searchParams.set('showInactive', '1');
-                }
-                if (showOfficial) {
-                    url.searchParams.set('showOfficial', '1');
-                }
-                if (showEInvoice) {
-                    url.searchParams.set('showEInvoice', '1');
-                }
-                if (showAll) {
+                if (selectedPermission === 'Bank') {
+                    // Bank 列表统一先取完整数据，再由前端做 Status / Official / E-Invoice 过滤，
+                    // 避免旧数据分散在 flag / issue_flag 时出现筛选不一致。
                     url.searchParams.set('showAll', '1');
+                } else {
+                    if (showInactive) {
+                        url.searchParams.set('showInactive', '1');
+                    }
+                    if (showAll) {
+                        url.searchParams.set('showAll', '1');
+                    }
                 }
                 if (waiting) {
                     url.searchParams.set('waiting', '1');
@@ -2723,7 +2723,8 @@
                 if (showInactive) showAll = false;
                 normalizeBankFilterState();
                 currentPage = 1;
-                fetchProcesses();
+                renderTable();
+                renderPagination();
             });
         }
 
@@ -2734,7 +2735,8 @@
                 if (showOfficial) showAll = false;
                 normalizeBankFilterState();
                 currentPage = 1;
-                fetchProcesses();
+                renderTable();
+                renderPagination();
             });
         }
 
@@ -2745,7 +2747,8 @@
                 if (showEInvoice) showAll = false;
                 normalizeBankFilterState();
                 currentPage = 1;
-                fetchProcesses();
+                renderTable();
+                renderPagination();
             });
         }
 
@@ -2756,7 +2759,8 @@
                 showAll = this.checked;
                 normalizeBankFilterState();
                 currentPage = 1;
-                fetchProcesses();
+                renderTable();
+                renderPagination();
             });
         }
 
