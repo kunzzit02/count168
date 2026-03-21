@@ -398,7 +398,6 @@ body.process-page {
     position: relative;
     width: 70%;
     min-width: 0;
-    margin: 0 auto;
     box-sizing: border-box;
 }
 .process-page .bank-issue-flag-button {
