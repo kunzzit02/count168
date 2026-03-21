@@ -97,7 +97,7 @@
             menu.style.visibility = 'hidden';
 
             const rect = button.getBoundingClientRect();
-            const menuWidth = Math.max(rect.width, 132);
+            const menuWidth = Math.max(rect.width, 84);
             menu.style.width = menuWidth + 'px';
             menu.style.minWidth = menuWidth + 'px';
             menu.style.maxWidth = menuWidth + 'px';

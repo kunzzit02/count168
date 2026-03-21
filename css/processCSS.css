@@ -396,8 +396,9 @@ body.process-page {
 }
 .process-page .bank-issue-flag-dropdown {
     position: relative;
-    width: 100%;
-    min-width: 92px;
+    width: 70%;
+    min-width: 0;
+    margin: 0 auto;
     box-sizing: border-box;
 }
 .process-page .bank-issue-flag-button {
