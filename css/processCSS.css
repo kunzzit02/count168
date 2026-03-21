@@ -675,13 +675,11 @@ body.process-page {
     margin-left: 6px;
 }
 .process-page .remark-action-btn svg {
-    width: clamp(11px, 0.88vw, 17px);
-    height: clamp(11px, 0.88vw, 17px);
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(10px, 0.83vw, 16px);
     display: block;
-    color: #475569;
-}
-.process-page .remark-action-btn:hover svg {
-    color: #2563eb;
+    color: currentColor;
+    filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
 .process-page .row-checkbox {
