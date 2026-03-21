@@ -1,19 +1,12 @@
         // 全局变量
         let processes = [];
         let showInactive = (typeof window.PROCESSLIST_SHOW_INACTIVE !== 'undefined' ? window.PROCESSLIST_SHOW_INACTIVE : false);
-        let showOfficial = (typeof window.PROCESSLIST_SHOW_OFFICIAL !== 'undefined' ? window.PROCESSLIST_SHOW_OFFICIAL : false);
-        let showEInvoice = (typeof window.PROCESSLIST_SHOW_E_INVOICE !== 'undefined' ? window.PROCESSLIST_SHOW_E_INVOICE : false);
         let showAll = (typeof window.PROCESSLIST_SHOW_ALL !== 'undefined' ? window.PROCESSLIST_SHOW_ALL : false);
         let waiting = false;
         let currentPage = 1;
         const pageSize = 20;
         /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
-        const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.6fr 0.5fr 0.3fr';
-        const BANK_ISSUE_FLAG_OPTIONS = [
-            { value: '', label: '-' },
-            { value: 'official', label: 'OFFICIAL' },
-            { value: 'e_invoice', label: 'E-INVOICE' }
-        ];
+        const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.45fr 0.5fr 0.3fr';
 
         // Bank Supplier 列的排序状态（A→Z / Z→A）
         let bankSupplierSortDirection = 'asc'; // 'asc' | 'desc'
@@ -64,28 +57,16 @@
             return actionButtons + (status === 'active' ? '' : (hasTransactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
         }
 
-        function hasAnySpecificBankFilterSelected() {
-            return !!(showInactive || showOfficial || showEInvoice);
-        }
-
         function syncBankFilterCheckboxes() {
             const showInactiveCheckbox = document.getElementById('showInactive');
-            const showOfficialCheckbox = document.getElementById('showOfficial');
-            const showEInvoiceCheckbox = document.getElementById('showEInvoice');
             const showAllCheckbox = document.getElementById('showAll');
             if (showInactiveCheckbox) showInactiveCheckbox.checked = !!showInactive;
-            if (showOfficialCheckbox) showOfficialCheckbox.checked = !!showOfficial;
-            if (showEInvoiceCheckbox) showEInvoiceCheckbox.checked = !!showEInvoice;
             if (showAllCheckbox) showAllCheckbox.checked = !!showAll;
         }
 
         function normalizeBankFilterState() {
             if (showAll) {
                 showInactive = false;
-                showOfficial = false;
-                showEInvoice = false;
-                syncBankFilterCheckboxes();
-                return;
             }
             syncBankFilterCheckboxes();
         }
@@ -93,172 +74,8 @@
         function matchesCurrentBankFilters(process) {
             if (!process) return false;
             if (showAll) return true;
-
-            const matches = [];
             const status = String(process.status || '').toLowerCase();
-            const issueFlag = normalizeBankIssueFlag(process.issue_flag);
-
-            if (showInactive) matches.push(status === 'inactive');
-            if (showOfficial) matches.push(issueFlag === 'official');
-            if (showEInvoice) matches.push(issueFlag === 'e_invoice');
-
-            if (matches.length === 0) {
-                return status === 'active';
-            }
-            return matches.some(Boolean);
-        }
-
-        function normalizeBankIssueFlag(value) {
-            const normalized = String(value || '').trim().toLowerCase();
-            if (normalized === 'official' || normalized === 'e_invoice') {
-                return normalized;
-            }
-            return '';
-        }
-
-        function renderBankIssueFlagSelect(processId, rawValue) {
-            const currentValue = normalizeBankIssueFlag(rawValue);
-            const currentOption = BANK_ISSUE_FLAG_OPTIONS.find(function (option) {
-                return option.value === currentValue;
-            }) || BANK_ISSUE_FLAG_OPTIONS[0];
-            const optionsHtml = BANK_ISSUE_FLAG_OPTIONS.map(function (option) {
-                const isSelected = option.value === currentValue;
-                return '<button type="button" class="bank-issue-flag-option' + (isSelected ? ' selected' : '') + '" data-value="' + option.value + '" onclick="selectBankIssueFlag(this, ' + processId + '); event.stopPropagation();">' + option.label + '</button>';
-            }).join('');
-            return '<div class="bank-issue-flag-dropdown" data-current-value="' + currentValue + '" data-open="0">' +
-                '<button type="button" class="bank-issue-flag-button" data-flag="' + (currentValue || 'none') + '" onclick="toggleBankIssueFlagDropdown(this, ' + processId + '); event.stopPropagation();">' + currentOption.label + '</button>' +
-                '<div class="bank-issue-flag-menu" onclick="event.stopPropagation();">' + optionsHtml + '</div>' +
-                '</div>';
-        }
-
-        function closeAllBankIssueFlagDropdowns() {
-            document.querySelectorAll('.bank-issue-flag-dropdown').forEach(function (dropdown) {
-                dropdown.classList.remove('open');
-                dropdown.setAttribute('data-open', '0');
-                const button = dropdown.querySelector('.bank-issue-flag-button');
-                if (button) button.classList.remove('open');
-                restoreBankIssueFlagMenu(dropdown);
-            });
-        }
-
-        function moveBankIssueFlagMenuToBody(dropdownEl) {
-            if (!dropdownEl) return;
-            const menu = dropdownEl.querySelector('.bank-issue-flag-menu');
-            const button = dropdownEl.querySelector('.bank-issue-flag-button');
-            if (!menu || !button) return;
-            if (!menu.__originalParent) {
-                menu.__originalParent = menu.parentNode;
-                menu.__originalNextSibling = menu.nextSibling;
-            }
-            if (menu.parentNode !== document.body) {
-                document.body.appendChild(menu);
-            }
-
-            menu.__ownerDropdown = dropdownEl;
-            menu.classList.add('bank-issue-flag-menu-floating');
-            menu.style.display = 'block';
-            menu.style.visibility = 'hidden';
-
-            const rect = button.getBoundingClientRect();
-            const menuWidth = Math.max(rect.width, 84);
-            menu.style.width = menuWidth + 'px';
-            menu.style.minWidth = menuWidth + 'px';
-            menu.style.maxWidth = menuWidth + 'px';
-
-            const menuHeight = menu.offsetHeight || 120;
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            let left = rect.left;
-            let top = rect.bottom + 6;
-
-            if (left + menuWidth > viewportWidth - 12) {
-                left = Math.max(12, viewportWidth - menuWidth - 12);
-            }
-
-            if (top + menuHeight > viewportHeight - 12 && rect.top - menuHeight - 6 > 12) {
-                top = rect.top - menuHeight - 6;
-            }
-
-            menu.style.left = Math.round(left) + 'px';
-            menu.style.top = Math.round(top) + 'px';
-            menu.style.visibility = 'visible';
-        }
-
-        function restoreBankIssueFlagMenu(dropdownEl) {
-            if (!dropdownEl) return;
-            let menu = dropdownEl.querySelector('.bank-issue-flag-menu');
-            if (!menu) {
-                menu = Array.from(document.body.querySelectorAll('.bank-issue-flag-menu-floating')).find(function (el) {
-                    return el.__ownerDropdown === dropdownEl;
-                }) || null;
-            }
-            if (!menu) return;
-            if (menu.__originalParent && menu.parentNode === document.body) {
-                if (menu.__originalNextSibling && menu.__originalNextSibling.parentNode === menu.__originalParent) {
-                    menu.__originalParent.insertBefore(menu, menu.__originalNextSibling);
-                } else {
-                    menu.__originalParent.appendChild(menu);
-                }
-            }
-            menu.classList.remove('bank-issue-flag-menu-floating');
-            menu.style.display = '';
-            menu.style.visibility = '';
-            menu.style.left = '';
-            menu.style.top = '';
-            menu.style.width = '';
-            menu.style.minWidth = '';
-            menu.style.maxWidth = '';
-        }
-
-        function applyBankIssueFlagSelectAppearance(dropdownEl, rawValue) {
-            if (!dropdownEl) return;
-            const normalized = normalizeBankIssueFlag(rawValue != null ? rawValue : dropdownEl.getAttribute('data-current-value'));
-            const button = dropdownEl.querySelector('.bank-issue-flag-button');
-            const options = dropdownEl.querySelectorAll('.bank-issue-flag-option');
-            const currentOption = BANK_ISSUE_FLAG_OPTIONS.find(function (option) {
-                return option.value === normalized;
-            }) || BANK_ISSUE_FLAG_OPTIONS[0];
-
-            dropdownEl.setAttribute('data-current-value', normalized);
-            if (button) {
-                button.textContent = currentOption.label;
-                button.setAttribute('data-flag', normalized || 'none');
-                button.classList.remove('is-empty', 'is-official', 'is-e-invoice');
-                if (normalized === 'official') {
-                    button.classList.add('is-official');
-                } else if (normalized === 'e_invoice') {
-                    button.classList.add('is-e-invoice');
-                } else {
-                    button.classList.add('is-empty');
-                }
-            }
-
-            options.forEach(function (optionEl) {
-                optionEl.classList.toggle('selected', normalizeBankIssueFlag(optionEl.getAttribute('data-value')) === normalized);
-            });
-        }
-
-        function toggleBankIssueFlagDropdown(buttonEl, processId) {
-            const dropdownEl = buttonEl ? buttonEl.closest('.bank-issue-flag-dropdown') : null;
-            if (!dropdownEl) return;
-            const isOpen = dropdownEl.classList.contains('open');
-            closeAllBankIssueFlagDropdowns();
-            if (!isOpen) {
-                dropdownEl.classList.add('open');
-                dropdownEl.setAttribute('data-open', '1');
-                buttonEl.classList.add('open');
-                moveBankIssueFlagMenuToBody(dropdownEl);
-            }
-        }
-
-        async function selectBankIssueFlag(optionEl, processId) {
-            const menuEl = optionEl ? optionEl.closest('.bank-issue-flag-menu') : null;
-            const dropdownEl = menuEl && menuEl.__ownerDropdown
-                ? menuEl.__ownerDropdown
-                : (optionEl ? optionEl.closest('.bank-issue-flag-dropdown') : null);
-            if (!dropdownEl) return;
-            const newValue = normalizeBankIssueFlag(optionEl.getAttribute('data-value'));
-            await updateBankIssueFlag(dropdownEl, processId, newValue);
+            return showInactive ? status === 'inactive' : status === 'active';
         }
 
         // 构造 API 绝对 URL（始终基于站点根目录，避免相对路径解析错误）
@@ -298,12 +115,6 @@
                 }
                 if (showInactive) {
                     url.searchParams.set('showInactive', '1');
-                }
-                if (showOfficial) {
-                    url.searchParams.set('showOfficial', '1');
-                }
-                if (showEInvoice) {
-                    url.searchParams.set('showEInvoice', '1');
                 }
                 if (showAll) {
                     url.searchParams.set('showAll', '1');
@@ -431,7 +242,7 @@
             const tbody = document.getElementById('bankTableBody');
             if (!headRow || !tbody) return;
 
-            const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Flag', 'Date', 'Action'];
+            const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
             headRow.innerHTML = thLabels.map((label, i) => {
                 if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
                 if (label === 'Supplier') {
@@ -446,9 +257,8 @@
                 if (label === 'Types') return '<th class="bank-th-types">' + escapeHtml(label) + '</th>';
                 if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
                 if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
-                if (label === 'Flag') return '<th class="bank-th-flag">' + escapeHtml(label) + '</th>';
                 if (label === 'Action') {
-                    const showActionCheckbox = showInactive || showOfficial || showEInvoice || showAll;
+                    const showActionCheckbox = showInactive || showAll;
                     return '<th class="bank-th-action">Action' + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
                 }
                 return '<th>' + escapeHtml(label) + '</th>';
@@ -476,7 +286,7 @@
             window.__bankFilteredLength = waiting ? listToShow.length : null;
 
             if (listToShow.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="16" class="bank-empty-cell">No process data found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="15" class="bank-empty-cell">No process data found</td></tr>';
                 renderPagination();
                 updateSelectAllProcessesVisibility();
                 return;
@@ -515,12 +325,10 @@
                 const profit = dashIfEmpty(process.profit);
                 // 状态徽章：Bank 现在允许 INACTIVE ↔ ACTIVE 自由切换，前端只做确认弹窗，不再禁止点击
                 const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
-                const issueFlagSelect = renderBankIssueFlagSelect(process.id, process.issue_flag);
                 const actionCell = buildBankActionCellHtml(process.id, process.status, process.has_transactions);
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.setAttribute('data-status', process.status || '');
-                tr.setAttribute('data-issue-flag', normalizeBankIssueFlag(process.issue_flag));
                 tr.setAttribute('data-has-transactions', process.has_transactions ? '1' : '0');
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
                     '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
@@ -535,12 +343,9 @@
                     '<td>' + escapeHtml(String(price)) + '</td>' +
                     '<td>' + escapeHtml(String(profit)) + '</td>' +
                     '<td class="bank-td-status">' + statusBadge + '</td>' +
-                    '<td class="bank-td-flag">' + issueFlagSelect + '</td>' +
                     '<td>' + escapeHtml(dashIfEmpty((process.date === '0000-00-00' || !process.date) ? '' : process.date)) + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
-                const issueFlagDropdownEl = tr.querySelector('.bank-issue-flag-dropdown');
-                applyBankIssueFlagSelectAppearance(issueFlagDropdownEl, process.issue_flag);
             });
 
             renderPagination();
@@ -1742,73 +1547,6 @@
             }
         }
 
-        async function updateBankIssueFlag(dropdownEl, processId, newValue) {
-            if (!dropdownEl || !processId) return;
-
-            const previousValue = normalizeBankIssueFlag(dropdownEl.getAttribute('data-current-value'));
-            const buttonEl = dropdownEl.querySelector('.bank-issue-flag-button');
-
-            applyBankIssueFlagSelectAppearance(dropdownEl, newValue);
-            closeAllBankIssueFlagDropdowns();
-            if (buttonEl) buttonEl.disabled = true;
-            try {
-                const formData = new FormData();
-                formData.append('id', processId);
-                formData.append('issue_flag', newValue);
-
-                const response = await fetch(buildApiUrl('api/processes/update_bank_issue_flag_api.php'), {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-
-                if (!result.success) {
-                    throw new Error(result.error || result.message || 'Flag update failed');
-                }
-
-                const process = processes.find(function (p) { return p.id === processId; });
-                if (process) {
-                    process.issue_flag = newValue || null;
-                }
-
-                if (process && !matchesCurrentBankFilters(process)) {
-                    const processIndex = processes.findIndex(function (p) { return p.id === processId; });
-                    if (processIndex > -1) processes.splice(processIndex, 1);
-                    renderTable();
-                    showNotification('Issue flag updated', 'success');
-                    return;
-                }
-
-                dropdownEl.setAttribute('data-current-value', newValue);
-                applyBankIssueFlagSelectAppearance(dropdownEl, newValue);
-                const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
-                if (row) {
-                    row.setAttribute('data-issue-flag', newValue);
-                }
-
-                showNotification('Issue flag updated', 'success');
-            } catch (error) {
-                console.error('Issue flag update failed:', error);
-                applyBankIssueFlagSelectAppearance(dropdownEl, previousValue);
-                showNotification(error.message || 'Issue flag update failed', 'danger');
-            } finally {
-                if (buttonEl) buttonEl.disabled = false;
-            }
-        }
-
-        if (!window.__bankIssueFlagDropdownBound) {
-            window.__bankIssueFlagDropdownBound = true;
-            document.addEventListener('click', function () {
-                closeAllBankIssueFlagDropdowns();
-            });
-            window.addEventListener('resize', function () {
-                closeAllBankIssueFlagDropdowns();
-            });
-            window.addEventListener('scroll', function () {
-                closeAllBankIssueFlagDropdowns();
-            }, true);
-        }
-
         // 切换流程状态
         async function toggleProcessStatus(processId, currentStatus) {
             try {
@@ -2617,28 +2355,6 @@
             showInactiveCheckbox.addEventListener('change', function () {
                 showInactive = this.checked;
                 if (showInactive) showAll = false;
-                normalizeBankFilterState();
-                currentPage = 1;
-                fetchProcesses();
-            });
-        }
-
-        const showOfficialCheckbox = document.getElementById('showOfficial');
-        if (showOfficialCheckbox) {
-            showOfficialCheckbox.addEventListener('change', function () {
-                showOfficial = this.checked;
-                if (showOfficial) showAll = false;
-                normalizeBankFilterState();
-                currentPage = 1;
-                fetchProcesses();
-            });
-        }
-
-        const showEInvoiceCheckbox = document.getElementById('showEInvoice');
-        if (showEInvoiceCheckbox) {
-            showEInvoiceCheckbox.addEventListener('change', function () {
-                showEInvoice = this.checked;
-                if (showEInvoice) showAll = false;
                 normalizeBankFilterState();
                 currentPage = 1;
                 fetchProcesses();

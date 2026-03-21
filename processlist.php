@@ -258,22 +258,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         </div>
                         <?php
                             $showAllChecked = isset($_GET['showAll']);
-                            $hasNonAllFilter = isset($_GET['showInactive']) || isset($_GET['showOfficial']) || isset($_GET['showEInvoice']);
                             $showInactiveChecked = !$showAllChecked && isset($_GET['showInactive']);
-                            $showOfficialChecked = !$showAllChecked && isset($_GET['showOfficial']);
-                            $showEInvoiceChecked = !$showAllChecked && isset($_GET['showEInvoice']);
                         ?>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactiveChecked ? 'checked' : ''; ?>>
                             <label for="showInactive">Show Inactive</label>
-                        </div>
-                        <div class="checkbox-section">
-                            <input type="checkbox" id="showOfficial" name="showOfficial" <?php echo $showOfficialChecked ? 'checked' : ''; ?>>
-                            <label for="showOfficial">Show Official</label>
-                        </div>
-                        <div class="checkbox-section">
-                            <input type="checkbox" id="showEInvoice" name="showEInvoice" <?php echo $showEInvoiceChecked ? 'checked' : ''; ?>>
-                            <label for="showEInvoice">Show E-Invoice</label>
                         </div>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAllChecked ? 'checked' : ''; ?>>
@@ -331,7 +320,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="header-item bank-header" style="display: none;">Price</div>
                     <div class="header-item bank-header" style="display: none;">Profit</div>
                     <div class="header-item bank-header" style="display: none;">Status</div>
-                    <div class="header-item bank-header" style="display: none;">Flag</div>
                     <div class="header-item bank-header" style="display: none;">Date</div>
                     <div class="header-item bank-header bank-action-header" style="display: none;">Action
                         <input type="checkbox" title="Select all" class="header-action-checkbox"
@@ -1400,8 +1388,6 @@ if ($current_user_id && count($user_companies) > 0) {
 
     <script>
         window.PROCESSLIST_SHOW_INACTIVE = <?php echo $showInactiveChecked ? 'true' : 'false'; ?>;
-        window.PROCESSLIST_SHOW_OFFICIAL = <?php echo $showOfficialChecked ? 'true' : 'false'; ?>;
-        window.PROCESSLIST_SHOW_E_INVOICE = <?php echo $showEInvoiceChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_ALL = <?php echo $showAllChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_COMPANY_ID = <?php echo json_encode($company_id ?? null); ?>;
         window.PROCESSLIST_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;

@@ -222,8 +222,6 @@ function getProcesses() {
         
         $searchTerm = $_GET['search'] ?? '';
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
-        $showOfficial = isset($_GET['showOfficial']) && $_GET['showOfficial'] == '1';
-        $showEInvoice = isset($_GET['showEInvoice']) && $_GET['showEInvoice'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
         
         $hasTxnProcessId = false;
@@ -608,8 +606,6 @@ function getBankProcesses() {
         $targetCompanyId = $requested_company_id;
         $searchTerm = $_GET['search'] ?? '';
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
-        $showOfficial = isset($_GET['showOfficial']) && $_GET['showOfficial'] == '1';
-        $showEInvoice = isset($_GET['showEInvoice']) && $_GET['showEInvoice'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
 
         $hasSourceBankProcessId = false;
@@ -617,11 +613,9 @@ function getBankProcesses() {
             $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
             $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
         } catch (PDOException $e) { /* ignore */ }
-        $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
         $hasTxnSubquery = $hasSourceBankProcessId
             ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
             : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
-        $issueFlagSelect = $hasIssueFlagColumn ? "bp.issue_flag" : "NULL AS issue_flag";
 
         $sql = "SELECT 
                     bp.id,
@@ -642,7 +636,6 @@ function getBankProcesses() {
                     bp.day_start_frequency,
                     bp.day_end,
                     bp.status,
-                    $issueFlagSelect,
                     bp.dts_modified,
                     a_cm.name as card_merchant_name,
                     a_cm.account_id as card_merchant_account_id,
@@ -663,7 +656,7 @@ function getBankProcesses() {
             $params[] = $term;
             $params[] = $term;
         }
-        $hasSpecificFilter = $showInactive || $showOfficial || $showEInvoice;
+        $hasSpecificFilter = $showInactive;
         if ($showAll) {
             // no additional filter
         } elseif (!$hasSpecificFilter) {
@@ -672,12 +665,6 @@ function getBankProcesses() {
             $filterClauses = [];
             if ($showInactive) {
                 $filterClauses[] = "bp.status = 'inactive'";
-            }
-            if ($showOfficial && $hasIssueFlagColumn) {
-                $filterClauses[] = "bp.issue_flag = 'official'";
-            }
-            if ($showEInvoice && $hasIssueFlagColumn) {
-                $filterClauses[] = "bp.issue_flag = 'e_invoice'";
             }
 
             if (empty($filterClauses)) {
@@ -696,10 +683,6 @@ function getBankProcesses() {
             $storedProfit = isset($r['profit']) && $r['profit'] !== '' ? (float)$r['profit'] : 0.0;
             $profitSharingTotal = parseProfitSharingTotal($r['profit_sharing'] ?? null);
             $netProfit = max(0, $storedProfit - $profitSharingTotal);
-            $issueFlag = strtolower(trim((string)($r['issue_flag'] ?? '')));
-            if (!in_array($issueFlag, ['official', 'e_invoice'], true)) {
-                $issueFlag = null;
-            }
             $formattedProcesses[] = [
                 'id' => $r['id'],
                 'supplier' => $r['name'] ?? '',
@@ -714,7 +697,6 @@ function getBankProcesses() {
                 'price' => $r['price'],
                 'profit' => number_format($netProfit, 2, '.', ''),
                 'status' => $r['status'],
-                'issue_flag' => $issueFlag,
                 'remark' => $r['remark'] ?? '',
                 'date' => $r['day_start'] ?? '',
                 'day_start' => $r['day_start'] ?? null,
