@@ -7820,6 +7820,7 @@ function saveFormula() {
             // 如果没有填写 Source Percent，则显示/保存为 1 (1 = 100%)
             sourcePercent: sourcePercentValue || '1',
             formula: formulaDisplay,
+            formulaDisplay: formulaDisplay,
             formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '', // Store the full formula expression (including empty string)
             processedAmount: processedAmount,
             inputMethod: inputMethodValue,
@@ -7880,6 +7881,7 @@ function saveFormula() {
             source: formulaValue || 'Source', // Use formula as source
             sourcePercent: sourcePercentValue || '1',
             formula: formulaDisplay,
+            formulaDisplay: formulaDisplay,
             formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '', // Store the full formula expression (including empty string)
             processedAmount: processedAmount,
             inputMethod: inputMethodValue,
@@ -7918,6 +7920,7 @@ function saveFormula() {
                     source: formulaValue || 'Source',
                     sourcePercent: sourcePercentValue || '1',
                     formula: formulaDisplay,
+                    formulaDisplay: formulaDisplay,
                     formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '',
                     processedAmount: processedAmount,
                     inputMethod: inputMethodValue,
@@ -7956,6 +7959,7 @@ function saveFormula() {
                 source: formulaValue || 'Source', // Use formula as source
                 sourcePercent: sourcePercentValue || '1',
                 formula: formulaDisplay,
+                formulaDisplay: formulaDisplay,
                 formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '', // Store the full formula expression (including empty string)
                 processedAmount: processedAmount,
                 inputMethod: inputMethodValue,
@@ -15236,6 +15240,7 @@ if (mainTemplate && !hasExistingData) {
         // 如果模板里没有百分比，默认 1 (1 = 100%)
         sourcePercent: convertedPercentValue || '1',
         formula: formulaDisplay,
+        formulaDisplay: mainTemplate.formula_display || formulaDisplay,
         formulaOperators: formulaOperatorsValue,
         processedAmount: processedAmount,
         inputMethod: mainTemplate.input_method || '',
@@ -16247,6 +16252,7 @@ const data = {
     source: resolvedSourceExpression || 'Source',
     sourcePercent: convertedPercentValue || '1',
     formula: formulaDisplay,
+    formulaDisplay: mainTemplate.formula_display || formulaDisplay,
     formulaOperators: formulaOperatorsValue,
     processedAmount: processedAmount,
     inputMethod: mainTemplate.input_method || '',
@@ -17677,6 +17683,7 @@ const data = {
     source: resolvedSourceExpression || 'Source',
     sourcePercent: convertedPercentValue || '1',
     formula: formulaDisplay,
+    formulaDisplay: template.formula_display || formulaDisplay,
     formulaOperators: formulaOperatorsValue,
     processedAmount: processedAmount,
     inputMethod: template.input_method || '',
