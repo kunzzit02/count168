@@ -222,6 +222,8 @@ function getProcesses() {
         
         $searchTerm = $_GET['search'] ?? '';
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
+        $showOfficial = isset($_GET['showOfficial']) && $_GET['showOfficial'] == '1';
+        $showEInvoice = isset($_GET['showEInvoice']) && $_GET['showEInvoice'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
         
         $hasTxnProcessId = false;
@@ -618,9 +620,6 @@ function getBankProcesses() {
             ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
             : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
         $issueFlagSelect = $hasIssueFlagColumn ? "bp.issue_flag" : "NULL AS issue_flag";
-        $inactiveLikeClause = $hasIssueFlagColumn
-            ? "(bp.status = 'inactive' OR bp.issue_flag IN ('official', 'e_invoice'))"
-            : "bp.status = 'inactive'";
         $defaultVisibleClause = $hasIssueFlagColumn
             ? "(bp.status = 'active' AND (bp.issue_flag IS NULL OR bp.issue_flag NOT IN ('official', 'e_invoice')))"
             : "bp.status = 'active'";
@@ -665,7 +664,7 @@ function getBankProcesses() {
             $params[] = $term;
             $params[] = $term;
         }
-        $hasSpecificFilter = $showInactive;
+        $hasSpecificFilter = $showInactive || $showOfficial || $showEInvoice;
         if ($showAll) {
             // no additional filter
         } elseif (!$hasSpecificFilter) {
@@ -673,7 +672,13 @@ function getBankProcesses() {
         } else {
             $filterClauses = [];
             if ($showInactive) {
-                $filterClauses[] = $inactiveLikeClause;
+                $filterClauses[] = "bp.status = 'inactive'";
+            }
+            if ($showOfficial && $hasIssueFlagColumn) {
+                $filterClauses[] = "bp.issue_flag = 'official'";
+            }
+            if ($showEInvoice && $hasIssueFlagColumn) {
+                $filterClauses[] = "bp.issue_flag = 'e_invoice'";
             }
 
             if (empty($filterClauses)) {
