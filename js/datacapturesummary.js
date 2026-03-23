@@ -6350,7 +6350,30 @@ function insertCellValueToFormula(cell) {
     const currentIdProduct = processInput ? processInput.value.trim() : null;
     
     // Get current editing row_label (to distinguish between rows with same id_product)
-    const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
+    // 优先使用当前活动行自身对应的 row_label，避免重复 id_product 时只靠 processValue 误判到第一条同名行
+    let currentRowLabel = null;
+    const currentActiveRow = window.currentEditRow || (window.currentAddAccountButton ? window.currentAddAccountButton.closest('tr') : null);
+    const capturedTableBody = document.getElementById('capturedTableBody');
+    if (currentActiveRow && capturedTableBody) {
+        const currentRowIndexCandidates = [
+            currentActiveRow.getAttribute('data-preserved-row-index'),
+            currentActiveRow.getAttribute('data-row-index')
+        ];
+        const capturedRows = capturedTableBody.querySelectorAll('tr');
+        for (const rowIndexAttr of currentRowIndexCandidates) {
+            if (rowIndexAttr == null || rowIndexAttr === '' || Number.isNaN(Number(rowIndexAttr))) continue;
+            const capturedRow = capturedRows[Number(rowIndexAttr)];
+            const rowHeaderCell = capturedRow ? capturedRow.querySelector('.row-header') : null;
+            const matchedRowLabel = rowHeaderCell && rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
+            if (matchedRowLabel) {
+                currentRowLabel = matchedRowLabel;
+                break;
+            }
+        }
+    }
+    if (!currentRowLabel && currentIdProduct) {
+        currentRowLabel = getRowLabelFromProcessValue(currentIdProduct);
+    }
     
     // Get clicked cell's row_label
     let clickedRowLabel = cell.getAttribute('data-row-label');
