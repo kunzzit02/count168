@@ -584,11 +584,12 @@ function saveFormulaSourceForRefresh(opts) {
 
 // 从服务端获取 Summary 状态（行顺序 + 公式/Source/Rate），失败或为空则返回 null
 function fetchSummaryStateFromServer(processId, processCode) {
-    // 为避免 company_id 与服务器端权限判断不一致导致 403，这里不再显式传 company_id，由后端根据当前会话自动识别公司
     const base = 'api/datacapture_summary/summary_api.php?action=get_summary_state';
     const params = new URLSearchParams();
+    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
     if (processId != null && processId !== '') params.set('process_id', String(processId));
     if (processCode != null && processCode !== '') params.set('process_code', String(processCode));
+    if (currentCompanyId != null && currentCompanyId !== '') params.set('company_id', String(currentCompanyId));
     const url = base + (base.indexOf('?') >= 0 ? '&' : '?') + params.toString();
     return fetch(url)
         .then(function (res) { return res.json(); })
@@ -602,12 +603,16 @@ function fetchSummaryStateFromServer(processId, processCode) {
 // 将 Summary 状态保存到服务端（与 localStorage 双写），不阻塞 UI
 function saveSummaryStateToServer(payload) {
     if (!payload || typeof payload !== 'object') return;
-    // 为避免 company_id 与服务器端权限判断不一致导致 403，这里不再显式传 company_id，由后端根据当前会话自动识别公司
-    const url = 'api/datacapture_summary/summary_api.php?action=save_summary_state';
+    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
+    const baseUrl = 'api/datacapture_summary/summary_api.php?action=save_summary_state';
+    const url = currentCompanyId ? `${baseUrl}&company_id=${encodeURIComponent(String(currentCompanyId))}` : baseUrl;
     fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+            ...payload,
+            company_id: currentCompanyId
+        })
     }).catch(function () {});
 }
 
@@ -651,7 +656,67 @@ function getSavedSummaryRowData(row, rowsByKey, rowsByStableKey) {
     }
     const key = getSummaryRowKey(row);
     const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-    return (rowsByKey && typeof rowsByKey === 'object') ? (rowsByKey[normKey] || rowsByKey[key] || null) : null;
+    const directMatch = (rowsByKey && typeof rowsByKey === 'object') ? (rowsByKey[normKey] || rowsByKey[key] || null) : null;
+    if (directMatch) return directMatch;
+
+    const cells = row.querySelectorAll('td');
+    const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+    const idProduct = typeof normalizeIdProductForKey === 'function'
+        ? normalizeIdProductForKey(rawIdProduct)
+        : rawIdProduct;
+    const accountCell = cells[1] || null;
+    const accountId = accountCell && accountCell.getAttribute ? ((accountCell.getAttribute('data-account-id') || '').trim()) : '';
+    const accountText = (accountCell && accountCell.textContent ? accountCell.textContent.trim().replace(/\s+/g, ' ') : '');
+    const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim().replace(/\s+/g, ' ') : '');
+    const productType = (row.getAttribute('data-product-type') || 'main').trim();
+    const subOrder = ((row.getAttribute('data-sub-order') || '').trim()) || (productType === 'sub' ? '1' : '0');
+
+    if (rowsByStableKey && typeof rowsByStableKey === 'object') {
+        const fallbackStableMatches = Object.entries(rowsByStableKey).filter(function(entry) {
+            const parts = String(entry[0] || '').split('\t');
+            if (parts.length < 5) return false;
+            const entryId = (parts[0] || '').trim();
+            const entryAccountIdentity = (parts[1] || '').trim();
+            const entryCurrency = (parts[2] || '').trim().replace(/\s+/g, ' ');
+            const entryProductType = (parts[3] || '').trim();
+            const entrySubOrder = (parts[4] || '').trim();
+            const accountMatches = accountId
+                ? entryAccountIdentity === ('id:' + accountId)
+                : (accountText ? entryAccountIdentity === ('txt:' + accountText) : true);
+            const subOrderMatches = productType !== 'sub' || entrySubOrder === subOrder;
+            return entryId === idProduct &&
+                entryCurrency === currency &&
+                entryProductType === productType &&
+                accountMatches &&
+                subOrderMatches;
+        });
+        if (fallbackStableMatches.length === 1) {
+            return fallbackStableMatches[0][1] || null;
+        }
+    }
+
+    if (rowsByKey && typeof rowsByKey === 'object') {
+        const rowDescription = (row.getAttribute('data-original-description') || '').trim();
+        const fallbackKeyMatches = Object.entries(rowsByKey).filter(function(entry) {
+            const parts = String(entry[0] || '').split('\t');
+            if (parts.length < 4) return false;
+            const entryId = (parts[0] || '').trim();
+            const entryAccount = (parts[1] || '').trim().replace(/\s+/g, ' ');
+            const entryDescription = (parts[2] || '').trim();
+            const entryCurrency = (parts[3] || '').trim().replace(/\s+/g, ' ');
+            const accountMatches = accountText ? entryAccount === accountText : true;
+            const descriptionMatches = rowDescription ? entryDescription === rowDescription : true;
+            return entryId === idProduct &&
+                entryCurrency === currency &&
+                accountMatches &&
+                descriptionMatches;
+        });
+        if (fallbackKeyMatches.length === 1) {
+            return fallbackKeyMatches[0][1] || null;
+        }
+    }
+
+    return null;
 }
 
 function readSummaryStateFromLocalStorage() {
