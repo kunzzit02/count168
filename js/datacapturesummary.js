@@ -820,8 +820,71 @@ function restoreFormulaSourceFromRefresh() {
 
     const rows = summaryTableBody.querySelectorAll('tr');
     const stableRateValuesByKey = (saved && saved.rateValuesByKey && typeof saved.rateValuesByKey === 'object') ? saved.rateValuesByKey : null;
+    const consumedRowUids = new Set();
+    const savedEntriesByRowUid = new Map();
+    const pushSavedEntry = (entry) => {
+        if (!entry || typeof entry !== 'object') return;
+        const rowUid = (entry.rowUid || '').trim();
+        if (!rowUid || savedEntriesByRowUid.has(rowUid)) return;
+        savedEntriesByRowUid.set(rowUid, entry);
+    };
+    if (byStableKey && typeof byStableKey === 'object') {
+        Object.values(byStableKey).forEach(pushSavedEntry);
+    }
+    if (byKey && typeof byKey === 'object') {
+        Object.values(byKey).forEach(pushSavedEntry);
+    }
+    const savedRowsByIdInOrder = new Map();
+    if (saved && Array.isArray(saved.rowOrder)) {
+        saved.rowOrder.forEach((orderKey) => {
+            const parts = String(orderKey || '').split('\t');
+            const idPart = (parts[0] || '').trim();
+            const rowUid = (parts[1] || '').trim();
+            const entry = rowUid ? savedEntriesByRowUid.get(rowUid) : null;
+            if (!idPart || !entry) return;
+            if (!savedRowsByIdInOrder.has(idPart)) {
+                savedRowsByIdInOrder.set(idPart, []);
+            }
+            savedRowsByIdInOrder.get(idPart).push(entry);
+        });
+    }
+    const isSummaryRowEmptyForRestore = (row) => {
+        if (!row) return false;
+        const cells = row.querySelectorAll('td');
+        const accountCell = cells[1];
+        const accountId = accountCell && accountCell.getAttribute ? (accountCell.getAttribute('data-account-id') || '').trim() : '';
+        const accountText = accountCell ? (accountCell.textContent || '').trim() : '';
+        const formulaText = cells[4] ? (cells[4].querySelector('.formula-text')?.textContent || cells[4].textContent || '').trim() : '';
+        return !accountId && (!accountText || accountText === '+') && !formulaText;
+    };
+    const getFallbackSavedRowDataByIdOrder = (row) => {
+        if (!isSummaryRowEmptyForRestore(row)) return null;
+        const cells = row.querySelectorAll('td');
+        const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
+        const idProduct = typeof normalizeIdProductForKey === 'function'
+            ? normalizeIdProductForKey(rawIdProduct)
+            : rawIdProduct;
+        if (!idProduct || !savedRowsByIdInOrder.has(idProduct)) return null;
+        const candidates = savedRowsByIdInOrder.get(idProduct) || [];
+        for (let i = 0; i < candidates.length; i++) {
+            const candidate = candidates[i];
+            const rowUid = (candidate && candidate.rowUid ? String(candidate.rowUid).trim() : '');
+            if (!rowUid || consumedRowUids.has(rowUid)) continue;
+            return candidate;
+        }
+        return null;
+    };
     rows.forEach((row) => {
-        const data = getSavedSummaryRowData(row, byKey, byStableKey);
+        let data = getSavedSummaryRowData(row, byKey, byStableKey);
+        if (!data) {
+            data = getFallbackSavedRowDataByIdOrder(row);
+            if (data) {
+                console.log('restoreFormulaSourceFromRefresh: fallback matched empty row by id_product order:', {
+                    idProduct: (row.querySelector('td:first-child')?.textContent || '').trim(),
+                    rowUid: data.rowUid || ''
+                });
+            }
+        }
         const cells = row.querySelectorAll('td');
         const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
         const stableRate = (stableRateValuesByKey && stableKey) ? stableRateValuesByKey[stableKey] : null;
@@ -842,6 +905,7 @@ function restoreFormulaSourceFromRefresh() {
         // 恢复 rowUid，确保 refresh 前后同一行具有相同的唯一 ID，便于按 rowOrder 重排
         if (data.rowUid) {
             row.setAttribute('data-row-uid', data.rowUid);
+            consumedRowUids.add(String(data.rowUid).trim());
         }
         // 恢复原始描述，并统一按当前 data-* 重新生成 Id Product 显示，
         // 这样可以清掉旧逻辑遗留在可见文本里的 description 残留。
