@@ -17917,17 +17917,24 @@ const rowDescription = (row.getAttribute('data-original-description') || '').tri
 
 let mainDisplay = (productValues.main || '').trim();
 const subDisplay = (productValues.sub || '').trim();
-
-if (productType !== 'sub' && mainDisplay) {
-    if (rowDescription) {
+let displayText = '';
+if (productType === 'sub') {
+    const baseDisplay = (subDisplay || mainDisplay || '').trim();
+    if (baseDisplay && rowDescription) {
+        const suffix = ` (${rowDescription})`;
+        displayText = baseDisplay.endsWith(suffix) ? baseDisplay : `${baseDisplay}${suffix}`;
+    } else {
+        displayText = baseDisplay;
+    }
+} else {
+    if (mainDisplay && rowDescription) {
         const suffix = ` (${rowDescription})`;
         if (!mainDisplay.endsWith(suffix)) {
             mainDisplay = `${mainDisplay}${suffix}`;
         }
     }
+    displayText = mergeProductValues(mainDisplay, subDisplay);
 }
-
-const displayText = mergeProductValues(mainDisplay, subDisplay);
 cell.textContent = displayText;
 if (displayText) {
     cell.setAttribute('title', displayText);
