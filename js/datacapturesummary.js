@@ -13977,17 +13977,6 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         }
     }
 
-    const explicitProcessedAmount = Number(data.processedAmount)
-    const hasExplicitProcessedAmount = !Number.isNaN(explicitProcessedAmount) && Number.isFinite(explicitProcessedAmount)
-    if (hasExplicitProcessedAmount && cells[8]) {
-        row.setAttribute('data-base-processed-amount', explicitProcessedAmount.toString())
-        const finalProcessedAmount = typeof applyRateToProcessedAmount === 'function'
-            ? applyRateToProcessedAmount(row, explicitProcessedAmount)
-            : explicitProcessedAmount
-        cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalProcessedAmount))
-        cells[8].style.color = finalProcessedAmount > 0 ? '#0D60FF' : (finalProcessedAmount < 0 ? '#A91215' : '#000000')
-    }
-
     console.log('Updated sub id product row with data:', data);
     updateProcessedAmountTotal();
 }
@@ -15977,7 +15966,6 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
         });
     }
     
-    let hasMissingDollarReferenceValue = false;
     for (let i = 0; i < allMatches.length; i++) {
         const match = allMatches[i];
         let columnValue = null;
@@ -16005,19 +15993,11 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
                             columnValue + 
                             displayFormula.substring(match.index + match.fullMatch.length);
         } else {
-            hasMissingDollarReferenceValue = true;
             // 如果找不到值，替换为 0
             displayFormula = displayFormula.substring(0, match.index) + 
                             '0' + 
                             displayFormula.substring(match.index + match.fullMatch.length);
         }
-    }
-
-    if (hasMissingDollarReferenceValue && resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
-        // 某些行在这里按 $ 引用回表取值会失败，但前面其实已经成功解析出当前 source 表达式。
-        // 这时优先保留已解析好的表达式，避免把正确金额覆盖成 0。
-        displayFormula = resolvedSourceExpression.trim();
-        console.log('applyMainTemplateToRow: Falling back to resolvedSourceExpression after missing $ reference:', displayFormula);
     }
     
     // 如果还有列引用（如 A5），也转换为实际值
