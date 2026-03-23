@@ -15346,14 +15346,24 @@ allRows.forEach((row, index) => {
     }
 });
 
+const findUnappliedCandidate = (predicate) => {
+    for (const candidate of candidateRows) {
+        if (candidate.alreadyApplied) continue
+        if (predicate(candidate)) return candidate
+    }
+    return null
+}
+
+const findUnappliedCandidates = (predicate) => {
+    return candidateRows.filter(candidate => !candidate.alreadyApplied && predicate(candidate))
+}
+
 // Priority 1: Match by template_id (most precise)
 if (templateId) {
-    for (const candidate of candidateRows) {
-        if (candidate.templateId === templateId) {
-            targetRow = candidate.row;
-            console.log('Matched row by template_id:', templateId);
-            break;
-        }
+    const matchedCandidate = findUnappliedCandidate(candidate => candidate.templateId === templateId)
+    if (matchedCandidate) {
+        targetRow = matchedCandidate.row
+        console.log('Matched row by template_id:', templateId)
     }
 }
 
@@ -15364,6 +15374,7 @@ if (!targetRow && templateAccountDisplay && templateAccountId) {
     const codeFromDisplay = (s) => (s.match(/^[A-Z0-9]+/i) || [])[0] || '';
     const templateCode = codeFromDisplay(templateAccountDisplay) || String(templateAccountId);
     for (const candidate of candidateRows) {
+        if (candidate.alreadyApplied) continue
         const rowDisplay = (candidate.accountDisplay || '').trim();
         if (!rowDisplay) continue;
         const rowCode = codeFromDisplay(rowDisplay);
@@ -15383,6 +15394,7 @@ if (!targetRow && templateAccountDisplay && templateAccountId) {
 if (!targetRow && templateAccountId && templateFormulaVariant) {
     // First, try exact match by account_id + formula_variant
     for (const candidate of candidateRows) {
+        if (candidate.alreadyApplied) continue
         if (candidate.accountId === templateAccountId && candidate.formulaVariant === templateFormulaVariant) {
             targetRow = candidate.row;
             console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant);
@@ -15392,7 +15404,7 @@ if (!targetRow && templateAccountId && templateFormulaVariant) {
     
     // If multiple rows match account_id + formula_variant, use row_index as tiebreaker
     if (!targetRow && templateRowIndex !== null) {
-        const matchingCandidates = candidateRows.filter(c => 
+        const matchingCandidates = findUnappliedCandidates(c =>
             c.accountId === templateAccountId && c.formulaVariant === templateFormulaVariant
         );
         
@@ -15421,6 +15433,7 @@ if (!targetRow && templateAccountId && templateFormulaVariant) {
 // 同时匹配：行有 data-account-id，或行仅有显示文本但包含 account_id（如 "CITIZENX [3300]" 未写 data-account-id）
 if (!targetRow && templateAccountId) {
     for (const candidate of candidateRows) {
+        if (candidate.alreadyApplied) continue
         if (candidate.accountId === templateAccountId) {
             targetRow = candidate.row;
             console.log('Matched row by account_id:', templateAccountId);
@@ -15436,7 +15449,7 @@ if (!targetRow && templateAccountId) {
     
     // If multiple rows match account_id, use row_index as tiebreaker
     if (!targetRow && templateRowIndex !== null) {
-        const matchingCandidates = candidateRows.filter(c => c.accountId === templateAccountId);
+        const matchingCandidates = findUnappliedCandidates(c => c.accountId === templateAccountId);
         
         if (matchingCandidates.length > 0) {
             // Try to find exact row_index match first
@@ -15506,21 +15519,13 @@ if (!targetRow && templateRowIndex !== null) {
             break;
         }
     }
-    if (!targetRow) {
-        for (const candidate of candidateRows) {
-            if (candidate.rowIndex === templateRowIndex) {
-                targetRow = candidate.row;
-                console.log('Matched row by row_index (fallback, exact):', templateRowIndex);
-                break;
-            }
-        }
-    }
     
     // If exact match failed, find the closest row with same id_product
     if (!targetRow) {
         // Try to find a row at or after the desired row_index (rows shifted down)
         let nextCandidate = null;
         for (const candidate of candidateRows) {
+            if (candidate.alreadyApplied) continue
             if (candidate.rowIndex !== null && candidate.rowIndex >= templateRowIndex) {
                 if (!nextCandidate || candidate.rowIndex < nextCandidate.rowIndex) {
                     nextCandidate = candidate;
@@ -15537,6 +15542,7 @@ if (!targetRow && templateRowIndex !== null) {
             let closestCandidate = null;
             let maxRowIndex = -1;
             for (const candidate of candidateRows) {
+                if (candidate.alreadyApplied) continue
                 if (candidate.rowIndex !== null && candidate.rowIndex < templateRowIndex) {
                     if (candidate.rowIndex > maxRowIndex) {
                         maxRowIndex = candidate.rowIndex;
@@ -15556,7 +15562,7 @@ if (!targetRow && templateRowIndex !== null) {
 // Priority 6: Use first empty row (no account yet)
 if (!targetRow) {
     for (const candidate of candidateRows) {
-        if (!candidate.accountId) {
+        if (!candidate.alreadyApplied && !candidate.accountId) {
             targetRow = candidate.row;
             console.log('Matched empty row (no account)');
             break;
@@ -15565,9 +15571,12 @@ if (!targetRow) {
 }
 
 // Priority 7: Use first available row as fallback
-if (!targetRow && candidateRows.length > 0) {
-    targetRow = candidateRows[0].row;
-    console.log('Using first available row as fallback');
+if (!targetRow) {
+    const firstUnappliedCandidate = candidateRows.find(candidate => !candidate.alreadyApplied)
+    if (firstUnappliedCandidate) {
+        targetRow = firstUnappliedCandidate.row
+        console.log('Using first unapplied row as fallback')
+    }
 }
 
 if (!targetRow) {
