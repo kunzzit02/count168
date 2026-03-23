@@ -3725,8 +3725,8 @@ function updateFormulaDataGrid() {
     const capturedTableBody = document.getElementById('capturedTableBody');
     if (!capturedTableBody) return;
 
-    // 底部灰色块固定显示当前编辑行本身的数据，不跟随 Data 下拉切换。
-    // 对 sub 行，弹窗里的 process 往往显示父 main 的 Id Product，因此这里优先读取当前编辑行真实的 sub 值。
+    // 底部灰色块固定显示当前编辑行本身对应的数据，不跟随 Data 下拉切换。
+    // 对 sub 行，统一按父 main 的 Id Product 去匹配 Data Capture Table。
     const currentActiveRow = window.currentEditRow || (window.currentAddAccountButton ? window.currentAddAccountButton.closest('tr') : null);
     let selectedIdProductValue = processInput.value ? processInput.value.trim() : '';
     if (currentActiveRow) {
@@ -3734,7 +3734,7 @@ function updateFormulaDataGrid() {
         const activeProductValues = getProductValuesFromCell(activeIdCell);
         const activeProductType = (currentActiveRow.getAttribute('data-product-type') || 'main').trim();
         if (activeProductType === 'sub') {
-            selectedIdProductValue = (activeProductValues.sub || activeProductValues.main || selectedIdProductValue || '').trim();
+            selectedIdProductValue = (activeProductValues.main || activeProductValues.sub || selectedIdProductValue || '').trim();
         } else {
             selectedIdProductValue = (activeProductValues.main || selectedIdProductValue || '').trim();
         }
