@@ -15634,8 +15634,6 @@ const findUnappliedCandidate = (predicate) => {
 const findUnappliedCandidates = (predicate) => {
     return candidateRows.filter(candidate => !candidate.alreadyApplied && predicate(candidate))
 }
-const savedMainOrderHints = candidateRows.length > 1 ? getSavedMainRowOrderHints(idProduct) : [];
-const hasSavedMainOrderContext = savedMainOrderHints.length > 0;
 
 // Priority 1: Match by template_id (most precise)
 if (templateId) {
@@ -15700,7 +15698,7 @@ if (!targetRow && templateAccountId && templateFormulaVariant) {
             }
             
             // If no exact row_index match, use first matching candidate
-            if (!matchedByRowIndex && !hasSavedMainOrderContext) {
+            if (!matchedByRowIndex) {
                 targetRow = matchingCandidates[0].row;
                 console.log('Matched row by account_id + formula_variant (multiple matches, using first):', templateAccountId, templateFormulaVariant);
             }
@@ -15743,7 +15741,7 @@ if (!targetRow && templateAccountId) {
             }
             
             // If no exact row_index match, use first matching candidate
-            if (!matchedByRowIndex && !hasSavedMainOrderContext) {
+            if (!matchedByRowIndex) {
                 targetRow = matchingCandidates[0].row;
                 console.log('Matched row by account_id (multiple matches, using first):', templateAccountId);
             }
@@ -15766,6 +15764,7 @@ if (!targetRow && templateAccountId && candidateRows.length > 1) {
         if (ai !== bi) return ai - bi;
         return a.index - b.index;
     });
+    const savedMainOrderHints = getSavedMainRowOrderHints(idProduct);
     if (!targetRow && savedMainOrderHints.length > 0) {
         const savedOrderIndex = savedMainOrderHints.findIndex(entry => entry.accountIdentity === ('id:' + templateAccountId));
         if (savedOrderIndex >= 0) {
@@ -15792,7 +15791,7 @@ if (!targetRow && templateAccountId && candidateRows.length > 1) {
             console.log('applyMainTemplateToRow: Matched empty row by exact row_index for account-specific template:', templateAccountId, templateRowIndex, idProduct);
         }
     }
-    if (allCandidatesWithoutAccount && !hasSavedMainOrderContext) {
+    if (allCandidatesWithoutAccount) {
         // 多行且均无 account：按 row_index、再按 DOM 顺序选第一个尚未在本轮套用过的行，使模板按顺序套用
         const firstUnapplied = targetRow ? null : sortedByRowIndex.find(c => !c.alreadyApplied);
         if (firstUnapplied) {
@@ -15801,7 +15800,7 @@ if (!targetRow && templateAccountId && candidateRows.length > 1) {
         }
     }
     // 若仍有未匹配且存在「未设置账号且未套用」的行：套用到第一个这样的行，避免 account_id 未写入 data-account-id 时被跳过（如 H8221 + 3300）
-    if (!targetRow && !hasSavedMainOrderContext) {
+    if (!targetRow) {
         let firstEmptyUnapplied = null;
         if (templateRowIndex !== null) {
             firstEmptyUnapplied = sortedByRowIndex.find(c =>
