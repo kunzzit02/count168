@@ -8578,7 +8578,7 @@ function getColumnValueFromCellReference(cellReference, processValue) {
 // Parse reference format formula and replace with actual values
 // Example: "[iphsp3 : 4] + [iphsp3 : 2]" -> "17 + 42"
 // Also supports cell references: "A4 + A3" -> "17 + 42"
-function parseReferenceFormula(formula) {
+function parseReferenceFormula(formula, processValueOverride = null) {
     try {
         if (!formula || formula.trim() === '') {
             return '';
@@ -8586,7 +8586,9 @@ function parseReferenceFormula(formula) {
         
         // Get process value from form
         const processInput = document.getElementById('process');
-        const processValue = processInput ? processInput.value.trim() : null;
+        const processValue = processValueOverride != null && String(processValueOverride).trim() !== ''
+            ? String(processValueOverride).trim()
+            : (processInput ? processInput.value.trim() : null);
         
         let parsedFormula = formula;
         
@@ -8892,7 +8894,7 @@ function parseReferenceFormula(formula) {
 }
 
 // Evaluate formula expression directly
-function evaluateFormulaExpression(formula) {
+function evaluateFormulaExpression(formula, processValueOverride = null) {
     try {
         if (!formula || formula.trim() === '') {
             return 0;
@@ -8921,7 +8923,7 @@ function evaluateFormulaExpression(formula) {
         }
         
         // First, parse reference format if present (e.g., [iphsp3 : 4] -> 17)
-        const parsedFormula = parseReferenceFormula(formula);
+        const parsedFormula = parseReferenceFormula(formula, processValueOverride);
         
         // Remove spaces and evaluate
         // IMPORTANT: For formulas with negative numbers in parentheses (e.g., (-1234)-(-2234)),
@@ -15141,7 +15143,7 @@ if (mainTemplate && !hasExistingData) {
     if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
         try {
             console.log('Calculating processed amount from formulaDisplay (current data):', formulaDisplay);
-            const formulaResult = evaluateFormulaExpression(formulaDisplay);
+            const formulaResult = evaluateFormulaExpression(formulaDisplay, idProduct);
             
             if (mainTemplate.enable_input_method == 1 && mainTemplate.input_method) {
                 processedAmount = applyInputMethodTransformation(formulaResult, mainTemplate.input_method);
@@ -16152,7 +16154,7 @@ let processedAmount = 0;
 if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
     try {
         console.log('Calculating processed amount from formulaDisplay (current data):', formulaDisplay);
-        const formulaResult = evaluateFormulaExpression(formulaDisplay);
+        const formulaResult = evaluateFormulaExpression(formulaDisplay, idProduct);
         
         if (mainTemplate.enable_input_method == 1 && mainTemplate.input_method) {
             processedAmount = applyInputMethodTransformation(formulaResult, mainTemplate.input_method);
@@ -17594,7 +17596,7 @@ let processedAmount = 0;
 if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
     try {
         console.log('Calculating processed amount from formulaDisplay (sub, current data):', formulaDisplay);
-        const formulaResult = evaluateFormulaExpression(formulaDisplay);
+        const formulaResult = evaluateFormulaExpression(formulaDisplay, template.id_product || idProduct);
         
         if (template.enable_input_method == 1 && template.input_method) {
             processedAmount = applyInputMethodTransformation(formulaResult, template.input_method);
