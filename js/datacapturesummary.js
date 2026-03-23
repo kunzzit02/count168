@@ -3726,7 +3726,19 @@ function updateFormulaDataGrid() {
     if (!capturedTableBody) return;
 
     // 底部灰色块固定显示当前编辑行本身的数据，不跟随 Data 下拉切换。
-    const selectedIdProductValue = processInput.value ? processInput.value.trim() : '';
+    // 对 sub 行，弹窗里的 process 往往显示父 main 的 Id Product，因此这里优先读取当前编辑行真实的 sub 值。
+    const currentActiveRow = window.currentEditRow || (window.currentAddAccountButton ? window.currentAddAccountButton.closest('tr') : null);
+    let selectedIdProductValue = processInput.value ? processInput.value.trim() : '';
+    if (currentActiveRow) {
+        const activeIdCell = currentActiveRow.querySelector('td:first-child');
+        const activeProductValues = getProductValuesFromCell(activeIdCell);
+        const activeProductType = (currentActiveRow.getAttribute('data-product-type') || 'main').trim();
+        if (activeProductType === 'sub') {
+            selectedIdProductValue = (activeProductValues.sub || activeProductValues.main || selectedIdProductValue || '').trim();
+        } else {
+            selectedIdProductValue = (activeProductValues.main || selectedIdProductValue || '').trim();
+        }
+    }
 
     if (!selectedIdProductValue || selectedIdProductValue === '') {
         return;
@@ -3737,7 +3749,6 @@ function updateFormulaDataGrid() {
 
     // 优先使用当前编辑行在 Data Capture Table 中对应的 row_label，
     // 让重复 id_product 的底部灰色块只显示自己那一行。
-    const currentActiveRow = window.currentEditRow || (window.currentAddAccountButton ? window.currentAddAccountButton.closest('tr') : null);
     if (currentActiveRow && capturedTableBody) {
         const currentRowIndexCandidates = [
             currentActiveRow.getAttribute('data-preserved-row-index'),
