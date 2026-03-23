@@ -15966,6 +15966,7 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
         });
     }
     
+    let hasMissingColumnValue = false;
     for (let i = 0; i < allMatches.length; i++) {
         const match = allMatches[i];
         let columnValue = null;
@@ -15993,22 +15994,28 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
                             columnValue + 
                             displayFormula.substring(match.index + match.fullMatch.length);
         } else {
-            // 如果找不到值，替换为 0
-            displayFormula = displayFormula.substring(0, match.index) + 
-                            '0' + 
-                            displayFormula.substring(match.index + match.fullMatch.length);
+            hasMissingColumnValue = true;
+            break;
         }
     }
     
-    // 如果还有列引用（如 A5），也转换为实际值
-    const parsedFormula = parseReferenceFormula(displayFormula);
-    const baseFormula = parsedFormula || displayFormula;
-    
-    // 应用 source percent
-    if (percentValue && enableSourcePercent) {
-        formulaDisplay = createFormulaDisplayFromExpression(baseFormula, percentValue, enableSourcePercent);
+    if (hasMissingColumnValue) {
+        formulaDisplay = savedFormulaDisplay || formulaOperatorsValue;
+        console.warn('applyMainTemplateToRow: missing column value while resolving $ references, fallback to saved formula_display:', {
+            idProduct,
+            formulaDisplay
+        });
     } else {
-        formulaDisplay = baseFormula;
+        // 如果还有列引用（如 A5），也转换为实际值
+        const parsedFormula = parseReferenceFormula(displayFormula);
+        const baseFormula = parsedFormula || displayFormula;
+        
+        // 应用 source percent
+        if (percentValue && enableSourcePercent) {
+            formulaDisplay = createFormulaDisplayFromExpression(baseFormula, percentValue, enableSourcePercent);
+        } else {
+            formulaDisplay = baseFormula;
+        }
     }
     
     console.log('applyMainTemplateToRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
@@ -17304,6 +17311,7 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
     // 从后往前处理，避免位置偏移
     allMatches.sort((a, b) => b.index - a.index);
     
+    let hasMissingColumnValue = false;
     for (let i = 0; i < allMatches.length; i++) {
         const match = allMatches[i];
         let columnValue = null;
@@ -17329,22 +17337,28 @@ if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== 
                             columnValue + 
                             displayFormula.substring(match.index + match.fullMatch.length);
         } else {
-            // 如果找不到值，替换为 0
-            displayFormula = displayFormula.substring(0, match.index) + 
-                            '0' + 
-                            displayFormula.substring(match.index + match.fullMatch.length);
+            hasMissingColumnValue = true;
+            break;
         }
     }
     
-    // 如果还有列引用（如 [id_product : column]），也转换为实际值
-    const parsedFormula = parseReferenceFormula(displayFormula);
-    const baseFormula = parsedFormula || displayFormula;
-    
-    // 应用 source percent
-    if (percentValue && enableSourcePercent) {
-        formulaDisplay = createFormulaDisplayFromExpression(baseFormula, percentValue, enableSourcePercent);
+    if (hasMissingColumnValue) {
+        formulaDisplay = savedFormulaDisplay || formulaOperatorsValue;
+        console.warn('applySubTemplatesToSummaryRow: missing column value while resolving $ references, fallback to saved formula_display:', {
+            idProduct,
+            formulaDisplay
+        });
     } else {
-        formulaDisplay = baseFormula;
+        // 如果还有列引用（如 [id_product : column]），也转换为实际值
+        const parsedFormula = parseReferenceFormula(displayFormula);
+        const baseFormula = parsedFormula || displayFormula;
+        
+        // 应用 source percent
+        if (percentValue && enableSourcePercent) {
+            formulaDisplay = createFormulaDisplayFromExpression(baseFormula, percentValue, enableSourcePercent);
+        } else {
+            formulaDisplay = baseFormula;
+        }
     }
     
     console.log('applySubTemplatesToSummaryRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
