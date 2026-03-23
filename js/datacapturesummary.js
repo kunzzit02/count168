@@ -7842,9 +7842,12 @@ function saveFormula() {
         }
     }
     
+    let descriptionTargetRow = null
+
     // Check if we're in edit mode
     if (isEditMode && window.currentEditRow) {
         const editingRow = window.currentEditRow;
+        descriptionTargetRow = editingRow
         const editingType = editingRow.getAttribute('data-product-type') || 'main';
         const existingSourceColumns = editingRow.getAttribute('data-source-columns') || '';
         // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
@@ -7903,6 +7906,7 @@ function saveFormula() {
         // 点击的是某个 sub row 的 +：在该 Id Product 下"当前行之后"新增一条 sub 行
         const baseRow = currentButton ? currentButton.closest('tr') : null;
         const newRow = addSubIdProductRow(processValue, baseRow);
+        descriptionTargetRow = newRow
         const baseRowSourceCols = baseRow ? (baseRow.getAttribute('data-source-columns') || '') : '';
         // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
         // CRITICAL: 如果公式中没有 $ 符号，清空 sourceColumns，不使用旧的 baseRowSourceCols
@@ -7952,6 +7956,7 @@ function saveFormula() {
         if (!mainHasData) {
             // main 无数据：直接填充该 main 行（不新增行）
             if (targetRow) {
+                descriptionTargetRow = targetRow
                 const targetRowSourceCols = targetRow.getAttribute('data-source-columns') || '';
                 const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
                 updateSummaryTableRow(processValue, {
@@ -7981,6 +7986,7 @@ function saveFormula() {
             // 主行已有账号：为该 Id Product 在「点击的那一行」之后新增一条 sub 行（点击 main 则插在 main 下，点击 sub 则插在该 sub 下）
             const baseRow = currentButton ? currentButton.closest('tr') : null;
             const newRow = addSubIdProductRow(processValue, baseRow);
+            descriptionTargetRow = newRow
             // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
             // CRITICAL: 如果公式中没有 $ 符号，清空 sourceColumns
             const finalSourceColumnsForSub2 = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || '');
@@ -8025,7 +8031,7 @@ function saveFormula() {
     
     // After updating the summary row(s), append description to the Id Product cell if provided
     if (descriptionValue && descriptionValue.trim() !== '' && typeof updateIdProductWithDescription === 'function') {
-        updateIdProductWithDescription(processValue, descriptionValue.trim());
+        updateIdProductWithDescription(processValue, descriptionValue.trim(), descriptionTargetRow);
     }
     
     // Rebuild used accounts after updates
@@ -18144,28 +18150,39 @@ function updateProcessedAmountTotal() {
 }
 
 // Update the Id Product cell with description in parentheses
-function updateIdProductWithDescription(processValue, descriptionValue) {
-    // Find the row in the summary table that matches the process value
+function updateIdProductWithDescription(processValue, descriptionValue, targetRow = null) {
+    const applyDescriptionToRow = function(row) {
+        if (!row) return false;
+        const nextDescription = (descriptionValue || '').trim();
+        if (nextDescription) {
+            row.setAttribute('data-original-description', nextDescription);
+        } else {
+            row.removeAttribute('data-original-description');
+        }
+        if (typeof refreshIdProductCellDisplay === 'function') {
+            refreshIdProductCellDisplay(row);
+        }
+        return true;
+    };
+
+    if (applyDescriptionToRow(targetRow)) {
+        return;
+    }
+
+    // Fallback for older flows: find the first matching main row
     const summaryTableBody = document.getElementById('summaryTableBody');
+    if (!summaryTableBody) return;
     const rows = summaryTableBody.querySelectorAll('tr');
     
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const idProductCell = row.querySelector('td:first-child');
         const productValues = getProductValuesFromCell(idProductCell);
+        const mainText = (productValues.main || '').trim();
         
-        // Check Main value first, then Sub value
-        const mainText = productValues.main || '';
-        const subText = productValues.sub || '';
-        
-        // Update the Id Product cell with description in parentheses
-        if (descriptionValue && descriptionValue.trim() !== '') {
-            if (mainText === processValue) {
-                const displayMain = mainText.includes(`(${descriptionValue})`) ? mainText : `${processValue} (${descriptionValue})`;
-                idProductCell.textContent = mergeProductValues(displayMain, productValues.sub);
-                idProductCell.setAttribute('title', idProductCell.textContent);
-                break;
-            }
+        if (mainText === processValue) {
+            applyDescriptionToRow(row);
+            break;
         }
     }
 }
