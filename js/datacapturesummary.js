@@ -11835,7 +11835,7 @@ function updateFormulaAndProcessedAmount(row, data) {
         : !!(restoredSourcePercentText && restoredSourcePercentText.trim() !== '');
     const restoredFormulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
     const restoredFormulaText = data.formula || getFormulaForCalculation(row);
-    recalculateAndRenderProcessedAmount(row, {
+    const restoredRecalculateOptions = {
         formulaOperators: restoredFormulaOperators,
         formula: restoredFormulaText,
         sourcePercent: restoredSourcePercentText,
@@ -11843,7 +11843,7 @@ function updateFormulaAndProcessedAmount(row, data) {
         enableInputMethod: restoredEnableInputMethod,
         enableSourcePercent: restoredEnableSourcePercent,
         updateTotal: false
-    });
+    };
     
     // Update Rate column (index 6)
     if (cells[6]) {
@@ -11924,14 +11924,22 @@ function updateFormulaAndProcessedAmount(row, data) {
         attachRateValueEditListener(cells[7], row);
     }
     
-    // Update Processed Amount column (index 8 - changed from 7)
-    if (cells[8]) {
-        // Apply rate multiplication if checkbox is checked or Rate Value has value
-        // Note: checkbox and Rate Value input must be appended to DOM before applyRateToProcessedAmount can find them
-        const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-        const val = Number(finalAmount);
-        cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-        cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+    // 最后统一现算一次，避免旧的 data.processedAmount 覆盖当前 formula/source/rate 的结果
+    const canRecalculateProcessedAmount = !!(
+        (restoredFormulaOperators && restoredFormulaOperators.trim() !== '') ||
+        (restoredFormulaText && restoredFormulaText.trim() !== '' && restoredFormulaText !== 'Formula') ||
+        ((row.getAttribute('data-source-columns') || '').trim() !== '')
+    );
+    if (canRecalculateProcessedAmount) {
+        recalculateAndRenderProcessedAmount(row, restoredRecalculateOptions);
+    } else if (cells[8]) {
+        const fallbackProcessedAmount = Number(data.processedAmount);
+        if (!Number.isNaN(fallbackProcessedAmount) && Number.isFinite(fallbackProcessedAmount)) {
+            row.setAttribute('data-base-processed-amount', fallbackProcessedAmount.toString());
+            const val = applyRateToProcessedAmount(row, fallbackProcessedAmount);
+            cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
+            cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+        }
         // cells[8].style.backgroundColor = '#e8f5e8'; // Removed
     }
     
@@ -13712,17 +13720,6 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         cells[6].appendChild(rateCheckbox);
     }
 
-    // Processed Amount column (index 8)
-    if (cells[8]) {
-        let val = Number(data.processedAmount);
-        // Store the base processed amount (without rate) in row attribute
-        row.setAttribute('data-base-processed-amount', val.toString());
-        // Apply rate multiplication if checkbox is checked or Rate Value has value
-        val = applyRateToProcessedAmount(row, val);
-        cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-        cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-    }
-
     if (data.inputMethod !== undefined) {
         row.setAttribute('data-input-method', data.inputMethod);
     }
@@ -13866,6 +13863,46 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         if (!existingSubOrder || existingSubOrder === '') {
             // If no sub_order exists, set to 1 (first sub row)
             row.setAttribute('data-sub-order', '1');
+        }
+    }
+
+    const subInputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '')
+    const subEnableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true')
+    const subSourcePercent = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
+        ? data.sourcePercent.toString().trim()
+        : ((row.getAttribute('data-source-percent') || '1').trim() || '1')
+    const subEnableSourcePercent = data.enableSourcePercent !== undefined
+        ? data.enableSourcePercent
+        : !!(subSourcePercent && subSourcePercent.trim() !== '')
+    const subFormulaOperators = data.formulaOperators !== undefined
+        ? String(data.formulaOperators || '').trim()
+        : String(row.getAttribute('data-formula-operators') || '').trim()
+    const subFormulaText = data.formula !== undefined
+        ? String(data.formula || '').trim()
+        : String(getFormulaForCalculation(row) || '').trim()
+    const canRecalculateSubProcessedAmount = !!(
+        (subFormulaOperators && subFormulaOperators !== 'Formula') ||
+        (subFormulaText && subFormulaText !== 'Formula') ||
+        ((row.getAttribute('data-source-columns') || '').trim() !== '')
+    )
+
+    if (canRecalculateSubProcessedAmount) {
+        recalculateAndRenderProcessedAmount(row, {
+            formulaOperators: subFormulaOperators,
+            formula: subFormulaText,
+            sourcePercent: subSourcePercent,
+            inputMethod: subInputMethod,
+            enableInputMethod: subEnableInputMethod,
+            enableSourcePercent: subEnableSourcePercent,
+            updateTotal: false
+        })
+    } else if (cells[8]) {
+        const fallbackProcessedAmount = Number(data.processedAmount)
+        if (!Number.isNaN(fallbackProcessedAmount) && Number.isFinite(fallbackProcessedAmount)) {
+            row.setAttribute('data-base-processed-amount', fallbackProcessedAmount.toString())
+            const val = applyRateToProcessedAmount(row, fallbackProcessedAmount)
+            cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val))
+            cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000')
         }
     }
 
@@ -18610,15 +18647,29 @@ async function submitSummaryData() {
             const sourcePercentAttrForEnable = row.getAttribute('data-source-percent') || '';
             const enableSourcePercentAttr = sourcePercentAttrForEnable && sourcePercentAttrForEnable.trim() !== '';
             
-            // WYSIWYG: Submit the amount the user sees. Priority:
-            // 1) Displayed Processed Amount cell if it has a valid number (what you see is what gets saved)
-            // 2) data-base-processed-amount, 3) recalc from formula/source
+            // WYSIWYG: Submit 前先按当前 formula/source/rate 现算，避免沿用上一轮残留值
             let processedAmountValue = '';
-            const processedAmountText = cells[8] ? cells[8].textContent.trim() : '';
-            const cellValueRaw = processedAmountText ? (typeof removeThousandsSeparators === 'function' ? removeThousandsSeparators(processedAmountText) : processedAmountText.replace(/,/g, '')) : '';
-            const cellNum = parseFloat(cellValueRaw);
-            if (cellValueRaw !== '' && !isNaN(cellNum) && isFinite(cellNum)) {
-                processedAmountValue = String(cellNum);
+            try {
+                const recalculatedAmounts = recalculateAndRenderProcessedAmount(row, {
+                    formulaOperators: formulaOperatorsAttr,
+                    formula,
+                    sourcePercent,
+                    inputMethod: inputMethodAttr,
+                    enableInputMethod: enableInputMethodAttr,
+                    enableSourcePercent: enableSourcePercentAttr,
+                    updateTotal: false
+                });
+                if (recalculatedAmounts && !Number.isNaN(Number(recalculatedAmounts.finalProcessedAmount)) && Number.isFinite(Number(recalculatedAmounts.finalProcessedAmount))) {
+                    processedAmountValue = String(Number(recalculatedAmounts.finalProcessedAmount));
+                }
+            } catch (e) { /* ignore */ }
+            if (!processedAmountValue || processedAmountValue === '' || processedAmountValue === 'null') {
+                const processedAmountText = cells[8] ? cells[8].textContent.trim() : '';
+                const cellValueRaw = processedAmountText ? (typeof removeThousandsSeparators === 'function' ? removeThousandsSeparators(processedAmountText) : processedAmountText.replace(/,/g, '')) : '';
+                const cellNum = parseFloat(cellValueRaw);
+                if (cellValueRaw !== '' && !isNaN(cellNum) && isFinite(cellNum)) {
+                    processedAmountValue = String(cellNum);
+                }
             }
             if (!processedAmountValue || processedAmountValue === '' || processedAmountValue === 'null') {
                 processedAmountValue = row.getAttribute('data-base-processed-amount') || '';
