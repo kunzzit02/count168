@@ -3750,19 +3750,11 @@ function updateFormulaDataGrid() {
     // Clear existing grid items
     formulaDataGrid.innerHTML = '';
 
-    // 优先使用 Data 的第一个下拉当前选中值；若为空，再退回到只读的 process input。
-    // 这样灰色数据框与上面的 Data 下拉使用同一套匹配规则，避免
-    // process 显示 "T8BET (FEE 3%)" 而下拉实际选中 "T8BET" 时，底部灰框匹配不到任何行。
-    const descriptionSelect1 = document.getElementById('descriptionSelect1');
     const processInput = document.getElementById('process');
-    if (!processInput && !descriptionSelect1) return;
+    if (!processInput) return;
 
-    let selectedIdProductValue = '';
-    if (descriptionSelect1 && descriptionSelect1.value && descriptionSelect1.value.trim() !== '') {
-        selectedIdProductValue = descriptionSelect1.value.trim();
-    } else if (processInput && processInput.value) {
-        selectedIdProductValue = processInput.value.trim();
-    }
+    // 底部灰色块固定显示当前编辑行本身的数据，不跟随 Data 下拉切换。
+    const selectedIdProductValue = processInput.value ? processInput.value.trim() : '';
 
     if (!selectedIdProductValue || selectedIdProductValue === '') {
         return;
