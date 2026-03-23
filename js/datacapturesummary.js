@@ -109,6 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Check for URL parameters and show notifications
     const urlParams = new URLSearchParams(window.location.search);
+    window.__summaryFreshFromCapture = urlParams.get('success') === '1';
     if (urlParams.get('success') === '1') {
         showNotification('Success', 'Data captured and summary generated successfully!', 'success');
         // Clean URL
@@ -1539,11 +1540,19 @@ function populateOriginalTableWithColumnAData(tableData) {
     autoPopulateSummaryRowsFromTemplates(columnAData)
         .catch(error => console.error('Auto-populate templates error:', error))
         .finally(() => {
-            restoreRateValuesFromRefresh();
-            restoreFormulaSourceFromRefresh();
-            // 延迟再执行一次 Rate Value 恢复，避免首次执行时 DOM/Account 尚未就绪导致未命中
-            if (typeof restoreRateValuesFromRefresh === 'function') {
-                setTimeout(restoreRateValuesFromRefresh, 80);
+            const isFreshFromCapture = window.__summaryFreshFromCapture === true;
+            if (isFreshFromCapture) {
+                try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
+                try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) {}
+                try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) {}
+                window._summaryStateFromServer = null;
+            } else {
+                restoreRateValuesFromRefresh();
+                restoreFormulaSourceFromRefresh();
+                // 延迟再执行一次 Rate Value 恢复，避免首次执行时 DOM/Account 尚未就绪导致未命中
+                if (typeof restoreRateValuesFromRefresh === 'function') {
+                    setTimeout(restoreRateValuesFromRefresh, 80);
+                }
             }
             // Maintenance 没有该 process 的 formula 时，Summary 不显示任何 formula（最终保障）
             if (window.currentProcessHadTemplates !== true && window._summaryHasRefreshStateToPreserve !== true) {
