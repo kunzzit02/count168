@@ -4922,6 +4922,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
     if (!formulaDisplayInput) {
         return;
     }
+    const previousDisplayValue = (formulaDisplayInput.value || '').trim();
     
     // 如果 formulaValue 为空，清空显示框
     if (!formulaValue || formulaValue.trim() === '') {
@@ -5024,6 +5025,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
             
             let refIndex = 0; // 跟踪已使用的引用索引（仅用于当前row的$数字格式）
             const matchValues = []; // 存储每个匹配项对应的值，用于后续替换
+            let hasMissingColumnValue = false;
             
             for (let i = 0; i < allMatches.length; i++) {
                 const match = allMatches[i];
@@ -5086,11 +5088,26 @@ function updateFormulaDisplay(formulaValue, processValue) {
                     }
                 }
                 
-                // 存储匹配的值（如果找不到值，存储 '0'）
+                if (columnValue === null) {
+                    hasMissingColumnValue = true;
+                    break;
+                }
+
+                // 存储匹配的值
                 matchValues.push({
                     match: match,
-                    value: columnValue !== null ? columnValue : '0'
+                    value: columnValue
                 });
+            }
+
+            if (hasMissingColumnValue) {
+                formulaDisplayInput.value = previousDisplayValue || formulaValue;
+                console.warn('updateFormulaDisplay: missing column value, keep previous display formula:', {
+                    processValue,
+                    formula: formulaValue,
+                    display: formulaDisplayInput.value
+                });
+                return;
             }
             
             // 从后往前替换，避免位置偏移
@@ -5138,6 +5155,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
             // 从后往前处理，避免位置偏移
             allMatches.sort((a, b) => b.index - a.index);
             
+            let hasMissingColumnValue = false;
             for (let i = 0; i < allMatches.length; i++) {
                 const match = allMatches[i];
                 // 获取列的实际值
@@ -5150,11 +5168,19 @@ function updateFormulaDisplay(formulaValue, processValue) {
                                     columnValue + 
                                     displayFormula.substring(match.index + match.fullMatch.length);
                 } else {
-                    // 如果找不到值，替换为 0
-                    displayFormula = displayFormula.substring(0, match.index) + 
-                                    '0' + 
-                                    displayFormula.substring(match.index + match.fullMatch.length);
+                    hasMissingColumnValue = true;
+                    break;
                 }
+            }
+
+            if (hasMissingColumnValue) {
+                formulaDisplayInput.value = previousDisplayValue || formulaValue;
+                console.warn('updateFormulaDisplay: missing current-row column value, keep previous display formula:', {
+                    processValue,
+                    formula: formulaValue,
+                    display: formulaDisplayInput.value
+                });
+                return;
             }
         }
         
@@ -11749,6 +11775,7 @@ function updateFormulaAndProcessedAmount(row, data) {
                             // Replace from back to front to preserve indices
                             allMatches.sort((a, b) => b.index - a.index);
                             
+                            let hasMissingColumnValue = false;
                             for (let i = 0; i < allMatches.length; i++) {
                                 const match = allMatches[i];
                                 let columnValue = null;
@@ -11772,29 +11799,37 @@ function updateFormulaAndProcessedAmount(row, data) {
                                                     columnValue +
                                                     displayFormula.substring(match.index + match.fullMatch.length);
                                 } else {
-                                    displayFormula = displayFormula.substring(0, match.index) +
-                                                    '0' +
-                                                    displayFormula.substring(match.index + match.fullMatch.length);
+                                    hasMissingColumnValue = true;
+                                    break;
                                 }
                             }
-                            
-                            // Also parse other reference formats (A4, [id_product:column])
-                            const parsedFormula = parseReferenceFormula(displayFormula);
-                            if (parsedFormula) {
-                                displayFormula = parsedFormula;
+
+                            if (hasMissingColumnValue) {
+                                formulaText = formatNegativeNumbersInFormula(preferredFormulaDisplay || data.formula || formulaOperators);
+                                rawFormula = preferredFormulaDisplay || data.formula || formulaOperators;
+                                console.warn('updateFormulaAndProcessedAmount: missing column value, fallback to saved formula display:', {
+                                    processValue,
+                                    formulaText
+                                });
+                            } else {
+                                // Also parse other reference formats (A4, [id_product:column])
+                                const parsedFormula = parseReferenceFormula(displayFormula);
+                                if (parsedFormula) {
+                                    displayFormula = parsedFormula;
+                                }
+                                
+                                // Apply source percent if needed
+                                const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
+                                    ? data.sourcePercent.toString().trim() 
+                                    : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                                const enableSourcePercent = data.enableSourcePercent !== undefined 
+                                    ? data.enableSourcePercent 
+                                    : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                                
+                                formulaText = createFormulaDisplayFromExpression(displayFormula, sourcePercentText, enableSourcePercent);
+                                rawFormula = formulaText;
+                                console.log('updateFormulaAndProcessedAmount: Parsed column references for display:', formulaOperators, '->', formulaText);
                             }
-                            
-                            // Apply source percent if needed
-                            const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
-                                ? data.sourcePercent.toString().trim() 
-                                : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
-                            const enableSourcePercent = data.enableSourcePercent !== undefined 
-                                ? data.enableSourcePercent 
-                                : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                            
-                            formulaText = createFormulaDisplayFromExpression(displayFormula, sourcePercentText, enableSourcePercent);
-                            rawFormula = formulaText;
-                            console.log('updateFormulaAndProcessedAmount: Parsed column references for display:', formulaOperators, '->', formulaText);
                         } else {
                             // No row label, use formulaOperators as-is
                             const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
@@ -14139,6 +14174,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             // 简化策略：若 API 已提供 formula_display（或 camelCase 的 formulaDisplay），则优先直接使用它
             let formulaText = '';
             let rawFormula = '';
+            const currentFormulaDisplay = (cells[4].querySelector('.formula-text')?.textContent || row.getAttribute('data-formula-display') || '').trim();
 
             const apiFormulaDisplay = (
                 (data.formulaDisplay !== undefined && data.formulaDisplay !== null ? data.formulaDisplay : '') ||
@@ -14205,6 +14241,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                         
                         // Replace [id_product : column_number] / [id_product,number] with actual values (from back to front)
                         referenceMatches.sort((a, b) => b.index - a.index);
+                        let hasMissingColumnValue = false;
                         for (let i = 0; i < referenceMatches.length; i++) {
                             const refMatch = referenceMatches[i];
                             const dataColumnIndex = refMatch.displayColumnIndex - 1;
@@ -14220,27 +14257,35 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
                                               parsedExpression.substring(refMatch.index + refMatch.fullMatch.length);
                             } else {
                                 console.warn(`Cell value not found for [${refMatch.idProduct} : ${refMatch.displayColumnIndex}]`);
-                                parsedExpression = parsedExpression.substring(0, refMatch.index) + 
-                                              '0' + 
-                                              parsedExpression.substring(refMatch.index + refMatch.fullMatch.length);
+                                hasMissingColumnValue = true;
+                                break;
                             }
                         }
-                        
-                        // Get source percent for display
-                        const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
-                            ? data.sourcePercent.toString().trim() 
-                            : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
-                        const enableSourcePercent = data.enableSourcePercent !== undefined 
-                            ? data.enableSourcePercent 
-                            : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                        
-                        // Create formula display with source percent if enabled
-                        if (enableSourcePercent && sourcePercentText) {
-                            formulaText = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, true);
+
+                        if (hasMissingColumnValue) {
+                            formulaText = currentFormulaDisplay || getPreferredFormulaDisplay(data, row) || '';
+                            rawFormula = formulaText;
+                            console.warn('updateSummaryTableRow: missing referenced cell value, fallback to current/saved formula display:', {
+                                processValue,
+                                formulaText
+                            });
                         } else {
-                            formulaText = formatNegativeNumbersInFormula(parsedExpression);
+                            // Get source percent for display
+                            const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
+                                ? data.sourcePercent.toString().trim() 
+                                : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                            const enableSourcePercent = data.enableSourcePercent !== undefined 
+                                ? data.enableSourcePercent 
+                                : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                            
+                            // Create formula display with source percent if enabled
+                            if (enableSourcePercent && sourcePercentText) {
+                                formulaText = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, true);
+                            } else {
+                                formulaText = formatNegativeNumbersInFormula(parsedExpression);
+                            }
+                            console.log('updateSummaryTableRow: Rebuilt formula from sourceColumns:', sourceColumnsValue, '->', formulaText);
                         }
-                        console.log('updateSummaryTableRow: Rebuilt formula from sourceColumns:', sourceColumnsValue, '->', formulaText);
                     }
                 }
                 
