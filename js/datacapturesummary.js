@@ -3728,13 +3728,14 @@ function updateFormulaDataGrid() {
     // 底部灰色块固定显示当前编辑行本身对应的数据，不跟随 Data 下拉切换。
     // 对 sub 行，统一按父 main 的 Id Product 去匹配 Data Capture Table。
     const currentActiveRow = window.currentEditRow || (window.currentAddAccountButton ? window.currentAddAccountButton.closest('tr') : null);
+    const currentActiveProductType = currentActiveRow ? (currentActiveRow.getAttribute('data-product-type') || 'main').trim() : 'main';
     let selectedIdProductValue = processInput.value ? processInput.value.trim() : '';
     if (currentActiveRow) {
         const activeIdCell = currentActiveRow.querySelector('td:first-child');
         const activeProductValues = getProductValuesFromCell(activeIdCell);
-        const activeProductType = (currentActiveRow.getAttribute('data-product-type') || 'main').trim();
-        if (activeProductType === 'sub') {
-            selectedIdProductValue = (activeProductValues.main || activeProductValues.sub || selectedIdProductValue || '').trim();
+        if (currentActiveProductType === 'sub') {
+            const parentIdProduct = (currentActiveRow.getAttribute('data-parent-id-product') || '').trim();
+            selectedIdProductValue = (parentIdProduct || activeProductValues.main || activeProductValues.sub || selectedIdProductValue || '').trim();
         } else {
             selectedIdProductValue = (activeProductValues.main || selectedIdProductValue || '').trim();
         }
@@ -3749,7 +3750,7 @@ function updateFormulaDataGrid() {
 
     // 优先使用当前编辑行在 Data Capture Table 中对应的 row_label，
     // 让重复 id_product 的底部灰色块只显示自己那一行。
-    if (currentActiveRow && capturedTableBody) {
+    if (currentActiveProductType !== 'sub' && currentActiveRow && capturedTableBody) {
         const currentRowIndexCandidates = [
             currentActiveRow.getAttribute('data-preserved-row-index'),
             currentActiveRow.getAttribute('data-row-index')
@@ -3769,7 +3770,7 @@ function updateFormulaDataGrid() {
     }
 
     // 兼容旧行为：若 process 本身带 row_label（如 "ABC:A"），仍可解析使用。
-    if (!rowLabel) {
+    if (!rowLabel && currentActiveProductType !== 'sub') {
         const lastColonIndex = selectedIdProductValue.lastIndexOf(':');
         if (lastColonIndex > 0 && lastColonIndex < selectedIdProductValue.length - 1) {
             const afterColon = selectedIdProductValue.substring(lastColonIndex + 1).trim();
