@@ -750,6 +750,54 @@ function choosePreferredSummaryState(localState, serverState) {
     return localExists ? localState : (serverExists ? serverState : null);
 }
 
+function getSavedMainRowOrderHints(idProduct) {
+    const normalizedId = typeof normalizeIdProductForKey === 'function'
+        ? normalizeIdProductForKey(idProduct || '')
+        : ((idProduct || '').trim());
+    if (!normalizedId) return [];
+
+    const localState = readSummaryStateFromLocalStorage();
+    const serverState = (window._summaryStateFromServer && typeof window._summaryStateFromServer === 'object' && !Array.isArray(window._summaryStateFromServer))
+        ? window._summaryStateFromServer
+        : null;
+    const saved = choosePreferredSummaryState(localState, serverState);
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved) || !Array.isArray(saved.rowOrder)) {
+        return [];
+    }
+
+    const byStableKey = (saved.rowsByStableKey && typeof saved.rowsByStableKey === 'object') ? saved.rowsByStableKey : {};
+    const entriesByUid = new Map();
+
+    Object.entries(byStableKey).forEach(([stableKey, data]) => {
+        const rowUid = data && data.rowUid ? String(data.rowUid).trim() : '';
+        if (!rowUid) return;
+        const parts = String(stableKey || '').split('\t');
+        if (parts.length < 5) return;
+        entriesByUid.set(rowUid, {
+            rowUid,
+            idProduct: (parts[0] || '').trim(),
+            accountIdentity: (parts[1] || '').trim(),
+            currency: (parts[2] || '').trim(),
+            productType: (parts[3] || '').trim(),
+            data
+        });
+    });
+
+    const ordered = [];
+    saved.rowOrder.forEach((orderKey) => {
+        const parts = String(orderKey || '').split('\t');
+        const rowUid = (parts[1] || '').trim();
+        if (!rowUid) return;
+        const entry = entriesByUid.get(rowUid);
+        if (!entry) return;
+        if (entry.idProduct !== normalizedId) return;
+        if (entry.productType !== 'main') return;
+        ordered.push(entry);
+    });
+
+    return ordered;
+}
+
 // Restore Formula + Source after load. 优先使用服务端状态，若无则用 localStorage（按 id_product + Account 匹配恢复，行顺序变化也不会贴错行）。
 function restoreFormulaSourceFromRefresh() {
     window._summaryHasRefreshStateToPreserve = false;
@@ -15716,6 +15764,22 @@ if (!targetRow && templateAccountId && candidateRows.length > 1) {
         if (ai !== bi) return ai - bi;
         return a.index - b.index;
     });
+    const savedMainOrderHints = getSavedMainRowOrderHints(idProduct);
+    if (!targetRow && savedMainOrderHints.length > 0) {
+        const savedOrderIndex = savedMainOrderHints.findIndex(entry => entry.accountIdentity === ('id:' + templateAccountId));
+        if (savedOrderIndex >= 0) {
+            let preferredCandidate = sortedByRowIndex[savedOrderIndex] || null;
+            if (preferredCandidate && preferredCandidate.alreadyApplied) {
+                preferredCandidate = sortedByRowIndex.slice(savedOrderIndex + 1).find(c => !c.alreadyApplied) ||
+                    sortedByRowIndex.slice(0, savedOrderIndex).reverse().find(c => !c.alreadyApplied) ||
+                    null;
+            }
+            if (preferredCandidate && !preferredCandidate.alreadyApplied) {
+                targetRow = preferredCandidate.row;
+                console.log('applyMainTemplateToRow: Matched main row by saved rowOrder/account identity:', templateAccountId, savedOrderIndex, idProduct);
+            }
+        }
+    }
     if (templateRowIndex !== null) {
         const exactEmptyRowIndexMatch = sortedByRowIndex.find(c =>
             !c.alreadyApplied &&
