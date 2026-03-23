@@ -584,12 +584,11 @@ function saveFormulaSourceForRefresh(opts) {
 
 // 从服务端获取 Summary 状态（行顺序 + 公式/Source/Rate），失败或为空则返回 null
 function fetchSummaryStateFromServer(processId, processCode) {
+    // 为避免 company_id 与服务器端权限判断不一致导致 403，这里不再显式传 company_id，由后端根据当前会话自动识别公司
     const base = 'api/datacapture_summary/summary_api.php?action=get_summary_state';
     const params = new URLSearchParams();
-    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
     if (processId != null && processId !== '') params.set('process_id', String(processId));
     if (processCode != null && processCode !== '') params.set('process_code', String(processCode));
-    if (currentCompanyId != null && currentCompanyId !== '') params.set('company_id', String(currentCompanyId));
     const url = base + (base.indexOf('?') >= 0 ? '&' : '?') + params.toString();
     return fetch(url)
         .then(function (res) { return res.json(); })
@@ -603,16 +602,12 @@ function fetchSummaryStateFromServer(processId, processCode) {
 // 将 Summary 状态保存到服务端（与 localStorage 双写），不阻塞 UI
 function saveSummaryStateToServer(payload) {
     if (!payload || typeof payload !== 'object') return;
-    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-    const baseUrl = 'api/datacapture_summary/summary_api.php?action=save_summary_state';
-    const url = currentCompanyId ? `${baseUrl}&company_id=${encodeURIComponent(String(currentCompanyId))}` : baseUrl;
+    // 为避免 company_id 与服务器端权限判断不一致导致 403，这里不再显式传 company_id，由后端根据当前会话自动识别公司
+    const url = 'api/datacapture_summary/summary_api.php?action=save_summary_state';
     fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            ...payload,
-            company_id: currentCompanyId
-        })
+        body: JSON.stringify(payload)
     }).catch(function () {});
 }
 
@@ -656,67 +651,7 @@ function getSavedSummaryRowData(row, rowsByKey, rowsByStableKey) {
     }
     const key = getSummaryRowKey(row);
     const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-    const directMatch = (rowsByKey && typeof rowsByKey === 'object') ? (rowsByKey[normKey] || rowsByKey[key] || null) : null;
-    if (directMatch) return directMatch;
-
-    const cells = row.querySelectorAll('td');
-    const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
-    const idProduct = typeof normalizeIdProductForKey === 'function'
-        ? normalizeIdProductForKey(rawIdProduct)
-        : rawIdProduct;
-    const accountCell = cells[1] || null;
-    const accountId = accountCell && accountCell.getAttribute ? ((accountCell.getAttribute('data-account-id') || '').trim()) : '';
-    const accountText = (accountCell && accountCell.textContent ? accountCell.textContent.trim().replace(/\s+/g, ' ') : '');
-    const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim().replace(/\s+/g, ' ') : '');
-    const productType = (row.getAttribute('data-product-type') || 'main').trim();
-    const subOrder = ((row.getAttribute('data-sub-order') || '').trim()) || (productType === 'sub' ? '1' : '0');
-
-    if (rowsByStableKey && typeof rowsByStableKey === 'object') {
-        const fallbackStableMatches = Object.entries(rowsByStableKey).filter(function(entry) {
-            const parts = String(entry[0] || '').split('\t');
-            if (parts.length < 5) return false;
-            const entryId = (parts[0] || '').trim();
-            const entryAccountIdentity = (parts[1] || '').trim();
-            const entryCurrency = (parts[2] || '').trim().replace(/\s+/g, ' ');
-            const entryProductType = (parts[3] || '').trim();
-            const entrySubOrder = (parts[4] || '').trim();
-            const accountMatches = accountId
-                ? entryAccountIdentity === ('id:' + accountId)
-                : (accountText ? entryAccountIdentity === ('txt:' + accountText) : true);
-            const subOrderMatches = productType !== 'sub' || entrySubOrder === subOrder;
-            return entryId === idProduct &&
-                entryCurrency === currency &&
-                entryProductType === productType &&
-                accountMatches &&
-                subOrderMatches;
-        });
-        if (fallbackStableMatches.length === 1) {
-            return fallbackStableMatches[0][1] || null;
-        }
-    }
-
-    if (rowsByKey && typeof rowsByKey === 'object') {
-        const rowDescription = (row.getAttribute('data-original-description') || '').trim();
-        const fallbackKeyMatches = Object.entries(rowsByKey).filter(function(entry) {
-            const parts = String(entry[0] || '').split('\t');
-            if (parts.length < 4) return false;
-            const entryId = (parts[0] || '').trim();
-            const entryAccount = (parts[1] || '').trim().replace(/\s+/g, ' ');
-            const entryDescription = (parts[2] || '').trim();
-            const entryCurrency = (parts[3] || '').trim().replace(/\s+/g, ' ');
-            const accountMatches = accountText ? entryAccount === accountText : true;
-            const descriptionMatches = rowDescription ? entryDescription === rowDescription : true;
-            return entryId === idProduct &&
-                entryCurrency === currency &&
-                accountMatches &&
-                descriptionMatches;
-        });
-        if (fallbackKeyMatches.length === 1) {
-            return fallbackKeyMatches[0][1] || null;
-        }
-    }
-
-    return null;
+    return (rowsByKey && typeof rowsByKey === 'object') ? (rowsByKey[normKey] || rowsByKey[key] || null) : null;
 }
 
 function readSummaryStateFromLocalStorage() {
@@ -748,54 +683,6 @@ function choosePreferredSummaryState(localState, serverState) {
         return localState;
     }
     return localExists ? localState : (serverExists ? serverState : null);
-}
-
-function getSavedMainRowOrderHints(idProduct) {
-    const normalizedId = typeof normalizeIdProductForKey === 'function'
-        ? normalizeIdProductForKey(idProduct || '')
-        : ((idProduct || '').trim());
-    if (!normalizedId) return [];
-
-    const localState = readSummaryStateFromLocalStorage();
-    const serverState = (window._summaryStateFromServer && typeof window._summaryStateFromServer === 'object' && !Array.isArray(window._summaryStateFromServer))
-        ? window._summaryStateFromServer
-        : null;
-    const saved = choosePreferredSummaryState(localState, serverState);
-    if (!saved || typeof saved !== 'object' || Array.isArray(saved) || !Array.isArray(saved.rowOrder)) {
-        return [];
-    }
-
-    const byStableKey = (saved.rowsByStableKey && typeof saved.rowsByStableKey === 'object') ? saved.rowsByStableKey : {};
-    const entriesByUid = new Map();
-
-    Object.entries(byStableKey).forEach(([stableKey, data]) => {
-        const rowUid = data && data.rowUid ? String(data.rowUid).trim() : '';
-        if (!rowUid) return;
-        const parts = String(stableKey || '').split('\t');
-        if (parts.length < 5) return;
-        entriesByUid.set(rowUid, {
-            rowUid,
-            idProduct: (parts[0] || '').trim(),
-            accountIdentity: (parts[1] || '').trim(),
-            currency: (parts[2] || '').trim(),
-            productType: (parts[3] || '').trim(),
-            data
-        });
-    });
-
-    const ordered = [];
-    saved.rowOrder.forEach((orderKey) => {
-        const parts = String(orderKey || '').split('\t');
-        const rowUid = (parts[1] || '').trim();
-        if (!rowUid) return;
-        const entry = entriesByUid.get(rowUid);
-        if (!entry) return;
-        if (entry.idProduct !== normalizedId) return;
-        if (entry.productType !== 'main') return;
-        ordered.push(entry);
-    });
-
-    return ordered;
 }
 
 // Restore Formula + Source after load. 优先使用服务端状态，若无则用 localStorage（按 id_product + Account 匹配恢复，行顺序变化也不会贴错行）。
@@ -868,71 +755,8 @@ function restoreFormulaSourceFromRefresh() {
 
     const rows = summaryTableBody.querySelectorAll('tr');
     const stableRateValuesByKey = (saved && saved.rateValuesByKey && typeof saved.rateValuesByKey === 'object') ? saved.rateValuesByKey : null;
-    const consumedRowUids = new Set();
-    const savedEntriesByRowUid = new Map();
-    const pushSavedEntry = (entry) => {
-        if (!entry || typeof entry !== 'object') return;
-        const rowUid = (entry.rowUid || '').trim();
-        if (!rowUid || savedEntriesByRowUid.has(rowUid)) return;
-        savedEntriesByRowUid.set(rowUid, entry);
-    };
-    if (byStableKey && typeof byStableKey === 'object') {
-        Object.values(byStableKey).forEach(pushSavedEntry);
-    }
-    if (byKey && typeof byKey === 'object') {
-        Object.values(byKey).forEach(pushSavedEntry);
-    }
-    const savedRowsByIdInOrder = new Map();
-    if (saved && Array.isArray(saved.rowOrder)) {
-        saved.rowOrder.forEach((orderKey) => {
-            const parts = String(orderKey || '').split('\t');
-            const idPart = (parts[0] || '').trim();
-            const rowUid = (parts[1] || '').trim();
-            const entry = rowUid ? savedEntriesByRowUid.get(rowUid) : null;
-            if (!idPart || !entry) return;
-            if (!savedRowsByIdInOrder.has(idPart)) {
-                savedRowsByIdInOrder.set(idPart, []);
-            }
-            savedRowsByIdInOrder.get(idPart).push(entry);
-        });
-    }
-    const isSummaryRowEmptyForRestore = (row) => {
-        if (!row) return false;
-        const cells = row.querySelectorAll('td');
-        const accountCell = cells[1];
-        const accountId = accountCell && accountCell.getAttribute ? (accountCell.getAttribute('data-account-id') || '').trim() : '';
-        const accountText = accountCell ? (accountCell.textContent || '').trim() : '';
-        const formulaText = cells[4] ? (cells[4].querySelector('.formula-text')?.textContent || cells[4].textContent || '').trim() : '';
-        return !accountId && (!accountText || accountText === '+') && !formulaText;
-    };
-    const getFallbackSavedRowDataByIdOrder = (row) => {
-        if (!isSummaryRowEmptyForRestore(row)) return null;
-        const cells = row.querySelectorAll('td');
-        const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
-        const idProduct = typeof normalizeIdProductForKey === 'function'
-            ? normalizeIdProductForKey(rawIdProduct)
-            : rawIdProduct;
-        if (!idProduct || !savedRowsByIdInOrder.has(idProduct)) return null;
-        const candidates = savedRowsByIdInOrder.get(idProduct) || [];
-        for (let i = 0; i < candidates.length; i++) {
-            const candidate = candidates[i];
-            const rowUid = (candidate && candidate.rowUid ? String(candidate.rowUid).trim() : '');
-            if (!rowUid || consumedRowUids.has(rowUid)) continue;
-            return candidate;
-        }
-        return null;
-    };
     rows.forEach((row) => {
-        let data = getSavedSummaryRowData(row, byKey, byStableKey);
-        if (!data) {
-            data = getFallbackSavedRowDataByIdOrder(row);
-            if (data) {
-                console.log('restoreFormulaSourceFromRefresh: fallback matched empty row by id_product order:', {
-                    idProduct: (row.querySelector('td:first-child')?.textContent || '').trim(),
-                    rowUid: data.rowUid || ''
-                });
-            }
-        }
+        const data = getSavedSummaryRowData(row, byKey, byStableKey);
         const cells = row.querySelectorAll('td');
         const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
         const stableRate = (stableRateValuesByKey && stableKey) ? stableRateValuesByKey[stableKey] : null;
@@ -953,7 +777,6 @@ function restoreFormulaSourceFromRefresh() {
         // 恢复 rowUid，确保 refresh 前后同一行具有相同的唯一 ID，便于按 rowOrder 重排
         if (data.rowUid) {
             row.setAttribute('data-row-uid', data.rowUid);
-            consumedRowUids.add(String(data.rowUid).trim());
         }
         // 恢复原始描述，并统一按当前 data-* 重新生成 Id Product 显示，
         // 这样可以清掉旧逻辑遗留在可见文本里的 description 残留。
@@ -15764,36 +15587,9 @@ if (!targetRow && templateAccountId && candidateRows.length > 1) {
         if (ai !== bi) return ai - bi;
         return a.index - b.index;
     });
-    const savedMainOrderHints = getSavedMainRowOrderHints(idProduct);
-    if (!targetRow && savedMainOrderHints.length > 0) {
-        const savedOrderIndex = savedMainOrderHints.findIndex(entry => entry.accountIdentity === ('id:' + templateAccountId));
-        if (savedOrderIndex >= 0) {
-            let preferredCandidate = sortedByRowIndex[savedOrderIndex] || null;
-            if (preferredCandidate && preferredCandidate.alreadyApplied) {
-                preferredCandidate = sortedByRowIndex.slice(savedOrderIndex + 1).find(c => !c.alreadyApplied) ||
-                    sortedByRowIndex.slice(0, savedOrderIndex).reverse().find(c => !c.alreadyApplied) ||
-                    null;
-            }
-            if (preferredCandidate && !preferredCandidate.alreadyApplied) {
-                targetRow = preferredCandidate.row;
-                console.log('applyMainTemplateToRow: Matched main row by saved rowOrder/account identity:', templateAccountId, savedOrderIndex, idProduct);
-            }
-        }
-    }
-    if (templateRowIndex !== null) {
-        const exactEmptyRowIndexMatch = sortedByRowIndex.find(c =>
-            !c.alreadyApplied &&
-            (!c.accountId || String(c.accountId).trim() === '') &&
-            c.rowIndex === templateRowIndex
-        );
-        if (exactEmptyRowIndexMatch) {
-            targetRow = exactEmptyRowIndexMatch.row;
-            console.log('applyMainTemplateToRow: Matched empty row by exact row_index for account-specific template:', templateAccountId, templateRowIndex, idProduct);
-        }
-    }
     if (allCandidatesWithoutAccount) {
         // 多行且均无 account：按 row_index、再按 DOM 顺序选第一个尚未在本轮套用过的行，使模板按顺序套用
-        const firstUnapplied = targetRow ? null : sortedByRowIndex.find(c => !c.alreadyApplied);
+        const firstUnapplied = sortedByRowIndex.find(c => !c.alreadyApplied);
         if (firstUnapplied) {
             targetRow = firstUnapplied.row;
             console.log('applyMainTemplateToRow: Multiple rows with no account — applying by order for account_id =', templateAccountId, 'idProduct =', idProduct);
@@ -15801,18 +15597,7 @@ if (!targetRow && templateAccountId && candidateRows.length > 1) {
     }
     // 若仍有未匹配且存在「未设置账号且未套用」的行：套用到第一个这样的行，避免 account_id 未写入 data-account-id 时被跳过（如 H8221 + 3300）
     if (!targetRow) {
-        let firstEmptyUnapplied = null;
-        if (templateRowIndex !== null) {
-            firstEmptyUnapplied = sortedByRowIndex.find(c =>
-                (!c.accountId || String(c.accountId).trim() === '') &&
-                !c.alreadyApplied &&
-                c.rowIndex !== null &&
-                c.rowIndex >= templateRowIndex
-            );
-        }
-        if (!firstEmptyUnapplied) {
-            firstEmptyUnapplied = sortedByRowIndex.find(c => (!c.accountId || String(c.accountId).trim() === '') && !c.alreadyApplied);
-        }
+        const firstEmptyUnapplied = sortedByRowIndex.find(c => (!c.accountId || String(c.accountId).trim() === '') && !c.alreadyApplied);
         if (firstEmptyUnapplied) {
             targetRow = firstEmptyUnapplied.row;
             console.log('applyMainTemplateToRow: No account match — applying to first empty unapplied row for account_id =', templateAccountId, 'idProduct =', idProduct);
