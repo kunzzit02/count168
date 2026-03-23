@@ -15141,8 +15141,7 @@ if (mainTemplate && !hasExistingData) {
     if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
         try {
             console.log('Calculating processed amount from formulaDisplay (current data):', formulaDisplay);
-            const cleanFormula = removeThousandsSeparators(formulaDisplay);
-            const formulaResult = evaluateExpression(cleanFormula);
+            const formulaResult = evaluateFormulaExpression(formulaDisplay);
             
             if (mainTemplate.enable_input_method == 1 && mainTemplate.input_method) {
                 processedAmount = applyInputMethodTransformation(formulaResult, mainTemplate.input_method);
@@ -16153,8 +16152,7 @@ let processedAmount = 0;
 if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
     try {
         console.log('Calculating processed amount from formulaDisplay (current data):', formulaDisplay);
-        const cleanFormula = removeThousandsSeparators(formulaDisplay);
-        const formulaResult = evaluateExpression(cleanFormula);
+        const formulaResult = evaluateFormulaExpression(formulaDisplay);
         
         if (mainTemplate.enable_input_method == 1 && mainTemplate.input_method) {
             processedAmount = applyInputMethodTransformation(formulaResult, mainTemplate.input_method);
@@ -17596,8 +17594,7 @@ let processedAmount = 0;
 if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
     try {
         console.log('Calculating processed amount from formulaDisplay (sub, current data):', formulaDisplay);
-        const cleanFormula = removeThousandsSeparators(formulaDisplay);
-        const formulaResult = evaluateExpression(cleanFormula);
+        const formulaResult = evaluateFormulaExpression(formulaDisplay);
         
         if (template.enable_input_method == 1 && template.input_method) {
             processedAmount = applyInputMethodTransformation(formulaResult, template.input_method);
