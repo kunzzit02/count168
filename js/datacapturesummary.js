@@ -18738,20 +18738,26 @@ async function submitSummaryData() {
             const sourcePercentAttrForEnable = row.getAttribute('data-source-percent') || '';
             const enableSourcePercentAttr = sourcePercentAttrForEnable && sourcePercentAttrForEnable.trim() !== '';
             
-            // WYSIWYG: Submit 前先按当前 formula/source/rate 现算，避免沿用上一轮残留值
+            // WYSIWYG: Submit 时优先按当前表格里显示的 Formula 现算，
+            // 避免旧的 data-formula-operators 把页面上已经正确的金额又算回旧值。
             let processedAmountValue = '';
             try {
-                const recalculatedAmounts = recalculateAndRenderProcessedAmount(row, {
-                    formulaOperators: formulaOperatorsAttr,
-                    formula,
-                    sourcePercent,
-                    inputMethod: inputMethodAttr,
-                    enableInputMethod: enableInputMethodAttr,
-                    enableSourcePercent: enableSourcePercentAttr,
-                    updateTotal: false
-                });
-                if (recalculatedAmounts && !Number.isNaN(Number(recalculatedAmounts.finalProcessedAmount)) && Number.isFinite(Number(recalculatedAmounts.finalProcessedAmount))) {
-                    processedAmountValue = String(Number(recalculatedAmounts.finalProcessedAmount));
+                const displayedFormula = formula && formula.trim() !== '' && formula !== 'Formula' ? formula.trim() : '';
+                if (displayedFormula) {
+                    const processValueForFormula = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null;
+                    let recalculatedBaseAmount = evaluateFormulaExpression(displayedFormula, processValueForFormula);
+                    if (!Number.isNaN(Number(recalculatedBaseAmount)) && Number.isFinite(Number(recalculatedBaseAmount))) {
+                        recalculatedBaseAmount = Number(recalculatedBaseAmount);
+                        if (enableInputMethodAttr && inputMethodAttr && typeof applyInputMethodTransformation === 'function') {
+                            recalculatedBaseAmount = applyInputMethodTransformation(recalculatedBaseAmount, inputMethodAttr);
+                        }
+                        const recalculatedDisplayedAmount = typeof applyRateToProcessedAmount === 'function'
+                            ? applyRateToProcessedAmount(row, recalculatedBaseAmount)
+                            : recalculatedBaseAmount;
+                        if (!Number.isNaN(Number(recalculatedDisplayedAmount)) && Number.isFinite(Number(recalculatedDisplayedAmount))) {
+                            processedAmountValue = String(Number(recalculatedDisplayedAmount));
+                        }
+                    }
                 }
             } catch (e) { /* ignore */ }
             if (!processedAmountValue || processedAmountValue === '' || processedAmountValue === 'null') {
