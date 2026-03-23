@@ -3767,11 +3767,11 @@ function updateFormulaDataGrid() {
 
     // 优先使用当前编辑行在 Data Capture Table 中对应的 row_label，
     // 让重复 id_product 的底部灰色块只显示自己那一行。
-    const currentEditRow = window.currentEditRow || null;
-    if (currentEditRow && capturedTableBody) {
+    const currentActiveRow = window.currentEditRow || (window.currentAddAccountButton ? window.currentAddAccountButton.closest('tr') : null);
+    if (currentActiveRow && capturedTableBody) {
         const currentRowIndexCandidates = [
-            currentEditRow.getAttribute('data-preserved-row-index'),
-            currentEditRow.getAttribute('data-row-index')
+            currentActiveRow.getAttribute('data-preserved-row-index'),
+            currentActiveRow.getAttribute('data-row-index')
         ];
 
         for (const rowIndexAttr of currentRowIndexCandidates) {
