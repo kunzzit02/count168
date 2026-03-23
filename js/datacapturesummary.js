@@ -3752,6 +3752,8 @@ function updateFormulaDataGrid() {
 
     const processInput = document.getElementById('process');
     if (!processInput) return;
+    const capturedTableBody = document.getElementById('capturedTableBody');
+    if (!capturedTableBody) return;
 
     // 底部灰色块固定显示当前编辑行本身的数据，不跟随 Data 下拉切换。
     const selectedIdProductValue = processInput.value ? processInput.value.trim() : '';
@@ -3762,12 +3764,38 @@ function updateFormulaDataGrid() {
 
     let idProduct = selectedIdProductValue;
     let rowLabel = null;
-    const lastColonIndex = selectedIdProductValue.lastIndexOf(':');
-    if (lastColonIndex > 0 && lastColonIndex < selectedIdProductValue.length - 1) {
-        const afterColon = selectedIdProductValue.substring(lastColonIndex + 1).trim();
-        if (/^[A-Z]$/i.test(afterColon) || afterColon.length <= 3) {
-            idProduct = selectedIdProductValue.substring(0, lastColonIndex).trim();
-            rowLabel = afterColon;
+
+    // 优先使用当前编辑行在 Data Capture Table 中对应的 row_label，
+    // 让重复 id_product 的底部灰色块只显示自己那一行。
+    const currentEditRow = window.currentEditRow || null;
+    if (currentEditRow && capturedTableBody) {
+        const currentRowIndexCandidates = [
+            currentEditRow.getAttribute('data-preserved-row-index'),
+            currentEditRow.getAttribute('data-row-index')
+        ];
+
+        for (const rowIndexAttr of currentRowIndexCandidates) {
+            if (rowIndexAttr == null || rowIndexAttr === '' || Number.isNaN(Number(rowIndexAttr))) continue;
+            const currentRowIndex = Number(rowIndexAttr);
+            const capturedRow = capturedTableBody.querySelectorAll('tr')[currentRowIndex];
+            const rowHeaderCell = capturedRow ? capturedRow.querySelector('.row-header') : null;
+            const matchedRowLabel = rowHeaderCell && rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
+            if (matchedRowLabel) {
+                rowLabel = matchedRowLabel;
+                break;
+            }
+        }
+    }
+
+    // 兼容旧行为：若 process 本身带 row_label（如 "ABC:A"），仍可解析使用。
+    if (!rowLabel) {
+        const lastColonIndex = selectedIdProductValue.lastIndexOf(':');
+        if (lastColonIndex > 0 && lastColonIndex < selectedIdProductValue.length - 1) {
+            const afterColon = selectedIdProductValue.substring(lastColonIndex + 1).trim();
+            if (/^[A-Z]$/i.test(afterColon) || afterColon.length <= 3) {
+                idProduct = selectedIdProductValue.substring(0, lastColonIndex).trim();
+                rowLabel = afterColon;
+            }
         }
     }
 
@@ -3787,9 +3815,6 @@ function updateFormulaDataGrid() {
         }
         parsedTableData = JSON.parse(tableData);
     }
-
-    const capturedTableBody = document.getElementById('capturedTableBody');
-    if (!capturedTableBody) return;
 
     const rows = capturedTableBody.querySelectorAll('tr');
     rows.forEach((row, rowIndex) => {
