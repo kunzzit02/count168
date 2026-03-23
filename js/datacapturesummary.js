@@ -9211,6 +9211,10 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         formulaText = String(row.getAttribute('data-formula-operators') || '').trim() || getFormulaForCalculation(row);
     }
 
+    const processValueForRefs = options.processValue != null && String(options.processValue).trim() !== ''
+        ? String(options.processValue).trim()
+        : (typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null)
+
     let baseProcessedAmount = 0;
     if (formulaText && formulaText !== 'Formula') {
         baseProcessedAmount = calculateFormulaResultFromExpression(
@@ -9218,7 +9222,8 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
             sourcePercentText,
             inputMethod,
             enableInputMethod,
-            enableSourcePercent
+            enableSourcePercent,
+            processValueForRefs
         );
     }
 
@@ -9370,14 +9375,14 @@ function getFormulaEditButtonHtml(formulaText) {
 }
 
 // Calculate formula result from expression
-function calculateFormulaResultFromExpression(formula, sourcePercentValue, inputMethod = '', enableInputMethod = false, enableSourcePercent = true) {
+function calculateFormulaResultFromExpression(formula, sourcePercentValue, inputMethod = '', enableInputMethod = false, enableSourcePercent = true, processValueForRefs = null) {
     try {
         if (!formula) {
             return 0;
         }
         
-        // Evaluate the formula expression
-        const formulaResult = evaluateFormulaExpression(formula);
+        // Evaluate the formula expression（Summary 页常无 #process，必须显式传入当前行 id_product 才能解析 $数字）
+        const formulaResult = evaluateFormulaExpression(formula, processValueForRefs);
         
         // If source percent is disabled, return formula result directly (without applying source percent)
         if (!enableSourcePercent) {
