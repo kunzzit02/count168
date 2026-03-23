@@ -827,10 +827,6 @@ function restoreFormulaSourceFromRefresh() {
         const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
         const inputMethod = row.getAttribute('data-input-method') || '';
         const enableInputMethod = !!(inputMethod && inputMethod.trim());
-        const baseProcessedAmount = typeof calculateFormulaResultFromExpression === 'function'
-            ? calculateFormulaResultFromExpression(formula, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent)
-            : 0;
-        row.setAttribute('data-base-processed-amount', (baseProcessedAmount != null && !isNaN(baseProcessedAmount)) ? baseProcessedAmount.toString() : '0');
         // 同时恢复 Rate Value：优先使用稳定 key 映射，避免内容 key 变化时 Rate 丢失
         const resolvedRate = (stableRate != null && String(stableRate).trim() !== '')
             ? stableRate
@@ -838,12 +834,14 @@ function restoreFormulaSourceFromRefresh() {
         if (resolvedRate != null && String(resolvedRate).trim() !== '' && cells[7]) {
             cells[7].textContent = String(resolvedRate).trim();
         }
-        if (cells[8] && typeof applyRateToProcessedAmount === 'function') {
-            const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-            const rounded = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount);
-            cells[8].textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(rounded) : String(finalAmount);
-            cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
-        }
+        recalculateAndRenderProcessedAmount(row, {
+            formulaOperators: formula,
+            sourcePercent: sourcePercentText,
+            inputMethod,
+            enableInputMethod,
+            enableSourcePercent,
+            updateTotal: false
+        });
     });
     if (typeof applyAccountDisplayByRoleToAllRows === 'function') applyAccountDisplayByRoleToAllRows();
     try {
@@ -871,15 +869,9 @@ function restoreRateValuesFromRefresh() {
     function applyRateToRow(row, val) {
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
-        const processedAmountCell = cells[8];
         if (!rateValueCell || val === undefined || val === null || String(val).trim() === '') return false;
         rateValueCell.textContent = String(val).trim();
-        const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
-        if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
-            const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-            processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
-            processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
-        }
+        recalculateAndRenderProcessedAmount(row, { updateTotal: false });
         return true;
     }
 
@@ -2579,22 +2571,8 @@ function recalculateAllRowsWithRate() {
                 }
             }
             
-            // Recalculate processed amount for this row (use same logic as table: Source in decimal, 1=100%)
-            const sourcePercentCell = cells[5];
-            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-            const inputMethod = row.getAttribute('data-input-method') || '';
-            const enableInputMethod = inputMethod ? true : false;
-            const formulaCell = cells[4];
-            const formulaText = getFormulaForCalculation(row);
-            const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
-            const baseProcessedAmount = calculateFormulaResultFromExpression(formulaText, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
-            const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-            
-            if (cells[8]) {
-                const val = Number(finalAmount);
-                cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-                cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-            }
+            // Recalculate processed amount for this row from the current formula/source state
+            recalculateAndRenderProcessedAmount(row, { updateTotal: false });
         }
     });
     
@@ -2638,28 +2616,8 @@ function submitRateValues() {
                 rateValueCell.textContent = rateValue;
             }
             
-            // Recalculate processed amount for this row (use same logic as table: Source in decimal, 1=100%)
-            const sourcePercentCell = cells[5];
-            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-            const inputMethod = row.getAttribute('data-input-method') || '';
-            const enableInputMethod = inputMethod ? true : false;
-            const formulaCell = cells[4];
-            const formulaText = getFormulaForCalculation(row);
-            const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
-            const baseProcessedAmount = calculateFormulaResultFromExpression(formulaText, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
-            
-            // Store base processed amount
-            if (baseProcessedAmount && !isNaN(baseProcessedAmount)) {
-                row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
-            }
-            
-            const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-            
-            if (cells[8]) {
-                const val = Number(finalAmount);
-                cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-                cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-            }
+            // Recalculate processed amount for this row from the current formula/source state
+            recalculateAndRenderProcessedAmount(row, { updateTotal: false });
             
             // IMPORTANT: Uncheck the Rate checkbox after submitting, but keep Rate Value
             rateCheckbox.checked = false;
@@ -9209,6 +9167,89 @@ function getFormulaForCalculation(row) {
   return text || ''
 }
 
+function recalculateAndRenderProcessedAmount(row, options = {}) {
+    if (!row) {
+        return { baseProcessedAmount: 0, finalProcessedAmount: 0 };
+    }
+
+    const cells = row.querySelectorAll('td');
+    const inputMethod = options.inputMethod !== undefined
+        ? String(options.inputMethod || '').trim()
+        : String(row.getAttribute('data-input-method') || '').trim();
+    const enableInputMethod = options.enableInputMethod !== undefined
+        ? !!options.enableInputMethod
+        : !!inputMethod;
+
+    let sourcePercentText = '';
+    if (options.sourcePercent !== undefined && options.sourcePercent !== null) {
+        sourcePercentText = String(options.sourcePercent || '').trim();
+    } else if (cells[5]) {
+        sourcePercentText = (cells[5].textContent || '').trim().replace('%', '');
+    }
+
+    const enableSourcePercent = options.enableSourcePercent !== undefined
+        ? !!options.enableSourcePercent
+        : !!(sourcePercentText && sourcePercentText.trim() !== '');
+
+    let formulaText = '';
+    if (options.formulaOperators !== undefined && options.formulaOperators !== null && String(options.formulaOperators).trim() !== '') {
+        formulaText = String(options.formulaOperators).trim();
+    } else if (options.formula !== undefined && options.formula !== null && String(options.formula).trim() !== '') {
+        formulaText = String(options.formula).trim();
+    } else {
+        formulaText = String(row.getAttribute('data-formula-operators') || '').trim() || getFormulaForCalculation(row);
+    }
+
+    let baseProcessedAmount = 0;
+    if (formulaText && formulaText !== 'Formula') {
+        baseProcessedAmount = calculateFormulaResultFromExpression(
+            formulaText,
+            sourcePercentText,
+            inputMethod,
+            enableInputMethod,
+            enableSourcePercent
+        );
+    }
+
+    if (baseProcessedAmount === null || isNaN(baseProcessedAmount) || !Number.isFinite(Number(baseProcessedAmount))) {
+        baseProcessedAmount = 0;
+    } else {
+        baseProcessedAmount = Number(baseProcessedAmount);
+    }
+
+    row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
+
+    let finalProcessedAmount = baseProcessedAmount;
+    if (typeof applyRateToProcessedAmount === 'function') {
+        finalProcessedAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
+    }
+
+    if (finalProcessedAmount === null || isNaN(finalProcessedAmount) || !Number.isFinite(Number(finalProcessedAmount))) {
+        finalProcessedAmount = 0;
+    } else {
+        finalProcessedAmount = Number(finalProcessedAmount);
+    }
+
+    if (cells[8]) {
+        const rounded = typeof roundProcessedAmountTo2Decimals === 'function'
+            ? roundProcessedAmountTo2Decimals(finalProcessedAmount)
+            : finalProcessedAmount;
+        cells[8].textContent = typeof formatNumberWithThousands === 'function'
+            ? formatNumberWithThousands(rounded)
+            : String(finalProcessedAmount);
+        cells[8].style.color = finalProcessedAmount > 0 ? '#0D60FF' : (finalProcessedAmount < 0 ? '#A91215' : '#000000');
+    }
+
+    if (options.updateTotal !== false && typeof updateProcessedAmountTotal === 'function') {
+        updateProcessedAmountTotal();
+    }
+
+    return {
+        baseProcessedAmount,
+        finalProcessedAmount
+    };
+}
+
 // 公式字符串括号成对：少几个右括号就末尾补几个，避免显示/求值时报错
 function balanceParentheses(s) {
     if (!s || typeof s !== 'string') return s;
@@ -10958,30 +10999,7 @@ function attachRateValueEditListener(cell, row) {
                 cellElement.textContent = newValue;
                 
                 // Recalculate processed amount when Rate Value changes
-                let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
-                
-                // If base amount is not stored or is 0, try to recalculate from formula
-                if (!baseAmount || isNaN(baseAmount)) {
-                    const sourcePercentCell = cells[5];
-                    const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                    const inputMethod = row.getAttribute('data-input-method') || '';
-                    const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
-                    const formulaCell = cells[4];
-                    const formulaText = getFormulaForCalculation(row);
-                    baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                    // Store it for future use
-                    if (baseAmount && !isNaN(baseAmount)) {
-                        row.setAttribute('data-base-processed-amount', baseAmount.toString());
-                    }
-                }
-                
-                const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                if (cells[8]) {
-                    const val = Number(finalAmount);
-                    cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-                    cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                    updateProcessedAmountTotal();
-                }
+                recalculateAndRenderProcessedAmount(row);
                 // Rate Value 仅在选择行后点 Rate 的 Submit 才持久化，此处不保存
             } else {
                 // Cancel: restore original value
@@ -11478,54 +11496,6 @@ function updateRowFormulaFromColumns(row) {
         console.log('Created new formula display from current source data:', formulaDisplay);
     }
     
-    // Calculate processed amount：显示可用引用格式，但计算必须用数字表达式
-    let processedAmount = 0;
-    const isDisplayReference = formulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(formulaDisplay);
-    if (!isDisplayReference && formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
-        try {
-            console.log('Calculating processed amount from formulaDisplay:', formulaDisplay);
-            // IMPORTANT: For formulas with negative numbers in parentheses (e.g., (-1234)-(-2234)),
-            // ensure the formula is properly evaluated by removing spaces and using evaluateExpression directly
-            // This ensures real-time calculation works correctly for formulas with two negative numbers
-            const sanitizedFormula = removeThousandsSeparators(formulaDisplay.trim().replace(/\s+/g, ''));
-            const formulaResult = evaluateExpression(sanitizedFormula);
-            
-            // Apply input method transformation if enabled
-            if (enableInputMethod && inputMethod) {
-                processedAmount = applyInputMethodTransformation(formulaResult, inputMethod);
-                console.log('Applied input method transformation:', processedAmount);
-            } else {
-                processedAmount = formulaResult;
-            }
-            console.log('Final processed amount from formulaDisplay:', processedAmount);
-        } catch (error) {
-            console.error('Error calculating from formulaDisplay:', error, 'formulaDisplay:', formulaDisplay);
-            // Fallback: try evaluateFormulaExpression first, then calculateFormulaResultFromExpression
-            try {
-                const formulaResult = evaluateFormulaExpression(formulaDisplay);
-                if (enableInputMethod && inputMethod) {
-                    processedAmount = applyInputMethodTransformation(formulaResult, inputMethod);
-                } else {
-                    processedAmount = formulaResult;
-                }
-            } catch (e) {
-                // Final fallback to calculateFormulaResultFromExpression
-                processedAmount = calculateFormulaResultFromExpression(resolvedSourceExpression, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
-            }
-        }
-    } else {
-        // 显示为引用格式时，改用数字表达式计算
-        processedAmount = calculateFormulaResultFromExpression(resolvedSourceExpression, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
-    }
-    
-    // Ensure processedAmount is a valid number
-    if (isNaN(processedAmount) || !isFinite(processedAmount)) {
-        processedAmount = 0;
-    }
-    
-    // Store the base processed amount (without rate) in row attribute
-    row.setAttribute('data-base-processed-amount', processedAmount.toString());
-    
     // Store resolved source expression in data attribute for future use
     if (resolvedSourceExpression && resolvedSourceExpression !== 'Source') {
         row.setAttribute('data-last-source-value', resolvedSourceExpression);
@@ -11547,14 +11517,14 @@ function updateRowFormulaFromColumns(row) {
         attachInlineEditListeners(row);
     }
     
-    // Update Processed Amount column (index 8)
-    if (cells[8]) {
-        // Apply rate multiplication if checkbox is checked or Rate Value has value
-        processedAmount = applyRateToProcessedAmount(row, processedAmount);
-        const val = Number(processedAmount);
-        cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-        cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-    }
+    recalculateAndRenderProcessedAmount(row, {
+        formulaOperators: resolvedSourceExpression,
+        sourcePercent: sourcePercentText,
+        inputMethod,
+        enableInputMethod,
+        enableSourcePercent,
+        updateTotal: false
+    });
     
     // Store updated data in row attributes
     row.setAttribute('data-source-columns', columnNumbers.join(' '));
@@ -11848,73 +11818,32 @@ function updateFormulaAndProcessedAmount(row, data) {
         // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
     }
     
-    // Calculate or get base processed amount
-    // If data.processedAmount is 0, undefined, null, or not provided, recalculate from formula
-    let baseProcessedAmount = data.processedAmount !== undefined && data.processedAmount !== null ? Number(data.processedAmount) : null;
-    
-    // Only recalculate if processedAmount is invalid (0, null, undefined, NaN)
-    // If data.processedAmount has a valid value, use it directly (it was calculated correctly in saveFormula)
-    // Only recalculate when absolutely necessary
-    const needsRecalculation = baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount);
-    
-    if (needsRecalculation) {
-        // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
-        const inputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
-        const enableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
-        
-        // Get source percent from data first, then from cell display
-        let sourcePercentText = '';
-        if (data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '') {
-            // Convert from decimal format (1 = 100%) to display format for calculation
-            sourcePercentText = data.sourcePercent.toString().trim();
-        } else {
-            const sourcePercentCell = cells[5];
-            sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '';
-            // If still empty, use default value '1' (100%)
-            if (!sourcePercentText || sourcePercentText.trim() === '') {
-                sourcePercentText = '1';
-            }
-        }
-        
-        // Get source percent enable state
-        // If sourcePercentText is empty, disable source percent (shouldn't happen now, but keep as safety check)
-        let enableSourcePercent = data.enableSourcePercent !== undefined ? data.enableSourcePercent : (row.getAttribute('data-enable-source-percent') === 'true');
-        if (!sourcePercentText || sourcePercentText.trim() === '') {
-            enableSourcePercent = false;
-        } else {
-            // If sourcePercentText has a value, enable it
-            enableSourcePercent = true;
-        }
-        
-        // Use formulaOperators from data first (contains the actual formula expression)
-        // This is the most reliable source as it's passed directly from saveFormula
-        const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
-        
-        if (formulaOperators && formulaOperators.trim() !== '' && formulaOperators !== 'Formula') {
-            baseProcessedAmount = calculateFormulaResultFromExpression(formulaOperators, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
-            console.log('Recalculated processedAmount from formulaOperators:', formulaOperators, 'result:', baseProcessedAmount);
-        } else {
-            // Fallback: use data.formula or raw formula from row (避免用单元格里 2 位小数格式化后的值参与计算)
-            const formulaText = data.formula || getFormulaForCalculation(row);
-            if (formulaText && formulaText.trim() !== '' && formulaText !== 'Formula') {
-                baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                console.log('Recalculated processedAmount from formulaText:', formulaText, 'result:', baseProcessedAmount);
-            }
-        }
-        
-        // Ensure baseProcessedAmount is a valid number
-        if (baseProcessedAmount === null || isNaN(baseProcessedAmount)) {
-            baseProcessedAmount = 0;
+    const restoredInputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
+    const restoredEnableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
+    let restoredSourcePercentText = '';
+    if (data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '') {
+        restoredSourcePercentText = data.sourcePercent.toString().trim();
+    } else {
+        const sourcePercentCell = cells[5];
+        restoredSourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '';
+        if (!restoredSourcePercentText || restoredSourcePercentText.trim() === '') {
+            restoredSourcePercentText = '1';
         }
     }
-    
-    // Ensure baseProcessedAmount is always a valid number (fallback to 0)
-    if (baseProcessedAmount === null || isNaN(baseProcessedAmount)) {
-        baseProcessedAmount = 0;
-    }
-    
-    // Store base processed amount BEFORE creating Rate checkbox (so event listener can use it)
-    row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
+    const restoredEnableSourcePercent = data.enableSourcePercent !== undefined
+        ? data.enableSourcePercent
+        : !!(restoredSourcePercentText && restoredSourcePercentText.trim() !== '');
+    const restoredFormulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
+    const restoredFormulaText = data.formula || getFormulaForCalculation(row);
+    recalculateAndRenderProcessedAmount(row, {
+        formulaOperators: restoredFormulaOperators,
+        formula: restoredFormulaText,
+        sourcePercent: restoredSourcePercentText,
+        inputMethod: restoredInputMethod,
+        enableInputMethod: restoredEnableInputMethod,
+        enableSourcePercent: restoredEnableSourcePercent,
+        updateTotal: false
+    });
     
     // Update Rate column (index 6)
     if (cells[6]) {
@@ -11970,30 +11899,7 @@ function updateFormulaAndProcessedAmount(row, data) {
             }
             
             // Recalculate processed amount when rate checkbox is toggled
-            let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
-            
-            // If base amount is not stored or is 0, try to recalculate from formula
-            if (!baseAmount || isNaN(baseAmount)) {
-                const sourcePercentCell = cells[5];
-                const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                const inputMethod = row.getAttribute('data-input-method') || '';
-                const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
-                const formulaCell = cells[4];
-                const formulaText = getFormulaForCalculation(row);
-                baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                // Store it for future use
-                if (baseAmount && !isNaN(baseAmount)) {
-                    row.setAttribute('data-base-processed-amount', baseAmount.toString());
-                }
-            }
-            
-            const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-            if (cells[8]) {
-                const val = Number(finalAmount);
-                cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-                cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                updateProcessedAmountTotal();
-            }
+            recalculateAndRenderProcessedAmount(row);
         });
         
         cells[6].appendChild(rateCheckbox);
@@ -13167,14 +13073,6 @@ function recalculateRowFormula(row, newSourcePercent) {
         }
         
         const enableSourcePercent = newSourcePercent && newSourcePercent.trim() !== '';
-        // Calculate new processed amount with input method transformation
-        const processedAmount = calculateFormulaResultFromExpression(
-            baseFormula,
-            newSourcePercent,
-            inputMethod,
-            enableInputMethod,
-            enableSourcePercent
-        );
         
         // Update Formula column (index 4)
         if (cells[4]) {
@@ -13199,17 +13097,14 @@ function recalculateRowFormula(row, newSourcePercent) {
         
         // Rate column already exists, no need to recreate
         
-        // Update Processed Amount column (index 8)
-        if (cells[8]) {
-            let val = Number(processedAmount);
-            // Store the base processed amount (without rate) in row attribute
-            row.setAttribute('data-base-processed-amount', val.toString());
-            // Apply rate multiplication if checkbox is checked or Rate Value has value
-            val = applyRateToProcessedAmount(row, val);
-            cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-            cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-            // cells[8].style.backgroundColor = '#e8f5e8'; // Removed
-        }
+        recalculateAndRenderProcessedAmount(row, {
+            formulaOperators: baseFormula,
+            sourcePercent: newSourcePercent,
+            inputMethod,
+            enableInputMethod,
+            enableSourcePercent,
+            updateTotal: false
+        });
     }
     
     updateProcessedAmountTotal();
@@ -13811,31 +13706,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
                 rateValueCell.textContent = '';
             }
             
-            // Get the base processed amount from row attribute (stored when row was updated)
-            let baseProcessedAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
-            
-            // If base amount is not stored or is 0, try to recalculate from source data
-            if (!baseProcessedAmount || isNaN(baseProcessedAmount)) {
-                const sourcePercentCell = cells[5];
-                const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                const inputMethod = row.getAttribute('data-input-method') || '';
-                const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
-                const formulaCell = cells[4];
-                const formulaText = getFormulaForCalculation(row);
-                baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                // Store it for future use
-                if (baseProcessedAmount && !isNaN(baseProcessedAmount)) {
-                    row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
-                }
-            }
-            
-            const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-            if (cells[8]) {
-                const val = Number(finalAmount);
-                cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-                cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                updateProcessedAmountTotal();
-            }
+            recalculateAndRenderProcessedAmount(row);
         });
         
         cells[6].appendChild(rateCheckbox);
@@ -18348,31 +18219,7 @@ function updateBatchSourceColumns() {
                 // Recalculate processed amount when rate checkbox is toggled
                 const cells = row.querySelectorAll('td');
                 
-                // Get the base processed amount from row attribute (stored when row was updated)
-                let baseProcessedAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
-                
-                // If base amount is not stored or is 0, try to recalculate from formula
-                if (!baseProcessedAmount || isNaN(baseProcessedAmount)) {
-                    const sourcePercentCell = cells[5];
-                    const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                    const inputMethod = row.getAttribute('data-input-method') || '';
-                    const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
-                    const formulaCell = cells[4];
-                    const formulaText = getFormulaForCalculation(row);
-                    baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                    // Store it for future use
-                    if (baseProcessedAmount && !isNaN(baseProcessedAmount)) {
-                        row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
-                    }
-                }
-                
-                const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-                if (cells[8]) {
-                    const val = Number(finalAmount);
-                    cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
-                    cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                    updateProcessedAmountTotal();
-                }
+                recalculateAndRenderProcessedAmount(row);
             });
             
             cells[6].appendChild(rateCheckbox);
