@@ -14254,7 +14254,21 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         
         // Update Rate and Processed Amount columns using helper function
         // This ensures Rate checkbox is only created once
-        updateFormulaAndProcessedAmount(row, data);
+        updateFormulaAndProcessedAmount(row, data)
+
+        // 某些模板行在这里会先被正确计算出 processedAmount，
+        // 但随后又被 updateFormulaAndProcessedAmount 内部用旧的 formulaOperators 重算覆盖。
+        // 只在当前调用已明确给出 processedAmount 时，优先保留这次调用算出来的值。
+        const explicitProcessedAmount = Number(data.processedAmount)
+        const hasExplicitProcessedAmount = !Number.isNaN(explicitProcessedAmount) && Number.isFinite(explicitProcessedAmount)
+        if (hasExplicitProcessedAmount && cells[8]) {
+            row.setAttribute('data-base-processed-amount', explicitProcessedAmount.toString())
+            const finalProcessedAmount = typeof applyRateToProcessedAmount === 'function'
+                ? applyRateToProcessedAmount(row, explicitProcessedAmount)
+                : explicitProcessedAmount
+            cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalProcessedAmount))
+            cells[8].style.color = finalProcessedAmount > 0 ? '#0D60FF' : (finalProcessedAmount < 0 ? '#A91215' : '#000000')
+        }
 
         // Persist row_index (if provided) on the DOM row for later reordering
         if (data.rowIndex !== undefined && data.rowIndex !== null && !Number.isNaN(Number(data.rowIndex))) {
