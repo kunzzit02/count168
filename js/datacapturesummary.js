@@ -1577,6 +1577,9 @@ function populateOriginalTableWithColumnAData(tableData) {
                     });
                 }
             }
+            if (isFreshFromCapture && typeof recalculateSummaryProcessedAmountsFromDisplayedFormula === 'function') {
+                recalculateSummaryProcessedAmountsFromDisplayedFormula()
+            }
             updateProcessedAmountTotal();
         });
 }
@@ -9264,6 +9267,58 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         baseProcessedAmount,
         finalProcessedAmount
     };
+}
+
+function recalculateSummaryProcessedAmountsFromDisplayedFormula() {
+    const summaryTableBody = document.getElementById('summaryTableBody')
+    if (!summaryTableBody) return
+
+    const rows = summaryTableBody.querySelectorAll('tr')
+    rows.forEach((row) => {
+        const cells = row.querySelectorAll('td')
+        const formulaCell = cells[4]
+        const processedAmountCell = cells[8]
+        if (!formulaCell || !processedAmountCell) return
+
+        const formulaText = (formulaCell.querySelector('.formula-text')?.textContent || formulaCell.textContent || '').trim()
+        if (!formulaText || formulaText === 'Formula') {
+            row.setAttribute('data-base-processed-amount', '0')
+            processedAmountCell.textContent = '0.00'
+            processedAmountCell.style.color = '#000000'
+            return
+        }
+
+        let processedAmount = 0
+        try {
+            const processValue = typeof getProcessValueFromRow === 'function' ? getProcessValueFromRow(row) : null
+            processedAmount = evaluateFormulaExpression(formulaText, processValue)
+
+            const inputMethod = String(row.getAttribute('data-input-method') || '').trim()
+            const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true'
+            if (enableInputMethod && inputMethod && typeof applyInputMethodTransformation === 'function') {
+                processedAmount = applyInputMethodTransformation(processedAmount, inputMethod)
+            }
+        } catch (error) {
+            console.error('Failed to recalculate processed amount from displayed formula:', error, formulaText)
+            processedAmount = 0
+        }
+
+        if (!Number.isFinite(Number(processedAmount))) {
+            processedAmount = 0
+        } else {
+            processedAmount = Number(processedAmount)
+        }
+
+        row.setAttribute('data-base-processed-amount', String(processedAmount))
+        const finalProcessedAmount = typeof applyRateToProcessedAmount === 'function'
+            ? applyRateToProcessedAmount(row, processedAmount)
+            : processedAmount
+
+        processedAmountCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalProcessedAmount))
+        processedAmountCell.style.color = finalProcessedAmount > 0 ? '#0D60FF' : (finalProcessedAmount < 0 ? '#A91215' : '#000000')
+    })
+
+    updateProcessedAmountTotal()
 }
 
 // 公式字符串括号成对：少几个右括号就末尾补几个，避免显示/求值时报错
