@@ -13945,6 +13945,9 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     }
     if (data.originalDescription !== undefined) {
         row.setAttribute('data-original-description', data.originalDescription);
+        if (typeof refreshIdProductCellDisplay === 'function') {
+            refreshIdProductCellDisplay(row);
+        }
     }
     if (data.templateKey !== undefined && data.templateKey !== null) {
         row.setAttribute('data-template-key', data.templateKey);
@@ -14418,6 +14421,9 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         }
         if (data.originalDescription !== undefined) {
             row.setAttribute('data-original-description', data.originalDescription);
+            if (typeof refreshIdProductCellDisplay === 'function') {
+                refreshIdProductCellDisplay(row);
+            }
         }
         if (data.templateKey !== undefined && data.templateKey !== null) {
             row.setAttribute('data-template-key', data.templateKey);
