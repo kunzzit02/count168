@@ -11145,13 +11145,15 @@ function attachRateValueEditListener(cell, row) {
                 // Update cell content with new value (even if empty, user intentionally cleared it)
                 cellElement.textContent = newValue;
 
-                // Recalculate processed amount when Rate Value changes with a tiny delay to ensure DOM is ready
-                // and explicitly update total and save state so the inline edit is fully applied and persistent.
-                setTimeout(() => {
-                    recalculateAndRenderProcessedAmount(row, { updateTotal: true });
-                    if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
-                    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
-                }, 10);
+                // Identify the LIVE row to prevent operating on a disconnected clone
+                const liveRow = cellElement.closest('tr') || row;
+
+                // Recalculate processed amount using the live DOM element explicitly 
+                recalculateAndRenderProcessedAmount(liveRow, { updateTotal: true });
+                
+                // Immediately save the manual edits so they are persistent
+                if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+                if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
             } else {
                 // Cancel: restore original value
                 cellElement.textContent = savedOriginalValue;
