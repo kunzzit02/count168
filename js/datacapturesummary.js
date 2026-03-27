@@ -1,3 +1,5 @@
+
+
 // Notification functions
 function showNotification(title, message, type = 'success') {
     const popup = document.getElementById('notificationPopup');
@@ -11962,6 +11964,7 @@ function updateFormulaAndProcessedAmount(row, data) {
 
         if (!rawFormula) rawFormula = formulaText;
         row.setAttribute('data-formula-raw', rawFormula || '');
+        row.setAttribute('data-formula-operators', formulaText || rawFormula || '');
         const displayText = formulaText;
         if (displayText) row.setAttribute('data-formula-display', displayText);
         else row.removeAttribute('data-formula-display');
@@ -13737,9 +13740,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     const productValues = getProductValuesFromCell(idProductCell);
     productValues.sub = idProductText;
     idProductCell.setAttribute('data-sub-product', idProductText);
-    if (typeof refreshIdProductCellDisplay === 'function') {
-        refreshIdProductCellDisplay(row);
-    }
+    // refreshIdProductCellDisplay(row) moved to the end of updateSubIdProductRow
     idProductCell.setAttribute('data-processed-sub', 'true');
 
     // Account column (index 1)
@@ -14084,6 +14085,12 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     }
 
     console.log('Updated sub id product row with data:', data);
+
+    // Refresh display after all attributes (including data-original-description) are set
+    if (cells[0] && typeof refreshIdProductCellDisplay === 'function') {
+        refreshIdProductCellDisplay(row);
+    }
+
     updateProcessedAmountTotal();
 }
 
@@ -14182,9 +14189,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
             } else {
                 row.removeAttribute('data-original-description');
             }
-            if (typeof refreshIdProductCellDisplay === 'function') {
-                refreshIdProductCellDisplay(row);
-            }
+            // refreshIdProductCellDisplay(row) moved to the end of updateSummaryTableRow
             // cells[0].style.backgroundColor = '#e8f5e8'; // Removed
         }
 
@@ -14398,6 +14403,7 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
 
             if (!rawFormula) rawFormula = formulaText;
             row.setAttribute('data-formula-raw', rawFormula || '');
+            row.setAttribute('data-formula-operators', formulaText || rawFormula || '');
             const displayText = formulaText;
             if (displayText) row.setAttribute('data-formula-display', displayText);
             else row.removeAttribute('data-formula-display');
@@ -14497,6 +14503,12 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
         updateProcessedAmountTotal();
         if (typeof updateHeaderCurrencyFromSummaryTable === 'function') {
             updateHeaderCurrencyFromSummaryTable();
+        }
+
+        // Now that all data- attributes (including data-original-description and data-product-type) are set,
+        // refresh the Id Product display to correctly reflect the description.
+        if (cells[0] && typeof refreshIdProductCellDisplay === 'function') {
+            refreshIdProductCellDisplay(row);
         }
     }
 }
@@ -17883,7 +17895,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             sourcePercent: convertedPercentValue || '1',
             formula: formulaDisplay,
             formulaDisplay: formulaDisplay || template.formula_display || '',
-            formulaOperators: formulaOperatorsValue,
+            formulaOperators: formulaDisplay || formulaOperatorsValue,
             processedAmount: processedAmount,
             inputMethod: template.input_method || '',
             enableInputMethod: (template.input_method && template.input_method.trim() !== '') ? true : false,
