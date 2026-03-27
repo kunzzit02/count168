@@ -13969,7 +13969,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         if (!idProductCellForSub.classList.contains('sub-id-product')) {
             idProductCellForSub.classList.add('sub-id-product');
         }
-        // 确保 Sub 行的 Id Product 文本与父 MAIN 一致，避免出现空白导致“分开”的视觉效果
+        // 确保 Sub 行的 Id Product 文本与父 MAIN 一致，避免出现空白导致“分开”的视觉效
         const parentDisplayId = (processValue || '').trim();
         if (parentDisplayId && !idProductCellForSub.textContent.trim()) {
             idProductCellForSub.textContent = parentDisplayId;
