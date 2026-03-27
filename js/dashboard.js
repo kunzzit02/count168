@@ -28,7 +28,9 @@ let chartMetadata = {
     sortedDates: [],
     capitalData: [],
     expensesData: [],
-    profitData: []
+    profitData: [],
+    cardProfitDisplay: 0,
+    cardExpensesDisplay: 0
 };
 
 // 当前选择的图表数据类型（'all', 'capital', 'expenses', 'profit'）
@@ -104,7 +106,7 @@ function initEnhancedDatePickers() {
     updateDateDisplay('month');
     updateDateRangeDisplay();
 
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (!e.target.closest('.enhanced-date-picker')) {
             hideAllDropdowns();
         }
@@ -144,12 +146,12 @@ function showDateDropdown(prefix, type) {
     hideAllDropdowns();
     const dropdown = document.getElementById(`${prefix}-dropdown`);
     const datePicker = document.getElementById(`${prefix}-date-picker`);
-    
+
     if (!dropdown || !datePicker) return;
-    
+
     currentDatePicker = prefix;
     currentDateType = type;
-    
+
     datePicker.querySelectorAll('.date-part').forEach(part => {
         part.classList.remove('active');
     });
@@ -157,7 +159,7 @@ function showDateDropdown(prefix, type) {
     if (targetPart) {
         targetPart.classList.add('active');
     }
-    
+
     generateDropdownContent(prefix, type);
     dropdown.classList.add('show');
 }
@@ -176,7 +178,7 @@ function hideAllDropdowns() {
 function generateDropdownContent(prefix, type) {
     const dropdown = document.getElementById(`${prefix}-dropdown`);
     if (!dropdown) return;
-    
+
     let dateValue;
     if (prefix === 'month') {
         dateValue = monthDateValue;
@@ -184,23 +186,23 @@ function generateDropdownContent(prefix, type) {
         dateValue = prefix === 'start' ? startDateValue : endDateValue;
     }
     const today = new Date();
-    
+
     dropdown.innerHTML = '';
-    
+
     if (type === 'year') {
         const yearGrid = document.createElement('div');
         yearGrid.className = 'year-grid';
         const currentYear = today.getFullYear();
         const startYear = 2022;
         const endYear = currentYear + 1;
-        
+
         for (let year = startYear; year <= endYear; year++) {
             const yearOption = document.createElement('div');
             yearOption.className = 'date-option';
             yearOption.textContent = year;
             if (year === dateValue.year) yearOption.classList.add('selected');
             if (year === currentYear) yearOption.classList.add('today');
-            yearOption.addEventListener('click', function() {
+            yearOption.addEventListener('click', function () {
                 selectDateValue(prefix, 'year', year);
             });
             yearGrid.appendChild(yearOption);
@@ -209,7 +211,7 @@ function generateDropdownContent(prefix, type) {
     } else if (type === 'month') {
         const monthGrid = document.createElement('div');
         monthGrid.className = 'month-grid';
-        
+
         if (prefix === 'month') {
             // 月份选择器的月份下拉：添加"无"选项
             const noneOption = document.createElement('div');
@@ -217,12 +219,12 @@ function generateDropdownContent(prefix, type) {
             noneOption.textContent = 'None';
             noneOption.style.gridColumn = '1 / -1';
             if (!dateValue.month) noneOption.classList.add('selected');
-            noneOption.addEventListener('click', function() {
+            noneOption.addEventListener('click', function () {
                 selectDateValue(prefix, 'month', null);
             });
             monthGrid.appendChild(noneOption);
         }
-        
+
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         months.forEach((monthName, index) => {
             const monthValue = index + 1;
@@ -233,7 +235,7 @@ function generateDropdownContent(prefix, type) {
             if (dateValue.year === today.getFullYear() && monthValue === today.getMonth() + 1) {
                 monthOption.classList.add('today');
             }
-            monthOption.addEventListener('click', function() {
+            monthOption.addEventListener('click', function () {
                 selectDateValue(prefix, 'month', monthValue);
             });
             monthGrid.appendChild(monthOption);
@@ -249,18 +251,18 @@ function generateDropdownContent(prefix, type) {
             dayHeader.textContent = day;
             dayGrid.appendChild(dayHeader);
         });
-        
+
         const year = dateValue.year;
         const month = dateValue.month;
         const firstDay = new Date(year, month - 1, 1);
         const lastDay = new Date(year, month, 0);
         const daysInMonth = lastDay.getDate();
         const startDayOfWeek = firstDay.getDay();
-        
+
         for (let i = 0; i < startDayOfWeek; i++) {
             dayGrid.appendChild(document.createElement('div'));
         }
-        
+
         for (let day = 1; day <= daysInMonth; day++) {
             const dayOption = document.createElement('div');
             dayOption.className = 'date-option';
@@ -269,7 +271,7 @@ function generateDropdownContent(prefix, type) {
             if (year === today.getFullYear() && month === today.getMonth() + 1 && day === today.getDate()) {
                 dayOption.classList.add('today');
             }
-            dayOption.addEventListener('click', function() {
+            dayOption.addEventListener('click', function () {
                 selectDateValue(prefix, 'day', day);
             });
             dayGrid.appendChild(dayOption);
@@ -308,36 +310,36 @@ function selectDateValue(prefix, type, value) {
 
 async function updateDateRangeFromPickers() {
     try {
-    const startDateStr = `${startDateValue.year}-${String(startDateValue.month).padStart(2, '0')}-${String(startDateValue.day).padStart(2, '0')}`;
-    const endDateStr = `${endDateValue.year}-${String(endDateValue.month).padStart(2, '0')}-${String(endDateValue.day).padStart(2, '0')}`;
-    
+        const startDateStr = `${startDateValue.year}-${String(startDateValue.month).padStart(2, '0')}-${String(startDateValue.day).padStart(2, '0')}`;
+        const endDateStr = `${endDateValue.year}-${String(endDateValue.month).padStart(2, '0')}-${String(endDateValue.day).padStart(2, '0')}`;
+
         const startDate = new Date(startDateStr);
         const endDate = new Date(endDateStr);
-        
+
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
             console.error('Invalid date format');
             return;
         }
-        
+
         if (startDate > endDate) {
             showError('Start date cannot be later than end date');
-        return;
-    }
-    
-    dateRange = {
-        startDate: startDateStr,
-        endDate: endDateStr
-    };
-    
-    // 更新日历选择器
-    calendarStartDate = new Date(startDateValue.year, startDateValue.month - 1, startDateValue.day);
-    calendarStartDate.setHours(0, 0, 0, 0);
-    calendarEndDate = new Date(endDateValue.year, endDateValue.month - 1, endDateValue.day);
-    calendarEndDate.setHours(0, 0, 0, 0);
-    
+            return;
+        }
+
+        dateRange = {
+            startDate: startDateStr,
+            endDate: endDateStr
+        };
+
+        // 更新日历选择器
+        calendarStartDate = new Date(startDateValue.year, startDateValue.month - 1, startDateValue.day);
+        calendarStartDate.setHours(0, 0, 0, 0);
+        calendarEndDate = new Date(endDateValue.year, endDateValue.month - 1, endDateValue.day);
+        calendarEndDate.setHours(0, 0, 0, 0);
+
         // 重置上次请求参数，允许重新加载
         lastRequestParams = null;
-    await loadData(true); // 立即执行
+        await loadData(true); // 立即执行
     } catch (error) {
         console.error('Failed to update date range:', error);
         showError('Failed to update date range');
@@ -381,7 +383,7 @@ function toggleCalendar() {
     const popup = document.getElementById('calendar-popup');
     const picker = document.getElementById('date-range-picker');
     if (!popup || !picker) return;
-    
+
     if (popup.style.display === 'none' || !popup.style.display) {
         const rect = picker.getBoundingClientRect();
         popup.style.top = (rect.bottom + 8) + 'px';
@@ -453,25 +455,25 @@ function renderCalendar() {
     const yearSelect = document.getElementById('calendar-year-select');
     const monthSelect = document.getElementById('calendar-month-select');
     if (!yearSelect || !monthSelect) return;
-    
+
     const year = parseInt(yearSelect.value);
     const month = parseInt(monthSelect.value);
     calendarCurrentDate = new Date(year, month, 1);
-    
+
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const prevLastDay = new Date(year, month, 0);
     const firstDayWeek = firstDay.getDay();
     const lastDate = lastDay.getDate();
     const prevLastDate = prevLastDay.getDate();
-    
+
     const daysContainer = document.getElementById('calendar-days');
     if (!daysContainer) return;
     daysContainer.innerHTML = '';
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     for (let i = firstDayWeek - 1; i >= 0; i--) {
         const day = prevLastDate - i;
         const dayElement = createDayElement(day, year, month - 1, true);
@@ -544,10 +546,10 @@ function highlightPreviewRange(hoverDate) {
     const yearSelect = document.getElementById('calendar-year-select');
     const monthSelect = document.getElementById('calendar-month-select');
     if (!yearSelect || !monthSelect) return;
-    
+
     const year = parseInt(yearSelect.value);
     const month = parseInt(monthSelect.value);
-    
+
     days.forEach(day => {
         day.classList.remove('preview-range', 'preview-end');
         const dayText = parseInt(day.textContent);
@@ -680,7 +682,7 @@ function toggleQuickSelectDropdown() {
 async function selectQuickRange(range) {
     const today = new Date();
     let startDate, endDate;
-    switch(range) {
+    switch (range) {
         case 'today':
             startDate = new Date(today);
             endDate = new Date(today);
@@ -731,8 +733,8 @@ async function selectQuickRange(range) {
             return;
     }
     const formatDate = (date) => {
-        return date.getFullYear() + '-' + 
-            String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+        return date.getFullYear() + '-' +
+            String(date.getMonth() + 1).padStart(2, '0') + '-' +
             String(date.getDate()).padStart(2, '0');
     };
     dateRange = {
@@ -770,10 +772,10 @@ async function selectQuickRange(range) {
         'lastYear': 'Last Year'
     };
     if (quickSelectText) quickSelectText.textContent = rangeTexts[range] || 'Period';
-    
+
     // 设置范围类型：如果是年份范围，设置为 'year'
     currentRangeType = (range === 'thisYear' || range === 'lastYear') ? 'year' : null;
-    
+
     const dropdown = document.getElementById('quick-select-dropdown');
     if (dropdown) dropdown.classList.remove('show');
     lastRequestParams = null;
@@ -783,7 +785,7 @@ async function selectQuickRange(range) {
 }
 
 // 点击外部关闭日历和下拉菜单
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     const calendar = document.getElementById('date-range-picker');
     const popup = document.getElementById('calendar-popup');
     if (calendar && popup && !calendar.contains(e.target) && !popup.contains(e.target)) {
@@ -799,13 +801,14 @@ document.addEventListener('click', function(e) {
 let loadDataTimeout = null;
 let isLoading = false; // 防止重复请求
 let lastRequestParams = null; // 记录上次请求参数，避免重复请求相同数据
+let dailyCardPointCache = new Map(); // key: company|currency|date
 
 // 实际执行数据加载的函数
 async function executeLoadData() {
     if (!dateRange.startDate || !dateRange.endDate || !window.companyId) {
         return;
     }
-    
+
     // 检查参数是否仍然有效
     const checkParams = JSON.stringify({
         date_from: dateRange.startDate,
@@ -816,70 +819,70 @@ async function executeLoadData() {
     if (lastRequestParams === checkParams) {
         return;
     }
-    
+
     // 如果页面不可见，不执行请求
     if (!isPageVisible) {
         return;
     }
-    
+
     isLoading = true;
     lastRequestParams = checkParams;
     setLoadingState(true);
-            
-            try {
-                const queryParams = new URLSearchParams({
-                    date_from: dateRange.startDate,
-                    date_to: dateRange.endDate,
-                    company_id: window.companyId
-                });
-                if (window.dashboardCurrency) {
-                    queryParams.append('currency', window.dashboardCurrency);
-                }
-                
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
-                
-                const response = await fetch(buildApiUrl(`${API_BASE_URL}?${queryParams}`), {
-                    signal: controller.signal
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                
-                console.log('API响应:', result);
-                
-                if (result.success && result.data) {
-                    // 验证数据格式
-                    if (validateData(result.data)) {
-                        console.log('数据验证通过，更新仪表盘');
-                    updateDashboard(result.data);
-                } else {
-                        console.error('数据格式验证失败:', result.data);
-                        throw new Error('Invalid data format');
-                    }
-                } else {
-                    console.error('API返回失败:', result);
-                    throw new Error(result.message || 'Failed to load data');
-                }
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    console.error('请求超时');
-                    showError('Request timeout, please try again later');
-                } else {
-                console.error('API调用失败:', error);
-                    showError('Failed to load data: ' + (error.message || 'Unknown error'));
-                }
-                // 发生错误时，恢复上次请求参数，允许重试
-                lastRequestParams = null;
-            } finally {
-                isLoading = false;
-                setLoadingState(false);
+
+    try {
+        const queryParams = new URLSearchParams({
+            date_from: dateRange.startDate,
+            date_to: dateRange.endDate,
+            company_id: window.companyId
+        });
+        if (window.dashboardCurrency) {
+            queryParams.append('currency', window.dashboardCurrency);
+        }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+
+        const response = await fetch(buildApiUrl(`${API_BASE_URL}?${queryParams}`), {
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        console.log('API响应:', result);
+
+        if (result.success && result.data) {
+            // 验证数据格式
+            if (validateData(result.data)) {
+                console.log('数据验证通过，更新仪表盘');
+                updateDashboard(result.data);
+            } else {
+                console.error('数据格式验证失败:', result.data);
+                throw new Error('Invalid data format');
             }
+        } else {
+            console.error('API返回失败:', result);
+            throw new Error(result.message || 'Failed to load data');
+        }
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.error('请求超时');
+            showError('Request timeout, please try again later');
+        } else {
+            console.error('API调用失败:', error);
+            showError('Failed to load data: ' + (error.message || 'Unknown error'));
+        }
+        // 发生错误时，恢复上次请求参数，允许重试
+        lastRequestParams = null;
+    } finally {
+        isLoading = false;
+        setLoadingState(false);
+    }
 }
 
 async function loadData(immediate = false) {
@@ -888,12 +891,12 @@ async function loadData(immediate = false) {
         clearTimeout(loadDataTimeout);
         loadDataTimeout = null;
     }
-    
+
     // 如果正在加载，直接返回
     if (isLoading) {
         return Promise.resolve();
     }
-    
+
     // 检查是否与上次请求参数相同
     const currentParams = JSON.stringify({
         date_from: dateRange.startDate,
@@ -904,12 +907,12 @@ async function loadData(immediate = false) {
     if (lastRequestParams === currentParams) {
         return Promise.resolve();
     }
-    
+
     // 如果立即执行，跳过防抖
     if (immediate) {
         return executeLoadData();
     }
-    
+
     // 使用防抖，延迟 300ms 执行（仅在非立即模式下）
     return new Promise((resolve) => {
         loadDataTimeout = setTimeout(async () => {
@@ -959,7 +962,7 @@ function showError(message) {
         chartDateRange.textContent = '❌ ' + message;
         chartDateRange.style.color = '#ef4444';
     }
-    
+
     // 3秒后恢复
     setTimeout(() => {
         if (chartDateRange && chartDateRange.textContent.includes('❌')) {
@@ -992,6 +995,10 @@ function updateDashboard(data) {
                 // 规则：NET PROFIT = Profit(显示) + Expenses(显示)
                 const netProfitDisplay = displayProfitNum + displayExpensesNum;
 
+                // 记录卡片显示值，供图表 tooltip 统一读取，避免口径不一致
+                chartMetadata.cardProfitDisplay = displayProfitNum;
+                chartMetadata.cardExpensesDisplay = displayExpensesNum;
+
                 if (capitalEl) capitalEl.textContent = formatCurrency(displayProfitNum);
                 if (expensesEl) expensesEl.textContent = formatCurrency(displayExpensesNum);
                 if (profitEl) profitEl.textContent = formatCurrency(netProfitDisplay);
@@ -1001,12 +1008,10 @@ function updateDashboard(data) {
                         `${formatDateForDisplay(data.date_range.from)} to ${formatDateForDisplay(data.date_range.to)}`;
                     chartDateRangeEl.style.color = '#6b7280';
                 }
-                try {
-                    updateChart(data);
-                } catch (chartError) {
+                Promise.resolve(updateChart(data)).catch((chartError) => {
                     console.error('更新图表失败:', chartError);
                     showError('Chart update failed');
-                }
+                });
             } catch (domError) {
                 console.error('更新DOM失败:', domError);
                 showError('UI update failed');
@@ -1016,6 +1021,40 @@ function updateDashboard(data) {
         console.error('updateDashboard 错误:', error);
         showError('Data update failed');
     }
+}
+
+async function fetchCardPointByDate(dateStr) {
+    const cacheKey = `${window.companyId || ''}|${window.dashboardCurrency || ''}|${dateStr}`;
+    if (dailyCardPointCache.has(cacheKey)) {
+        return dailyCardPointCache.get(cacheKey);
+    }
+
+    const queryParams = new URLSearchParams({
+        date_from: dateStr,
+        date_to: dateStr,
+        company_id: window.companyId
+    });
+    if (window.dashboardCurrency) {
+        queryParams.append('currency', window.dashboardCurrency);
+    }
+
+    const response = await fetch(buildApiUrl(`${API_BASE_URL}?${queryParams}`));
+    if (!response.ok) {
+        throw new Error(`Daily point request failed: ${response.status}`);
+    }
+    const result = await response.json();
+    if (!result.success || !result.data) {
+        throw new Error(result.message || 'Daily point payload invalid');
+    }
+
+    const rawProfit = parseFloat(result.data.profit) || 0;
+    const rawExpenses = parseFloat(result.data.expenses) || 0;
+    const point = {
+        profit: rawProfit,
+        expenses: rawExpenses > 0 ? -rawExpenses : rawExpenses
+    };
+    dailyCardPointCache.set(cacheKey, point);
+    return point;
 }
 
 function formatCurrency(value) {
@@ -1033,14 +1072,14 @@ function formatDateForDisplay(dateString) {
     return `${day}/${month}/${year}`;
 }
 
-function updateChart(data) {
+async function updateChart(data) {
     const chartCanvas = document.getElementById('trend-chart');
     if (!chartCanvas) {
         console.error('图表canvas元素不存在');
         showError('Chart element not found');
         return;
     }
-    
+
     // 验证数据
     if (!data) {
         console.error('图表数据为空', data);
@@ -1052,15 +1091,15 @@ function updateChart(data) {
         }
         return;
     }
-    
+
     if (!data.daily_data) {
         console.warn('daily_data 不存在，使用空对象', data);
         data.daily_data = {};
     }
-    
+
     const dailyData = data.daily_data;
     console.log('dailyData:', dailyData);
-    
+
     // 确保 capital、expenses 和 profit 存在
     if (!dailyData.capital) {
         console.warn('缺少 capital 数据，使用空对象');
@@ -1074,13 +1113,13 @@ function updateChart(data) {
         console.warn('缺少 profit 数据，使用空对象');
         dailyData.profit = {};
     }
-    
+
     // 准备图表数据
     const dates = [];
     const capitalData = [];
     const expensesData = [];
     const profitData = [];
-    
+
     // 检查是否应按月份聚合（年份范围或跨越多个月）
     if (shouldAggregateByMonth() && dateRange.startDate && dateRange.endDate) {
         // 按月份聚合数据
@@ -1088,7 +1127,7 @@ function updateChart(data) {
         const endDate = new Date(dateRange.endDate);
         startDate.setHours(0, 0, 0, 0);
         endDate.setHours(0, 0, 0, 0);
-        
+
         // 生成所有月份
         const months = [];
         const currentMonth = new Date(startDate);
@@ -1099,35 +1138,31 @@ function updateChart(data) {
             months.push({ year, month, monthKey });
             currentMonth.setMonth(currentMonth.getMonth() + 1);
         }
-        
+
         // 为每个月聚合数据
         months.forEach(({ year, month, monthKey }) => {
             let monthCapital = 0;
             let monthExpenses = 0;
             let monthProfit = 0;
-            
+
             // 遍历该月的所有日期
             const firstDay = new Date(year, month - 1, 1);
             const lastDay = new Date(year, month, 0);
-            
+
             for (let day = 1; day <= lastDay.getDate(); day++) {
                 const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const dateObj = new Date(dateStr);
                 if (dateObj >= startDate && dateObj <= endDate) {
                     const capital = parseFloat(dailyData.capital && dailyData.capital[dateStr] ? dailyData.capital[dateStr] : 0) || 0;
-                    const expenses = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
-                    let profit = 0;
-                    if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[dateStr] !== undefined) {
-                        profit = parseFloat(dailyData.profit[dateStr] || 0) || 0;
-                    } else {
-                        profit = capital + expenses;
-                    }
+                    const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
+                    const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
+                    const displayProfit = capital + rawExpenses;
                     monthCapital += capital;
-                    monthExpenses += expenses;
-                    monthProfit += profit;
+                    monthExpenses += displayExpenses;
+                    monthProfit += displayProfit;
                 }
             }
-            
+
             dates.push(monthKey);
             capitalData.push(monthCapital);
             expensesData.push(monthExpenses);
@@ -1141,7 +1176,7 @@ function updateChart(data) {
             const endDate = new Date(dateRange.endDate);
             startDate.setHours(0, 0, 0, 0);
             endDate.setHours(0, 0, 0, 0);
-            
+
             const currentDate = new Date(startDate);
             while (currentDate <= endDate) {
                 const dateStr = formatDateToYYYYMMDD(currentDate);
@@ -1149,12 +1184,15 @@ function updateChart(data) {
                 currentDate.setDate(currentDate.getDate() + 1);
             }
         }
-        
+
         // 如果没有日期范围，使用API返回的日期（向后兼容）
         const allSortedDates = allDatesInRange.length > 0 ? allDatesInRange : [];
         if (allSortedDates.length === 0) {
             // 如果没有日期范围，尝试从API数据中获取日期
             const allDates = new Set();
+            if (dailyData.capital && typeof dailyData.capital === 'object') {
+                Object.keys(dailyData.capital).forEach(date => allDates.add(date));
+            }
             if (dailyData.expenses && typeof dailyData.expenses === 'object') {
                 Object.keys(dailyData.expenses).forEach(date => allDates.add(date));
             }
@@ -1163,11 +1201,11 @@ function updateChart(data) {
             }
             allSortedDates.push(...Array.from(allDates).sort());
         }
-        
+
         if (allSortedDates.length === 0) {
             // 如果没有数据，显示空图表
             console.warn('没有图表数据，显示空图表');
-            
+
             // 清空元数据
             chartMetadata = {
                 sortedDates: [],
@@ -1185,11 +1223,11 @@ function updateChart(data) {
                 datasets: []
             };
             createChart(chartCanvas, emptyChartData);
-            
+
             // 更新日期范围显示
             const chartDateRangeEl = document.getElementById('chart-date-range');
             if (chartDateRangeEl && data.date_range) {
-                chartDateRangeEl.textContent = 
+                chartDateRangeEl.textContent =
                     `${formatDateForDisplay(data.date_range.from)} to ${formatDateForDisplay(data.date_range.to)} (No data in this date range)`;
                 chartDateRangeEl.style.color = '#9ca3af';
             } else if (chartDateRangeEl) {
@@ -1198,23 +1236,18 @@ function updateChart(data) {
             }
             return;
         }
-        
+
         // 为范围内的每一天准备数据，没有数据的日期默认为0
         allSortedDates.forEach(date => {
             try {
                 dates.push(date);
                 const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
-                const expenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
-                // Profit: 优先使用API返回的profit daily_data，否则 net = capital + expenses（expenses 带符号，正加负减）
-                let profit = 0;
-                if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
-                    profit = parseFloat(dailyData.profit[date] || 0) || 0;
-                } else {
-                    profit = capital + expenses;
-                }
+                const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
+                const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
+                const displayProfit = capital + rawExpenses;
                 capitalData.push(capital);
-                expensesData.push(expenses);
-                profitData.push(profit);
+                expensesData.push(displayExpenses);
+                profitData.push(displayProfit);
             } catch (e) {
                 console.warn('Error processing date data:', date, e);
                 // 如果出错，也添加0值
@@ -1224,10 +1257,10 @@ function updateChart(data) {
             }
         });
     }
-    
+
     // sortedDates 始终与 dates 对应，用于 tooltip / 坐标轴刻度
     const sortedDates = dates;
-    
+
     // 存储元数据到外部变量（用于 tooltip）
     chartMetadata = {
         sortedDates: sortedDates,
@@ -1235,16 +1268,16 @@ function updateChart(data) {
         expensesData: expensesData,
         profitData: profitData
     };
-    
+
     // 只显示 Profit 和 Expenses 数据集
     const allDatasets = [
-            {
-                label: 'Profit',
-                data: profitData,
-                borderColor: '#3b82f6',
-            backgroundColor: function(context) {
+        {
+            label: 'Profit',
+            data: profitData,
+            borderColor: '#3b82f6',
+            backgroundColor: function (context) {
                 const chart = context.chart;
-                const {ctx, chartArea} = chart;
+                const { ctx, chartArea } = chart;
                 if (!chartArea) {
                     return null;
                 }
@@ -1255,20 +1288,20 @@ function updateChart(data) {
                 gradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
                 return gradient;
             },
-                fill: true,
+            fill: true,
             tension: 0.4,
             borderWidth: 2,
             pointRadius: 0,
             pointHoverRadius: 8,
             dataType: 'profit'
-            },
-            {
-                label: 'Expenses',
-                data: expensesData,
-                borderColor: '#ef4444',
-            backgroundColor: function(context) {
+        },
+        {
+            label: 'Expenses',
+            data: expensesData,
+            borderColor: '#ef4444',
+            backgroundColor: function (context) {
                 const chart = context.chart;
-                const {ctx, chartArea} = chart;
+                const { ctx, chartArea } = chart;
                 if (!chartArea) {
                     return null;
                 }
@@ -1279,7 +1312,7 @@ function updateChart(data) {
                 gradient.addColorStop(1, 'rgba(239, 68, 68, 0.02)');
                 return gradient;
             },
-                fill: true,
+            fill: true,
             tension: 0.4,
             borderWidth: 2,
             pointRadius: 0,
@@ -1287,10 +1320,10 @@ function updateChart(data) {
             dataType: 'expenses'
         }
     ];
-    
+
     // 默认显示所有数据集（Profit 和 Expenses）
     let filteredDatasets = allDatasets;
-    
+
     const chartData = {
         labels: dates.map(d => {
             try {
@@ -1311,15 +1344,62 @@ function updateChart(data) {
         }),
         datasets: filteredDatasets
     };
-    
+
     // 如果图表已存在，销毁并重新创建（参考 kpi.php 的实现）
     if (trendChart) {
         trendChart.destroy();
         trendChart = null;
     }
-    
+
     // 创建新图表
     createChart(chartCanvas, chartData);
+
+    // 非按月聚合范围：先渲染，再异步用“按日卡片口径”覆盖，避免首屏空白
+    if (!shouldAggregateByMonth() && dates.length > 0) {
+        const requestKeyAtStart = JSON.stringify({
+            date_from: dateRange.startDate,
+            date_to: dateRange.endDate,
+            company_id: window.companyId,
+            currency: window.dashboardCurrency || ''
+        });
+        Promise.allSettled(dates.map((d) => fetchCardPointByDate(d)))
+            .then((results) => {
+                const requestKeyNow = JSON.stringify({
+                    date_from: dateRange.startDate,
+                    date_to: dateRange.endDate,
+                    company_id: window.companyId,
+                    currency: window.dashboardCurrency || ''
+                });
+                if (requestKeyNow !== requestKeyAtStart) return;
+
+                let appliedCount = 0;
+                for (let i = 0; i < results.length; i++) {
+                    const item = results[i];
+                    if (item.status === 'fulfilled' && item.value) {
+                        profitData[i] = item.value.profit;
+                        expensesData[i] = item.value.expenses;
+                        appliedCount++;
+                    }
+                }
+
+                chartMetadata.profitData = profitData;
+                chartMetadata.expensesData = expensesData;
+
+                if (trendChart && trendChart.data && trendChart.data.datasets && trendChart.data.datasets.length >= 2) {
+                    trendChart.data.datasets[0].data = [...profitData];
+                    trendChart.data.datasets[1].data = [...expensesData];
+                    trendChart.update('none');
+                }
+
+                const failedCount = results.length - appliedCount;
+                if (failedCount > 0) {
+                    console.warn(`按日卡片口径覆盖部分失败: ${failedCount}/${results.length}`);
+                }
+            })
+            .catch((pointError) => {
+                console.warn('按日卡片口径加载失败，回退当前图表数据:', pointError);
+            });
+    }
 }
 
 // 创建图表的辅助函数
@@ -1331,36 +1411,36 @@ function createChart(canvas, chartData) {
             showError('Chart library not loaded, please refresh the page');
             return;
         }
-        
+
         // 检查 canvas 是否存在
         if (!canvas) {
             console.error('Canvas 元素不存在');
             return;
         }
-        
+
         const ctx = canvas.getContext('2d');
         if (!ctx) {
             console.error('无法获取 canvas context');
             return;
         }
-        
+
         // 从外部变量获取元数据
         const sortedDates = chartMetadata.sortedDates || [];
         const capitalData = chartMetadata.capitalData || [];
         const expensesData = chartMetadata.expensesData || [];
         const profitData = chartMetadata.profitData || [];
-        
+
         // 确保 chartData 结构正确
         if (!chartData || !chartData.labels || !chartData.datasets) {
             console.error('图表数据格式不正确', chartData);
             return;
         }
-        
+
         console.log('创建图表，数据点数量:', chartData.labels.length, '数据集数量:', chartData.datasets.length);
-        
+
         // 等价于 CSS clamp(9px, 0.82vw, 15px)
         const axisFontSize = Math.round(Math.min(15, Math.max(9, (0.82 / 100) * window.innerWidth)));
-        
+
         // 如果图表已存在，先销毁
         if (trendChart) {
             try {
@@ -1370,7 +1450,7 @@ function createChart(canvas, chartData) {
             }
             trendChart = null;
         }
-        
+
         trendChart = new Chart(ctx, {
             type: 'line',
             data: chartData,
@@ -1388,7 +1468,7 @@ function createChart(canvas, chartData) {
                     y: {
                         beginAtZero: false,
                         ticks: {
-                            callback: function(value) {
+                            callback: function (value) {
                                 return formatCurrency(value);
                             },
                             font: { size: axisFontSize }
@@ -1408,11 +1488,11 @@ function createChart(canvas, chartData) {
                             autoSkip: false,
                             maxTicksLimit: undefined,
                             // 多月/年份范围：按月份显示刻度；短范围仍按天，但只在每月1号显示标签
-                            callback: function(value, index) {
+                            callback: function (value, index) {
                                 try {
                                     // 优先使用 sortedDates 中的原始日期键（与数据一一对应）
                                     const rawDate = (sortedDates && sortedDates[index]) ||
-                                                    (chartData.labels && chartData.labels[index]);
+                                        (chartData.labels && chartData.labels[index]);
                                     if (!rawDate) return '';
 
                                     // 多月/年份范围：rawDate 为 "YYYY-MM"，显示 "Mon YYYY"
@@ -1468,7 +1548,7 @@ function createChart(canvas, chartData) {
                             size: 12
                         },
                         callbacks: {
-                            title: function(context) {
+                            title: function (context) {
                                 if (context.length > 0) {
                                     const dataIndex = context[0].dataIndex;
                                     const date = sortedDates[dataIndex];
@@ -1492,12 +1572,12 @@ function createChart(canvas, chartData) {
                                 }
                                 return '';
                             },
-                            label: function(context) {
+                            label: function (context) {
                                 const label = context.dataset.label || '';
                                 const value = context.parsed.y;
                                 return label + ': RM ' + formatCurrency(value);
                             },
-                            afterBody: function(context) {
+                            afterBody: function (context) {
                                 if (context.length > 0) {
                                     const dataIndex = context[0].dataIndex;
                                     const date = sortedDates[dataIndex];
@@ -1505,13 +1585,11 @@ function createChart(canvas, chartData) {
                                         try {
                                             const dateObj = new Date(date);
                                             if (!isNaN(dateObj.getTime())) {
-                                                const expenses = expensesData[dataIndex] || 0;
-                                                const profit = profitData[dataIndex] || 0;
                                                 return [
                                                     '',
                                                     '--- Daily Summary ---',
-                                                    `Profit: RM ${formatCurrency(profit)}`,
-                                                    `Expenses: RM ${formatCurrency(expenses)}`
+                                                    `Profit: RM ${formatCurrency(profitData[dataIndex] || 0)}`,
+                                                    `Expenses: RM ${formatCurrency(expensesData[dataIndex] || 0)}`
                                                 ];
                                             }
                                         } catch (e) {
@@ -1546,7 +1624,7 @@ function loadOwnerCompanies() {
                     const wrapper = document.getElementById('company-buttons-wrapper');
                     const container = document.getElementById('company-buttons-container');
                     container.innerHTML = '';
-                    
+
                     data.data.forEach(company => {
                         const btn = document.createElement('button');
                         btn.className = 'transaction-company-btn';
@@ -1555,12 +1633,12 @@ function loadOwnerCompanies() {
                         if (parseInt(company.id) === parseInt(window.companyId)) {
                             btn.classList.add('active');
                         }
-                        btn.addEventListener('click', function() {
+                        btn.addEventListener('click', function () {
                             switchCompany(company.id, company.company_id);
                         });
                         container.appendChild(btn);
                     });
-                    
+
                     wrapper.style.display = 'flex';
                 } else if (data.data.length === 1) {
                     // 只有一个 company，直接设置
@@ -1623,7 +1701,7 @@ function loadCurrencies() {
                     btn.className = 'transaction-company-btn' + (window.dashboardCurrency === code ? ' active' : '');
                     btn.textContent = code;
                     btn.dataset.currency = code;
-                    btn.addEventListener('click', function() { switchCurrency(code); });
+                    btn.addEventListener('click', function () { switchCurrency(code); });
                     container.appendChild(btn);
                 });
                 initDashboardCurrencyDragDrop();
@@ -1647,18 +1725,18 @@ function initDashboardCurrencyDragDrop() {
     let draggedCode = null;
     container.querySelectorAll('.transaction-company-btn[data-currency]').forEach(btn => {
         btn.setAttribute('draggable', 'true');
-        btn.addEventListener('dragstart', function(e) {
+        btn.addEventListener('dragstart', function (e) {
             draggedCode = btn.getAttribute('data-currency');
             e.dataTransfer.setData('text/plain', draggedCode);
             e.dataTransfer.effectAllowed = 'move';
             btn.classList.add('transaction-currency-dragging');
         });
-        btn.addEventListener('dragend', function() {
+        btn.addEventListener('dragend', function () {
             btn.classList.remove('transaction-currency-dragging');
             draggedCode = null;
         });
     });
-    container.addEventListener('dragover', function(e) {
+    container.addEventListener('dragover', function (e) {
         if (!draggedCode) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -1667,12 +1745,12 @@ function initDashboardCurrencyDragDrop() {
             target.classList.add('transaction-currency-drag-over');
         }
     });
-    container.addEventListener('dragleave', function(e) {
+    container.addEventListener('dragleave', function (e) {
         if (!e.currentTarget.contains(e.relatedTarget)) {
             container.querySelectorAll('.transaction-currency-drag-over').forEach(el => el.classList.remove('transaction-currency-drag-over'));
         }
     });
-    container.addEventListener('drop', function(e) {
+    container.addEventListener('drop', function (e) {
         e.preventDefault();
         container.querySelectorAll('.transaction-currency-drag-over').forEach(el => el.classList.remove('transaction-currency-drag-over'));
         if (!draggedCode) return;
@@ -1714,29 +1792,29 @@ async function switchCurrency(currencyCode) {
 // ==================== 切换 Company ====================
 async function switchCompany(companyId, companyCode) {
     try {
-    // 先更新 session
-    try {
+        // 先更新 session
+        try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
-            
+
             const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`), {
                 signal: controller.signal
             });
-            
+
             clearTimeout(timeoutId);
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP错误: ${response.status}`);
             }
-            
-        const result = await response.json();
-        if (!result.success) {
+
+            const result = await response.json();
+            if (!result.success) {
                 throw new Error(result.error || '更新 session 失败');
-        }
-        if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
-            window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
-        }
-    } catch (error) {
+            }
+            if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
+                window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+            }
+        } catch (error) {
             if (error.name === 'AbortError') {
                 console.error('更新 session 超时');
             } else {
@@ -1744,31 +1822,31 @@ async function switchCompany(companyId, companyCode) {
             }
             showError('Failed to switch company, please refresh the page and try again');
             return;
-    }
-    
-    window.companyId = companyId;
-    
-    // 更新按钮状态
-    const buttons = document.querySelectorAll('.transaction-company-btn');
-    buttons.forEach(btn => {
-        if (parseInt(btn.dataset.companyId) === parseInt(companyId)) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
         }
-    });
-    
-    console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
-    
-    // 切换公司后刷新页面，使侧栏根据新 session 重新渲染（选 C168 时显示 Domain / Announcement）
-    window.location.reload();
-    return;
-    
-    // 以下在 reload 后由页面重新加载时执行
-    window.dashboardCurrency = 'MYR';
-    await loadCurrencies();
-    lastRequestParams = null;
-    await loadData(true);
+
+        window.companyId = companyId;
+
+        // 更新按钮状态
+        const buttons = document.querySelectorAll('.transaction-company-btn');
+        buttons.forEach(btn => {
+            if (parseInt(btn.dataset.companyId) === parseInt(companyId)) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
+
+        // 切换公司后刷新页面，使侧栏根据新 session 重新渲染（选 C168 时显示 Domain / Announcement）
+        window.location.reload();
+        return;
+
+        // 以下在 reload 后由页面重新加载时执行
+        window.dashboardCurrency = 'MYR';
+        await loadCurrencies();
+        lastRequestParams = null;
+        await loadData(true);
     } catch (error) {
         console.error('切换公司失败:', error);
         showError('Error switching company');
@@ -1779,7 +1857,7 @@ async function switchCompany(companyId, companyCode) {
 function initChartDataButtons() {
     const buttons = document.querySelectorAll('.chart-data-btn');
     buttons.forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             // 移除所有按钮的 active 类
             buttons.forEach(b => b.classList.remove('active'));
             // 添加当前按钮的 active 类
@@ -1795,20 +1873,20 @@ function initChartDataButtons() {
                         try {
                             const date = new Date(d);
                             if (isNaN(date.getTime())) return d;
-return `${date.getDate()}/${date.getMonth() + 1}`;
-            } catch (e) {
-                return d;
-            }
-        });
-                    
+                            return `${date.getDate()}/${date.getMonth() + 1}`;
+                        } catch (e) {
+                            return d;
+                        }
+                    });
+
                     const allDatasets = [
                         {
                             label: 'Profit',
                             data: chartMetadata.profitData,
                             borderColor: '#3b82f6',
-                            backgroundColor: function(context) {
+                            backgroundColor: function (context) {
                                 const chart = context.chart;
-                                const {ctx, chartArea} = chart;
+                                const { ctx, chartArea } = chart;
                                 if (!chartArea) return null;
                                 const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
                                 gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
@@ -1828,9 +1906,9 @@ return `${date.getDate()}/${date.getMonth() + 1}`;
                             label: 'Expenses',
                             data: chartMetadata.expensesData,
                             borderColor: '#ef4444',
-                            backgroundColor: function(context) {
+                            backgroundColor: function (context) {
                                 const chart = context.chart;
-                                const {ctx, chartArea} = chart;
+                                const { ctx, chartArea } = chart;
                                 if (!chartArea) return null;
                                 const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
                                 gradient.addColorStop(0, 'rgba(239, 68, 68, 0.4)');
@@ -1847,15 +1925,15 @@ return `${date.getDate()}/${date.getMonth() + 1}`;
                             dataType: 'expenses'
                         }
                     ];
-                    
+
                     // 默认显示所有数据集（Profit 和 Expenses）
                     let filteredDatasets = allDatasets;
-                    
+
                     const chartData = {
                         labels: dates,
                         datasets: filteredDatasets
                     };
-                    
+
                     // 销毁旧图表并创建新图表
                     if (trendChart) {
                         trendChart.destroy();
@@ -1870,7 +1948,7 @@ return `${date.getDate()}/${date.getMonth() + 1}`;
 
 // 页面可见性优化：当页面不可见时，暂停自动刷新
 let isPageVisible = true;
-document.addEventListener('visibilitychange', function() {
+document.addEventListener('visibilitychange', function () {
     isPageVisible = !document.hidden;
     if (isPageVisible && dateRange.startDate && dateRange.endDate) {
         // 页面重新可见时，重置请求参数，允许重新加载
@@ -1884,7 +1962,7 @@ document.addEventListener('visibilitychange', function() {
     function observeChartContainer() {
         const container = document.querySelector('.dashboard-chart-container');
         if (!container || typeof ResizeObserver === 'undefined') return;
-        const ro = new ResizeObserver(function() {
+        const ro = new ResizeObserver(function () {
             if (trendChart) trendChart.resize();
         });
         ro.observe(container);
@@ -1898,13 +1976,13 @@ document.addEventListener('visibilitychange', function() {
 
 // 初始化 - 使用防抖避免多次调用
 let isInitializing = false;
-document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('DOMContentLoaded', async function () {
     if (isInitializing) return;
     isInitializing = true;
-    
+
     try {
         // 添加全局错误处理
-        window.addEventListener('error', function(event) {
+        window.addEventListener('error', function (event) {
             console.error('全局错误:', event.error);
             if (event.error && event.error.message) {
                 showError('Page error: ' + event.error.message);
@@ -1913,13 +1991,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             event.preventDefault(); // 阻止默认错误处理
         });
-        
-        window.addEventListener('unhandledrejection', function(event) {
+
+        window.addEventListener('unhandledrejection', function (event) {
             console.error('未处理的Promise拒绝:', event.reason);
             showError('Request failed, please refresh the page');
             event.preventDefault(); // 阻止默认错误处理
         });
-        
+
         // 提前发起公司列表请求，与 initDatePickers 并行，减少首屏等待
         const loadCompaniesPromise = loadOwnerCompanies();
         initDatePickers();

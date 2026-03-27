@@ -803,9 +803,6 @@ function restoreFormulaSourceFromRefresh() {
         if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
         if (data.enableInputMethod != null) row.setAttribute('data-enable-input-method', String(data.enableInputMethod));
         const srcPct = (data.sourcePercent != null ? String(data.sourcePercent) : '').trim();
-        if (srcPct !== '' && formula && Math.abs(parseFloat(srcPct) - 1) < 0.0001 && typeof removeTrailingSourcePercentExpression === 'function') {
-            formula = removeTrailingSourcePercentExpression(formula) || formula;
-        }
         if (cells[4]) {
             const imForTooltip = (data.inputMethod != null ? data.inputMethod : row.getAttribute('data-input-method')) || '';
             const titleAttr = imForTooltip ? ` title="${String(imForTooltip).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
@@ -837,9 +834,16 @@ function restoreFormulaSourceFromRefresh() {
         if (resolvedRate != null && String(resolvedRate).trim() !== '' && cells[7]) {
             cells[7].textContent = String(resolvedRate).trim();
         }
+        // 用当前单元格中最终显示的公式（finalFormula）来重算 Processed Amount，
+        // 而非被 removeTrailingSourcePercentExpression 可能误截的 formula 变量。
+        // sourcePercent 优先使用 data-source-percent 属性值（srcPct），
+        // 而非 data.source（Source 列文本，不一定等于 sourcePercent）。
+        const formulaForRecalc = (cells[4] && cells[4].querySelector('.formula-text'))
+            ? (cells[4].querySelector('.formula-text').textContent || '').trim()
+            : formula;
         recalculateAndRenderProcessedAmount(row, {
-            formulaOperators: formula,
-            sourcePercent: sourcePercentText,
+            formula: formulaForRecalc,
+            sourcePercent: srcPct || sourcePercentText,
             inputMethod,
             enableInputMethod,
             enableSourcePercent,
