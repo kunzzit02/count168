@@ -942,6 +942,11 @@ function setLoadingState(loading) {
     const chartDateRange = document.getElementById('chart-date-range');
     if (!chartDateRange) return;
     if (loading) {
+        // 正在加载时，销毁旧图表，避免用户看到旧数据
+        if (trendChart) {
+            trendChart.destroy();
+            trendChart = null;
+        }
         chartDateRange.textContent = 'Loading data...';
         chartDateRange.style.color = '#6b7280';
     } else {
@@ -1120,6 +1125,17 @@ async function updateChart(data) {
     const expensesData = [];
     const profitData = [];
 
+    // 初始化累计值（从 API 返回的 initial_balance 开始）
+    // initial_balance 是起始日期之前的余额总和（B/F）
+    const initialBalance = {
+        capital: data.initial_balance ? parseFloat(data.initial_balance.capital || 0) : 0,
+        expenses: data.initial_balance ? parseFloat(data.initial_balance.expenses || 0) : 0,
+        profit: data.initial_balance ? parseFloat(data.initial_balance.profit || 0) : 0
+    };
+    let currentCapital = initialBalance.capital;
+    let currentExpenses = initialBalance.expenses;
+    let currentProfit = initialBalance.profit;
+
     // 检查是否应按月份聚合（年份范围或跨越多个月）
     if (shouldAggregateByMonth() && dateRange.startDate && dateRange.endDate) {
         // 按月份聚合数据
@@ -1153,20 +1169,24 @@ async function updateChart(data) {
                 const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const dateObj = new Date(dateStr);
                 if (dateObj >= startDate && dateObj <= endDate) {
-                    const capital = parseFloat(dailyData.capital && dailyData.capital[dateStr] ? dailyData.capital[dateStr] : 0) || 0;
-                    const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
-                    const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-                    const displayProfit = capital + rawExpenses;
-                    monthCapital += capital;
-                    monthExpenses += displayExpenses;
-                    monthProfit += displayProfit;
+                    const profitDelta = parseFloat(dailyData.profit && dailyData.profit[dateStr] ? dailyData.profit[dateStr] : 0) || 0;
+                    const expensesDelta = parseFloat(dailyData.expenses && dailyData.expenses[dateStr] ? dailyData.expenses[dateStr] : 0) || 0;
+                    const capitalDelta = parseFloat(dailyData.capital && dailyData.capital[dateStr] ? dailyData.capital[dateStr] : 0) || 0;
+                    
+                    monthProfit += profitDelta;
+                    monthExpenses += (expensesDelta > 0 ? -expensesDelta : expensesDelta);
+                    monthCapital += capitalDelta;
                 }
             }
 
+            currentProfit += monthProfit;
+            currentExpenses += monthExpenses;
+            currentCapital += monthCapital;
+
             dates.push(monthKey);
-            capitalData.push(monthCapital);
-            expensesData.push(monthExpenses);
-            profitData.push(monthProfit);
+            capitalData.push(currentCapital);
+            expensesData.push(currentExpenses);
+            profitData.push(currentProfit);
         });
     } else {
         // 非年份范围：按天显示
@@ -1241,19 +1261,27 @@ async function updateChart(data) {
         allSortedDates.forEach(date => {
             try {
                 dates.push(date);
-                const capital = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
-                const rawExpenses = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
-                const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-                const displayProfit = capital + rawExpenses;
-                capitalData.push(capital);
-                expensesData.push(displayExpenses);
-                profitData.push(displayProfit);
+                
+                // 使用 profit 和 expenses 角色，与仪表盘卡片逻辑一致
+                const profitDelta = parseFloat(dailyData.profit && dailyData.profit[date] ? dailyData.profit[date] : 0) || 0;
+                const expensesDelta = parseFloat(dailyData.expenses && dailyData.expenses[date] ? dailyData.expenses[date] : 0) || 0;
+                
+                // 累计计算
+                currentProfit += profitDelta;
+                currentExpenses += (expensesDelta > 0 ? -expensesDelta : expensesDelta);
+
+                profitData.push(currentProfit);
+                expensesData.push(currentExpenses);
+                
+                // 如果需要 capital 数据（虽然当前图表不显示），也可以累计
+                const capitalDelta = parseFloat(dailyData.capital && dailyData.capital[date] ? dailyData.capital[date] : 0) || 0;
+                currentCapital += capitalDelta;
+                capitalData.push(currentCapital);
             } catch (e) {
                 console.warn('Error processing date data:', date, e);
-                // 如果出错，也添加0值
-                capitalData.push(0);
-                expensesData.push(0);
-                profitData.push(0);
+                profitData.push(currentProfit);
+                expensesData.push(currentExpenses);
+                capitalData.push(currentCapital);
             }
         });
     }
@@ -1353,53 +1381,6 @@ async function updateChart(data) {
 
     // 创建新图表
     createChart(chartCanvas, chartData);
-
-    // 非按月聚合范围：先渲染，再异步用“按日卡片口径”覆盖，避免首屏空白
-    if (!shouldAggregateByMonth() && dates.length > 0) {
-        const requestKeyAtStart = JSON.stringify({
-            date_from: dateRange.startDate,
-            date_to: dateRange.endDate,
-            company_id: window.companyId,
-            currency: window.dashboardCurrency || ''
-        });
-        Promise.allSettled(dates.map((d) => fetchCardPointByDate(d)))
-            .then((results) => {
-                const requestKeyNow = JSON.stringify({
-                    date_from: dateRange.startDate,
-                    date_to: dateRange.endDate,
-                    company_id: window.companyId,
-                    currency: window.dashboardCurrency || ''
-                });
-                if (requestKeyNow !== requestKeyAtStart) return;
-
-                let appliedCount = 0;
-                for (let i = 0; i < results.length; i++) {
-                    const item = results[i];
-                    if (item.status === 'fulfilled' && item.value) {
-                        profitData[i] = item.value.profit;
-                        expensesData[i] = item.value.expenses;
-                        appliedCount++;
-                    }
-                }
-
-                chartMetadata.profitData = profitData;
-                chartMetadata.expensesData = expensesData;
-
-                if (trendChart && trendChart.data && trendChart.data.datasets && trendChart.data.datasets.length >= 2) {
-                    trendChart.data.datasets[0].data = [...profitData];
-                    trendChart.data.datasets[1].data = [...expensesData];
-                    trendChart.update('none');
-                }
-
-                const failedCount = results.length - appliedCount;
-                if (failedCount > 0) {
-                    console.warn(`按日卡片口径覆盖部分失败: ${failedCount}/${results.length}`);
-                }
-            })
-            .catch((pointError) => {
-                console.warn('按日卡片口径加载失败，回退当前图表数据:', pointError);
-            });
-    }
 }
 
 // 创建图表的辅助函数
