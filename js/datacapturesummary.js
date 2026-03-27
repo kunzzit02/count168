@@ -1472,6 +1472,11 @@ function populateOriginalTableWithColumnAData(tableData) {
             const rateCheckbox = document.createElement('input');
             rateCheckbox.type = 'checkbox';
             rateCheckbox.className = 'rate-checkbox';
+            rateCheckbox.addEventListener('change', function () {
+                if (typeof handleRateCheckboxChange === 'function') {
+                    handleRateCheckboxChange(this);
+                }
+            });
             rateCell.appendChild(rateCheckbox);
             row.appendChild(rateCell);
 
@@ -2554,6 +2559,33 @@ function getColumnValueFromSelectedRow(columnNumber) {
     }
 
     return null;
+}
+
+// Handle rate checkbox changes dynamically to instantly apply rate calculation
+function handleRateCheckboxChange(checkbox) {
+    if (!checkbox) return;
+    const row = checkbox.closest('tr');
+    if (!row) return;
+
+    if (checkbox.checked) {
+        const rateInput = document.getElementById('rateInput');
+        const cells = row.querySelectorAll('td');
+        const rateValueCell = cells[7];
+        if (rateValueCell && rateInput) {
+            if (rateInput.value.trim() !== '') {
+                rateValueCell.textContent = rateInput.value.trim();
+            } else {
+                rateValueCell.textContent = '';
+            }
+        }
+    }
+
+    if (typeof recalculateAndRenderProcessedAmount === 'function') {
+        recalculateAndRenderProcessedAmount(row, { updateTotal: true });
+    }
+
+    if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
 }
 
 // Recalculate all rows with rate checkbox checked when rateInput changes
@@ -11979,6 +12011,11 @@ function updateFormulaAndProcessedAmount(row, data) {
         const rateCheckbox = document.createElement('input');
         rateCheckbox.type = 'checkbox';
         rateCheckbox.className = 'rate-checkbox';
+        rateCheckbox.addEventListener('change', function () {
+            if (typeof handleRateCheckboxChange === 'function') {
+                handleRateCheckboxChange(this);
+            }
+        });
 
         // Set checkbox state based on data.rate (from database) or rateInput
         const rateInput = document.getElementById('rateInput');
@@ -13387,6 +13424,11 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
     const rateCheckbox = document.createElement('input');
     rateCheckbox.type = 'checkbox';
     rateCheckbox.className = 'rate-checkbox';
+    rateCheckbox.addEventListener('change', function () {
+        if (typeof handleRateCheckboxChange === 'function') {
+            handleRateCheckboxChange(this);
+        }
+    });
     rateCell.appendChild(rateCheckbox);
     row.appendChild(rateCell);
 
@@ -13789,6 +13831,11 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         const rateCheckbox = document.createElement('input');
         rateCheckbox.type = 'checkbox';
         rateCheckbox.className = 'rate-checkbox';
+        rateCheckbox.addEventListener('change', function () {
+            if (typeof handleRateCheckboxChange === 'function') {
+                handleRateCheckboxChange(this);
+            }
+        });
 
         // Set checkbox state based on data.rate (from database) or rateInput
         const rateInput = document.getElementById('rateInput');
