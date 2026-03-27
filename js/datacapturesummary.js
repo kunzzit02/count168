@@ -1,15 +1,3 @@
-window.__PROCESS_AMOUNT_READY = false;
-
-async function init() {
-    //等API/数据准备
-    await loadSomething();
-
-    window.__PROCESS_AMOUNT_READY = true;
-
-    //初始化计算
-    recalcAllRows(false);
-}
-
 // Notification functions
 function showNotification(title, message, type = 'success') {
     const popup = document.getElementById('notificationPopup');
@@ -113,29 +101,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Load captured table data and render it（async：会先拉取服务端 Summary 状态再渲染）
-
-        loadAndRenderCapturedTable()
-            .then(function () {
-                waitForTableAndFix();
-
-                setTimeout(() => {
-                    console.log('✅ ALL RESTORE DONE → start final calculation');
-                    window.__PROCESS_AMOUNT_READY = true;
-                    const rows = document.querySelectorAll('#summaryTableBody tr');
-                    rows.forEach(row => {
-                        // 清掉旧标记（防止之前错误计算）
-                        row.removeAttribute('data-calculated');
-                        recalculateAndRenderProcessedAmount(row, { updateTotal: false });
-                    });
-                    if (typeof updateProcessedAmountTotal === 'function') {
-                        updateProcessedAmountTotal();
-                    }
-                }, 300);
-            }).catch(function (e) {
-                console.warn('loadAndRenderCapturedTable error:', e);
-                hideLoadingState();
-                showEmptyState();
-            });
+        loadAndRenderCapturedTable().catch(function (e) {
+            console.warn('loadAndRenderCapturedTable error:', e);
+            hideLoadingState();
+            showEmptyState();
+        });
 
         // Check for URL parameters and show notifications
         const urlParams = new URLSearchParams(window.location.search);
@@ -157,13 +127,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-function safeRecalculate(row, options) {
-    const { force = false } = options;
-
-    if (!force && !window.__PROCESS_AMOUNT_READY) return;
-    recalculateAndRenderProcessedAmount(row, options);
-}
-
 // Save rate values on browser refresh (F5); do not save when leaving via Back or Submit
 window.addEventListener('beforeunload', function () {
     if (!window.isNavigatingAwayByBackOrSubmit && typeof saveRateValuesForRefresh === 'function') {
@@ -178,68 +141,6 @@ window.addEventListener('beforeunload', function () {
 window.onclick = function () {
     // Prevent modals from closing when clicking outside their content.
 }
-
-function fixAllIdProductDisplay() {
-    const rows = document.querySelectorAll('#summaryTableBody tr');
-
-    rows.forEach(row => {
-        const cell = row.querySelector('td:first-child');
-        if (!cell) return;
-
-        const id = row.getAttribute('data-id-product') || '';
-        const desc = row.getAttribute('data-original-description') || '';
-
-        cell.textContent = desc ? `${id}（${desc}）` : id;
-    });
-}
-
-function hydrateRowDataAttributes() {
-    const rows = document.querySelectorAll('#summaryTableBody tr');
-
-    rows.forEach(row => {
-        const cell = row.querySelector('td:first-child');
-        if (!cell) return;
-
-        let rawId = row.getAttribute('data-id-product') || '';
-        let desc = row.getAttribute('data-original-description') || '';
-
-        // 如果缺任何一个，就从 UI 解析
-        if (!rawId || !desc) {
-            const text = cell.textContent.trim();
-
-            let idPart = text;
-            let descPart = '';
-
-            const match = text.match(/^(.*?)[\s]*[\(（](.*?)[\)）]$/);
-            if (match) {
-                idPart = match[1].trim();
-                descPart = match[2].trim();
-            }
-
-            if (!rawId) row.setAttribute('data-id-product', idPart);
-            if (!desc) row.setAttribute('data-original-description', descPart);
-        }
-    });
-}
-
-function waitForTableAndFix() {
-    const target = document.querySelector('#summaryTableBody');
-    if (!target) return;
-
-    const observer = new MutationObserver(() => {
-        const rows = target.querySelectorAll('tr');
-        if (rows.length > 0) {
-            // 真正有数据了才执行
-            hydrateRowDataAttributes();
-            fixAllIdProductDisplay();
-
-            observer.disconnect(); // 只执行一次
-        }
-    });
-
-    observer.observe(target, { childList: true });
-}
-
 
 // Escape special regex characters to match them literally
 function escapeRegex(str) {
@@ -355,38 +256,12 @@ function normalizeIdProductForKey(idProduct) {
 function getSummaryRowKey(row) {
     const cells = row.querySelectorAll('td');
 
-    //将id product与description优先从data获取
-    let rawIdProduct = row.getAttribute('data-id-product') || '';
-    let description = row.getAttribute('data-original-description') || '';
-
-    if ((!rawIdProduct || !description) && cells[0]) {
-        const text = cells[0].textContent || '';
-
-        let idPart = text;
-        let descPart = '';
-
-        const match = text.match(/^(.*?)[\s]*[\(（](.*?)[\)）]$/);
-        if (match) {
-            idPart = match[1].trim();
-            descPart = match[2].trim();
-        }
-
-        //分开补，不互相覆盖
-        if (!rawIdProduct) {
-            rawIdProduct = idPart;
-            row.setAttribute('data-id-product', idPart);
-        }
-
-        if (!description) {
-            description = descPart;
-            row.setAttribute('data-original-description', descPart);
-        }
-    }
-
+    const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim() : '');
     const idProduct = typeof normalizeIdProductForKey === 'function'
         ? normalizeIdProductForKey(rawIdProduct)
         : rawIdProduct;
-
+    // 使用行上的原始描述（不从单元格文本重新解析），确保带描述与不带描述的行在 key 上可区分
+    const description = (row && row.getAttribute) ? (row.getAttribute('data-original-description') || '') : '';
     const account = (cells[1] && cells[1].textContent ? cells[1].textContent.trim() : '');
     const currency = (cells[3] && cells[3].textContent ? cells[3].textContent.trim() : '');
 
@@ -418,7 +293,7 @@ function getSummaryRowKey(row) {
 // 结构：id_product\taccount(identity)\tcurrency\tproductType\tsubOrder
 function getSummaryRowStableKey(row) {
     const cells = row.querySelectorAll('td');
-    const rawIdProduct = (row && row.getAttribute) ? (row.getAttribute('data-id-product') || '') : '';
+    const rawIdProduct = (cells[0] && cells[0].textContent ? cells[0].textContent.trim().replace(/\s+/g, ' ') : '');
     const idProduct = typeof normalizeIdProductForKey === 'function'
         ? normalizeIdProductForKey(rawIdProduct)
         : rawIdProduct;
@@ -617,12 +492,12 @@ function saveFormulaSourceForRefresh(opts) {
     const processId = getCurrentProcessId();
     const processCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
     const rows = summaryTableBody.querySelectorAll('tr');
-    // const byKey = {};
+    const byKey = {};
     const byStableKey = {};
     const rowOrder = [];
     rows.forEach(row => {
-        // const key = getSummaryRowKey(row);
-        // const normKey = normalizeSummaryRowKey(key);
+        const key = getSummaryRowKey(row);
+        const normKey = normalizeSummaryRowKey(key);
         const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
         // 为每一行分配稳定且唯一的 rowUid，用于在 refresh 前后精确识别同一行
         let rowUid = row.getAttribute('data-row-uid');
@@ -664,7 +539,7 @@ function saveFormulaSourceForRefresh(opts) {
             rowUid: rowUid,
             originalDescription: nextDescription
         };
-        // byKey[normKey] = nextData;
+        byKey[normKey] = nextData;
         if (stableKey) {
             const existingStable = byStableKey[stableKey];
             const shouldPreferExistingStable =
@@ -686,8 +561,7 @@ function saveFormulaSourceForRefresh(opts) {
             rateValuesByKey[stableKey] = rv;
         });
     }
-    const payload = { processId: processId != null ? processId : null, processCode, rowsByStableKey: byStableKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey, savedAt: Date.now() };
-    //rowsByKey: byKey,
+    const payload = { processId: processId != null ? processId : null, processCode, rowsByKey: byKey, rowsByStableKey: byStableKey, rowOrder: rowOrder, rateValuesByKey: rateValuesByKey, savedAt: Date.now() };
     try {
         localStorage.setItem('capturedTableFormulaSourceForRefresh', JSON.stringify(payload));
         if (includeRateValue && Object.keys(rateValuesByKey).length > 0) {
@@ -769,22 +643,15 @@ function hasRestorableSummaryState(saved) {
     return false;
 }
 
-// function getSavedSummaryRowData(row, rowsByKey, rowsByStableKey) {
-//     if (!row) return null;
-//     const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
-//     if (stableKey && rowsByStableKey && typeof rowsByStableKey === 'object' && rowsByStableKey[stableKey]) {
-//         return rowsByStableKey[stableKey];
-//     }
-//     const key = getSummaryRowKey(row);
-//     const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
-//     return (rowsByKey && typeof rowsByKey === 'object') ? (rowsByKey[normKey] || rowsByKey[key] || null) : null;
-// }
-
-function getSavedSummaryRowData(row, rowsByStableKey) {
-    if (!row || !rowsByStableKey) return null;
-
-    const stableKey = getSummaryRowStableKey(row);
-    return rowsByStableKey[stableKey] || null;
+function getSavedSummaryRowData(row, rowsByKey, rowsByStableKey) {
+    if (!row) return null;
+    const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
+    if (stableKey && rowsByStableKey && typeof rowsByStableKey === 'object' && rowsByStableKey[stableKey]) {
+        return rowsByStableKey[stableKey];
+    }
+    const key = getSummaryRowKey(row);
+    const normKey = typeof normalizeSummaryRowKey === 'function' ? normalizeSummaryRowKey(key) : key;
+    return (rowsByKey && typeof rowsByKey === 'object') ? (rowsByKey[normKey] || rowsByKey[key] || null) : null;
 }
 
 function readSummaryStateFromLocalStorage() {
@@ -889,7 +756,7 @@ function restoreFormulaSourceFromRefresh() {
     const rows = summaryTableBody.querySelectorAll('tr');
     const stableRateValuesByKey = (saved && saved.rateValuesByKey && typeof saved.rateValuesByKey === 'object') ? saved.rateValuesByKey : null;
     rows.forEach((row) => {
-        const data = getSavedSummaryRowData(row, byStableKey);
+        const data = getSavedSummaryRowData(row, byKey, byStableKey);
         const cells = row.querySelectorAll('td');
         const stableKey = typeof getSummaryRowStableKey === 'function' ? getSummaryRowStableKey(row) : '';
         const stableRate = (stableRateValuesByKey && stableKey) ? stableRateValuesByKey[stableKey] : null;
@@ -968,7 +835,7 @@ function restoreFormulaSourceFromRefresh() {
         if (resolvedRate != null && String(resolvedRate).trim() !== '' && cells[7]) {
             cells[7].textContent = String(resolvedRate).trim();
         }
-        safeRecalculate(row, {
+        recalculateAndRenderProcessedAmount(row, {
             formulaOperators: formula,
             sourcePercent: sourcePercentText,
             inputMethod,
@@ -1004,11 +871,8 @@ function restoreRateValuesFromRefresh() {
         const cells = row.querySelectorAll('td');
         const rateValueCell = cells[7];
         if (!rateValueCell || val === undefined || val === null || String(val).trim() === '') return false;
-        const input = rateValueCell.querySelector('.rate-value-input');
-        if (input) {
-            input.value = val;
-        }
-        safeRecalculate(row, { updateTotal: false });
+        rateValueCell.textContent = String(val).trim();
+        recalculateAndRenderProcessedAmount(row, { updateTotal: false });
         return true;
     }
 
@@ -1150,7 +1014,6 @@ async function loadAndRenderCapturedTable() {
             if (typeof window.DATACAPTURESUMMARY_CAPTURE_ID !== 'undefined') {
                 window.DATACAPTURESUMMARY_CAPTURE_ID = null;
             }
-
             const parsedTableData = JSON.parse(tableData);
             const parsedProcessData = JSON.parse(processData);
 
@@ -1204,11 +1067,6 @@ async function loadAndRenderCapturedTable() {
 
                 // Populate the original table with data from column A (transformed)
                 populateOriginalTableWithColumnAData(transformedTableData);
-
-                setTimeout(() => {
-                    bindRateValueEvents();
-                }, 100);
-
                 // Build initial used accounts from any existing rows
                 rebuildUsedAccountIds();
 
@@ -1435,34 +1293,6 @@ function renderCapturedTable(tableData) {
     setTimeout(() => {
         makeTableCellsClickable();
     }, 100);
-
-    setTimeout(() => {
-        bindRateValueEvents();
-    }, 100);
-}
-
-function bindRateValueEvents() {
-    const inputs = document.querySelectorAll('.rate-value-input');
-
-    inputs.forEach(input => {
-        input.addEventListener('input', function () {
-            const row = this.closest('tr');
-
-            let value = parseFloat(this.value);
-            if (isNaN(value)) value = 0;
-
-            //存到 row attribute（方便其他函数用）
-            row.setAttribute('data-rate-value', value);
-
-            //重新计算
-            safeRecalculate(row, { updateTotal: true });
-
-            //保存（refresh用）
-            if (typeof saveRateValuesForRefresh === 'function') {
-                saveRateValuesForRefresh();
-            }
-        });
-    });
 }
 
 // Populate the original table's Id Product column with data from column A
@@ -1599,8 +1429,6 @@ function populateOriginalTableWithColumnAData(tableData) {
             row.setAttribute('data-row-index', String(originalRowIndex));
             row.setAttribute('data-product-type', 'main');
 
-            row.setAttribute('data-id-product', value.trim());
-
             // Id Product column (merged main and sub) - title 用于悬停显示完整 id_product
             const idProductCell = document.createElement('td');
             idProductCell.textContent = value;
@@ -1644,19 +1472,22 @@ function populateOriginalTableWithColumnAData(tableData) {
             const rateCheckbox = document.createElement('input');
             rateCheckbox.type = 'checkbox';
             rateCheckbox.className = 'rate-checkbox';
+            rateCheckbox.addEventListener('change', function () {
+                if (typeof handleRateCheckboxChange === 'function') {
+                    handleRateCheckboxChange(this);
+                }
+            });
             rateCell.appendChild(rateCheckbox);
             row.appendChild(rateCell);
 
             // Rate Value column (new column for individual rate input)
             const rateValueCell = document.createElement('td');
-            rateValueCell.innerHTML = `
-                <input 
-                    type="number" 
-                    class="rate-value-input"
-                    step="0.0001"
-                    style="width:80px;text-align:center;"
-                />
-            `;
+            rateValueCell.style.textAlign = 'center';
+            rateValueCell.classList.add('editable-cell');
+            rateValueCell.style.cursor = 'text';
+            rateValueCell.textContent = '';
+            // Make cell editable on click
+            attachRateValueEditListener(rateValueCell, row);
             row.appendChild(rateValueCell);
 
             // Processed Amount column
@@ -1949,7 +1780,7 @@ function isNewIdProductColumnFormat(sourceColumnsValue) {
 
 // Parse new format source_columns and get cell values
 // id_product 抓取完整（可含冒号），如 G8:GAMEPLAY (M)- RSLOTS - AB4D55MYR (T38)
-function getCellValuesFromNewFormat(sourceColumnsValue) {
+function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue) {
     if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
         console.log('getCellValuesFromNewFormat: sourceColumnsValue is empty');
         return [];
@@ -2294,7 +2125,7 @@ function handleAddAccount(button, productValue) {
 }
 
 // Show Edit Formula Form as modal positioned slightly towards top
-function showEditFormulaForm(productValue, prePopulatedData = null) {
+function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
     // 规格：非编辑已有行时（新增）不沿用上次编辑的行货币
     if (!prePopulatedData || !prePopulatedData.accountDbId) {
         window._editFormulaRowCurrency = null;
@@ -2730,6 +2561,33 @@ function getColumnValueFromSelectedRow(columnNumber) {
     return null;
 }
 
+// Handle rate checkbox changes dynamically to instantly apply rate calculation
+function handleRateCheckboxChange(checkbox) {
+    if (!checkbox) return;
+    const row = checkbox.closest('tr');
+    if (!row) return;
+
+    if (checkbox.checked) {
+        const rateInput = document.getElementById('rateInput');
+        const cells = row.querySelectorAll('td');
+        const rateValueCell = cells[7];
+        if (rateValueCell && rateInput) {
+            if (rateInput.value.trim() !== '') {
+                rateValueCell.textContent = rateInput.value.trim();
+            } else {
+                rateValueCell.textContent = '';
+            }
+        }
+    }
+
+    if (typeof recalculateAndRenderProcessedAmount === 'function') {
+        recalculateAndRenderProcessedAmount(row, { updateTotal: true });
+    }
+
+    if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
+}
+
 // Recalculate all rows with rate checkbox checked when rateInput changes
 function recalculateAllRowsWithRate() {
     const rateInput = document.getElementById('rateInput');
@@ -2740,9 +2598,6 @@ function recalculateAllRowsWithRate() {
 
     const rows = summaryTableBody.querySelectorAll('tr');
     rows.forEach(row => {
-        //强制重算
-        row.removeAttribute('data-calculated');
-
         const processValue = getProcessValueFromRow(row);
         if (!processValue) return;
 
@@ -2754,26 +2609,18 @@ function recalculateAllRowsWithRate() {
             const rateValueCell = cells[7];
             if (rateValueCell) {
                 if (rateInput.value.trim() !== '') {
-                    const input = rateValueCell.querySelector('input');
-                    if (input) {
-                        input.value = rateInput.value.trim();
-                    } else {
-                        rateValueCell.textContent = rateInput.value.trim();
-                    }
+                    rateValueCell.textContent = rateInput.value.trim();
                 } else {
                     rateValueCell.textContent = '';
                 }
             }
 
             // Recalculate processed amount for this row from the current formula/source state
-            safeRecalculate(row, { updateTotal: false }, { force: force });//通过force绕开READY
+            recalculateAndRenderProcessedAmount(row, { updateTotal: false });
         }
     });
 
-    if (typeof updateProcessedAmountTotal === 'function') {
-        updateProcessedAmountTotal();
-    }
-
+    updateProcessedAmountTotal();
 }
 
 // Submit Rate Values: Update Rate Value for all rows with checked Rate checkbox
@@ -2810,17 +2657,11 @@ function submitRateValues() {
             // Update Rate Value cell with rateInput value
             const rateValueCell = cells[7];
             if (rateValueCell) {
-                const input = rateValueCell.querySelector('input');
-                if (input) {
-                    input.value = rateValue;
-                } else {
-                    rateValueCell.textContent = rateValue;
-                }
+                rateValueCell.textContent = rateValue;
             }
 
-            row.removeAttribute('data-calculated');
             // Recalculate processed amount for this row from the current formula/source state
-            safeRecalculate(row, { updateTotal: true });
+            recalculateAndRenderProcessedAmount(row, { updateTotal: false });
 
             // IMPORTANT: Uncheck the Rate checkbox after submitting, but keep Rate Value
             rateCheckbox.checked = false;
@@ -9421,11 +9262,6 @@ function recalculateAndRenderProcessedAmount(row, options = {}) {
         return { baseProcessedAmount: 0, finalProcessedAmount: 0 };
     }
 
-    if (row.getAttribute('data-calculated') === '1') {
-        console.log('skip duplicate calculation');
-        return;
-    }
-    row.setAttribute('data-calculated', '1');
     const cells = row.querySelectorAll('td');
     const inputMethod = options.inputMethod !== undefined
         ? String(options.inputMethod || '').trim()
@@ -11309,11 +11145,15 @@ function attachRateValueEditListener(cell, row) {
                 // Update cell content with new value (even if empty, user intentionally cleared it)
                 cellElement.textContent = newValue;
 
-                row.removeAttribute('data-calculated');
+                // Identify the LIVE row to prevent operating on a disconnected clone
+                const liveRow = cellElement.closest('tr') || row;
 
-                // Recalculate processed amount when Rate Value changes
-                safeRecalculate(row, { updateTotal: true });
-                // Rate Value 仅在选择行后点 Rate 的 Submit 才持久化，此处不保存
+                // Recalculate processed amount using the live DOM element explicitly 
+                recalculateAndRenderProcessedAmount(liveRow, { updateTotal: true });
+
+                // Immediately save the manual edits so they are persistent
+                if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+                if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
             } else {
                 // Cancel: restore original value
                 cellElement.textContent = savedOriginalValue;
@@ -11333,20 +11173,6 @@ function attachRateValueEditListener(cell, row) {
         });
 
         input.addEventListener('input', function () {
-            const val = this.value.trim();
-
-            const cells = row.querySelectorAll('td');
-            const rateCheckbox = cells[6]?.querySelector('.rate-checkbox');
-
-            // 输入时取消 checkbox
-            if (val && rateCheckbox) {
-                rateCheckbox.checked = false;
-            }
-
-            row.removeAttribute('data-calculated');
-
-            safeRecalculate(row, { updateTotal: true });
-
             // Update captured value as user types
             capturedValue = input.value || '';
         });
@@ -11844,8 +11670,8 @@ function updateRowFormulaFromColumns(row) {
         attachInlineEditListeners(row);
     }
 
-    safeRecalculate(row, {
-        formulaOperators: row.getAttribute('data-formula-operators'),
+    recalculateAndRenderProcessedAmount(row, {
+        formulaOperators: resolvedSourceExpression,
         sourcePercent: sourcePercentText,
         inputMethod,
         enableInputMethod,
@@ -12191,6 +12017,11 @@ function updateFormulaAndProcessedAmount(row, data) {
         const rateCheckbox = document.createElement('input');
         rateCheckbox.type = 'checkbox';
         rateCheckbox.className = 'rate-checkbox';
+        rateCheckbox.addEventListener('change', function () {
+            if (typeof handleRateCheckboxChange === 'function') {
+                handleRateCheckboxChange(this);
+            }
+        });
 
         // Set checkbox state based on data.rate (from database) or rateInput
         const rateInput = document.getElementById('rateInput');
@@ -12221,32 +12052,21 @@ function updateFormulaAndProcessedAmount(row, data) {
             const cells = row.querySelectorAll('td');
             const rateValueCell = cells[7];
 
-            const input = rateValueCell ? rateValueCell.querySelector('input') : null;
-
             // When checkbox is checked, display rateInput value in Rate Value cell
-            if (this.checked) {
+            if (this.checked && rateValueCell) {
                 const rateInput = document.getElementById('rateInput');
-
                 if (rateInput && rateInput.value.trim() !== '') {
-                    if (input) {
-                        input.value = rateInput.value.trim();
-                    } else {
-                        rateValueCell.textContent = rateInput.value.trim();
-                    }
-                }
-            } else {
-                //取消勾选 → 清空
-                if (input) {
-                    input.value = '';
+                    rateValueCell.textContent = rateInput.value.trim();
                 } else {
                     rateValueCell.textContent = '';
                 }
+            } else if (!this.checked && rateValueCell) {
+                // When checkbox is unchecked, clear Rate Value cell
+                rateValueCell.textContent = '';
             }
 
-            row.removeAttribute('data-calculated');
-
             // Recalculate processed amount when rate checkbox is toggled
-            safeRecalculate(row, { updateTotal: true });
+            recalculateAndRenderProcessedAmount(row);
         });
 
         cells[6].appendChild(rateCheckbox);
@@ -12278,7 +12098,7 @@ function updateFormulaAndProcessedAmount(row, data) {
         ((row.getAttribute('data-source-columns') || '').trim() !== '')
     );
     if (canRecalculateProcessedAmount) {
-        safeRecalculate(row, restoredRecalculateOptions);
+        recalculateAndRenderProcessedAmount(row, restoredRecalculateOptions);
     } else if (cells[8]) {
         const fallbackProcessedAmount = Number(data.processedAmount);
         if (!Number.isNaN(fallbackProcessedAmount) && Number.isFinite(fallbackProcessedAmount)) {
@@ -13452,7 +13272,7 @@ function recalculateRowFormula(row, newSourcePercent) {
 
         // Rate column already exists, no need to recreate
 
-        safeRecalculate(row, {
+        recalculateAndRenderProcessedAmount(row, {
             formulaOperators: baseFormula,
             sourcePercent: newSourcePercent,
             inputMethod,
@@ -13610,6 +13430,11 @@ function addSubIdProductRow(parentProcessValue, insertAfterRow = null, rowIndex 
     const rateCheckbox = document.createElement('input');
     rateCheckbox.type = 'checkbox';
     rateCheckbox.className = 'rate-checkbox';
+    rateCheckbox.addEventListener('change', function () {
+        if (typeof handleRateCheckboxChange === 'function') {
+            handleRateCheckboxChange(this);
+        }
+    });
     rateCell.appendChild(rateCheckbox);
     row.appendChild(rateCell);
 
@@ -14012,6 +13837,11 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         const rateCheckbox = document.createElement('input');
         rateCheckbox.type = 'checkbox';
         rateCheckbox.className = 'rate-checkbox';
+        rateCheckbox.addEventListener('change', function () {
+            if (typeof handleRateCheckboxChange === 'function') {
+                handleRateCheckboxChange(this);
+            }
+        });
 
         // Set checkbox state based on data.rate (from database) or rateInput
         const rateInput = document.getElementById('rateInput');
@@ -14061,7 +13891,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
                 rateValueCell.textContent = '';
             }
 
-            safeRecalculate(row);
+            recalculateAndRenderProcessedAmount(row);
         });
 
         cells[6].appendChild(rateCheckbox);
@@ -14192,7 +14022,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         if (!idProductCellForSub.classList.contains('sub-id-product')) {
             idProductCellForSub.classList.add('sub-id-product');
         }
-        // 确保 Sub 行的 Id Product 文本与父 MAIN 一致，避免出现空白导致“分开”的视觉效果
+        // 确保 Sub 行的 Id Product 文本与父 MAIN 一致，避免出现空白导致“分开”的视觉效
         const parentDisplayId = (processValue || '').trim();
         if (parentDisplayId && !idProductCellForSub.textContent.trim()) {
             idProductCellForSub.textContent = parentDisplayId;
@@ -14234,7 +14064,7 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     )
 
     if (canRecalculateSubProcessedAmount) {
-        safeRecalculate(row, {
+        recalculateAndRenderProcessedAmount(row, {
             formulaOperators: subFormulaOperators,
             formula: subFormulaText,
             sourcePercent: subSourcePercent,
@@ -18665,7 +18495,7 @@ function updateBatchSourceColumns() {
                 // Recalculate processed amount when rate checkbox is toggled
                 const cells = row.querySelectorAll('td');
 
-                safeRecalculate(row);
+                recalculateAndRenderProcessedAmount(row);
             });
 
             cells[6].appendChild(rateCheckbox);
@@ -18853,10 +18683,13 @@ function extractOperatorsSequence(expression) {
 let isSubmitting = false; // Flag to prevent duplicate submissions
 
 async function submitSummaryData() {
-    console.log('Submit summary data');
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+        console.log('Submission already in progress, ignoring duplicate request');
+        return;
+    }
 
-    //提交前强制更新
-    recalculateAllRowsWithRate(true);
+    console.log('Submit summary data');
 
     // Disable submit button and set submitting flag
     const submitBtn = document.getElementById('summarySubmitBtn');
@@ -19140,16 +18973,7 @@ async function submitSummaryData() {
             const rateInput = document.getElementById('rateInput');
             // Get Rate Value from Rate Value column (index 7)
             const rateValueCell = cells[7];
-
-            let rateValueFromColumn = '';
-            // 优先从 input 读取
-            const input = rateValueCell ? rateValueCell.querySelector('input') : null;
-
-            if (input) {
-                rateValueFromColumn = input.value.trim();
-            } else if (rateValueCell && rateValueCell.textContent) {
-                rateValueFromColumn = rateValueCell.textContent.trim();
-            }
+            const rateValueFromColumn = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
 
             // Priority: Rate Value column > Global rateInput (if checkbox checked)
             let rateValue = null;
