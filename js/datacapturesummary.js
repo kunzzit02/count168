@@ -11145,9 +11145,13 @@ function attachRateValueEditListener(cell, row) {
                 // Update cell content with new value (even if empty, user intentionally cleared it)
                 cellElement.textContent = newValue;
 
-                // Recalculate processed amount when Rate Value changes
-                recalculateAndRenderProcessedAmount(row);
-                // Rate Value 仅在选择行后点 Rate 的 Submit 才持久化，此处不保存
+                // Recalculate processed amount when Rate Value changes with a tiny delay to ensure DOM is ready
+                // and explicitly update total and save state so the inline edit is fully applied and persistent.
+                setTimeout(() => {
+                    recalculateAndRenderProcessedAmount(row, { updateTotal: true });
+                    if (typeof saveRateValuesForRefresh === 'function') saveRateValuesForRefresh();
+                    if (typeof saveFormulaSourceForRefresh === 'function') saveFormulaSourceForRefresh();
+                }, 10);
             } else {
                 // Cancel: restore original value
                 cellElement.textContent = savedOriginalValue;
