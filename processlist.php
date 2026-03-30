@@ -284,13 +284,16 @@ if ($current_user_id && count($user_companies) > 0) {
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactiveChecked ? 'checked' : ''; ?>>
                             <label for="showInactive">Show Inactive</label>
                         </div>
-                        <div class="checkbox-section">
-                            <input type="checkbox" id="showOfficial" name="showOfficial" <?php echo $showOfficialChecked ? 'checked' : ''; ?>>
-                            <label for="showOfficial">Show Official</label>
-                        </div>
-                        <div class="checkbox-section">
-                            <input type="checkbox" id="showEInvoice" name="showEInvoice" <?php echo $showEInvoiceChecked ? 'checked' : ''; ?>>
-                            <label for="showEInvoice">Show E-Invoice</label>
+                        <div id="process-list-bank-only-filters" class="process-list-bank-only-filters"
+                            style="display: none; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <div class="checkbox-section">
+                                <input type="checkbox" id="showOfficial" name="showOfficial" <?php echo $showOfficialChecked ? 'checked' : ''; ?>>
+                                <label for="showOfficial">Show Official</label>
+                            </div>
+                            <div class="checkbox-section">
+                                <input type="checkbox" id="showEInvoice" name="showEInvoice" <?php echo $showEInvoiceChecked ? 'checked' : ''; ?>>
+                                <label for="showEInvoice">Show E-Invoice</label>
+                            </div>
                         </div>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAllChecked ? 'checked' : ''; ?>>
@@ -830,16 +833,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="bank-form-row">
                         <div class="bank-form-cell bank-form-cell-left">
                             <div class="form-row bank-day-start-row">
-                                <div class="bank-day-combined">
-                                    <div class="form-group bank-day-start-input-wrap">
-                                        <label for="bank_day_start">Day start</label>
-                                        <input type="date" id="bank_day_start" name="day_start" class="bank-input">
-                                    </div>
-
-                                    <div class="form-group bank-day-end-input-wrap">
-                                        <label for="bank_day_end">Day end</label>
-                                        <input type="date" id="bank_day_end" name="day_end" class="bank-input">
-                                    </div>
+                                <div class="form-group bank-day-start-input-wrap">
+                                    <label for="bank_day_start">Day start</label>
+                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                </div>
+                                <div class="form-group bank-day-end-input-wrap">
+                                    <label for="bank_day_end">Day end</label>
+                                    <input type="date" id="bank_day_end" name="day_end" class="bank-input">
                                 </div>
 
                                 <div class="form-group bank-day-start-frequency-wrap">
