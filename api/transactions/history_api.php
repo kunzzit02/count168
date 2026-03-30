@@ -404,7 +404,8 @@ try {
                         dcd.rate,
                         c.code as currency_code,
                         COALESCE(u.login_id, o.owner_code) as capture_created_by,
-                        a_cm.name as card_owner_name
+                        a_cm.name as card_owner_name,
+                        bp.day_start
                     FROM data_capture_details dcd
                     JOIN data_captures dc ON dcd.capture_id = dc.id
                     JOIN currency c ON dcd.currency_id = c.id
@@ -474,7 +475,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -588,9 +589,10 @@ try {
     $eventIndex = 0;
 
     foreach ($captureRows as $capture) {
-        $captureTimestamp = strtotime($capture['capture_date'] . ' ' . ($capture['capture_created_at'] ?? '00:00:00'));
+        $captureDisplayDate = (!empty($capture['day_start'])) ? $capture['day_start'] : $capture['capture_date'];
+        $captureTimestamp = strtotime($captureDisplayDate . ' ' . ($capture['capture_created_at'] ?? '00:00:00'));
         if ($captureTimestamp === false) {
-            $captureTimestamp = strtotime($capture['capture_date']);
+            $captureTimestamp = strtotime($captureDisplayDate);
         }
 
         // Product: 使用 id_product（id_product_sub 或 id_product_main），如果有 description 则附加在后面（括号内）
@@ -666,7 +668,7 @@ try {
             'order_index' => $eventIndex++,
             'win_loss' => (float) $capture['processed_amount'],
             'cr_dr' => 0,
-            'date' => date('d/m/Y', strtotime($capture['capture_date'])),
+            'date' => date('d/m/Y', strtotime($captureDisplayDate)),
             'source' => $capture['transaction_type'] ?? 'DATA_CAPTURE',
             'product' => $product ?: '-',
             'card_owner' => !empty($capture['card_owner_name']) ? trim($capture['card_owner_name']) : '-',
@@ -926,9 +928,10 @@ try {
             $description = '[PENDING APPROVAL] ' . $description;
         }
 
-        $transactionTimestamp = strtotime($t['transaction_date'] . ' ' . ($t['created_at'] ?? '00:00:00'));
+        $transactionDisplayDate = ($has_source_bank_process_id && !empty($t['day_start'])) ? $t['day_start'] : $t['transaction_date'];
+        $transactionTimestamp = strtotime($transactionDisplayDate . ' ' . ($t['created_at'] ?? '00:00:00'));
         if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($t['transaction_date']);
+            $transactionTimestamp = strtotime($transactionDisplayDate);
         }
 
         // 确定交易的 currency：
@@ -990,7 +993,7 @@ try {
             'order_index' => $eventIndex++,
             'win_loss' => $win_loss,
             'cr_dr' => $cr_dr,
-            'date' => date('d/m/Y', strtotime($t['transaction_date'])),
+            'date' => date('d/m/Y', strtotime($transactionDisplayDate)),
             'source' => $t['transaction_type'],
             'product' => $productLabel,
             'card_owner' => $cardOwner,
@@ -1029,7 +1032,8 @@ try {
                     u.login_id AS created_by_login_id,
                     u.name AS created_by_name,
                     o.owner_code AS created_by_owner_code,
-                    o.name AS created_by_owner_name
+                    o.name AS created_by_owner_name,
+                    bp_r.day_start
                 FROM transaction_entry e
                 JOIN transactions h ON e.header_id = h.id
                 LEFT JOIN currency c ON e.currency_id = c.id
@@ -1039,6 +1043,7 @@ try {
                 LEFT JOIN currency ct ON tr.rate_to_currency_id = ct.id
                 LEFT JOIN user u ON h.created_by = u.id
                 LEFT JOIN owner o ON h.created_by_owner = o.id
+                LEFT JOIN bank_process bp_r ON h.source_bank_process_id = bp_r.id
                 WHERE h.company_id = ?
                   AND e.company_id = ?
                   AND h.transaction_type = 'RATE'
@@ -1058,9 +1063,10 @@ try {
     $rateRows = $rateStmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($rateRows as $row) {
-        $transactionTimestamp = strtotime($row['transaction_date'] . ' ' . ($row['created_at'] ?? '00:00:00'));
+        $transactionDisplayDate = (!empty($row['day_start'])) ? $row['day_start'] : $row['transaction_date'];
+        $transactionTimestamp = strtotime($transactionDisplayDate . ' ' . ($row['created_at'] ?? '00:00:00'));
         if ($transactionTimestamp === false) {
-            $transactionTimestamp = strtotime($row['transaction_date']);
+            $transactionTimestamp = strtotime($transactionDisplayDate);
         }
 
         $amount = (float) $row['amount'];
@@ -1132,7 +1138,7 @@ try {
             'order_index' => $eventIndex++,
             'win_loss' => $entryType === 'RATE_MIDDLEMAN' ? $amount : 0,
             'cr_dr' => $entryType === 'RATE_MIDDLEMAN' ? 0 : $amount,
-            'date' => date('d/m/Y', strtotime($row['transaction_date'])),
+            'date' => date('d/m/Y', strtotime($transactionDisplayDate)),
             'source' => 'RATE',
             'product' => mapEntryTypeToProduct($row['entry_type']),
             'card_owner' => '-',
