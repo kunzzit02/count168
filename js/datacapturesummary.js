@@ -531,11 +531,15 @@ function saveFormulaSourceForRefresh(opts) {
             (existing.formula || existing.source || existing.rateValue) &&
             !nextFormula && !nextSource && !nextRateValue;
 
+        // Prefer data-template-formula-operators (original $notation) over data-formula-operators (resolved display text)
+        const templateFormulaOps = (row.getAttribute('data-template-formula-operators') || '').trim();
+        const formulaOps = (row.getAttribute('data-formula-operators') || '').trim();
         const nextData = shouldPreferExisting ? existing : {
             formula: nextFormula,
             source: nextSource,
             sourceColumns: (row.getAttribute('data-source-columns') || ''),
-            formulaOperators: (row.getAttribute('data-formula-operators') || ''),
+            formulaOperators: formulaOps,
+            templateFormulaOperators: templateFormulaOps || '',
             sourcePercent: (row.getAttribute('data-source-percent') || ''),
             rateValue: nextRateValue,
             rowUid: rowUid,
@@ -799,6 +803,13 @@ function restoreFormulaSourceFromRefresh() {
         const source = data.source != null ? String(data.source) : '';
         if (data.sourceColumns != null) row.setAttribute('data-source-columns', data.sourceColumns);
         if (data.formulaOperators != null) row.setAttribute('data-formula-operators', data.formulaOperators);
+        // Restore data-template-formula-operators (original $notation) if saved
+        if (data.templateFormulaOperators != null && data.templateFormulaOperators.trim() !== '') {
+            row.setAttribute('data-template-formula-operators', data.templateFormulaOperators);
+        } else if (data.formulaOperators != null && data.formulaOperators.includes('$')) {
+            // If formulaOperators itself contains $ notation, also set it as template version
+            row.setAttribute('data-template-formula-operators', data.formulaOperators);
+        }
         if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
         if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
         if (data.enableInputMethod != null) row.setAttribute('data-enable-input-method', String(data.enableInputMethod));
@@ -7302,7 +7313,7 @@ async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
                             // 只对有实际数据的行持久化顺序（空 sub 行跳过）
                             if (type === 'sub' && typeof isSubRowEmpty === 'function' && isSubRowEmpty(gr)) return;
                             const formDataForGroup = buildFormDataFromRow(gr);
-                            const rowDataForGroup = getRowDataForTemplate(gr, formDataForGroup);
+                            const rowDataForGroup = extractRowDataForTemplate(gr, formDataForGroup);
                             // 内部调用禁止再次触发重排，避免递归
                             saveTemplateAsync(rowDataForGroup, gr, { skipResequence: true })
                                 .catch(err => console.warn('Failed to sync sub_order for group row', err));
@@ -9461,6 +9472,39 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             // Source is not 1, add source percent to display（公式本体若少右括号则先补全再拼 *source）
             const balancedPart = balanceParentheses(formulaPart);
             const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
+            
+            // 检查公式是否已经包含了同样的 source percent 乘法，避免双重叠加（如从 localStorage 恢复后再次附加）
+            const formulaTrimmed = balancedPart.replace(/\s+/g, '');
+            const srcNorm = sourcePercentExpr.replace(/\s+/g, '');
+            let alreadyHasSource = formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm);
+            if (!alreadyHasSource && formulaTrimmed.endsWith(')')) {
+                const lastClose = formulaTrimmed.length - 1;
+                let depth = 1;
+                let i = lastClose - 1;
+                while (i >= 0 && depth > 0) {
+                    if (formulaTrimmed[i] === ')') depth++;
+                    else if (formulaTrimmed[i] === '(') { depth--; if (depth === 0) break; }
+                    i--;
+                }
+                if (depth === 0 && i >= 0) {
+                    const beforeParen = formulaTrimmed.substring(0, i).trimEnd();
+                    const trailingExpr = formulaTrimmed.substring(i + 1, lastClose);
+                    if (beforeParen.endsWith('*') && trailingExpr && /^[0-9+\-*/().\s]+$/.test(trailingExpr.replace(/\s/g, ''))) {
+                        try {
+                            const trailingVal = evaluateExpression(trailingExpr);
+                            if (!isNaN(trailingVal) && Number.isFinite(trailingVal) && Math.abs(trailingVal - decimalValue) < 0.0001) {
+                                alreadyHasSource = true;
+                            }
+                        } catch (e) { /* ignore */ }
+                    }
+                }
+            }
+
+            if (alreadyHasSource) {
+                console.log('Formula display already has source percent, not adding again:', balancedPart);
+                return formatNegativeNumbersInFormula(balancedPart);
+            }
+
             const formulaDisplay = `${balancedPart}*${percentDisplay}`;
             console.log('Formula display created from expression:', formulaDisplay);
             return formatNegativeNumbersInFormula(formulaDisplay);
@@ -13914,20 +13958,6 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
     if (data.formulaOperators !== undefined) {
         row.setAttribute('data-formula-operators', data.formulaOperators);
         row.setAttribute('data-template-formula-operators', data.formulaOperators);
-    } else {
-        // If formulaOperators is not provided but formula text exists, try to preserve it
-        // This ensures sub rows can be edited even if formulaOperators was not set during creation
-        const formulaCell = cells[4];
-        if (formulaCell) {
-            const formulaTextElement = formulaCell.querySelector('.formula-text');
-            const formulaText = formulaTextElement ? formulaTextElement.textContent.trim() : '';
-            // Only set if formula text exists and data-formula-operators is not already set
-            if (formulaText && formulaText !== '' && !row.getAttribute('data-formula-operators')) {
-                // Use the displayed formula text as fallback (may be converted values, but better than empty)
-                row.setAttribute('data-formula-operators', formulaText);
-                console.log('updateSubIdProductRow - Set data-formula-operators from displayed text:', formulaText);
-            }
-        }
     }
     // sourceColumns no longer used, but keep for compatibility
     // IMPORTANT: If formula is empty, also clear sourceColumns to prevent regeneration
@@ -17899,7 +17929,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             sourcePercent: convertedPercentValue || '1',
             formula: formulaDisplay,
             formulaDisplay: formulaDisplay || template.formula_display || '',
-            formulaOperators: formulaDisplay || formulaOperatorsValue,
+            formulaOperators: formulaOperatorsValue || formulaDisplay,
             processedAmount: processedAmount,
             inputMethod: template.input_method || '',
             enableInputMethod: (template.input_method && template.input_method.trim() !== '') ? true : false,
