@@ -5150,25 +5150,15 @@ function updateFormulaDisplay(formulaValue, processValue) {
                 }
 
                 if (columnValue === null) {
-                    hasMissingColumnValue = true;
-                    break;
+                    columnValue = '0';
+                    console.warn(`updateFormulaDisplay: column value not found for $${match.columnNumber}, substituting with 0`);
                 }
 
                 // 存储匹配的值
                 matchValues.push({
                     match: match,
-                    value: columnValue
+                    value: String(columnValue)
                 });
-            }
-
-            if (hasMissingColumnValue) {
-                formulaDisplayInput.value = previousDisplayValue || formulaValue;
-                console.warn('updateFormulaDisplay: missing column value, keep previous display formula:', {
-                    processValue,
-                    formula: formulaValue,
-                    display: formulaDisplayInput.value
-                });
-                return;
             }
 
             // 从后往前替换，避免位置偏移
@@ -5216,32 +5206,21 @@ function updateFormulaDisplay(formulaValue, processValue) {
             // 从后往前处理，避免位置偏移
             allMatches.sort((a, b) => b.index - a.index);
 
-            let hasMissingColumnValue = false;
             for (let i = 0; i < allMatches.length; i++) {
                 const match = allMatches[i];
                 // 获取列的实际值
                 const columnReference = rowLabel + match.columnNumber;
-                const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                let columnValue = getColumnValueFromCellReference(columnReference, processValue);
 
-                if (columnValue !== null) {
-                    // 替换 $数字 为实际值
-                    displayFormula = displayFormula.substring(0, match.index) +
-                        columnValue +
-                        displayFormula.substring(match.index + match.fullMatch.length);
-                } else {
-                    hasMissingColumnValue = true;
-                    break;
+                if (columnValue === null) {
+                    columnValue = '0';
+                    console.warn(`updateFormulaDisplay: column value not found for $${match.columnNumber} (${columnReference}), substituting with 0`);
                 }
-            }
 
-            if (hasMissingColumnValue) {
-                formulaDisplayInput.value = previousDisplayValue || formulaValue;
-                console.warn('updateFormulaDisplay: missing current-row column value, keep previous display formula:', {
-                    processValue,
-                    formula: formulaValue,
-                    display: formulaDisplayInput.value
-                });
-                return;
+                // 替换 $数字 为实际值
+                displayFormula = displayFormula.substring(0, match.index) +
+                    columnValue +
+                    displayFormula.substring(match.index + match.fullMatch.length);
             }
         }
 
@@ -9472,7 +9451,7 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
             // Source is not 1, add source percent to display（公式本体若少右括号则先补全再拼 *source）
             const balancedPart = balanceParentheses(formulaPart);
             const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
-            
+
             // 检查公式是否已经包含了同样的 source percent 乘法，避免双重叠加（如从 localStorage 恢复后再次附加）
             const formulaTrimmed = balancedPart.replace(/\s+/g, '');
             const srcNorm = sourcePercentExpr.replace(/\s+/g, '');
