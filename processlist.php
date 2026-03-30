@@ -39,7 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 try {
                     $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
                     $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
-                } catch (PDOException $e) { /* ignore */ }
+                } catch (PDOException $e) { /* ignore */
+                }
                 if ($hasSourceBankProcessId) {
                     $papPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
                     $stmt = $pdo->prepare("SELECT source_bank_process_id FROM transactions WHERE company_id = ? AND source_bank_process_id IN ($papPlaceholders) LIMIT 1");
@@ -106,7 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
             try {
                 $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'process_id'");
                 $hasProcessIdCol = $colStmt && $colStmt->rowCount() > 0;
-            } catch (PDOException $e) { /* ignore */ }
+            } catch (PDOException $e) { /* ignore */
+            }
             if ($hasProcessIdCol) {
                 $txnPlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
                 $stmt = $pdo->prepare("SELECT process_id FROM transactions WHERE process_id IN ($txnPlaceholders) LIMIT 1");
@@ -225,9 +227,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     <h1 class="page-title" style="margin: 0;">Process List</h1>
                     <!-- Accounting Due (Bank only): opens large modal like Add Process -->
                     <div class="process-accounting-inbox-wrap" id="processAccountingInboxWrap" style="display: none;">
-                        <button type="button" class="process-accounting-inbox-btn process-accounting-inbox-main" id="processAccountingInboxBtn">
-                            <svg class="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
+                        <button type="button" class="process-accounting-inbox-btn process-accounting-inbox-main"
+                            id="processAccountingInboxBtn">
+                            <svg class="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor"
+                                aria-hidden="true">
+                                <path
+                                    d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
                             </svg>
                             Accounting Due
                             <span class="process-accounting-inbox-badge" id="processAccountingInboxCount">0</span>
@@ -254,7 +259,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="date-range-picker" id="date-range-picker">
                                 <i class="fas fa-calendar-alt"></i>
                                 <span id="date-range-display">Select date range</span>
-                                <button type="button" class="process-list-date-clear" id="processListDateClearBtn" title="Clear date range" aria-label="Clear date range" style="display: none;">&times;</button>
+                                <button type="button" class="process-list-date-clear" id="processListDateClearBtn"
+                                    title="Clear date range" aria-label="Clear date range"
+                                    style="display: none;">&times;</button>
                             </div>
                             <input type="hidden" id="date_from" value="">
                             <input type="hidden" id="date_to" value="">
@@ -268,10 +275,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                 value="<?php echo $searchTerm; ?>">
                         </div>
                         <?php
-                            $showAllChecked = isset($_GET['showAll']);
-                            $showInactiveChecked = !$showAllChecked && isset($_GET['showInactive']);
-                            $showOfficialChecked = !$showAllChecked && isset($_GET['showOfficial']);
-                            $showEInvoiceChecked = !$showAllChecked && isset($_GET['showEInvoice']);
+                        $showAllChecked = isset($_GET['showAll']);
+                        $showInactiveChecked = !$showAllChecked && isset($_GET['showInactive']);
+                        $showOfficialChecked = !$showAllChecked && isset($_GET['showOfficial']);
+                        $showEInvoiceChecked = !$showAllChecked && isset($_GET['showEInvoice']);
                         ?>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactiveChecked ? 'checked' : ''; ?>>
@@ -527,21 +534,26 @@ if ($current_user_id && count($user_companies) > 0) {
                     <table class="process-accounting-inbox-table">
                         <thead>
                             <tr>
-                                <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="Select all" class="process-accounting-inbox-cb"></th>
+                                <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll"
+                                        title="Select all" class="process-accounting-inbox-cb"></th>
                                 <th>No</th>
                                 <th>Start Date</th>
                                 <th>Card Owner</th>
                                 <th>Bank</th>
                                 <th>Contract</th>
-                                <th style="width:80px;">Delete <input type="checkbox" id="processAccountingInboxDeleteSelectAll" title="Select all for delete" class="process-accounting-inbox-delete-cb"></th>
+                                <th style="width:80px;">Delete <input type="checkbox"
+                                        id="processAccountingInboxDeleteSelectAll" title="Select all for delete"
+                                        class="process-accounting-inbox-delete-cb"></th>
                             </tr>
                         </thead>
                         <tbody id="processAccountingInboxTbody"></tbody>
                     </table>
                 </div>
                 <div class="process-accounting-inbox-actions">
-                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Transaction</button>
-                    <button type="button" class="btn btn-delete" id="processAccountingInboxDeleteBtn" onclick="deleteAccountingInboxSelected()" disabled>Delete</button>
+                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn"
+                        disabled>Transaction</button>
+                    <button type="button" class="btn btn-delete" id="processAccountingInboxDeleteBtn"
+                        onclick="deleteAccountingInboxSelected()" disabled>Delete</button>
                     <button type="button" class="btn btn-cancel" onclick="closeAccountingDueModal()">Cancel</button>
                 </div>
             </div>
@@ -563,7 +575,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-group">
                                 <label for="add_copy_from_btn">Copy From</label>
                                 <div class="custom-select-wrapper">
-                                    <button type="button" class="custom-select-button" id="add_copy_from_btn" data-placeholder="Select Process to Copy From">Select Process to Copy From</button>
+                                    <button type="button" class="custom-select-button" id="add_copy_from_btn"
+                                        data-placeholder="Select Process to Copy From">Select Process to Copy
+                                        From</button>
                                     <div class="custom-select-dropdown" id="add_copy_from_dropdown">
                                         <div class="custom-select-search">
                                             <input type="text" placeholder="Search process..." autocomplete="off">
@@ -816,13 +830,22 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="bank-form-row">
                         <div class="bank-form-cell bank-form-cell-left">
                             <div class="form-row bank-day-start-row">
-                                <div class="form-group bank-day-start-input-wrap">
-                                    <label for="bank_day_start">Day start</label>
-                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                <div class="bank-day-combined">
+                                    <div class="form-group bank-day-start-input-wrap">
+                                        <label for="bank_day_start">Day start</label>
+                                        <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                    </div>
+
+                                    <div class="form-group bank-day-end-input-wrap">
+                                        <label for="bank_day_end">Day end</label>
+                                        <input type="date" id="bank_day_end" name="day_end" class="bank-input">
+                                    </div>
                                 </div>
+
                                 <div class="form-group bank-day-start-frequency-wrap">
                                     <label for="bank_day_start_frequency">Frequency</label>
-                                    <select id="bank_day_start_frequency" name="day_start_frequency" class="bank-input bank-select">
+                                    <select id="bank_day_start_frequency" name="day_start_frequency"
+                                        class="bank-input bank-select">
                                         <option value="1st_of_every_month">1st of Every Month</option>
                                         <option value="monthly">Monthly</option>
                                     </select>
@@ -901,8 +924,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <input type="hidden" id="bank_sop" name="sop" value="">
                                 <input type="hidden" id="bank_remark" name="remark" value="">
                                 <div class="bank-remark-actions">
-                                    <button type="button" id="bank_sop_btn" class="btn btn-save" onclick="openProcessNoteModal('sop')">SOP</button>
-                                    <button type="button" id="bank_remark_btn" class="btn btn-save" onclick="openProcessNoteModal('remark')">Remark</button>
+                                    <button type="button" id="bank_sop_btn" class="btn btn-save"
+                                        onclick="openProcessNoteModal('sop')">SOP</button>
+                                    <button type="button" id="bank_remark_btn" class="btn btn-save"
+                                        onclick="openProcessNoteModal('remark')">Remark</button>
                                 </div>
                             </div>
                         </div>
@@ -926,7 +951,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 <span class="close" onclick="closeSopModal()">&times;</span>
             </div>
             <div class="modal-body sop-modal-body">
-                <textarea id="sop_content" placeholder="Enter notes for this process..." class="bank-input sop-modal-textarea"></textarea>
+                <textarea id="sop_content" placeholder="Enter notes for this process..."
+                    class="bank-input sop-modal-textarea"></textarea>
                 <div class="form-actions bank-actions sop-modal-actions">
                     <button type="button" class="btn btn-save" onclick="saveProcessNoteAndClose()">Save</button>
                     <button type="button" class="btn btn-cancel" onclick="closeSopModal()">Cancel</button>
@@ -1164,10 +1190,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="form-row bank-row-two-cols profit-sharing-row">
                             <div class="form-group">
                                 <label for="profit_sharing_account_btn">Account</label>
-                                <input type="hidden" id="profit_sharing_account_id" class="profit-sharing-account-id" name="account_id" value="">
+                                <input type="hidden" id="profit_sharing_account_id" class="profit-sharing-account-id"
+                                    name="account_id" value="">
                                 <div class="account-select-with-buttons">
                                     <div class="custom-select-wrapper">
-                                        <button type="button" class="custom-select-button profit-sharing-account-btn" id="profit_sharing_account_btn" data-placeholder="Select Account">Select Account</button>
+                                        <button type="button" class="custom-select-button profit-sharing-account-btn"
+                                            id="profit_sharing_account_btn" data-placeholder="Select Account">Select
+                                            Account</button>
                                         <div class="custom-select-dropdown" id="profit_sharing_account_dropdown">
                                             <div class="custom-select-search">
                                                 <input type="text" placeholder="Search account..." autocomplete="off">
@@ -1175,7 +1204,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                             <div class="custom-select-options"></div>
                                         </div>
                                     </div>
-                                    <button type="button" class="bank-add-btn" onclick="profitSharingAccountPlusClick('profit_sharing_account_btn', 'profit_sharing_account_id')" title="Add New Account">+</button>
+                                    <button type="button" class="bank-add-btn"
+                                        onclick="profitSharingAccountPlusClick('profit_sharing_account_btn', 'profit_sharing_account_id')"
+                                        title="Add New Account">+</button>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -1184,7 +1215,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                     class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01"
                                     min="0">
                             </div>
-                            <div class="form-group profit-sharing-delete-cell profit-sharing-first-row-spacer" aria-hidden="true"></div>
+                            <div class="form-group profit-sharing-delete-cell profit-sharing-first-row-spacer"
+                                aria-hidden="true"></div>
                         </div>
                     </div>
                     <div class="profit-sharing-add-row-wrap" style="margin-top: 10px;">
@@ -1381,10 +1413,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 </svg>
             </div>
             <h2 class="process-confirm-title">Switch to Inactive</h2>
-            <p id="confirmInactiveMessage" class="process-confirm-message">Confirm switching this Bank Process to Inactive?</p>
+            <p id="confirmInactiveMessage" class="process-confirm-message">Confirm switching this Bank Process to
+                Inactive?</p>
             <div class="process-confirm-actions">
-                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmInactiveModal()">Cancel</button>
-                <button type="button" class="process-btn process-btn-inactive confirm-inactive" id="confirmInactiveBtn" onclick="confirmInactive()">Inactive</button>
+                <button type="button" class="process-btn process-btn-cancel confirm-cancel"
+                    onclick="closeConfirmInactiveModal()">Cancel</button>
+                <button type="button" class="process-btn process-btn-inactive confirm-inactive" id="confirmInactiveBtn"
+                    onclick="confirmInactive()">Inactive</button>
             </div>
         </div>
     </div>
@@ -1399,10 +1434,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 </svg>
             </div>
             <h2 class="process-confirm-title">Remove from Accounting Due</h2>
-            <p id="confirmAccountingDueDeleteMessage" class="process-confirm-message">Selected rows will be removed from Accounting Due. Process data will not change.</p>
+            <p id="confirmAccountingDueDeleteMessage" class="process-confirm-message">Selected rows will be removed from
+                Accounting Due. Process data will not change.</p>
             <div class="process-confirm-actions">
-                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmAccountingDueDeleteModal()">Cancel</button>
-                <button type="button" class="process-btn process-btn-delete confirm-delete" id="confirmAccountingDueDeleteBtn" onclick="confirmAccountingDueDelete()">Delete</button>
+                <button type="button" class="process-btn process-btn-cancel confirm-cancel"
+                    onclick="closeConfirmAccountingDueDeleteModal()">Cancel</button>
+                <button type="button" class="process-btn process-btn-delete confirm-delete"
+                    id="confirmAccountingDueDeleteBtn" onclick="confirmAccountingDueDelete()">Delete</button>
             </div>
         </div>
     </div>
@@ -1413,7 +1451,8 @@ if ($current_user_id && count($user_companies) > 0) {
         window.PROCESSLIST_SHOW_E_INVOICE = <?php echo $showEInvoiceChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_SHOW_ALL = <?php echo $showAllChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_COMPANY_ID = <?php echo json_encode($company_id ?? null); ?>;
-        window.PROCESSLIST_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
+        window.PROCESSLIST_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) {
+            return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
         window.PROCESSLIST_SELECTED_COMPANY_IDS_FOR_ADD = [<?php echo json_encode($company_id); ?>];
     </script>
     <div class="calendar-popup" id="calendar-popup" style="display: none;">
