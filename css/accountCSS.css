@@ -1446,13 +1446,20 @@ body {
     border: 1px solid #c3e6cb;
 }
 
+.account-role-partner {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+
 .account-role-staff {
     background-color: #ffe5cc;
     color: #a24700;
     border: 1px solid #ffc58c;
 }
 
-.account-role-upline {
+.account-role-upline,
+.account-role-supplier {
     background-color: #d6f9ff;
     color: #0a6b78;
     border: 1px solid #aef2ff;

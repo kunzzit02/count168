@@ -14,10 +14,39 @@ try {
     $error_message = "无法加载货币列表: " . $e->getMessage();
 }
 
-// 获取角色列表（从role表获取，按ID排序）
+// 获取角色列表（从role表获取，按系统优先级排序）
 try {
     $stmt = $pdo->query("SELECT code FROM role ORDER BY id ASC");
-    $roles = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $db_roles = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    // 系统定义的角色优先级
+    $priority = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'PARTNER', 'STAFF', 'SUPPLIER', 'AGENT', 'MEMBER', 'DEBTOR'];
+    
+    $upper_db_roles = array_map('strtoupper', $db_roles);
+    $final_roles = [];
+    $processed_db_roles = [];
+
+    foreach ($priority as $p) {
+        if (in_array($p, $upper_db_roles)) {
+            $final_roles[] = $p;
+            $processed_db_roles[] = $p;
+        } else if ($p === 'SUPPLIER' && in_array('UPLINE', $upper_db_roles)) {
+            $final_roles[] = 'UPLINE'; // 数据库存 UPLINE
+            $processed_db_roles[] = 'UPLINE';
+        } else if ($p === 'PARTNER' || $p === 'STAFF') {
+            // 确保这些核心角色始终存在
+            $final_roles[] = $p;
+        }
+    }
+    
+    // 添加剩余的数据库角色
+    foreach ($upper_db_roles as $r) {
+        if (!in_array($r, $processed_db_roles)) {
+            $final_roles[] = $r;
+        }
+    }
+    
+    $roles = $final_roles;
 } catch (PDOException $e) {
     $error_message = "无法加载角色列表: " . $e->getMessage();
 }
@@ -188,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <?php foreach ($roles as $role): ?>
                                 <option value="<?php echo htmlspecialchars($role); ?>" 
                                         <?php echo (isset($_POST['role']) && $_POST['role'] === $role) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($role); ?>
+                                    <?php echo (strtoupper($role) === 'UPLINE') ? 'SUPPLIER' : htmlspecialchars($role); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
