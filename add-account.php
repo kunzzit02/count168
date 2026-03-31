@@ -33,7 +33,7 @@ try {
         } else if ($p === 'SUPPLIER' && in_array('UPLINE', $upper_db_roles)) {
             $final_roles[] = 'UPLINE'; // 数据库存 UPLINE
             $processed_db_roles[] = 'UPLINE';
-        } else if ($p === 'PARTNER' || $p === 'STAFF') {
+        } else if ($p === 'PARTNER' || $p === 'STAFF' || $p === 'DEBTOR') {
             // 确保这些核心角色始终存在
             $final_roles[] = $p;
         }
@@ -43,6 +43,17 @@ try {
     foreach ($upper_db_roles as $r) {
         if (!in_array($r, $processed_db_roles)) {
             $final_roles[] = $r;
+        }
+    }
+    
+    // Ensure DEBTOR is in the list
+    if (!in_array('DEBTOR', $final_roles)) {
+        // Try to insert after MEMBER
+        $memberIdx = array_search('MEMBER', $final_roles);
+        if ($memberIdx !== false) {
+            array_splice($final_roles, $memberIdx + 1, 0, 'DEBTOR');
+        } else {
+            $final_roles[] = 'DEBTOR';
         }
     }
     

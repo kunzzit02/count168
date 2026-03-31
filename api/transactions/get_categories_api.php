@@ -73,6 +73,17 @@ function orderRolesByPriority(array $roles): array
         }
     }
     
+    // Ensure DEBTOR is in the list (if it's in the priority list but not in DB)
+    if (!in_array('DEBTOR', $finalRoles)) {
+        // Try to insert after MEMBER
+        $memberIdx = array_search('MEMBER', $finalRoles);
+        if ($memberIdx !== false) {
+            array_splice($finalRoles, $memberIdx + 1, 0, 'DEBTOR');
+        } else {
+            $finalRoles[] = 'DEBTOR';
+        }
+    }
+    
     return $finalRoles;
 }
 

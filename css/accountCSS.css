@@ -1477,6 +1477,12 @@ body {
     border: 1px solid #dbb99a;
 }
 
+.account-role-debtor {
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+
 .account-role-none {
     background-color: #eceef2;
     color: #3e434f;
