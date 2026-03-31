@@ -10,12 +10,14 @@ require_once __DIR__ . '/../api_response.php';
 
 header('Content-Type: application/json');
 
-function fetchRolesFromDb(PDO $pdo): array {
+function fetchRolesFromDb(PDO $pdo): array
+{
     $stmt = $pdo->query("SELECT code FROM role ORDER BY id ASC");
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
-function orderRolesByPriority(array $roles): array {
+function orderRolesByPriority(array $roles): array
+{
     $priority = ['CAPITAL', 'BANK', 'CASH', 'PROFIT', 'EXPENSES', 'COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
     $upper = array_map('strtoupper', $roles);
     $map = array_combine($upper, $roles);

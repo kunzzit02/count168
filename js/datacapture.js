@@ -998,15 +998,13 @@ function getLocalDateString(date = null) {
 }
 
 // Load submitted processes from database by date
-async function loadSubmittedProcesses(date = null) {
+async function loadSubmittedProcesses() {
     try {
-        // Use selected date to filter by capture_date (form selected date)
-        const selectedDate = date || document.getElementById('capture_date').value || getLocalDateString();
-
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
-        // Use get_submissions_by_capture_date to filter by capture_date (form selected date)
-        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_submissions_by_capture_date&capture_date=${encodeURIComponent(selectedDate)}`);
+        
+        // Use get_today_entries to show all entries submitted today (physical date)
+        const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_today_entries`);
         const finalUrl = currentCompanyId ? `${url}${url.indexOf('?') >= 0 ? '&' : '?'}company_id=${currentCompanyId}` : url;
 
         const response = await fetch(finalUrl);
@@ -1014,7 +1012,7 @@ async function loadSubmittedProcesses(date = null) {
 
         if (result.success) {
             submittedProcesses = result.data || [];
-            console.log('Loaded', submittedProcesses.length, 'submitted processes for capture_date:', selectedDate);
+            console.log('Loaded', submittedProcesses.length, 'submitted processes for today');
             console.log('Sample submission dates:', submittedProcesses.slice(0, 3).map(p => ({
                 process: p.process_code,
                 date_submitted: p.date_submitted,
@@ -24224,7 +24222,7 @@ async function restoreFromLocalStorage() {
 
         // Reload submitted processes filtered by the selected capture_date
         const selectedDate = document.getElementById('capture_date').value || getLocalDateString();
-        await loadSubmittedProcesses(selectedDate);
+        await loadSubmittedProcesses();
 
         // Wait a bit for process dropdown to populate, then restore process selection
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -24695,7 +24693,7 @@ function setupFormValidationListeners() {
             // Reload processes based on new date
             await loadProcessesByDate();
             // Reload submitted processes filtered by the selected capture_date
-            loadSubmittedProcesses(this.value);
+            loadSubmittedProcesses();
             // Clear process selection when date changes (but not during restoration)
             if (!isRestoringData) {
                 const processInput = document.getElementById('capture_process');

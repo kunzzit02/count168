@@ -227,7 +227,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <!-- Right Column - Submitted Processes -->
                 <div class="submitted-column">
                     <div class="submitted-container">
-                        <h2 class="submitted-title">Submitted Processes</h2>
+                        <h2 class="submitted-title">Today's Submitted Processes</h2>
                         <div class="submitted-list" id="submittedProcessesList">
                             <div class="no-data">
                                 No processes submitted yet

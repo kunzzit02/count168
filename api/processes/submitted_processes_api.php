@@ -89,8 +89,8 @@ try {
             getProcessesByDay($user_id);
             break;
 
-        case 'get_submissions_by_physical_date':
-            getSubmissionsByPhysicalDate($user_id);
+        case 'get_today_entries':
+            getTodayEntries($user_id);
             break;
 
         case 'save_submission':
@@ -133,8 +133,8 @@ function getWeekSubmissions($user_id)
     $user_type = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' ? 'owner' : 'user';
 
     if ($user_type === 'user') {
-        $userStmt = $pdo->prepare("SELECT process_permissions FROM user WHERE id = ?");
-        $userStmt->execute([$user_id]);
+        $userStmt = $pdo->prepare("SELECT process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
+        $userStmt->execute([$user_id, $currentCompanyId]);
         $user = $userStmt->fetch(PDO::FETCH_ASSOC);
 
         // 检查 process_permissions 字段是否存在且非空
@@ -492,102 +492,6 @@ function getSubmissionsByCaptureDate($user_id)
     }
 }
 
-// 根据物理提交日期（created_at）获取提交的processes
-function getSubmissionsByPhysicalDate($user_id)
-{
-    global $pdo, $company_id;
-
-    try {
-        // 使用全局的 $company_id（已经过验证）
-        $currentCompanyId = $company_id;
-
-        if (!$currentCompanyId) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'User company_id not found'
-            ]);
-            return;
-        }
-
-        // 获取选择的物理日期，默认为今天 (CURDATE)
-        $physical_date = $_GET['date'] ?? date('Y-m-d');
-
-        // 验证日期格式
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $physical_date)) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'Invalid date format'
-            ]);
-            return;
-        }
-
-        // 获取用户权限（仅对 user 类型，owner 有所有权限）
-        $processIds = [];
-        $user_type = $_SESSION['user_type'] ?? 'user';
-
-        if ($user_type === 'user') {
-            $userStmt = $pdo->prepare("SELECT process_permissions FROM user WHERE id = ?");
-            $userStmt->execute([$user_id]);
-            $user = $userStmt->fetch(PDO::FETCH_ASSOC);
-            if ($user && !empty($user['process_permissions'])) {
-                $processPermissions = json_decode($user['process_permissions'], true);
-                if (is_array($processPermissions)) {
-                    if (isset($processPermissions[0]) && is_array($processPermissions[0]) && isset($processPermissions[0]['id'])) {
-                        $processIds = array_column($processPermissions, 'id');
-                    } else {
-                        $processIds = $processPermissions;
-                    }
-                }
-            }
-        }
-
-        // 构建权限过滤条件
-        $permissionCondition = "";
-        if (!empty($processIds)) {
-            $placeholders = str_repeat('?,', count($processIds) - 1) . '?';
-            $permissionCondition = "AND p.id IN ($placeholders)";
-        }
-
-        $stmt = $pdo->prepare("
-            SELECT 
-                sp.id,
-                sp.process_id,
-                sp.date_submitted,
-                sp.created_at,
-                sp.user_type,
-                p.process_id as process_code,
-                d.name as description_name,
-                COALESCE(u.login_id, o.owner_code) as submitted_by
-            FROM submitted_processes sp
-            JOIN process p ON sp.process_id = p.id
-            LEFT JOIN description d ON p.description_id = d.id
-            LEFT JOIN user u ON sp.user_id = u.id AND sp.user_type = 'user'
-            LEFT JOIN owner o ON sp.user_id = o.id AND sp.user_type = 'owner'
-            WHERE sp.company_id = ?
-              AND DATE(sp.created_at) = ?
-              AND p.company_id = ?
-            $permissionCondition
-            ORDER BY sp.created_at DESC
-        ");
-
-        $params = array_merge([$currentCompanyId, $physical_date, $currentCompanyId], !empty($processIds) ? $processIds : []);
-        $stmt->execute($params);
-        $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode([
-            'success' => true,
-            'data' => $submissions,
-            'physical_date' => $physical_date
-        ]);
-    } catch (Exception $e) {
-        error_log("Error in getSubmissionsByPhysicalDate: " . $e->getMessage());
-        echo json_encode([
-            'success' => false,
-            'error' => 'Internal error: ' . $e->getMessage()
-        ]);
-    }
-}
-
 // 根据星期几获取processes
 function getProcessesByDay($user_id)
 {
@@ -805,6 +709,76 @@ function saveSubmission($user_id)
         error_log("Error in saveSubmission: " . $e->getMessage());
         error_log("Stack trace: " . $e->getTraceAsString());
         echo json_encode(['success' => false, 'error' => 'Internal error: ' . $e->getMessage()]);
+    }
+}
+
+// 获取今天物理提交的记录 (不管 capture_date 是哪一天)
+function getTodayEntries($user_id)
+{
+    global $pdo, $company_id;
+
+    try {
+        $currentCompanyId = $company_id;
+        if (!$currentCompanyId) {
+            echo json_encode(['success' => false, 'error' => 'Company ID not found']);
+            return;
+        }
+
+        // 获取当前用户的权限
+        $processIds = [];
+        $user_type = $_SESSION['user_type'] ?? 'user';
+        if ($user_type === 'user') {
+            $userStmt = $pdo->prepare("SELECT process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
+            $userStmt->execute([$user_id, $currentCompanyId]);
+            $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+            if ($user && !empty($user['process_permissions'])) {
+                $processPermissions = json_decode($user['process_permissions'], true);
+                if (is_array($processPermissions)) {
+                    if (isset($processPermissions[0]['id'])) {
+                        $processIds = array_column($processPermissions, 'id');
+                    } else {
+                        $processIds = $processPermissions;
+                    }
+                }
+            }
+        }
+
+        // 构建权限过滤条件
+        $permissionCondition = "";
+        $params = [$currentCompanyId];
+
+        if (!empty($processIds)) {
+            $placeholders = str_repeat('?,', count($processIds) - 1) . '?';
+            $permissionCondition = "AND p.id IN ($placeholders)";
+            $params = array_merge($params, $processIds);
+        }
+
+        $stmt = $pdo->prepare("
+            SELECT 
+                sp.id, sp.process_id, sp.date_submitted, sp.capture_date, sp.created_at,
+                p.process_id as process_code, d.name as description_name,
+                COALESCE(u.login_id, o.owner_code) as submitted_by
+            FROM submitted_processes sp
+            JOIN process p ON sp.process_id = p.id
+            LEFT JOIN description d ON p.description_id = d.id
+            LEFT JOIN user u ON sp.user_id = u.id AND sp.user_type = 'user'
+            LEFT JOIN owner o ON sp.user_id = o.id AND sp.user_type = 'owner'
+            WHERE sp.company_id = ?
+              AND DATE(sp.created_at) = CURDATE()
+              $permissionCondition
+            ORDER BY sp.created_at DESC
+        ");
+
+        $stmt->execute($params);
+        $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'data' => $submissions
+        ]);
+    } catch (Exception $e) {
+        error_log("Error in getTodayEntries: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
 }
 ?>
