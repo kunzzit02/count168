@@ -804,19 +804,11 @@ function restoreFormulaSourceFromRefresh() {
         if (data.sourceColumns != null) row.setAttribute('data-source-columns', data.sourceColumns);
         if (data.formulaOperators != null) row.setAttribute('data-formula-operators', data.formulaOperators);
         // Restore data-template-formula-operators (original $notation) if saved
-        // CRITICAL: Always prioritize template notation ($) to ensure persistence across refreshes
         if (data.templateFormulaOperators != null && data.templateFormulaOperators.trim() !== '') {
             row.setAttribute('data-template-formula-operators', data.templateFormulaOperators);
-            // If data.formulaOperators contains numbers but template exists, ensure we keep the template as the primary source for the editor
         } else if (data.formulaOperators != null && data.formulaOperators.includes('$')) {
             // If formulaOperators itself contains $ notation, also set it as template version
             row.setAttribute('data-template-formula-operators', data.formulaOperators);
-        } else {
-            // Fallback: If no template saved, check if the current attribute already has one (from applyTemplate)
-            const currentTemplate = row.getAttribute('data-template-formula-operators');
-            if (currentTemplate && currentTemplate.includes('$') && (!data.formulaOperators || !data.formulaOperators.includes('$'))) {
-                console.log('restoreFormulaSourceFromRefresh: Preserving existing template notation on row:', currentTemplate);
-            }
         }
         if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
         if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
@@ -5094,7 +5086,6 @@ function updateFormulaDisplay(formulaValue, processValue) {
 
             let refIndex = 0; // 跟踪已使用的引用索引（仅用于当前row的$数字格式）
             const matchValues = []; // 存储每个匹配项对应的值，用于后续替换
-            let hasMissingColumnValue = false;
 
             for (let i = 0; i < allMatches.length; i++) {
                 const match = allMatches[i];
@@ -11868,7 +11859,6 @@ function updateFormulaAndProcessedAmount(row, data) {
                             // Replace from back to front to preserve indices
                             allMatches.sort((a, b) => b.index - a.index);
 
-                            let hasMissingColumnValue = false;
                             for (let i = 0; i < allMatches.length; i++) {
                                 const match = allMatches[i];
                                 let columnValue = null;
@@ -11880,31 +11870,28 @@ function updateFormulaAndProcessedAmount(row, data) {
                                     console.log('Using id_product from sourceColumns:', ref.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
                                 }
 
-                                // Fallback to old logic if not found in columnRefMap
+                                // Fallback to current row id_product if not found in columnRefMap
                                 if (columnValue === null) {
                                     const columnReference = rowLabel + match.columnNumber;
                                     columnValue = getColumnValueFromCellReference(columnReference, processValue);
                                     console.log('Fallback to current row id_product:', processValue, 'for column:', match.columnNumber, 'value:', columnValue);
                                 }
 
-                                if (columnValue !== null) {
-                                    displayFormula = displayFormula.substring(0, match.index) +
-                                        columnValue +
-                                        displayFormula.substring(match.index + match.fullMatch.length);
-                                } else {
-                                    hasMissingColumnValue = true;
-                                    break;
+                                // CRITICAL: If column value is still null (missing data), default to "0"
+                                // This satisfies the requirement that missing data should be treated as 0 instead of using old values
+                                if (columnValue === null) {
+                                    columnValue = "0";
+                                    console.warn(`updateFormulaAndProcessedAmount: column $${match.columnNumber} not found for ${processValue}, defaulting to 0`);
                                 }
+
+                                displayFormula = displayFormula.substring(0, match.index) +
+                                    columnValue +
+                                    displayFormula.substring(match.index + match.fullMatch.length);
                             }
 
-                            if (hasMissingColumnValue) {
-                                formulaText = formatNegativeNumbersInFormula(preferredFormulaDisplay || data.formula || formulaOperators);
-                                rawFormula = preferredFormulaDisplay || data.formula || formulaOperators;
-                                console.warn('updateFormulaAndProcessedAmount: missing column value, fallback to saved formula display:', {
-                                    processValue,
-                                    formulaText
-                                });
-                            } else {
+                            // Always use the resolved displayFormula for display and calculation
+                            // No more fallback to stale preferredFormulaDisplay/formulaOperators
+                            {
                                 // Also parse other reference formats (A4, [id_product:column])
                                 const parsedFormula = parseReferenceFormula(displayFormula);
                                 if (parsedFormula) {
@@ -12000,13 +11987,6 @@ function updateFormulaAndProcessedAmount(row, data) {
         if (!rawFormula) rawFormula = formulaText;
         row.setAttribute('data-formula-raw', rawFormula || '');
         row.setAttribute('data-formula-operators', formulaText || rawFormula || '');
-
-        // IMPORTANT: Ensure data-template-formula-operators is preserved if the original formula had $ notation
-        // This prevents the original template from being lost when the row is updated with resolved numbers
-        if (formulaOperatorsForDisplay && formulaOperatorsForDisplay.includes('$')) {
-            row.setAttribute('data-template-formula-operators', formulaOperatorsForDisplay);
-        }
-
         const displayText = formulaText;
         if (displayText) row.setAttribute('data-formula-display', displayText);
         else row.removeAttribute('data-formula-display');
@@ -12560,7 +12540,8 @@ function enableFormulaInlineEdit(element, row) {
     // Priority: 使用 data-formula-operators（原始值，包含 $数字）
     // 这样编辑时显示的是原始值（如 "$4+$6"），而不是转换后的值（如 "7+5"）
     let formulaValueToEdit = '';
-    const storedFormulaOperators = row.getAttribute('data-formula-operators') || '';
+    const storedTemplateFormulaOperators = row.getAttribute('data-template-formula-operators') || '';
+    const storedFormulaOperators = storedTemplateFormulaOperators || row.getAttribute('data-formula-operators') || '';
 
     // Check if Source % is empty (no source percent)
     const sourcePercentCell = cells[5]; // Source % column (index 5)
@@ -14345,35 +14326,27 @@ function updateSummaryTableRow(processValue, data, targetRow = null) {
 
                         // Replace [id_product : column_number] / [id_product,number] with actual values (from back to front)
                         referenceMatches.sort((a, b) => b.index - a.index);
-                        let hasMissingColumnValue = false;
                         for (let i = 0; i < referenceMatches.length; i++) {
                             const refMatch = referenceMatches[i];
                             const dataColumnIndex = refMatch.displayColumnIndex - 1;
 
                             // Get cell value using id_product and column index
-                            // Try to get row label from processValue for better matching
                             const rowLabel = getRowLabelFromProcessValue(refMatch.idProduct);
-                            const columnValue = getCellValueByIdProductAndColumn(refMatch.idProduct, dataColumnIndex, rowLabel);
+                            let columnValue = getCellValueByIdProductAndColumn(refMatch.idProduct, dataColumnIndex, rowLabel);
 
-                            if (columnValue !== null && columnValue !== '') {
-                                parsedExpression = parsedExpression.substring(0, refMatch.index) +
-                                    columnValue +
-                                    parsedExpression.substring(refMatch.index + refMatch.fullMatch.length);
-                            } else {
-                                console.warn(`Cell value not found for [${refMatch.idProduct} : ${refMatch.displayColumnIndex}]`);
-                                hasMissingColumnValue = true;
-                                break;
+                            // DEFAULT TO 0: satisfy user requirement to use 0 instead of old data for missing cells
+                            if (columnValue === null || columnValue === '') {
+                                columnValue = "0";
+                                console.warn(`updateSummaryTableRow: Cell value missing for [${refMatch.idProduct}:${refMatch.displayColumnIndex}], defaulting to 0`);
                             }
+
+                            parsedExpression = parsedExpression.substring(0, refMatch.index) +
+                                columnValue +
+                                parsedExpression.substring(refMatch.index + refMatch.fullMatch.length);
                         }
 
-                        if (hasMissingColumnValue) {
-                            formulaText = currentFormulaDisplay || getPreferredFormulaDisplay(data, row) || '';
-                            rawFormula = formulaText;
-                            console.warn('updateSummaryTableRow: missing referenced cell value, fallback to current/saved formula display:', {
-                                processValue,
-                                formulaText
-                            });
-                        } else {
+                        // Always proceed with formatting and calculation using the resolved (possibly 0-filled) expression
+                        {
                             // Get source percent for display
                             const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== ''
                                 ? data.sourcePercent.toString().trim()
@@ -16025,8 +15998,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
                 processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
             }
             targetRow.setAttribute('data-formula-display', formulaDisplayForManual);
-            targetRow.setAttribute('data-formula-operators', formulaOperatorsValue || formulaDisplayForManual);
-            targetRow.setAttribute('data-template-formula-operators', formulaOperatorsValue || formulaDisplayForManual);
             targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
             targetRow.setAttribute('data-source-percent', mainTemplate.source_percent || '1');
             updateProcessedAmountTotal();
@@ -16124,7 +16095,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
                 });
             }
 
-            let hasMissingColumnValue = false;
             for (let i = 0; i < allMatches.length; i++) {
                 const match = allMatches[i];
                 let columnValue = null;
@@ -16146,24 +16116,20 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
                     }
                 }
 
-                if (columnValue !== null) {
-                    // 替换 $数字 为实际值
-                    displayFormula = displayFormula.substring(0, match.index) +
-                        columnValue +
-                        displayFormula.substring(match.index + match.fullMatch.length);
-                } else {
-                    hasMissingColumnValue = true;
-                    break;
+                // DEFAULT TO 0 IF MISSING: Resolve to 0 to align with user expectation
+                if (columnValue === null) {
+                    columnValue = "0";
+                    console.warn(`applyMainTemplateToRow: column value missing for $${match.columnNumber}, defaulting to 0`);
                 }
+
+                // 替换 $数字 为实际值
+                displayFormula = displayFormula.substring(0, match.index) +
+                    columnValue +
+                    displayFormula.substring(match.index + match.fullMatch.length);
             }
 
-            if (hasMissingColumnValue) {
-                formulaDisplay = savedFormulaDisplay || formulaOperatorsValue;
-                console.warn('applyMainTemplateToRow: missing column value while resolving $ references, fallback to saved formula_display:', {
-                    idProduct,
-                    formulaDisplay
-                });
-            } else {
+            // Always proceed using the resolved (possibly 0-filled) displayFormula
+            {
                 // 如果还有列引用（如 A5），也转换为实际值
                 const parsedFormula = parseReferenceFormula(displayFormula);
                 const baseFormula = parsedFormula || displayFormula;
@@ -17469,7 +17435,6 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             // 从后往前处理，避免位置偏移
             allMatches.sort((a, b) => b.index - a.index);
 
-            let hasMissingColumnValue = false;
             for (let i = 0; i < allMatches.length; i++) {
                 const match = allMatches[i];
                 let columnValue = null;
@@ -17489,24 +17454,20 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     }
                 }
 
-                if (columnValue !== null) {
-                    // 替换 $数字 为实际值
-                    displayFormula = displayFormula.substring(0, match.index) +
-                        columnValue +
-                        displayFormula.substring(match.index + match.fullMatch.length);
-                } else {
-                    hasMissingColumnValue = true;
-                    break;
+                // DEFAULT TO 0 IF MISSING: Resolve to 0 to align with user expectation
+                if (columnValue === null) {
+                    columnValue = "0";
+                    console.warn(`applySubTemplatesToSummaryRow: column value missing for $${match.columnNumber}, defaulting to 0`);
                 }
+
+                // 替换 $数字 为实际值
+                displayFormula = displayFormula.substring(0, match.index) +
+                    columnValue +
+                    displayFormula.substring(match.index + match.fullMatch.length);
             }
 
-            if (hasMissingColumnValue) {
-                formulaDisplay = savedFormulaDisplay || formulaOperatorsValue;
-                console.warn('applySubTemplatesToSummaryRow: missing column value while resolving $ references, fallback to saved formula_display:', {
-                    idProduct,
-                    formulaDisplay
-                });
-            } else {
+            // Always proceed using the resolved (possibly 0-filled) displayFormula
+            {
                 // 如果还有列引用（如 [id_product : column]），也转换为实际值
                 const parsedFormula = parseReferenceFormula(displayFormula);
                 const baseFormula = parsedFormula || displayFormula;

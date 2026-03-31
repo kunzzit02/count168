@@ -881,7 +881,7 @@
 }
 
 .bank-form .bank-day-start-frequency-wrap {
-    flex: 1;
+    width: 100%;
     min-width: 160px;
 }
 

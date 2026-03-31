@@ -1039,7 +1039,6 @@ try {
                 LEFT JOIN currency ct ON tr.rate_to_currency_id = ct.id
                 LEFT JOIN user u ON h.created_by = u.id
                 LEFT JOIN owner o ON h.created_by_owner = o.id
-                LEFT JOIN bank_process bp_r ON h.source_bank_process_id = bp_r.id
                 WHERE h.company_id = ?
                   AND e.company_id = ?
                   AND h.transaction_type = 'RATE'

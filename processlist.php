@@ -841,15 +841,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <label for="bank_day_end">Day end</label>
                                     <input type="date" id="bank_day_end" name="day_end" class="bank-input">
                                 </div>
-
-                                <div class="form-group bank-day-start-frequency-wrap">
-                                    <label for="bank_day_start_frequency">Frequency</label>
-                                    <select id="bank_day_start_frequency" name="day_start_frequency"
-                                        class="bank-input bank-select">
-                                        <option value="1st_of_every_month">1st of Every Month</option>
-                                        <option value="monthly">Monthly</option>
-                                    </select>
-                                </div>
                             </div>
                         </div>
                         <div class="bank-form-cell bank-form-cell-right">
@@ -885,6 +876,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     <!-- Row 4: Selected Profit Sharing | Contract & Insurance -->
                     <div class="bank-form-row bank-form-row-last">
                         <div class="bank-form-cell bank-form-cell-left">
+                            <div class="form-group bank-day-start-frequency-wrap" style="margin-bottom: 20px;">
+                                <label for="bank_day_start_frequency">Frequency</label>
+                                <select id="bank_day_start_frequency" name="day_start_frequency"
+                                    class="bank-input bank-select">
+                                    <option value="1st_of_every_month">1st of Every Month</option>
+                                    <option value="monthly">Monthly</option>
+                                </select>
+                            </div>
                             <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
                             <div class="selected-countries-section">
                                 <div class="selected-profit-sharing-header"
