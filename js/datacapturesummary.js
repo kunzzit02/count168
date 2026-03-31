@@ -804,11 +804,19 @@ function restoreFormulaSourceFromRefresh() {
         if (data.sourceColumns != null) row.setAttribute('data-source-columns', data.sourceColumns);
         if (data.formulaOperators != null) row.setAttribute('data-formula-operators', data.formulaOperators);
         // Restore data-template-formula-operators (original $notation) if saved
+        // CRITICAL: Always prioritize template notation ($) to ensure persistence across refreshes
         if (data.templateFormulaOperators != null && data.templateFormulaOperators.trim() !== '') {
             row.setAttribute('data-template-formula-operators', data.templateFormulaOperators);
+            // If data.formulaOperators contains numbers but template exists, ensure we keep the template as the primary source for the editor
         } else if (data.formulaOperators != null && data.formulaOperators.includes('$')) {
             // If formulaOperators itself contains $ notation, also set it as template version
             row.setAttribute('data-template-formula-operators', data.formulaOperators);
+        } else {
+            // Fallback: If no template saved, check if the current attribute already has one (from applyTemplate)
+            const currentTemplate = row.getAttribute('data-template-formula-operators');
+            if (currentTemplate && currentTemplate.includes('$') && (!data.formulaOperators || !data.formulaOperators.includes('$'))) {
+                console.log('restoreFormulaSourceFromRefresh: Preserving existing template notation on row:', currentTemplate);
+            }
         }
         if (data.sourcePercent != null) row.setAttribute('data-source-percent', data.sourcePercent);
         if (data.inputMethod != null) row.setAttribute('data-input-method', data.inputMethod);
@@ -11992,6 +12000,13 @@ function updateFormulaAndProcessedAmount(row, data) {
         if (!rawFormula) rawFormula = formulaText;
         row.setAttribute('data-formula-raw', rawFormula || '');
         row.setAttribute('data-formula-operators', formulaText || rawFormula || '');
+
+        // IMPORTANT: Ensure data-template-formula-operators is preserved if the original formula had $ notation
+        // This prevents the original template from being lost when the row is updated with resolved numbers
+        if (formulaOperatorsForDisplay && formulaOperatorsForDisplay.includes('$')) {
+            row.setAttribute('data-template-formula-operators', formulaOperatorsForDisplay);
+        }
+
         const displayText = formulaText;
         if (displayText) row.setAttribute('data-formula-display', displayText);
         else row.removeAttribute('data-formula-display');
@@ -16010,6 +16025,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
                 processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
             }
             targetRow.setAttribute('data-formula-display', formulaDisplayForManual);
+            targetRow.setAttribute('data-formula-operators', formulaOperatorsValue || formulaDisplayForManual);
+            targetRow.setAttribute('data-template-formula-operators', formulaOperatorsValue || formulaDisplayForManual);
             targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
             targetRow.setAttribute('data-source-percent', mainTemplate.source_percent || '1');
             updateProcessedAmountTotal();

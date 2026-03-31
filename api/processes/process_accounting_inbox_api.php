@@ -66,8 +66,10 @@ function getBankProcessIssueFlagSql(string $tableAlias, bool $hasIssueFlagColumn
     if ($hasIssueFlagColumn && $hasFlagColumn) {
         return "COALESCE(NULLIF($tableAlias.`flag`, ''), NULLIF($tableAlias.`issue_flag`, ''))";
     }
-    if ($hasFlagColumn) return "$tableAlias.`flag`";
-    if ($hasIssueFlagColumn) return "$tableAlias.`issue_flag`";
+    if ($hasFlagColumn)
+        return "$tableAlias.`flag`";
+    if ($hasIssueFlagColumn)
+        return "$tableAlias.`issue_flag`";
     return "NULL";
 }
 
@@ -98,8 +100,8 @@ function fetchInactiveBankProcessesPendingTransaction(PDO $pdo, int $companyId, 
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.contract
             FROM bank_process bp
             WHERE bp.company_id = ? AND " . (($hasIssueFlagColumn || $hasFlagColumn)
-                ? "(bp.status = 'inactive' OR " . normalizedBankIssueFlagSql($issueFlagSql) . " IN ('official','e_invoice'))"
-                : "bp.status = 'inactive'") . "
+        ? "(bp.status = 'inactive' OR " . normalizedBankIssueFlagSql($issueFlagSql) . " IN ('official','e_invoice'))"
+        : "bp.status = 'inactive'") . "
             AND bp.contract IN ('1+1','1+2','1+3')
             AND (bp.card_merchant_id IS NOT NULL OR bp.customer_id IS NOT NULL OR bp.profit_account_id IS NOT NULL)
             AND (COALESCE(bp.cost,0) > 0 OR COALESCE(bp.price,0) > 0 OR COALESCE(bp.profit,0) > 0)";

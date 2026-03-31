@@ -33,14 +33,25 @@ function getBankProcessIssueFlagSql(string $tableAlias, bool $hasIssueFlagColumn
     if ($hasIssueFlagColumn && $hasFlagColumn) {
         return "COALESCE(NULLIF($tableAlias.`flag`, ''), NULLIF($tableAlias.`issue_flag`, ''))";
     }
-    if ($hasFlagColumn) return "$tableAlias.`flag`";
-    if ($hasIssueFlagColumn) return "$tableAlias.`issue_flag`";
+    if ($hasFlagColumn)
+        return "$tableAlias.`flag`";
+    if ($hasIssueFlagColumn)
+        return "$tableAlias.`issue_flag`";
     return "NULL";
 }
 
 function normalizedBankIssueFlagSql(string $columnRef): string
 {
     return "LOWER(REPLACE(REPLACE(TRIM(COALESCE($columnRef, '')), '-', '_'), ' ', '_'))";
+}
+
+/** Parses date strings robustly, converting slashes to hyphens so strtotime treats it as DD-MM-YYYY */
+function parseDateRobust(?string $dateStr)
+{
+    if (empty($dateStr) || $dateStr === '0000-00-00') {
+        return false;
+    }
+    return strtotime(str_replace('/', '-', $dateStr));
 }
 
 function insertTransactionRow(PDO $pdo, array $data): int
@@ -56,7 +67,7 @@ function insertTransactionRow(PDO $pdo, array $data): int
 /** Pro-rated cost/price/profit for partial first month (day_start to end of that month) */
 function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, float $profit): array
 {
-    $ts = strtotime($dayStart);
+    $ts = parseDateRobust($dayStart);
     if ($ts === false) {
         return ['cost' => $cost, 'price' => $price, 'profit' => $profit];
     }
@@ -85,14 +96,14 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     $hasFlagColumn = tableHasColumn($pdo, 'bank_process', 'flag');
     $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
-            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
+            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, bp.day_start_frequency, c.owner_id
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
             WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND (" .
-                (($hasIssueFlagColumn || $hasFlagColumn)
-                    ? "bp.status IN ('active','inactive') OR " . normalizedBankIssueFlagSql($issueFlagSql) . " IN ('official','e_invoice')"
-                    : "bp.status IN ('active','inactive')") .
-            ")";
+        (($hasIssueFlagColumn || $hasFlagColumn)
+            ? "bp.status IN ('active','inactive') OR " . normalizedBankIssueFlagSql($issueFlagSql) . " IN ('official','e_invoice')"
+            : "bp.status IN ('active','inactive')") .
+        ")";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(array_merge($ids, [$companyId]));
     $byId = [];
@@ -155,8 +166,9 @@ function addMonthsToDate(?string $dateStr, int $months): ?string
 /** 根据 contract 与当前 day_start 计算下次 day_start（用于 manual_inactive 入账后恢复 active 并更新日期） */
 function nextDayStartFromContract(?string $dayStart, ?string $contract): string
 {
-    $base = $dayStart && strtotime($dayStart) !== false ? $dayStart : date('Y-m-d');
-    $ts = strtotime($base);
+    $baseTs = parseDateRobust($dayStart);
+    $base = ($baseTs !== false) ? date('Y-m-d', $baseTs) : date('Y-m-d');
+    $ts = strtotime($base); // already formatted as Y-m-d above
     if ($ts === false) {
         return date('Y-m-d');
     }
@@ -305,7 +317,7 @@ try {
     $has_source_bank_process_id = tableHasColumn($pdo, 'transactions', 'source_bank_process_id');
     $has_source_bank_process_period_type = tableHasColumn($pdo, 'transactions', 'source_bank_process_period_type');
     $has_period_type = tableHasColumn($pdo, 'process_accounting_posted', 'period_type');
-    $transactionDate = date('Y-m-d');
+    $postingDate = date('Y-m-d');
     $createdCount = 0;
     $currencyCache = [];
 
@@ -352,6 +364,33 @@ try {
         }
         if (!$currencyId && $has_currency_id) {
             continue;
+        }
+
+        $transactionDate = $postingDate;
+        if (!empty($p['day_start'])) {
+            $ts = parseDateRobust($p['day_start']);
+            if ($ts !== false) {
+                if ($periodType === 'partial_first_month') {
+                    $transactionDate = date('Y-m-d', $ts);
+                } elseif ($periodType === 'manual_inactive') {
+                    $baseDate = (!empty($p['day_end']) && $p['day_end'] !== '0000-00-00') ? $p['day_end'] : $p['day_start'];
+                    $bts = parseDateRobust($baseDate);
+                    $transactionDate = ($bts !== false) ? date('Y-m-d', $bts) : $postingDate;
+                } elseif ($periodType === 'monthly') {
+                    $freq = $p['day_start_frequency'] ?? '1st_of_every_month';
+                    if ($freq === '1st_of_every_month') {
+                        $transactionDate = date('Y-m-01');
+                    } else {
+                        // Monthly: use the day from day_start in the current month
+                        $bDay = (int) date('j', $ts);
+                        $lastDayInCurrentMonth = (int) date('t');
+                        if ($bDay > $lastDayInCurrentMonth) {
+                            $bDay = $lastDayInCurrentMonth;
+                        }
+                        $transactionDate = date('Y-m-') . sprintf('%02d', $bDay);
+                    }
+                }
+            }
         }
 
         $baseTxn = [
@@ -404,7 +443,7 @@ try {
         // 1st of every month 首月按比例时，Profit Sharing 金额也按「剩余天数/当月天数」折算，再分给各 account
         $psRatio = 1.0;
         if ($periodType === 'partial_first_month' && !empty($p['day_start'])) {
-            $ts = strtotime($p['day_start']);
+            $ts = parseDateRobust($p['day_start']);
             if ($ts !== false) {
                 $daysInMonth = (int) date('t', $ts);
                 $dayOfMonth = (int) date('j', $ts);
@@ -446,7 +485,7 @@ try {
             $createdCount++;
         }
 
-        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $transactionDate, $periodType, $has_period_type);
+        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postingDate, $periodType, $has_period_type);
 
         // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）
         if ($periodType === 'manual_inactive') {
