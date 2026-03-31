@@ -885,15 +885,16 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </select>
                             </div>
                             <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
-                            <div class="selected-countries-section">
-                                <div class="selected-profit-sharing-header"
-                                    style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                    <h3 style="margin: 0;">Selected Profit Sharing</h3>
+                            <div class="bank-profit-sharing-container">
+                                <div class="bank-profit-sharing-header">
+                                    <h3>Selected Profit Sharing</h3>
                                     <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()"
                                         title="Add Profit Sharing">+</button>
                                 </div>
-                                <div class="selected-countries-list" id="selectedProfitSharingList">
-                                    <div class="no-countries">No profit sharing selected</div>
+                                <div class="bank-profit-sharing-list" id="selectedProfitSharingList">
+                                    <div class="no-profit-sharing">
+                                        <p>No profit sharing selected</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1451,7 +1452,8 @@ if ($current_user_id && count($user_companies) > 0) {
         window.PROCESSLIST_SHOW_ALL = <?php echo $showAllChecked ? 'true' : 'false'; ?>;
         window.PROCESSLIST_COMPANY_ID = <?php echo json_encode($company_id ?? null); ?>;
         window.PROCESSLIST_COMPANY_CODE = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) {
-            return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
+            return $c['id'] == $company_id;
+        }))[0]['company_id'] ?? '' : ''); ?>;
         window.PROCESSLIST_SELECTED_COMPANY_IDS_FOR_ADD = [<?php echo json_encode($company_id); ?>];
     </script>
     <div class="calendar-popup" id="calendar-popup" style="display: none;">
