@@ -873,17 +873,39 @@ if ($current_user_id && count($user_companies) > 0) {
                             </div>
                         </div>
                     </div>
-                    <!-- Row 4: Selected Profit Sharing | Contract & Insurance -->
-                    <div class="bank-form-row bank-form-row-last">
-                        <div class="bank-form-cell bank-form-cell-left">
-                            <div class="form-group bank-day-start-frequency-wrap" style="margin-bottom: 20px;">
-                                <label for="bank_day_start_frequency">Frequency</label>
-                                <select id="bank_day_start_frequency" name="day_start_frequency"
-                                    class="bank-input bank-select">
-                                    <option value="1st_of_every_month">1st of Every Month</option>
-                                    <option value="monthly">Monthly</option>
-                                </select>
-                            </div>
+                    <!-- Row 4: Frequency | Contract | Insurance (3-column) -->
+                    <div class="bank-form-row bank-row-three-cols">
+                        <div class="form-group bank-day-start-frequency-wrap">
+                            <label for="bank_day_start_frequency">Frequency</label>
+                            <select id="bank_day_start_frequency" name="day_start_frequency"
+                                class="bank-input bank-select">
+                                <option value="1st_of_every_month">1st of Every Month</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="bank_contract">Contract</label>
+                            <select id="bank_contract" name="contract" class="bank-select" required>
+                                <option value="">Select Contract</option>
+                                <option value="1 MONTH">1 MONTH</option>
+                                <option value="2 MONTHS">2 MONTHS</option>
+                                <option value="3 MONTHS">3 MONTHS</option>
+                                <option value="6 MONTHS">6 MONTHS</option>
+                                <option value="1+1">1+1 MONTH</option>
+                                <option value="1+2">1+2 MONTHS</option>
+                                <option value="1+3">1+3 MONTHS</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="bank_insurance">Insurance</label>
+                            <input type="text" id="bank_insurance" name="insurance" placeholder="Enter amount"
+                                class="bank-input" inputmode="decimal" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <!-- Row 5: Selected Profit Sharing (Full Width Card) -->
+                    <div class="bank-form-row bank-form-row-full">
+                        <div class="bank-form-cell">
                             <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
                             <div class="bank-profit-sharing-container">
                                 <div class="bank-profit-sharing-header">
@@ -898,37 +920,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                             </div>
                         </div>
-                        <div class="bank-form-cell bank-form-cell-right">
-                            <div class="form-row bank-row-two-cols">
-                                <div class="form-group">
-                                    <label for="bank_contract">Contract</label>
-                                    <select id="bank_contract" name="contract" class="bank-select" required>
-                                        <option value="">Select Contract</option>
-                                        <option value="1 MONTH">1 MONTH</option>
-                                        <option value="2 MONTHS">2 MONTHS</option>
-                                        <option value="3 MONTHS">3 MONTHS</option>
-                                        <option value="6 MONTHS">6 MONTHS</option>
-                                        <option value="1+1">1+1 MONTH</option>
-                                        <option value="1+2">1+2 MONTHS</option>
-                                        <option value="1+3">1+3 MONTHS</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_insurance">Insurance</label>
-                                    <input type="text" id="bank_insurance" name="insurance" placeholder="Enter amount"
-                                        class="bank-input" inputmode="decimal" autocomplete="off">
-                                </div>
-                            </div>
-                            <!-- SOP：与当前 Process 关联的记录事项，点击按钮在弹窗中编辑 -->
-                            <div class="form-group bank-remark-wrap" style="margin-top: 12px;">
-                                <input type="hidden" id="bank_sop" name="sop" value="">
-                                <input type="hidden" id="bank_remark" name="remark" value="">
-                                <div class="bank-remark-actions">
-                                    <button type="button" id="bank_sop_btn" class="btn btn-save"
-                                        onclick="openProcessNoteModal('sop')">SOP</button>
-                                    <button type="button" id="bank_remark_btn" class="btn btn-save"
-                                        onclick="openProcessNoteModal('remark')">Remark</button>
-                                </div>
+                    </div>
+
+                    <!-- Row 6: SOP & Remark (Actionable Module) -->
+                    <div class="bank-form-row bank-note-section">
+                        <div class="bank-form-cell">
+                            <input type="hidden" id="bank_sop" name="sop" value="">
+                            <input type="hidden" id="bank_remark" name="remark" value="">
+                            <div class="bank-note-actions">
+                                <button type="button" id="bank_sop_btn" class="btn btn-note"
+                                    onclick="openProcessNoteModal('sop')">Edit SOP</button>
+                                <button type="button" id="bank_remark_btn" class="btn btn-note"
+                                    onclick="openProcessNoteModal('remark')">Edit Remark</button>
                             </div>
                         </div>
                     </div>

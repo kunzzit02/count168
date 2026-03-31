@@ -26,9 +26,9 @@ if (!isset($_SESSION['user_id'])) {
 // 优先使用请求中的 company_id（如果提供了），否则使用 session 中的
 $company_id = null;
 if (isset($_GET['company_id']) && !empty($_GET['company_id'])) {
-    $company_id = (int)$_GET['company_id'];
+    $company_id = (int) $_GET['company_id'];
 } elseif (isset($_POST['company_id']) && !empty($_POST['company_id'])) {
-    $company_id = (int)$_POST['company_id'];
+    $company_id = (int) $_POST['company_id'];
 } elseif (isset($_SESSION['company_id'])) {
     $company_id = $_SESSION['company_id'];
 }
@@ -76,23 +76,27 @@ try {
         case 'get_week_submissions':
             getWeekSubmissions($user_id);
             break;
-            
+
         case 'get_submissions_by_date':
             getSubmissionsByDate($user_id);
             break;
-            
+
         case 'get_submissions_by_capture_date':
             getSubmissionsByCaptureDate($user_id);
             break;
-            
+
         case 'get_processes_by_day':
             getProcessesByDay($user_id);
             break;
-            
+
+        case 'get_submissions_by_physical_date':
+            getSubmissionsByPhysicalDate($user_id);
+            break;
+
         case 'save_submission':
             saveSubmission($user_id);
             break;
-            
+
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Invalid action']);
@@ -105,12 +109,13 @@ try {
 }
 
 // 获取本周提交的processes（根据用户权限）
-function getWeekSubmissions($user_id) {
+function getWeekSubmissions($user_id)
+{
     global $pdo, $company_id;
-    
+
     // 使用全局的 $company_id（已经过验证）
     $currentCompanyId = $company_id;
-    
+
     if (!$currentCompanyId) {
         echo json_encode([
             'success' => false,
@@ -118,24 +123,24 @@ function getWeekSubmissions($user_id) {
         ]);
         return;
     }
-    
+
     // 获取本周的开始和结束日期
     $start_of_week = date('Y-m-d', strtotime('monday this week'));
     $end_of_week = date('Y-m-d', strtotime('sunday this week'));
-    
+
     // 获取用户权限（仅对 user 类型，owner 有所有权限）
     $processIds = [];
     $user_type = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' ? 'owner' : 'user';
-    
+
     if ($user_type === 'user') {
         $userStmt = $pdo->prepare("SELECT process_permissions FROM user WHERE id = ?");
         $userStmt->execute([$user_id]);
         $user = $userStmt->fetch(PDO::FETCH_ASSOC);
-        
+
         // 检查 process_permissions 字段是否存在且非空
         if ($user && !empty($user['process_permissions'])) {
             $processPermissions = json_decode($user['process_permissions'], true);
-            
+
             // 处理权限数据：可能是对象数组（每个对象有 id 字段）或简单的 ID 数组
             if (is_array($processPermissions) && !empty($processPermissions)) {
                 // 检查第一个元素是否是对象（有 id 字段）
@@ -151,16 +156,16 @@ function getWeekSubmissions($user_id) {
         // 如果 process_permissions 为空或不存在，$processIds 保持为空数组，表示可以看见所有 process
     }
     // owner 类型不需要权限限制，$processIds 保持为空数组
-    
+
     // 构建权限过滤条件
     $permissionCondition = "";
-    
+
     // 只有当用户设置了权限（$processIds 不为空）时才添加权限过滤
     if (!empty($processIds)) {
         $placeholders = str_repeat('?,', count($processIds) - 1) . '?';
         $permissionCondition = "AND p.id IN ($placeholders)";
     }
-    
+
     $stmt = $pdo->prepare("
         SELECT 
             sp.id,
@@ -182,14 +187,14 @@ function getWeekSubmissions($user_id) {
         $permissionCondition
         ORDER BY sp.date_submitted DESC, sp.created_at DESC
     ");
-    
+
     // 调整参数顺序：company_id, start_date, end_date, company_id (for process), processIds...
     $params = array_merge([$currentCompanyId, $start_of_week, $end_of_week, $currentCompanyId], !empty($processIds) ? $processIds : []);
-    
+
     try {
         $stmt->execute($params);
         $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         echo json_encode([
             'success' => true,
             'data' => $submissions,
@@ -208,13 +213,14 @@ function getWeekSubmissions($user_id) {
 }
 
 // 根据特定日期获取提交的processes（根据用户权限）
-function getSubmissionsByDate($user_id) {
+function getSubmissionsByDate($user_id)
+{
     global $pdo, $company_id;
-    
+
     try {
         // 使用全局的 $company_id（已经过验证）
         $currentCompanyId = $company_id;
-        
+
         if (!$currentCompanyId) {
             echo json_encode([
                 'success' => false,
@@ -222,10 +228,10 @@ function getSubmissionsByDate($user_id) {
             ]);
             return;
         }
-        
+
         // 获取选择的日期，默认为今天
         $selected_date = $_GET['date'] ?? date('Y-m-d');
-        
+
         // 验证日期格式
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $selected_date)) {
             echo json_encode([
@@ -234,21 +240,21 @@ function getSubmissionsByDate($user_id) {
             ]);
             return;
         }
-        
+
         // 获取用户权限（仅对 user 类型，owner 有所有权限）
         $processIds = [];
         $user_type = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' ? 'owner' : 'user';
-        
+
         if ($user_type === 'user') {
             try {
                 $userStmt = $pdo->prepare("SELECT process_permissions FROM user WHERE id = ?");
                 $userStmt->execute([$user_id]);
                 $user = $userStmt->fetch(PDO::FETCH_ASSOC);
-                
+
                 // 检查 process_permissions 字段是否存在且非空
                 if ($user && isset($user['process_permissions']) && !empty($user['process_permissions'])) {
                     $processPermissions = json_decode($user['process_permissions'], true);
-                    
+
                     // 处理权限数据：可能是对象数组（每个对象有 id 字段）或简单的 ID 数组
                     if (is_array($processPermissions) && !empty($processPermissions)) {
                         // 检查第一个元素是否是对象（有 id 字段）
@@ -268,24 +274,24 @@ function getSubmissionsByDate($user_id) {
             }
         }
         // owner 类型不需要权限限制，$processIds 保持为空数组
-        
+
         // 构建权限过滤条件
         $permissionCondition = "";
-        
+
         // 只有当用户设置了权限（$processIds 不为空）时才添加权限过滤
         if (!empty($processIds) && is_array($processIds)) {
             // 过滤掉非数字的 ID
-            $processIds = array_filter($processIds, function($id) {
+            $processIds = array_filter($processIds, function ($id) {
                 return is_numeric($id);
             });
             $processIds = array_values($processIds); // 重新索引数组
-            
+
             if (!empty($processIds)) {
                 $placeholders = str_repeat('?,', count($processIds) - 1) . '?';
                 $permissionCondition = "AND p.id IN ($placeholders)";
             }
         }
-        
+
         $stmt = $pdo->prepare("
             SELECT 
                 sp.id,
@@ -307,13 +313,13 @@ function getSubmissionsByDate($user_id) {
             $permissionCondition
             ORDER BY sp.created_at DESC
         ");
-        
+
         // 调整参数顺序：company_id, date, company_id (for process), processIds...
         $params = array_merge([$currentCompanyId, $selected_date, $currentCompanyId], !empty($processIds) ? $processIds : []);
-        
+
         $stmt->execute($params);
         $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         echo json_encode([
             'success' => true,
             'data' => $submissions,
@@ -337,13 +343,14 @@ function getSubmissionsByDate($user_id) {
 }
 
 // 根据 capture_date 获取提交的processes（按选择的日期归类，显示提交日期）
-function getSubmissionsByCaptureDate($user_id) {
+function getSubmissionsByCaptureDate($user_id)
+{
     global $pdo, $company_id;
-    
+
     try {
         // 使用全局的 $company_id（已经过验证）
         $currentCompanyId = $company_id;
-        
+
         if (!$currentCompanyId) {
             echo json_encode([
                 'success' => false,
@@ -351,10 +358,10 @@ function getSubmissionsByCaptureDate($user_id) {
             ]);
             return;
         }
-        
+
         // 获取选择的 capture_date，默认为今天
         $capture_date = $_GET['capture_date'] ?? date('Y-m-d');
-        
+
         // 验证日期格式
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $capture_date)) {
             echo json_encode([
@@ -363,21 +370,21 @@ function getSubmissionsByCaptureDate($user_id) {
             ]);
             return;
         }
-        
+
         // 获取用户权限（仅对 user 类型，owner 有所有权限）
         $processIds = [];
         $user_type = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' ? 'owner' : 'user';
-        
+
         if ($user_type === 'user') {
             try {
                 $userStmt = $pdo->prepare("SELECT process_permissions FROM user WHERE id = ?");
                 $userStmt->execute([$user_id]);
                 $user = $userStmt->fetch(PDO::FETCH_ASSOC);
-                
+
                 // 检查 process_permissions 字段是否存在且非空
                 if ($user && isset($user['process_permissions']) && !empty($user['process_permissions'])) {
                     $processPermissions = json_decode($user['process_permissions'], true);
-                    
+
                     // 处理权限数据：可能是对象数组（每个对象有 id 字段）或简单的 ID 数组
                     if (is_array($processPermissions) && !empty($processPermissions)) {
                         // 检查第一个元素是否是对象（有 id 字段）
@@ -397,24 +404,24 @@ function getSubmissionsByCaptureDate($user_id) {
             }
         }
         // owner 类型不需要权限限制，$processIds 保持为空数组
-        
+
         // 构建权限过滤条件
         $permissionCondition = "";
-        
+
         // 只有当用户设置了权限（$processIds 不为空）时才添加权限过滤
         if (!empty($processIds) && is_array($processIds)) {
             // 过滤掉非数字的 ID
-            $processIds = array_filter($processIds, function($id) {
+            $processIds = array_filter($processIds, function ($id) {
                 return is_numeric($id);
             });
             $processIds = array_values($processIds); // 重新索引数组
-            
+
             if (!empty($processIds)) {
                 $placeholders = str_repeat('?,', count($processIds) - 1) . '?';
                 $permissionCondition = "AND p.id IN ($placeholders)";
             }
         }
-        
+
         // Check if capture_date column exists by trying to query it
         // If it doesn't exist, fall back to using date_submitted for filtering
         try {
@@ -424,7 +431,7 @@ function getSubmissionsByCaptureDate($user_id) {
         } catch (PDOException $e) {
             $hasCaptureDateColumn = false;
         }
-        
+
         if ($hasCaptureDateColumn) {
             // Use capture_date for filtering
             $dateFilter = "DATE(sp.capture_date) = ?";
@@ -434,7 +441,7 @@ function getSubmissionsByCaptureDate($user_id) {
             $dateFilter = "DATE(sp.date_submitted) = ?";
             $dateParam = $capture_date;
         }
-        
+
         $stmt = $pdo->prepare("
             SELECT 
                 sp.id,
@@ -456,13 +463,13 @@ function getSubmissionsByCaptureDate($user_id) {
             $permissionCondition
             ORDER BY sp.created_at DESC
         ");
-        
+
         // 调整参数顺序：company_id, date, company_id (for process), processIds...
         $params = array_merge([$currentCompanyId, $dateParam, $currentCompanyId], !empty($processIds) ? $processIds : []);
-        
+
         $stmt->execute($params);
         $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         echo json_encode([
             'success' => true,
             'data' => $submissions,
@@ -485,13 +492,110 @@ function getSubmissionsByCaptureDate($user_id) {
     }
 }
 
-// 根据星期几获取processes
-function getProcessesByDay($user_id) {
+// 根据物理提交日期（created_at）获取提交的processes
+function getSubmissionsByPhysicalDate($user_id)
+{
     global $pdo, $company_id;
-    
+
+    try {
+        // 使用全局的 $company_id（已经过验证）
+        $currentCompanyId = $company_id;
+
+        if (!$currentCompanyId) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'User company_id not found'
+            ]);
+            return;
+        }
+
+        // 获取选择的物理日期，默认为今天 (CURDATE)
+        $physical_date = $_GET['date'] ?? date('Y-m-d');
+
+        // 验证日期格式
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $physical_date)) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Invalid date format'
+            ]);
+            return;
+        }
+
+        // 获取用户权限（仅对 user 类型，owner 有所有权限）
+        $processIds = [];
+        $user_type = $_SESSION['user_type'] ?? 'user';
+
+        if ($user_type === 'user') {
+            $userStmt = $pdo->prepare("SELECT process_permissions FROM user WHERE id = ?");
+            $userStmt->execute([$user_id]);
+            $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+            if ($user && !empty($user['process_permissions'])) {
+                $processPermissions = json_decode($user['process_permissions'], true);
+                if (is_array($processPermissions)) {
+                    if (isset($processPermissions[0]) && is_array($processPermissions[0]) && isset($processPermissions[0]['id'])) {
+                        $processIds = array_column($processPermissions, 'id');
+                    } else {
+                        $processIds = $processPermissions;
+                    }
+                }
+            }
+        }
+
+        // 构建权限过滤条件
+        $permissionCondition = "";
+        if (!empty($processIds)) {
+            $placeholders = str_repeat('?,', count($processIds) - 1) . '?';
+            $permissionCondition = "AND p.id IN ($placeholders)";
+        }
+
+        $stmt = $pdo->prepare("
+            SELECT 
+                sp.id,
+                sp.process_id,
+                sp.date_submitted,
+                sp.created_at,
+                sp.user_type,
+                p.process_id as process_code,
+                d.name as description_name,
+                COALESCE(u.login_id, o.owner_code) as submitted_by
+            FROM submitted_processes sp
+            JOIN process p ON sp.process_id = p.id
+            LEFT JOIN description d ON p.description_id = d.id
+            LEFT JOIN user u ON sp.user_id = u.id AND sp.user_type = 'user'
+            LEFT JOIN owner o ON sp.user_id = o.id AND sp.user_type = 'owner'
+            WHERE sp.company_id = ?
+              AND DATE(sp.created_at) = ?
+              AND p.company_id = ?
+            $permissionCondition
+            ORDER BY sp.created_at DESC
+        ");
+
+        $params = array_merge([$currentCompanyId, $physical_date, $currentCompanyId], !empty($processIds) ? $processIds : []);
+        $stmt->execute($params);
+        $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'data' => $submissions,
+            'physical_date' => $physical_date
+        ]);
+    } catch (Exception $e) {
+        error_log("Error in getSubmissionsByPhysicalDate: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error' => 'Internal error: ' . $e->getMessage()
+        ]);
+    }
+}
+
+// 根据星期几获取processes
+function getProcessesByDay($user_id)
+{
+    global $pdo, $company_id;
+
     // 使用全局的 $company_id（已经过验证）
     $currentCompanyId = $company_id;
-    
+
     if (!$currentCompanyId) {
         echo json_encode([
             'success' => false,
@@ -499,12 +603,12 @@ function getProcessesByDay($user_id) {
         ]);
         return;
     }
-    
+
     $selected_date = $_GET['date'] ?? date('Y-m-d');
-    
+
     // 获取选择的日期是星期几
     $day_of_week = date('N', strtotime($selected_date)); // 1=Monday, 7=Sunday
-    
+
     // 构建基础 SQL 查询
     $baseSql = "
         SELECT 
@@ -523,16 +627,16 @@ function getProcessesByDay($user_id) {
         AND p.status = 'active'
         AND p.company_id = ?
         AND sp.id IS NULL";
-    
+
     // 基础参数：currentCompanyId (for submitted_processes), selected_date (用于排除已提交), day_of_week, currentCompanyId (for process)
     $baseParams = [$currentCompanyId, $selected_date, $day_of_week, $currentCompanyId];
-    
+
     // 应用权限过滤（使用 permissions.php 中的 filterProcessesByPermissions 函数）
     list($baseSql, $baseParams) = filterProcessesByPermissions($pdo, $baseSql, $baseParams);
-    
+
     // 添加排序
     $baseSql .= " ORDER BY p.process_id ASC";
-    
+
     try {
         $stmt = $pdo->prepare($baseSql);
         $stmt->execute($baseParams);
@@ -544,7 +648,7 @@ function getProcessesByDay($user_id) {
                 : $proc['process_id'];
         }
         unset($proc);
-        
+
         echo json_encode([
             'success' => true,
             'data' => $processes,
@@ -561,63 +665,64 @@ function getProcessesByDay($user_id) {
 }
 
 // 保存新的提交记录
-function saveSubmission($user_id) {
+function saveSubmission($user_id)
+{
     global $pdo, $company_id;
-    
+
     try {
         // 获取POST数据
         $process_id = $_POST['process_id'] ?? '';
         $date_submitted = $_POST['date_submitted'] ?? date('Y-m-d');
         $capture_date = $_POST['capture_date'] ?? $date_submitted; // Default to date_submitted if not provided
-        
+
         // 检查当前用户是 owner 还是 user
         $user_type = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' ? 'owner' : 'user';
-        
+
         // 添加调试日志
         error_log("Save submission - User ID: $user_id, User Type: $user_type, Process ID: $process_id, Date: $date_submitted");
-        
+
         // 验证必需字段
         if (empty($process_id)) {
             error_log("Missing process_id in saveSubmission");
             echo json_encode(['success' => false, 'error' => 'Missing process_id']);
             return;
         }
-        
+
         // 确保 process_id 是整数
-        $process_id = (int)$process_id;
+        $process_id = (int) $process_id;
         if ($process_id <= 0) {
             error_log("Invalid process_id in saveSubmission: " . $_POST['process_id']);
             echo json_encode(['success' => false, 'error' => 'Invalid process_id']);
             return;
         }
-        
+
         // 验证日期格式
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_submitted)) {
             error_log("Invalid date format in saveSubmission: $date_submitted");
             echo json_encode(['success' => false, 'error' => 'Invalid date format']);
             return;
         }
-        
+
         // 验证 capture_date 格式
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $capture_date)) {
             error_log("Invalid capture_date format in saveSubmission: $capture_date");
             echo json_encode(['success' => false, 'error' => 'Invalid capture_date format']);
             return;
         }
-        
+
         // 获取 company_id（通过 process 表）
         $processStmt = $pdo->prepare("SELECT company_id FROM process WHERE id = ? LIMIT 1");
         $processStmt->execute([$process_id]);
         $process = $processStmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$process || !isset($process['company_id'])) {
             error_log("Failed to get process company_id for process_id: $process_id");
             echo json_encode(['success' => false, 'error' => '无法获取 process 的 company_id']);
             return;
         }
-        
-        $processCompanyId = (int)$process['company_id'];
-        
+
+        $processCompanyId = (int) $process['company_id'];
+
         // 验证 company_id 是否与当前用户的 company_id 匹配
         $currentCompanyId = $company_id;
         if (!$currentCompanyId) {
@@ -625,13 +730,13 @@ function saveSubmission($user_id) {
             echo json_encode(['success' => false, 'error' => '缺少公司信息']);
             return;
         }
-        
+
         if ($processCompanyId != $currentCompanyId) {
             error_log("Process company_id ($processCompanyId) does not match current company_id ($currentCompanyId)");
             echo json_encode(['success' => false, 'error' => 'Process 不属于当前公司']);
             return;
         }
-        
+
         // 检查是否已经存在相同的提交记录（避免重复）
         $checkStmt = $pdo->prepare("
             SELECT id FROM submitted_processes 
@@ -644,7 +749,7 @@ function saveSubmission($user_id) {
         ");
         $checkStmt->execute([$processCompanyId, $user_id, $user_type, $process_id, $date_submitted]);
         $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if ($existing) {
             error_log("Submission already exists with ID: " . $existing['id']);
             echo json_encode([
@@ -655,7 +760,7 @@ function saveSubmission($user_id) {
             ]);
             return;
         }
-        
+
         // Try to insert with capture_date field (if it exists in the table)
         // If the field doesn't exist, the SQL will fail and we'll try without it
         try {
@@ -663,7 +768,7 @@ function saveSubmission($user_id) {
                 INSERT INTO submitted_processes (company_id, user_id, user_type, process_id, date_submitted, capture_date)
                 VALUES (?, ?, ?, ?, ?, ?)
             ");
-            
+
             $success = $stmt->execute([$processCompanyId, $user_id, $user_type, $process_id, $date_submitted, $capture_date]);
         } catch (PDOException $e) {
             // If capture_date column doesn't exist, try without it
@@ -678,7 +783,7 @@ function saveSubmission($user_id) {
                 throw $e; // Re-throw if it's a different error
             }
         }
-        
+
         if ($success) {
             $submission_id = $pdo->lastInsertId();
             error_log("Submission saved successfully with ID: $submission_id (Type: $user_type)");
