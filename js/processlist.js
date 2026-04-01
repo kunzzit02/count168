@@ -3162,7 +3162,7 @@ function updateBankFrequencyOptions() {
 // Remove Auto calculate Day End based on Day Start and Contract
 function autoCalculateBankDayEnd() {
     // We no longer auto-calculate Day End. It must be entered manually.
-    
+
     // After any change to Day Start or Contract, we still sync the frequency options 
     // in case the user has manually entered a Day End.
     updateBankFrequencyOptions();
@@ -5303,7 +5303,7 @@ function renderSelectedProfitSharing() {
         div.dataset.index = String(index);
 
         const escapedAccount = (typeof escapeHtml === 'function' ? escapeHtml(entry.accountText || '') : (entry.accountText || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-        
+
         div.innerHTML = `
             <div class="ps-item-content">
                 <div class="ps-account-info">

@@ -997,13 +997,12 @@ function getLocalDateString(date = null) {
     return `${year}-${month}-${day}`;
 }
 
-// Load submitted processes from database by date
+// Load submitted processes：加载今天物理提交的记录（不管左侧 Date 选择哪天）；行内日期为逻辑日期，时间为物理提交时刻
 async function loadSubmittedProcesses() {
     try {
         // Add currently selected company_id
         const currentCompanyId = (typeof window.DATACAPTURE_COMPANY_ID !== 'undefined' ? window.DATACAPTURE_COMPANY_ID : null);
-        
-        // Use get_today_entries to show all entries submitted today (physical date)
+
         const url = buildApiUrl(`api/processes/submitted_processes_api.php?action=get_today_entries`);
         const finalUrl = currentCompanyId ? `${url}${url.indexOf('?') >= 0 ? '&' : '?'}company_id=${currentCompanyId}` : url;
 
@@ -2150,31 +2149,52 @@ function renderSubmittedProcesses() {
     const listContainer = document.getElementById('submittedProcessesList');
 
     if (submittedProcesses.length === 0) {
-        listContainer.innerHTML = '<div class="no-data">No processes submitted for this date</div>';
+        listContainer.innerHTML = '<div class="no-data">No processes submitted yet today</div>';
         return;
     }
 
     let html = '';
     submittedProcesses.forEach((process, index) => {
-        // 使用 created_at（实际提交时刻）显示日期+时间，顾客可看到「这笔账是几月几号几点才 submit」
-        // 若员工遗忘提交，例如 2 号的账 4 号才 submit，列表会显示 04/03/2026，便于发现问题
-        let dateObj;
-        let timeObj;
-        if (process.created_at) {
-            const createdDate = new Date(process.created_at);
-            dateObj = createdDate;
-            timeObj = createdDate;
-        } else {
-            dateObj = new Date();
-            timeObj = new Date();
+        // 使用 date_submitted（或 capture_date）显示日期，作为该笔账的逻辑日期
+        // 时间部分仍然使用 created_at（实际物理提交时刻），保留提交的时间戳
+        let formattedDate = '';
+        let formattedTime = '';
+
+        // 1. 处理日期部分 (Logical Date)
+        // 优先使用 capture_date（表单选择日期），修正历史数据里 date_submitted 可能写错的问题
+        const logicalDateStr = process.capture_date || process.date_submitted;
+        if (logicalDateStr) {
+            const parts = logicalDateStr.split('-');
+            if (parts.length === 3) {
+                // 假设输入格式为 YYYY-MM-DD，转换为 DD/MM/YYYY
+                formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
         }
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const year = dateObj.getFullYear();
-        const formattedDate = `${day}/${month}/${year}`;
-        const hours = String(timeObj.getHours()).padStart(2, '0');
-        const minutes = String(timeObj.getMinutes()).padStart(2, '0');
-        const formattedTime = `${hours}:${minutes}`;
+
+        // 2. 处理时间部分：仅使用 created_at 的本地时分秒（物理提交时刻）
+        if (process.created_at) {
+            const createdObj = new Date(process.created_at);
+            const hours = String(createdObj.getHours()).padStart(2, '0');
+            const minutes = String(createdObj.getMinutes()).padStart(2, '0');
+            const seconds = String(createdObj.getSeconds()).padStart(2, '0');
+            formattedTime = `${hours}:${minutes}:${seconds}`;
+
+            // 如果逻辑日期为空，则日期也 fallback 到 created_at
+            if (!formattedDate) {
+                const day = String(createdObj.getDate()).padStart(2, '0');
+                const month = String(createdObj.getMonth() + 1).padStart(2, '0');
+                const year = createdObj.getFullYear();
+                formattedDate = `${day}/${month}/${year}`;
+            }
+        } else {
+            // 完全兜底：若无 created_at 则使用当前系统时间
+            const now = new Date();
+            if (!formattedDate) {
+                formattedDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+            }
+            formattedTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        }
+
         const formattedDateTime = `${formattedDate} ${formattedTime}`;
 
         html += `
@@ -24212,16 +24232,12 @@ async function restoreFromLocalStorage() {
         const dateInput = document.getElementById('capture_date');
         if (dateInput && processData.date) {
             dateInput.value = processData.date;
-        } else {
-            // If no date in saved data, use today's submit date
-            await loadSubmittedProcesses();
         }
 
         // Reload processes for the selected date
         await loadProcessesByDate();
 
-        // Reload submitted processes filtered by the selected capture_date
-        const selectedDate = document.getElementById('capture_date').value || getLocalDateString();
+        // Submitted Processes：按当前恢复的 capture_date 筛选
         await loadSubmittedProcesses();
 
         // Wait a bit for process dropdown to populate, then restore process selection
@@ -24539,7 +24555,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const shouldRestore = urlParams.get('restore') === '1';
 
     if (!shouldRestore) {
-        // Load submitted processes filtered by capture_date from form
+        // Submitted Processes：按左侧 Date（capture_date）加载
         loadSubmittedProcesses();
         // Initialize table with default 26 rows (A-Z) and 20 columns
         initializeTable(26, 20);
@@ -24692,8 +24708,7 @@ function setupFormValidationListeners() {
             console.log('Date changed to:', this.value);
             // Reload processes based on new date
             await loadProcessesByDate();
-            // Reload submitted processes filtered by the selected capture_date
-            loadSubmittedProcesses();
+            await loadSubmittedProcesses();
             // Clear process selection when date changes (but not during restoration)
             if (!isRestoringData) {
                 const processInput = document.getElementById('capture_process');

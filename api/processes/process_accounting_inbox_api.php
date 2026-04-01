@@ -302,7 +302,7 @@ try {
             } elseif (empty($dayStart)) {
                 $need = true;
             } else {
-                $firstAccountingTs = $startTs !== false ? strtotime('+1 month', $startTs) : false;
+                $firstAccountingTs = $startTs !== false ? strtotime('first day of next month', $startTs) : false;
                 $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
                 $need = ($firstAccountingDate !== '' && $today >= $firstAccountingDate);
             }
